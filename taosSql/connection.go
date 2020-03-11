@@ -18,22 +18,27 @@ package taosSql
 import "C"
 import (
 	"context"
-	"errors"
 	"database/sql/driver"
-	"unsafe"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
+)
+
+var (
+	errInvalidConn = errors.New("invalid connection")
+	errConnNoExist = errors.New("no existent connection ")
 )
 
 type taosConn struct {
-	taos             unsafe.Pointer
-	affectedRows     int
-	insertId         int
-	cfg              *config
-	status           statusFlag
-	parseTime        bool
-	reset            bool // set when the Go SQL package calls ResetSession
+	taos         unsafe.Pointer
+	affectedRows int
+	insertId     int
+	cfg          *config
+	status       statusFlag
+	parseTime    bool
+	reset        bool // set when the Go SQL package calls ResetSession
 }
 
 type taosSqlResult struct {
@@ -50,8 +55,7 @@ func (res *taosSqlResult) RowsAffected() (int64, error) {
 }
 
 func (mc *taosConn) Begin() (driver.Tx, error) {
-	taosLog.Println("taosSql not support transaction")
-	return nil, errors.New("taosSql not support transaction")
+	return nil, errors.New("taosSql does not support transaction")
 }
 
 func (mc *taosConn) Close() (err error) {
@@ -63,20 +67,17 @@ func (mc *taosConn) Close() (err error) {
 }
 
 func (mc *taosConn) Prepare(query string) (driver.Stmt, error) {
-	if mc.taos == nil {		
+	if mc.taos == nil {
 		return nil, errInvalidConn
-	}	
-	
+	}
+
 	stmt := &taosSqlStmt{
 		mc:   mc,
 		pSql: query,
 	}
 
-    // find ? count and save  to stmt.paramCount
+	// find ? count and save  to stmt.paramCount
 	stmt.paramCount = strings.Count(query, "?")
-
-	//fmt.Printf("prepare alloc stmt:%p, sql:%s\n", stmt, query)
-	taosLog.Printf("prepare alloc stmt:%p, sql:%s\n", stmt, query)
 
 	return stmt, nil
 }
@@ -88,7 +89,7 @@ func (mc *taosConn) interpolateParams(query string, args []driver.Value) (string
 	}
 
 	buf := make([]byte, defaultBufSize)
-	buf = buf[:0]    // clear buf
+	buf = buf[:0] // clear buf
 	argPos := 0
 
 	for i := 0; i < len(query); i++ {
@@ -217,9 +218,9 @@ func (mc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	
+
 	mc.affectedRows = 0
-	mc.insertId     = 0
+	mc.insertId = 0
 	_, err := mc.taosQuery(query)
 	if err == nil {
 		return &taosSqlResult{
@@ -227,7 +228,7 @@ func (mc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 			insertId:     int64(mc.insertId),
 		}, err
 	}
-	
+
 	return nil, err
 }
 
@@ -267,15 +268,14 @@ func (mc *taosConn) query(query string, args []driver.Value) (*textRows, error) 
 // Ping implements driver.Pinger interface
 func (mc *taosConn) Ping(ctx context.Context) (err error) {
 	if mc.taos != nil {
-	    return nil
+		return nil
 	}
 	return errInvalidConn
 }
 
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	taosLog.Println("taosSql not support transaction")
-	return nil, errors.New("taosSql not support transaction")
+	return nil, errors.New("taosSql does not support transaction")
 }
 
 func (mc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {

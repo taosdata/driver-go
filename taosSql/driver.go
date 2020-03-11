@@ -39,5 +39,4 @@ func (d taosSQLDriver) Open(dsn string) (driver.Conn, error) {
 
 func init() {
 	sql.Register("taosSql", &taosSQLDriver{})
-	taosLogInit()
 }

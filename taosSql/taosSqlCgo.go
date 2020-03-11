@@ -48,8 +48,6 @@ func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsaf
 }
 
 func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
-	//taosLog.Printf("taosQuery() input sql:%s\n", sqlstr)
-
 	csqlstr := C.CString(sqlstr)
 	defer C.free(unsafe.Pointer(csqlstr))
 	code := int(C.taos_query(mc.taos, csqlstr))
@@ -57,8 +55,6 @@ func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 	if 0 != code {
 		mc.taos_error()
 		errStr := C.GoString(C.taos_errstr(mc.taos))
-		taosLog.Println("taos_query() failed:", errStr)
-		taosLog.Printf("taosQuery() input sql:%s\n", sqlstr)
 		return 0, errors.New(errStr)
 	}
 

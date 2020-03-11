@@ -58,8 +58,6 @@ func newConfig() *config {
 
 // ParseDSN parses the DSN string to a Config
 func parseDSN(dsn string) (cfg *config, err error) {
-	taosLog.Println("input dsn:", dsn)
-
 	// New config with some default values
 	cfg = newConfig()
 
@@ -136,8 +134,6 @@ func parseDSN(dsn string) (cfg *config, err error) {
 	if !foundSlash && len(dsn) > 0 {
 		return nil, errInvalidDSNNoSlash
 	}
-
-	taosLog.Printf("cfg info: %+v", cfg)
 
 	return
 }
