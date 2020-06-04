@@ -41,13 +41,12 @@ import (
 func (mc *taosConn) readColumns(count int) ([]taosSqlField, error) {
 
 	columns := make([]taosSqlField, count)
-	var result unsafe.Pointer
-	result = C.taos_use_result(mc.taos)
-	if result == nil {
+
+	if mc.result == nil {
 		return nil, errors.New("invalid result")
 	}
 
-	pFields := (*C.struct_taosField)(C.taos_fetch_fields(result))
+	pFields := (*C.struct_taosField)(C.taos_fetch_fields(mc.result))
 
 	// TODO: Optimized rewriting !!!!
 	fields := (*[1 << 30]C.struct_taosField)(unsafe.Pointer(pFields))
@@ -81,10 +80,8 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		return io.EOF
 	}
 
-	var result unsafe.Pointer
-	result = C.taos_use_result(mc.taos)
-	if result == nil {
-		return errors.New(C.GoString(C.taos_errstr(mc.taos)))
+	if mc.result == nil {
+		return errors.New("result is nil!")
 	}
 
 	//var row *unsafe.Pointer

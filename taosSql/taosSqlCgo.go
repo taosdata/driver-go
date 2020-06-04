@@ -50,18 +50,20 @@ func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsaf
 func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 	csqlstr := C.CString(sqlstr)
 	defer C.free(unsafe.Pointer(csqlstr))
-	code := int(C.taos_query(mc.taos, csqlstr))
-
+	mc.result = unsafe.Pointer(C.taos_query(mc.taos, csqlstr))
+	code := C.taos_errno(mc.result)
 	if 0 != code {
+
+		errStr := C.GoString(C.taos_errstr(mc.result))
 		mc.taos_error()
-		errStr := C.GoString(C.taos_errstr(mc.taos))
 		return 0, errors.New(errStr)
+
 	}
 
 	// read result and save into mc struct
-	num_fields := int(C.taos_field_count(mc.taos))
+	num_fields := int(C.taos_field_count(mc.result))
 	if 0 == num_fields { // there are no select and show kinds of commands
-		mc.affectedRows = int(C.taos_affected_rows(mc.taos))
+		mc.affectedRows = int(C.taos_affected_rows(mc.result))
 		mc.insertId = 0
 	}
 
@@ -70,11 +72,12 @@ func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 
 func (mc *taosConn) taos_close() {
 	C.taos_close(mc.taos)
+	mc.taos = nil
 }
 
 func (mc *taosConn) taos_error() {
 	// free local resouce: allocated memory/metric-meta refcnt
 	//var pRes unsafe.Pointer
-	pRes := C.taos_use_result(mc.taos)
-	C.taos_free_result(pRes)
+	C.taos_free_result(mc.result)
+	mc.result = nil
 }

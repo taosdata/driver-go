@@ -33,6 +33,7 @@ var (
 
 type taosConn struct {
 	taos         unsafe.Pointer
+	result       unsafe.Pointer
 	affectedRows int
 	insertId     int
 	cfg          *config
