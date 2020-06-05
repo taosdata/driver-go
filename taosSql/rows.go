@@ -13,6 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package taosSql
+
 /*
 #cgo CFLAGS : -I/usr/include
 #cgo LDFLAGS: -L/usr/lib -ltaos
@@ -35,7 +36,7 @@ type taosSqlField struct {
 	tableName string
 	name      string
 	length    uint32
-	flags     fieldFlag   // indicate whether this field can is null
+	flags     fieldFlag // indicate whether this field can is null
 	fieldType fieldType
 	decimals  byte
 	charSet   uint8
@@ -48,8 +49,8 @@ type resultSet struct {
 }
 
 type taosSqlRows struct {
-	mc     *taosConn
-	rs     resultSet
+	mc *taosConn
+	rs resultSet
 }
 
 type binaryRows struct {
@@ -90,7 +91,7 @@ func (rows *taosSqlRows) ColumnTypeDatabaseTypeName(i int) string {
 }
 
 func (rows *taosSqlRows) ColumnTypeLength(i int) (length int64, ok bool) {
- 	return int64(rows.rs.columns[i].length), true
+	return int64(rows.rs.columns[i].length), true
 }
 
 func (rows *taosSqlRows) ColumnTypeNullable(i int) (nullable, ok bool) {
@@ -103,7 +104,7 @@ func (rows *taosSqlRows) ColumnTypePrecisionScale(i int) (int64, int64, bool) {
 
 	switch column.fieldType {
 	case C.TSDB_DATA_TYPE_FLOAT:
-        fallthrough
+		fallthrough
 	case C.TSDB_DATA_TYPE_DOUBLE:
 		if decimals == 0x1f {
 			return math.MaxInt64, math.MaxInt64, true
@@ -120,9 +121,8 @@ func (rows *taosSqlRows) ColumnTypeScanType(i int) reflect.Type {
 
 func (rows *taosSqlRows) Close() error {
 	if rows.mc != nil {
-		result := C.taos_use_result(rows.mc.taos)
-		if result != nil {
-			C.taos_free_result(result)
+		if rows.mc.result != nil {
+			C.taos_free_result(rows.mc.result)
 		}
 		rows.mc = nil
 	}
@@ -151,7 +151,7 @@ func (rows *taosSqlRows) nextResultSet() (int, error) {
 		return 0, io.EOF
 	}
 	rows.rs = resultSet{}
-	return 0,nil
+	return 0, nil
 }
 
 func (rows *taosSqlRows) nextNotEmptyResultSet() (int, error) {
@@ -246,15 +246,15 @@ func (mf *taosSqlField) typeDatabaseName() string {
 }
 
 var (
-	scanTypeFloat32   = reflect.TypeOf(float32(0))
-	scanTypeFloat64   = reflect.TypeOf(float64(0))
-	scanTypeInt8      = reflect.TypeOf(int8(0))
-	scanTypeInt16     = reflect.TypeOf(int16(0))
-	scanTypeInt32     = reflect.TypeOf(int32(0))
-	scanTypeInt64     = reflect.TypeOf(int64(0))
-	scanTypeNullTime  = reflect.TypeOf(NullTime{})
-	scanTypeRawBytes  = reflect.TypeOf(sql.RawBytes{})
-	scanTypeUnknown   = reflect.TypeOf(new(interface{}))
+	scanTypeFloat32  = reflect.TypeOf(float32(0))
+	scanTypeFloat64  = reflect.TypeOf(float64(0))
+	scanTypeInt8     = reflect.TypeOf(int8(0))
+	scanTypeInt16    = reflect.TypeOf(int16(0))
+	scanTypeInt32    = reflect.TypeOf(int32(0))
+	scanTypeInt64    = reflect.TypeOf(int64(0))
+	scanTypeNullTime = reflect.TypeOf(NullTime{})
+	scanTypeRawBytes = reflect.TypeOf(sql.RawBytes{})
+	scanTypeUnknown  = reflect.TypeOf(new(interface{}))
 )
 
 func (mf *taosSqlField) scanType() reflect.Type {
