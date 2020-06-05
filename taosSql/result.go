@@ -85,10 +85,10 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	}
 
 	//var row *unsafe.Pointer
-	row := C.taos_fetch_row(result)
+	row := C.taos_fetch_row(mc.result)
 	if row == nil {
 		rows.rs.done = true
-		C.taos_free_result(result)
+		C.taos_free_result(mc.result)
 		rows.mc = nil
 		return io.EOF
 	}
@@ -149,7 +149,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		case C.TSDB_DATA_TYPE_TIMESTAMP:
 			if mc.cfg.parseTime == true {
 				timestamp := (int64)(*((*int64)(currentRow)))
-				dest[i] = timestampConvertToString(timestamp, int(C.taos_result_precision(result)))
+				dest[i] = timestampConvertToString(timestamp, int(C.taos_result_precision(mc.result)))
 			} else {
 				dest[i] = (int64)(*((*int64)(currentRow)))
 			}
