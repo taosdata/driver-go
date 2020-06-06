@@ -50,6 +50,10 @@ func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsaf
 func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 	csqlstr := C.CString(sqlstr)
 	defer C.free(unsafe.Pointer(csqlstr))
+	if mc.result != nil {
+		C.taos_free_result(mc.result)
+		mc.result = nil
+	}
 	mc.result = unsafe.Pointer(C.taos_query(mc.taos, csqlstr))
 	code := C.taos_errno(mc.result)
 	if 0 != code {
