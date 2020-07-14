@@ -23,11 +23,11 @@ void taosDumpMemoryLeak();
 */
 import "C"
 
-
 import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -331,6 +331,55 @@ func escapeStringQuotes(buf []byte, v string) []byte {
 	return buf[:pos]
 }
 
+// charToByte converts a *C.char to a byte slice.
+func charToByte(data *C.char, len C.size_t) []byte {
+	var value []byte
+	sH := (*reflect.SliceHeader)(unsafe.Pointer(&value))
+	sH.Cap, sH.Len, sH.Data = int(len), int(len), uintptr(unsafe.Pointer(data))
+	return value
+}
+func byteToChar(b []byte) *C.char {
+	var c *C.char
+	if len(b) > 0 {
+		c = (*C.char)(unsafe.Pointer(&b[0]))
+	}
+	return c
+}
+func cByteSlice(b []byte) *C.char {
+	var c *C.char
+	if len(b) > 0 {
+		c = (*C.char)(C.CBytes(b))
+	}
+	return c
+}
+func stringToChar(s string) *C.char {
+	ptrStr := (*reflect.StringHeader)(unsafe.Pointer(&s))
+	return (*C.char)(unsafe.Pointer(ptrStr.Data))
+}
+func charSlice(data **C.char, len C.int) []*C.char {
+	var value []*C.char
+	sH := (*reflect.SliceHeader)(unsafe.Pointer(&value))
+	sH.Cap, sH.Len, sH.Data = int(len), int(len), uintptr(unsafe.Pointer(data))
+	return value
+}
+
+// sizeSlice converts a C array of size_t to a []C.size_t.
+func sizeSlice(data *C.size_t, len C.int) []C.size_t {
+	var value []C.size_t
+	sH := (*reflect.SliceHeader)(unsafe.Pointer(&value))
+	sH.Cap, sH.Len, sH.Data = int(len), int(len), uintptr(unsafe.Pointer(data))
+	return value
+}
+func bytes2str(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func str2bytes(s string) []byte {
+	sh := (*reflect.StringHeader)(unsafe.Pointer(&s))
+	bh := reflect.SliceHeader{sh.Data, sh.Len, 0}
+	return *(*[]byte)(unsafe.Pointer(&bh))
+}
+
 /******************************************************************************
 *                               Sync utils                                    *
 ******************************************************************************/
@@ -406,7 +455,6 @@ func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {
 	}
 	return dargs, nil
 }
-
 
 /******************************************************************************
 *                     Utils for C memory issues debugging                     *
