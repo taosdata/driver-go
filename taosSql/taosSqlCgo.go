@@ -21,6 +21,9 @@ package taosSql
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
+TAOS_RES *taos_query_c(TAOS *taos, const char *sql, uint32_t sqlLen);
+TAOS *taos_connect_c(const char *ip, uint8_t ipLen, const char *user, uint8_t userLen,
+                 const char *pass, uint8_t passLen, const char *db, uint8_t dbLen, uint16_t port);
 */
 import "C"
 
@@ -57,11 +60,9 @@ func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 	mc.result = unsafe.Pointer(C.taos_query_c(mc.taos, csqlstr.Str, C.uint32_t(csqlstr.Len)))
 	code := C.taos_errno(mc.result)
 	if 0 != code {
-
 		errStr := C.GoString(C.taos_errstr(mc.result))
 		mc.taos_error()
 		return 0, errors.New(errStr)
-
 	}
 
 	// read result and save into mc struct
