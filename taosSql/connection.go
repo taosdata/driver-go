@@ -41,6 +41,10 @@ type taosConn struct {
 	parseTime    bool
 	reset        bool // set when the Go SQL package calls ResetSession
 }
+type taosStmt struct {
+	taos unsafe.Pointer
+	stmt unsafe.Pointer
+}
 
 type taosSqlResult struct {
 	affectedRows int64
