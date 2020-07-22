@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Ensure that all the driver interfaces are implemented
@@ -21,7 +22,7 @@ var (
 	host           = "127.0.0.1"
 	port           = 6030
 	dbName         = "test"
-	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s", user, password, host, port, dbName)
+	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, dbName)
 	total          = 0
 	lock           sync.Mutex
 	nThreads       = 10
@@ -81,21 +82,30 @@ func TestEmpytQuery(t *testing.T) {
 		}
 	})
 }
+func CreateTables(dbt *DBTest, numOfSubTab int) {
+	dbt.mustExec("drop table if exists super")
+	dbt.mustExec("CREATE TABLE super (ts timestamp, value BOOL) tags (degress int)")
+	for i := 0; i < numOfSubTab; i++ {
+		dbt.mustExec(fmt.Sprintf("create table t%d using super tags(%d)", i%10, i))
+	}
+}
+func InsertInto(dbt *DBTest, numOfSubTab, numOfItems int) {
+	now := time.Now()
+	t := now.Add(-100 * time.Hour)
+	for i := 0; i < numOfItems; i++ {
+		dbt.mustExec(fmt.Sprintf("insert into t%d values(%d, %t)", i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+	}
+}
 func TestCRUD(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
-		// Create Table
-		dbt.mustExec("CREATE TABLE test (ts timestamp, value BOOL)")
-
-		// Test for unexpected data
-		var out bool
-		rows := dbt.mustQuery("SELECT * FROM test")
-		if rows.Next() {
-			dbt.Error("unexpected data in empty table")
-		}
-		rows.Close()
+		var numOfSubTables = 10
+		var numOfItems = 10000
+		CreateTables(dbt, numOfSubTables)
+		InsertInto(dbt, numOfSubTables, numOfItems)
 
 		// Create Data
-		res := dbt.mustExec("INSERT INTO test VALUES (1)")
+		now := time.Now()
+		res := dbt.mustExec(fmt.Sprintf("insert into t%d values(%d, %t)", 0, now.UnixNano()/int64(time.Millisecond)-1, false))
 		count, err := res.RowsAffected()
 		if err != nil {
 			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
@@ -113,65 +123,49 @@ func TestCRUD(t *testing.T) {
 		}
 
 		// Read
-		rows = dbt.mustQuery("SELECT value FROM test")
-		if rows.Next() {
-			rows.Scan(&out)
-			if true != out {
-				dbt.Errorf("true != %t", out)
-			}
-
-			if rows.Next() {
-				dbt.Error("unexpected data")
-			}
-		} else {
-			dbt.Error("no data")
+		type Result struct {
+			ts      string
+			value   bool
+			degress int
 		}
+		var result Result
+		rows := dbt.mustQuery("select * from super")
+		for rows.Next() {
+			err := rows.Scan(&(result.ts), &(result.value), &(result.degress))
+			if err != nil {
+				dbt.Error(err.Error())
+			}
+			dbt.Logf("ts: %s\t val: %t \t tag:%d", result.ts, result.value, result.degress)
+		}
+
 		rows.Close()
 
-		// Update
-		res = dbt.mustExec("UPDATE test SET value = ? WHERE value = ?", false, true)
-		count, err = res.RowsAffected()
-		if err != nil {
-			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-		}
-		if count != 1 {
-			dbt.Fatalf("expected 1 affected row, got %d", count)
-		}
-
-		// Check Update
-		rows = dbt.mustQuery("SELECT value FROM test")
-		if rows.Next() {
-			rows.Scan(&out)
-			if false != out {
-				dbt.Errorf("false != %t", out)
+		dbt.Logf("===============================================")
+		rows = dbt.mustQuery("select last_row(*) from super")
+		for rows.Next() {
+			var value Result
+			err := rows.Scan(&(value.ts), &(value.value))
+			if err != nil {
+				dbt.Error(err.Error())
 			}
-
-			if rows.Next() {
-				dbt.Error("unexpected data")
-			}
-		} else {
-			dbt.Error("no data")
+			dbt.Logf("ts: %s\t val: %t", value.ts, value.value)
 		}
 		rows.Close()
-
-		// Delete
-		res = dbt.mustExec("DELETE FROM test WHERE value = ?", false)
-		count, err = res.RowsAffected()
+		dbt.mustExec("drop table if exists super")
+	})
+}
+func TestStmt(t *testing.T) {
+	runTests(t, func(dbt *DBTest) {
+		var numOfSubTables = 10
+		var numOfItems = 1000
+		CreateTables(dbt, numOfSubTables)
+		InsertInto(dbt, numOfSubTables, numOfItems)
+		stmt, err := dbt.db.Prepare("insert into t0 values(?, ?)")
 		if err != nil {
-			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
+			dbt.fail("prepare", "prepar", err)
 		}
-		if count != 1 {
-			dbt.Fatalf("expected 1 affected row, got %d", count)
-		}
-
-		// Check for unexpected rows
-		res = dbt.mustExec("DELETE FROM test")
-		count, err = res.RowsAffected()
-		if err != nil {
-			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-		}
-		if count != 0 {
-			dbt.Fatalf("expected 0 affected row, got %d", count)
-		}
+		now := time.Now()
+		stmt.Exec(now.UnixNano()/int64(time.Millisecond), false)
+		stmt.Exec(now.UnixNano()/int64(time.Millisecond)+int64(1), false)
 	})
 }
