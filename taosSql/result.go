@@ -89,6 +89,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	if row == nil {
 		rows.rs.done = true
 		C.taos_free_result(mc.result)
+		mc.result = nil
 		rows.mc = nil
 		return io.EOF
 	}
