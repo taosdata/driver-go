@@ -38,12 +38,15 @@ type UserChar struct {
 }
 
 func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsafe.Pointer, err error) {
-	cip := (*UserChar)(unsafe.Pointer(&ip))
-	cuser := (*UserChar)(unsafe.Pointer(&user))
-	cpass := (*UserChar)(unsafe.Pointer(&pass))
-	cdb := (*UserChar)(unsafe.Pointer(&db))
-	taosObj := C.taos_connect_c(cip.Str, C.uint8_t(cip.Len), cuser.Str, C.uint8_t(cuser.Len),
-		cpass.Str, C.uint8_t(cpass.Len), cdb.Str, C.uint8_t(cdb.Len), (C.ushort)(port))
+	cuser := C.CString(user)
+	cpass := C.CString(pass)
+	cip := C.CString(ip)
+	cdb := C.CString(db)
+	defer C.free(unsafe.Pointer(cip))
+	defer C.free(unsafe.Pointer(cuser))
+	defer C.free(unsafe.Pointer(cpass))
+	defer C.free(unsafe.Pointer(cdb))
+	taosObj := C.taos_connect(cip, cuser, cpass, cdb, (C.ushort)(port))
 	if taosObj == nil {
 		return nil, errors.New("taos_connect() fail!")
 	}
@@ -52,12 +55,16 @@ func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsaf
 }
 
 func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
-	csqlstr := (*UserChar)(unsafe.Pointer(&sqlstr))
+	//csqlstr := (*UserChar)(unsafe.Pointer(&sqlstr))
+
+	csqlstr := C.CString(sqlstr)
+	defer C.free(unsafe.Pointer(csqlstr))
 	if mc.result != nil {
 		C.taos_free_result(mc.result)
 		mc.result = nil
 	}
-	mc.result = unsafe.Pointer(C.taos_query_c(mc.taos, csqlstr.Str, C.uint32_t(csqlstr.Len)))
+	mc.result = unsafe.Pointer(C.taos_query(mc.taos, csqlstr))
+	//mc.result = unsafe.Pointer(C.taos_query_c(mc.taos, csqlstr.Str, C.uint32_t(csqlstr.Len)))
 	code := C.taos_errno(mc.result)
 	if 0 != code {
 		errStr := C.GoString(C.taos_errstr(mc.result))
