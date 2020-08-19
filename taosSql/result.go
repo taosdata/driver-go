@@ -150,12 +150,12 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_TIMESTAMP:
-			if mc.cfg.parseTime == true {
-				timestamp := (int64)(*((*int64)(currentRow)))
-				dest[i] = timestampConvertToString(timestamp, int(C.taos_result_precision(result)))
-			} else {
-				dest[i] = (int64)(*((*int64)(currentRow)))
-			}
+			// if mc.cfg.parseTime == true {
+			// 	timestamp := (int64)(*((*int64)(currentRow)))
+			// 	dest[i] = timestampConvertToString(timestamp, int(C.taos_result_precision(result)))
+			// } else {
+			dest[i] = (int64)(*((*int64)(currentRow)))
+			// }
 			break
 
 		default:
