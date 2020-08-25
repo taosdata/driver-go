@@ -116,7 +116,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_TINYINT:
-			dest[i] = (int)(*((*byte)(currentRow)))
+			dest[i] = (int8)(*((*int8)(currentRow)))
 			break
 
 		case C.TSDB_DATA_TYPE_SMALLINT:
@@ -124,7 +124,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_INT:
-			dest[i] = (int)(*((*int32)(currentRow))) // notes int32 of go <----> int of C
+			dest[i] = (int32)(*((*int32)(currentRow))) // notes int32 of go <----> int of C
 			break
 
 		case C.TSDB_DATA_TYPE_BIGINT:
