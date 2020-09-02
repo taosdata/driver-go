@@ -3,7 +3,7 @@ TDengine提供了GO驱动程序taosSql. taosSql实现了GO语言的内置接口d
 ```go
 import (
     "database/sql"
-    _ "github.com/taosdata/driver-go/taoSql"
+    _ "github.com/taosdata/driver-go/taosSql"
 )
 ```
 ## 常用API
