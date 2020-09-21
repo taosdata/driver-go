@@ -94,6 +94,9 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		return io.EOF
 	}
 
+	length := C.taos_fetch_lengths(mc.result);
+
+	//fmt.Printf("sizeof(int): %d, sizeof(int32): %d\n\n", unsafe.Sizeof(int(0)), unsafe.Sizeof(int32(0)))
 	// because sizeof(void*)  == sizeof(int*) == 8
 	// notes: sizeof(int) == 8 in go, but sizeof(int) == 4 in C.
 	for i := range dest {
@@ -138,8 +141,8 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
-			charLen := rows.rs.columns[i].length
-			var index uint32
+			charLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
+			var index int32
 			binaryVal := make([]byte, charLen)
 			for index = 0; index < charLen; index++ {
 				binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
