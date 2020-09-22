@@ -15,15 +15,12 @@
 package taosSql
 
 /*
-#cgo CFLAGS : -I/usr/include
-#cgo LDFLAGS: -L/usr/lib -ltaos
+#cgo CFLAGS: -IC:/TDengine/include -I/usr/include
+#cgo LDFLAGS: -LC:/TDengine/driver -L/usr/lib -ltaos
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
-TAOS_RES *taos_query_c(TAOS *taos, const char *sql, uint32_t sqlLen);
-TAOS *taos_connect_c(const char *ip, uint8_t ipLen, const char *user, uint8_t userLen,
-                 const char *pass, uint8_t passLen, const char *db, uint8_t dbLen, uint16_t port);
 */
 import "C"
 

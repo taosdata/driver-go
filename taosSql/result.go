@@ -15,8 +15,6 @@
 package taosSql
 
 /*
-#cgo CFLAGS : -I/usr/include
-#cgo LDFLAGS: -L/usr/lib -ltaos
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +27,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"time"
 	"unsafe"
 )
@@ -117,7 +114,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_TINYINT:
-			dest[i] = (int)(*((*byte)(currentRow)))
+			dest[i] = (int8)(*((*int8)(currentRow)))
 			break
 
 		case C.TSDB_DATA_TYPE_SMALLINT:
@@ -125,7 +122,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_INT:
-			dest[i] = (int)(*((*int32)(currentRow))) // notes int32 of go <----> int of C
+			dest[i] = (int32)(*((*int32)(currentRow))) // notes int32 of go <----> int of C
 			break
 
 		case C.TSDB_DATA_TYPE_BIGINT:
@@ -175,27 +172,26 @@ func (rows *textRows) readRow(dest []driver.Value) error {
 	return rows.taosSqlRows.readRow(dest)
 }
 
-// call thsi func in stmt mode
+// call this func in stmt mode
 func (rows *binaryRows) readRow(dest []driver.Value) error {
 	return rows.taosSqlRows.readRow(dest)
 }
 
 func timestampConvertToString(timestamp int64, precision int) string {
-	var decimal, sVal, nsVal int64
-	if precision == 0 {
-		decimal = timestamp % 1000
-		sVal = timestamp / 1000
-		nsVal = decimal * 1000
-	} else {
-		decimal = timestamp % 1000000
-		sVal = timestamp / 1000000
-		nsVal = decimal * 1000000
+	switch precision {
+	case 0: // milli-second
+		s := timestamp / 1e3
+		ns := timestamp % 1e3 * 1e6
+		return time.Unix(s, ns).Format("2006-01-02 15:04:05.000")
+	case 1: // micro-second
+		s := timestamp / 1e6
+		ns := timestamp % 1e6 * 1e3
+		return time.Unix(s, ns).Format("2006-01-02 15:04:05.000000")
+	case 2: // nano-second
+		s := timestamp / 1e9
+		ns := timestamp % 1e9
+		return time.Unix(s, ns).Format("2006-01-02 15:04:05.000000000")
+	default:
+		panic("unknown precision")
 	}
-
-	date_time := time.Unix(sVal, nsVal)
-
-	//const base_format = "2006-01-02 15:04:05"
-	str_time := date_time.Format(timeFormat)
-
-	return (str_time + "." + strconv.Itoa(int(decimal)))
 }
