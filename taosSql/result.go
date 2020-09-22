@@ -15,8 +15,6 @@
 package taosSql
 
 /*
-#cgo CFLAGS : -I/usr/include
-#cgo LDFLAGS: -L/usr/lib -ltaos
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
