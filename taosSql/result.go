@@ -46,7 +46,7 @@ func (mc *taosConn) readColumns(count int) ([]taosSqlField, error) {
 	pFields := (*C.struct_taosField)(C.taos_fetch_fields(mc.result))
 
 	// TODO: Optimized rewriting !!!!
-	fields := (*[1 << 30]C.struct_taosField)(unsafe.Pointer(pFields))
+	fields := (*[1 << 11]C.struct_taosField)(unsafe.Pointer(pFields))
 
 	for i := 0; i < count; i++ {
 		//columns[i].tableName = ms.taos.
