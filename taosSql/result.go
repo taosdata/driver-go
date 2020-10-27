@@ -25,6 +25,8 @@ import "C"
 import (
 	"database/sql/driver"
 	"errors"
+        "bytes"
+        "encoding/binary"
 	"fmt"
 	"io"
 	"time"
@@ -68,6 +70,26 @@ func (mc *taosConn) readColumns(count int) ([]taosSqlField, error) {
 		//columns[i].charSet    = 0
 	}
 	return columns, nil
+}
+
+func readFloat32(b []byte) float32 {
+  var pi float32
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &pi)
+  if err != nil {
+    fmt.Println("binary.Read failed:", err)
+  }
+  return pi
+}
+
+func readFloat64(b []byte) float64 {
+  var pi float64
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &pi)
+  if err != nil {
+    fmt.Println("binary.Read failed:", err)
+  }
+  return pi
 }
 
 func (rows *taosSqlRows) readRow(dest []driver.Value) error {
@@ -130,11 +152,27 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			break
 
 		case C.TSDB_DATA_TYPE_FLOAT:
-			dest[i] = (*((*float32)(currentRow)))
+			//dest[i] = (*((*float32)(currentRow)))
+                        fvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
+			var fi int32
+			fVal := make([]byte, fvLen)
+			for fi = 0; fi < fvLen; fi++ {
+		          fVal[fi] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(fi))))
+			}
+			
+			dest[i]=readFloat32(fVal)
 			break
 
 		case C.TSDB_DATA_TYPE_DOUBLE:
-			dest[i] = (*((*float64)(currentRow)))
+			//dest[i] = (*((*float64)(currentRow)))
+                        dvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
+                        var di int32
+                        dVal := make([]byte, dvLen)
+                        for di = 0; di < dvLen; di++ {
+                          dVal[di] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(di))))
+                        }
+
+                        dest[i]=readFloat32(dVal)
 			break
 
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
