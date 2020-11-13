@@ -172,7 +172,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
                           dVal[di] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(di))))
                         }
 
-                        dest[i]=readFloat32(dVal)
+                        dest[i]=readFloat64(dVal)
 			break
 
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
