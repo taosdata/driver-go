@@ -18,7 +18,7 @@ var (
 	host           = "127.0.0.1"
 	port           = 6030
 	dbName         = "test"
-	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, dbName)
+	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "log")
 	total          = 0
 	lock           sync.Mutex
 	nThreads       = 10
@@ -32,17 +32,19 @@ type DBTest struct {
 }
 
 func CreateTables(dbt *DBTest, numOfSubTab int) {
-	dbt.mustExec("drop table if exists super")
-	dbt.mustExec("CREATE TABLE super (ts timestamp, value BOOL) tags (degress int)")
+	dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
+	dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
+	dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
+	dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, value BOOL) tags (degress int)", dbName))
 	for i := 0; i < numOfSubTab; i++ {
-		dbt.mustExec(fmt.Sprintf("create table t%d using super tags(%d)", i%10, i))
+		dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
 	}
 }
 func InsertInto(dbt *DBTest, numOfSubTab, numOfItems int) {
 	now := time.Now()
 	t := now.Add(-100 * time.Hour)
 	for i := 0; i < numOfItems; i++ {
-		dbt.mustExec(fmt.Sprintf("insert into t%d values(%d, %t)", i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+		dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
 	}
 }
 
@@ -170,19 +172,19 @@ func TestAny(t *testing.T) {
 		now := time.Now()
 		tests := make([]*Obj, 0, 100)
 		tests = append(tests,
-			&Obj{fmt.Sprintf("insert into t%d values(%d, %t)", 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
+			&Obj{fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("insert into t%d values(%d, %t)", 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
+			&Obj{fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select last_row(*) from t%d", 0), nil, false, fp, int64(1)})
+			&Obj{fmt.Sprintf("select last_row(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select first(*) from t%d", 0), nil, false, fp, int64(1)})
+			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select errror"), userErr, false, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select * from t%d", 0), nil, false, fp, int64(-1)})
+			&Obj{fmt.Sprintf("select * from %s.t%d", dbName, 0), nil, false, fp, int64(-1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select * from t%d", 0), nil, false, fp, int64(-1)})
+			&Obj{fmt.Sprintf("select * from %s.t%d", dbName, 0), nil, false, fp, int64(-1)})
 
 		for _, obj := range tests {
 			fp = obj.fp
@@ -194,7 +196,7 @@ func TestCRUD(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// Create Data
 		now := time.Now()
-		res, err := dbt.mustExec(fmt.Sprintf("insert into t%d values(%d, %t)", 0, now.UnixNano()/int64(time.Millisecond)-1, false))
+		res, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false))
 		if err != nil {
 			dbt.Fatalf("insert failed %s", err.Error())
 		}
@@ -215,7 +217,7 @@ func TestCRUD(t *testing.T) {
 		}
 
 		// Read
-		rows, err := dbt.mustQuery("select * from super")
+		rows, err := dbt.mustQuery(fmt.Sprintf("select * from %s.super", dbName))
 		if err != nil {
 			dbt.Fatalf("select failed")
 		}
@@ -229,7 +231,7 @@ func TestCRUD(t *testing.T) {
 		}
 		rows.Close()
 
-		rows, err = dbt.mustQuery("select last_row(*) from super")
+		rows, err = dbt.mustQuery(fmt.Sprintf("select last_row(*) from %s.super", dbName))
 		if err != nil {
 			dbt.Fatalf("select last_row failed")
 		} else {
@@ -253,7 +255,7 @@ func TestCRUD(t *testing.T) {
 }
 func TestStmt(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
-		stmt, err := dbt.db.Prepare("insert into t0 values(?, ?)")
+		stmt, err := dbt.db.Prepare(fmt.Sprintf("insert into %s.t0 values(?, ?)", dbName))
 		if err != nil {
 			dbt.fail("prepare", "prepare", err)
 		}
