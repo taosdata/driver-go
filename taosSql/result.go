@@ -23,10 +23,10 @@ package taosSql
 import "C"
 
 import (
+	"bytes"
 	"database/sql/driver"
+	"encoding/binary"
 	"errors"
-        "bytes"
-        "encoding/binary"
 	"fmt"
 	"io"
 	"time"
@@ -73,23 +73,23 @@ func (mc *taosConn) readColumns(count int) ([]taosSqlField, error) {
 }
 
 func readFloat32(b []byte) float32 {
-  var pi float32
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &pi)
-  if err != nil {
-    fmt.Println("binary.Read failed:", err)
-  }
-  return pi
+	var pi float32
+	buf := bytes.NewReader(b)
+	err := binary.Read(buf, binary.LittleEndian, &pi)
+	if err != nil {
+		fmt.Println("binary.Read failed:", err)
+	}
+	return pi
 }
 
 func readFloat64(b []byte) float64 {
-  var pi float64
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &pi)
-  if err != nil {
-    fmt.Println("binary.Read failed:", err)
-  }
-  return pi
+	var pi float64
+	buf := bytes.NewReader(b)
+	err := binary.Read(buf, binary.LittleEndian, &pi)
+	if err != nil {
+		fmt.Println("binary.Read failed:", err)
+	}
+	return pi
 }
 
 func (rows *taosSqlRows) readRow(dest []driver.Value) error {
@@ -113,7 +113,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		return io.EOF
 	}
 
-	length := C.taos_fetch_lengths(mc.result);
+	length := C.taos_fetch_lengths(mc.result)
 
 	//fmt.Printf("sizeof(int): %d, sizeof(int32): %d\n\n", unsafe.Sizeof(int(0)), unsafe.Sizeof(int32(0)))
 	// because sizeof(void*)  == sizeof(int*) == 8
@@ -151,28 +151,44 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			dest[i] = (int64)(*((*int64)(currentRow)))
 			break
 
+		case C.TSDB_DATA_TYPE_UTINYINT:
+			dest[i] = (uint8)(*((*uint8)(currentRow)))
+			break
+
+		case C.TSDB_DATA_TYPE_USMALLINT:
+			dest[i] = (uint16)(*((*uint16)(currentRow)))
+			break
+
+		case C.TSDB_DATA_TYPE_UINT:
+			dest[i] = (uint32)(*((*uint32)(currentRow))) // notes uint32 of go <----> unsigned int of C
+			break
+
+		case C.TSDB_DATA_TYPE_UBIGINT:
+			dest[i] = (uint64)(*((*uint64)(currentRow)))
+			break
+
 		case C.TSDB_DATA_TYPE_FLOAT:
 			//dest[i] = (*((*float32)(currentRow)))
-                        fvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
+			fvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
 			var fi int32
 			fVal := make([]byte, fvLen)
 			for fi = 0; fi < fvLen; fi++ {
-		          fVal[fi] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(fi))))
+				fVal[fi] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(fi))))
 			}
-			
-			dest[i]=readFloat32(fVal)
+
+			dest[i] = readFloat32(fVal)
 			break
 
 		case C.TSDB_DATA_TYPE_DOUBLE:
 			//dest[i] = (*((*float64)(currentRow)))
-                        dvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
-                        var di int32
-                        dVal := make([]byte, dvLen)
-                        for di = 0; di < dvLen; di++ {
-                          dVal[di] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(di))))
-                        }
+			dvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
+			var di int32
+			dVal := make([]byte, dvLen)
+			for di = 0; di < dvLen; di++ {
+				dVal[di] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(di))))
+			}
 
-                        dest[i]=readFloat64(dVal)
+			dest[i] = readFloat64(dVal)
 			break
 
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:

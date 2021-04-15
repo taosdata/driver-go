@@ -224,6 +224,18 @@ func (mf *taosSqlField) typeDatabaseName() string {
 	case C.TSDB_DATA_TYPE_BIGINT:
 		return "BIGINT"
 
+	case C.TSDB_DATA_TYPE_UTINYINT:
+		return "TINYINT UNSIGNED"
+
+	case C.TSDB_DATA_TYPE_USMALLINT:
+		return "SMALLINT UNSIGNED"
+
+	case C.TSDB_DATA_TYPE_UINT:
+		return "INT UNSIGNED"
+
+	case C.TSDB_DATA_TYPE_UBIGINT:
+		return "BIGINT UNSIGNED"
+
 	case C.TSDB_DATA_TYPE_FLOAT:
 		return "FLOAT"
 
@@ -251,6 +263,10 @@ var (
 	scanTypeInt16    = reflect.TypeOf(int16(0))
 	scanTypeInt32    = reflect.TypeOf(int32(0))
 	scanTypeInt64    = reflect.TypeOf(int64(0))
+	scanTypeUInt8    = reflect.TypeOf(uint8(0))
+	scanTypeUInt16   = reflect.TypeOf(uint16(0))
+	scanTypeUInt32   = reflect.TypeOf(uint32(0))
+	scanTypeUInt64   = reflect.TypeOf(uint64(0))
 	scanTypeNullTime = reflect.TypeOf(NullTime{})
 	scanTypeRawBytes = reflect.TypeOf(sql.RawBytes{})
 	scanTypeUnknown  = reflect.TypeOf(new(interface{}))
@@ -273,6 +289,18 @@ func (mf *taosSqlField) scanType() reflect.Type {
 
 	case C.TSDB_DATA_TYPE_BIGINT:
 		return scanTypeInt64
+
+	case C.TSDB_DATA_TYPE_UTINYINT:
+		return scanTypeUInt8
+
+	case C.TSDB_DATA_TYPE_USMALLINT:
+		return scanTypeUInt16
+
+	case C.TSDB_DATA_TYPE_UINT:
+		return scanTypeUInt32
+
+	case C.TSDB_DATA_TYPE_UBIGINT:
+		return scanTypeUInt64
 
 	case C.TSDB_DATA_TYPE_FLOAT:
 		return scanTypeFloat32
