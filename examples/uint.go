@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	_ "github.com/taosdata/driver-go/taosSql"
+	"github.com/taosdata/driver-go/taosSql"
 )
 
 const (
@@ -110,6 +110,15 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 
 	var i uint64 = 0
 	var max = ^uint64(0)&typeMax - 1
+	sqlStr = fmt.Sprintf("insert into %s.%s values(%d,NULL)", dbName, tableName, stms)
+	fmt.Printf("- %s\n", sqlStr)
+	_, err = db.Exec(sqlStr)
+	for i = 0; i < 10; i++ {
+		sqlStr = fmt.Sprintf("insert into %s.%s values(%d,%d)", dbName, tableName, stms+int64(i)*100, i)
+		fmt.Printf("- %s\n", sqlStr)
+		_, err = db.Exec(sqlStr)
+		checkErr(err, sqlStr)
+	}
 	for i = 0; i < 10; i++ {
 		sqlStr = fmt.Sprintf("insert into %s.%s values(%d,%d)", dbName, tableName, stms+int64(i)*1000, max-i)
 		fmt.Printf("- %s\n", sqlStr)
@@ -118,7 +127,7 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 	}
 
 	// select back
-	sqlStr = "select last(*) from " + dbName + "." + tableName
+	sqlStr = "select * from " + dbName + "." + tableName
 	fmt.Printf("- %s\n", sqlStr)
 
 	rows, err := db.Query(sqlStr)
@@ -131,42 +140,40 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 		case "uint8":
 			var (
 				ts string
-				n  uint8
+				n  taosSql.NullUInt8
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
-			fmt.Printf("** last row: (%s, %d)\n", ts, n)
-			fmt.Printf("** last n for *%s* is %d\n", typeName, n)
+			fmt.Printf("%s,%v\n", ts, n)
+			//fmt.Printf("** last row: (%s, %d)\n", ts, n)
+			//fmt.Printf("** last n for *%s* is %d\n", typeName, n)
 			break
 		case "uint16":
 			var (
 				ts string
-				n  uint16
+				n  taosSql.NullUInt16
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
-			fmt.Printf("** last row: (%s, %d)\n", ts, n)
-			fmt.Printf("** last n for *%s* is %d\n", typeName, n)
+			fmt.Printf("%s,%v\n", ts, n)
 			break
 		case "uint32":
 			var (
 				ts string
-				n  uint32
+				n  taosSql.NullUInt32
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
-			fmt.Printf("** last row: (%s, %d)\n", ts, n)
-			fmt.Printf("** last n for *%s* is %d\n", typeName, n)
+			fmt.Printf("%s,%v\n", ts, n)
 			break
 		case "uint64":
 			var (
 				ts string
-				n  uint64
+				n  taosSql.NullUInt64
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
-			fmt.Printf("** last row: (%s, %d)\n", ts, n)
-			fmt.Printf("** last n for *%s* is %d\n", typeName, n)
+			fmt.Printf("%s,%v\n", ts, n)
 			break
 		}
 	}
@@ -174,7 +181,7 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 
 func checkErr(err error, prompt string) {
 	if err != nil {
-		fmt.Printf("ERROR: %s\n", prompt)
+		fmt.Errorf("ERROR: %s\n", prompt)
 		panic(err)
 	}
 }
