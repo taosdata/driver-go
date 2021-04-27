@@ -98,16 +98,18 @@ func parseDSN(dsn string) (cfg *config, err error) {
 							if strings.ContainsRune(dsn[k+1:i], ')') {
 								return nil, errInvalidDSNUnescaped
 							}
-							return nil, errInvalidDSNAddr
+							//return nil, errInvalidDSNAddr
 						}
 						strs := strings.Split(dsn[k+1:i-1], ":")
 						if len(strs) == 1 {
 							return nil, errInvalidDSNAddr
 						}
-						cfg.addr = strs[0]
-						cfg.port, err = strconv.Atoi(strs[1])
-						if err != nil {
-							return nil, errInvalidDSNPort
+						if len(strs[0]) != 0 {
+							cfg.addr = strs[0]
+							cfg.port, err = strconv.Atoi(strs[1])
+							if err != nil {
+								return nil, errInvalidDSNPort
+							}
 						}
 						break
 					}

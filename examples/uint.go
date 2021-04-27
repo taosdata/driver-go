@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/taosdata/driver-go/taosSql"
@@ -24,7 +23,7 @@ const (
 
 type config struct {
 	hostName   string
-	serverPort int
+	serverPort string
 	user       string
 	password   string
 	dbName     string
@@ -35,8 +34,8 @@ var taosDriverName = "taosSql"
 var url string
 
 func init() {
-	flag.StringVar(&configPara.hostName, "h", "127.0.0.1", "The host to connect to TDengine server.")
-	flag.IntVar(&configPara.serverPort, "p", 6030, "The TCP/IP port number to use for the connection to TDengine server.")
+	flag.StringVar(&configPara.hostName, "h", "", "The host to connect to TDengine server.")
+	flag.StringVar(&configPara.serverPort, "p", "", "The TCP/IP port number to use for the connection to TDengine server.")
 	flag.StringVar(&configPara.user, "u", "root", "The TDengine user name to use when connecting to the server.")
 	flag.StringVar(&configPara.password, "P", "taosdata", "The password to use when connecting to the server.")
 	flag.StringVar(&configPara.dbName, "d", "taosuint", "Destination database.")
@@ -56,7 +55,7 @@ func printAllArgs() {
 func main() {
 	printAllArgs()
 
-	url = "root:taosdata@/tcp(" + configPara.hostName + ":" + strconv.Itoa(configPara.serverPort) + ")/"
+	url = "root:taosdata@/tcp(" + configPara.hostName + ":" + configPara.serverPort + ")/"
 
 	test(configPara.dbName)
 }
