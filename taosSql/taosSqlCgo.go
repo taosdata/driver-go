@@ -37,18 +37,24 @@ type UserChar struct {
 func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsafe.Pointer, err error) {
 	cuser := C.CString(user)
 	cpass := C.CString(pass)
-	cip := C.CString(ip)
 	cdb := C.CString(db)
-	defer C.free(unsafe.Pointer(cip))
 	defer C.free(unsafe.Pointer(cuser))
 	defer C.free(unsafe.Pointer(cpass))
 	defer C.free(unsafe.Pointer(cdb))
-	taosObj := C.taos_connect(cip, cuser, cpass, cdb, (C.ushort)(port))
+	var taosObj unsafe.Pointer
+	if len(ip) == 0 {
+		taosObj = C.taos_connect(nil, cuser, cpass, cdb, (C.ushort)(0))
+	} else {
+		cip := C.CString(ip)
+		defer C.free(unsafe.Pointer(cip))
+		taosObj = C.taos_connect(cip, cuser, cpass, cdb, (C.ushort)(port))
+	}
+
 	if taosObj == nil {
 		return nil, errors.New("taos_connect() fail!")
 	}
 
-	return (unsafe.Pointer)(taosObj), nil
+	return taosObj, nil
 }
 
 func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
