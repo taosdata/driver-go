@@ -7,7 +7,7 @@ import (
 )
 
 func TestConnect(t *testing.T) {
-	db, err := sql.Open("taosSql", "/wo")
+	db, err := sql.Open("taosSql", "/log")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -15,14 +15,14 @@ func TestConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Query("select ts, tbid from testit")
+	rows, err := db.Query("select ts, dnodeid from dn")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for rows.Next() {
-		var tbid int
+		var dnodeid int
 		var ts time.Time
-		err := rows.Scan(&ts, &tbid)
+		err := rows.Scan(&ts, &dnodeid)
 		if err != nil {
 			t.Fatal(err)
 		}
