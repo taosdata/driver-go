@@ -7,7 +7,7 @@ import (
 )
 
 func TestConnect(t *testing.T) {
-	db, err := sql.Open("taosSql", "/log")
+	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
 	}

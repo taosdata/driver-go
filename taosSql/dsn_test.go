@@ -19,6 +19,9 @@ func TestParseDsn(t *testing.T) {
 		{dsn: "abcd", errs: "invalid DSN: missing the slash separating the database name"},
 		{"user:passwd@net(fqdn:6030)/dbname", "", "user", "passwd", "net", "fqdn", 6030, "dbname"},
 		{dsn: "user:passwd@net()/dbname", errs: "invalid DSN: network address not terminated (missing closing brace)"},
+		{"user:passwd@net(:)/dbname", "", "user", "passwd", "net", "", 0, "dbname"},
+		{"user:passwd@net(:0)/dbname", "", "user", "passwd", "net", "", 0, "dbname"},
+		{"user:passwd@net(:0)/", "", "user", "passwd", "net", "", 0, ""},
 		{"net(:0)/wo", "", "", "", "net", "", 0, "wo"},
 	}
 	for i, tc := range tcs {

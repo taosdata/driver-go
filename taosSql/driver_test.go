@@ -15,7 +15,7 @@ var (
 	DRIVER_NAME    = "taosSql"
 	user           = "root"
 	password       = "taosdata"
-	host           = "127.0.0.1"
+	host           = ""
 	port           = 6030
 	dbName         = "test"
 	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "log")
@@ -65,7 +65,7 @@ func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 	// prepare data
 	dbt.db.Exec("DROP TABLE IF EXISTS test")
 	var numOfSubTables = 10
-	var numOfItems = 10000
+	var numOfItems = 200
 	CreateTables(dbt, numOfSubTables)
 	InsertInto(dbt, numOfSubTables, numOfItems)
 	for _, test := range tests {
