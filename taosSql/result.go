@@ -204,7 +204,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		case C.TSDB_DATA_TYPE_TIMESTAMP:
 			if mc.cfg.parseTime == true {
 				timestamp := (int64)(*((*int64)(currentRow)))
-				dest[i] = timestampConvertToString(timestamp, int(C.taos_result_precision(mc.result)))
+				dest[i] = timestampConvertToTime(timestamp, int(C.taos_result_precision(mc.result)))
 			} else {
 				dest[i] = (int64)(*((*int64)(currentRow)))
 			}
@@ -231,20 +231,20 @@ func (rows *binaryRows) readRow(dest []driver.Value) error {
 	return rows.taosSqlRows.readRow(dest)
 }
 
-func timestampConvertToString(timestamp int64, precision int) string {
+func timestampConvertToTime(timestamp int64, precision int) time.Time {
 	switch precision {
 	case 0: // milli-second
 		s := timestamp / 1e3
 		ns := timestamp % 1e3 * 1e6
-		return time.Unix(s, ns).Format("2006-01-02 15:04:05.000")
+		return time.Unix(s, ns)
 	case 1: // micro-second
 		s := timestamp / 1e6
 		ns := timestamp % 1e6 * 1e3
-		return time.Unix(s, ns).Format("2006-01-02 15:04:05.000000")
+		return time.Unix(s, ns)
 	case 2: // nano-second
 		s := timestamp / 1e9
 		ns := timestamp % 1e9
-		return time.Unix(s, ns).Format("2006-01-02 15:04:05.000000000")
+		return time.Unix(s, ns)
 	default:
 		panic("unknown precision")
 	}
