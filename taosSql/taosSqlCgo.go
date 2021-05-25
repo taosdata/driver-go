@@ -96,3 +96,9 @@ func (mc *taosConn) taos_error() {
 	C.taos_free_result(mc.result)
 	mc.result = nil
 }
+
+func (mc *taosConn) free_result() {
+	// free result in db.Exec immediately
+	C.taos_free_result(mc.result)
+	mc.result = nil
+}
