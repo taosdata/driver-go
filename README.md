@@ -34,3 +34,31 @@ func (db *DB) Query(query string, args ...interface{}) (*Rows, error)
 `sql.Open`内置的方法，用来执行查询语句
 
 Please refer to the [demo app](https://github.com/taosdata/TDengine/blob/develop/tests/examples/go/taosdemo.go) for details.
+
+## 订阅使用
+
+Open DB:
+```
+Open(dbname string) (db DB, err error)
+```
+
+Subscribe:
+```
+type DB interface {
+	Subscribe(restart bool, name string, sql string, interval time.Duration) (Topic, error)
+	Close() error
+}
+```
+
+Topic:
+
+```
+type Topic interface {
+	Consume() (driver.Rows, error)
+	Unsubscribe(keepProgress bool)
+}
+```
+
+详情参见例子`examples/taoslogtail.go`。
+
+
