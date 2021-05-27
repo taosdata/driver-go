@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func TestConnect(t *testing.T) {
-	db, err := sql.Open("taosSql", "/log")
+func TestOpenQuery(t *testing.T) {
+	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
 	}

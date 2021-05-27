@@ -15,7 +15,7 @@ var (
 	DRIVER_NAME    = "taosSql"
 	user           = "root"
 	password       = "taosdata"
-	host           = "127.0.0.1"
+	host           = ""
 	port           = 6030
 	dbName         = "test"
 	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "log")
@@ -28,10 +28,20 @@ var (
 
 type DBTest struct {
 	*testing.T
-	db *sql.DB
+	*sql.DB
 }
 
-func CreateTables(dbt *DBTest, numOfSubTab int) {
+func NewDBTest(t *testing.T) (dbt *DBTest) {
+	db, err := sql.Open(DRIVER_NAME, dataSourceName)
+	if err != nil {
+		t.Fatalf("error on:  sql.open %s", err.Error())
+		return
+	}
+	dbt = &DBTest{t, db}
+	return
+}
+
+func (dbt *DBTest) CreateTables(numOfSubTab int) {
 	dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
 	dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
 	dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
@@ -40,7 +50,7 @@ func CreateTables(dbt *DBTest, numOfSubTab int) {
 		dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
 	}
 }
-func InsertInto(dbt *DBTest, numOfSubTab, numOfItems int) {
+func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
 	now := time.Now()
 	t := now.Add(-100 * time.Hour)
 	for i := 0; i < numOfItems; i++ {
@@ -48,29 +58,23 @@ func InsertInto(dbt *DBTest, numOfSubTab, numOfItems int) {
 	}
 }
 
-type Result struct {
+type TestResult struct {
 	ts      string
 	value   bool
 	degress int
 }
 
 func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
-	db, err := sql.Open(DRIVER_NAME, dataSourceName)
-	if err != nil {
-		t.Fatalf("error on:  sql.open %s", err.Error())
-		return
-	}
-	defer db.Close()
-	dbt := &DBTest{t, db}
+	dbt := NewDBTest(t)
 	// prepare data
-	dbt.db.Exec("DROP TABLE IF EXISTS test")
+	dbt.Exec("DROP TABLE IF EXISTS test")
 	var numOfSubTables = 10
-	var numOfItems = 10000
-	CreateTables(dbt, numOfSubTables)
-	InsertInto(dbt, numOfSubTables, numOfItems)
+	var numOfItems = 200
+	dbt.CreateTables(numOfSubTables)
+	dbt.InsertInto(numOfSubTables, numOfItems)
 	for _, test := range tests {
 		test(dbt)
-		dbt.db.Exec("DROP TABLE IF EXISTS test")
+		dbt.Exec("DROP TABLE IF EXISTS test")
 	}
 }
 func (dbt *DBTest) fail(method, query string, err error) {
@@ -81,12 +85,12 @@ func (dbt *DBTest) fail(method, query string, err error) {
 }
 
 func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result, err error) {
-	res, err = dbt.db.Exec(query, args...)
+	res, err = dbt.Exec(query, args...)
 	return
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows, err error) {
-	rows, err = dbt.db.Query(query, args...)
+	rows, err = dbt.Query(query, args...)
 	return
 }
 func TestEmpytQuery(t *testing.T) {
@@ -136,7 +140,7 @@ var (
 			} else {
 				var count int64 = 0
 				for rows.Next() {
-					var row Result
+					var row TestResult
 					if err := rows.Scan(&(row.ts), &(row.value)); err != nil {
 						dbt.Error(err.Error())
 						return ret
@@ -222,7 +226,7 @@ func TestCRUD(t *testing.T) {
 			dbt.Fatalf("select failed")
 		}
 		for rows.Next() {
-			var row Result
+			var row TestResult
 			err := rows.Scan(&(row.ts), &(row.value), &(row.degress))
 			if err != nil {
 				dbt.Error(err.Error())
@@ -236,7 +240,7 @@ func TestCRUD(t *testing.T) {
 			dbt.Fatalf("select last_row failed")
 		} else {
 			for rows.Next() {
-				var value Result
+				var value TestResult
 				err := rows.Scan(&(value.ts), &(value.value))
 				if err != nil {
 					dbt.Error(err.Error())
@@ -255,7 +259,7 @@ func TestCRUD(t *testing.T) {
 }
 func TestStmt(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
-		stmt, err := dbt.db.Prepare(fmt.Sprintf("insert into %s.t0 values(?, ?)", dbName))
+		stmt, err := dbt.Prepare(fmt.Sprintf("insert into %s.t0 values(?, ?)", dbName))
 		if err != nil {
 			dbt.fail("prepare", "prepare", err)
 		}
