@@ -24,26 +24,28 @@ func main() {
 	}
 	defer topic.Unsubscribe(true)
 	for {
-		rows, err := topic.Consume()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(3)
-		}
-		values := make([]driver.Value, 4)
-		for {
-			err := rows.Next(values)
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(4)
+		func() {
+			rows, err := topic.Consume()
+			defer func() { rows.Close(); time.Sleep(time.Second) }()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(3)
 			}
-			ts := values[0].(time.Time)
-			level := values[1].(int8)
-			ipaddr := values[2].(string)
-			content := values[3].(string)
-			fmt.Printf("%s %d %s %s\n", ts.Format(time.StampMilli), level, ipaddr, content)
-		}
-		time.Sleep(time.Second)
+			for {
+				values := make([]driver.Value, 4)
+				err := rows.Next(values)
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					os.Exit(4)
+				}
+				ts := values[0].(time.Time)
+				level := values[1].(int8)
+				ipaddr := values[2].(string)
+				content := values[3].(string)
+				fmt.Printf("%s %d %s %s\n", ts.Format(time.StampMilli), level, ipaddr, content)
+			}
+		}()
 	}
 }

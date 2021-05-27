@@ -224,7 +224,7 @@ func (db *taosDB) subscribe(restart bool, topic string, sql string, interval tim
 func (sub *taosTopic) consume() (res *taosRes) {
 	ref := C.taos_consume(unsafe.Pointer(sub.ref))
 	if ref != nil {
-		res = &taosRes{ref: ref}
+		res = &taosRes{ref: ref, keep: true}
 	}
 	return
 }

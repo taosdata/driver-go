@@ -26,6 +26,7 @@ type taosRes struct {
 	ref       unsafe.Pointer
 	fields    []taosField
 	precision NullInt32
+	keep      bool
 }
 
 func (res *taosRes) Columns() (cols []string) {
@@ -36,9 +37,12 @@ func (res *taosRes) Columns() (cols []string) {
 	return
 }
 
-func (res *taosRes) Close() error {
+func (res *taosRes) Close() (err error) {
+	if res.keep {
+		return
+	}
 	res.freeResult()
-	return nil
+	return
 }
 
 func (res *taosRes) Next(values []driver.Value) (err error) {
