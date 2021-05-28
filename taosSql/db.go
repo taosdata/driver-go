@@ -109,6 +109,7 @@ type Topic interface {
 
 type taosTopic struct {
 	ref unsafe.Pointer
+	res *taosRes
 }
 
 func (sub *taosTopic) Consume() (rows driver.Rows, err error) {
@@ -119,11 +120,15 @@ func (sub *taosTopic) Consume() (rows driver.Rows, err error) {
 		err = errors.New(msg)
 		return
 	}
+	sub.res = res
 	rows = res
 	return
 }
 
 func (sub *taosTopic) Unsubscribe(keepProgress bool) {
+	if res := sub.res; res != nil {
+		res.freeResult()
+	}
 	if keepProgress {
 		sub.unsubscribe(1)
 	} else {
