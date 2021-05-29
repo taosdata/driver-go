@@ -49,7 +49,9 @@ func (res *taosRes) Next(values []driver.Value) (err error) {
 	fields := res.fetchFields()
 	if len(values) != len(fields) {
 		err = errors.New("values and fields length not match")
+		return
 	}
+
 	row := res.fetchRow()
 	if row == nil {
 		return io.EOF
@@ -89,16 +91,7 @@ func (res *taosRes) Next(values []driver.Value) (err error) {
 		case dataTypeDouble:
 			values[i] = *((*float64)(p))
 		case dataTypeBinary, dataTypeNchar:
-			b := make([]byte, field.Bytes)
-			var j int16
-			for j = 0; j < field.Bytes; j++ {
-				c := *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(j))))
-				if c == 0 {
-					break
-				}
-				b[j] = c
-			}
-			values[i] = string(b[0:j])
+			values[i] = goString(p)
 		case dataTypeTimestamp:
 			ts := *((*int64)(p))
 			precision := int(res.resultPrecision())

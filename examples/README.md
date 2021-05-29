@@ -12,8 +12,8 @@ Run:
 ./taoslogtail
 ```
 
-It will subscribe table `log.log`, once new log item entered, it
-prints the log item out:
+`taoslogtail` will subscribe table `log.log`, and `tail` the log. once new log item entered, it will 
+print the log item as below:
 ```
 May 28 04:39:01.374 0 ...:6030 user:... login from ..., result:success
 ```

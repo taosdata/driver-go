@@ -1,6 +1,7 @@
 package taosSql
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"testing"
@@ -232,4 +233,36 @@ func TestFetchFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStmtBindParam(t *testing.T) {
+	db := openTestDB("log")
+	if db == nil {
+		t.Fatal()
+	}
+	stmt := db.stmtInit()
+	if stmt == nil {
+		t.Fatal()
+	}
+	defer stmt.close()
+	stmt.prepare("select * from log where level = ?")
+	params := []driver.Value{int8(0)}
+	rc := stmt.bindParam(params)
+	if rc != 0 {
+		t.Fatal(rc)
+	}
+	rc = stmt.execute()
+	if rc != 0 {
+		t.Fatal(rc)
+	}
+	res := stmt.useResult()
+	if res == nil {
+		t.Fatal()
+	}
+	defer res.freeResult()
+	cols := res.Columns()
+	if len(cols) != 4 {
+		t.Fatal()
+	}
+	t.Log(cols)
 }

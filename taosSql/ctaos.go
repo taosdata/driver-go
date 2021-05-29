@@ -18,11 +18,15 @@ package taosSql
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 #include <taos.h>
+#include <taoserror.h>
 */
 import "C"
 
 import (
+	"database/sql/driver"
+	"errors"
 	"time"
 	"unsafe"
 )
@@ -94,20 +98,11 @@ func (res *taosRes) fetchFields() []taosField {
 	fields := make([]taosField, num)
 	for i := 0; i < num; i++ {
 		cfield := cfields[i]
-		field := taosField{}
-		l := len(cfield.name)
-		b := make([]byte, l)
-		for i, c := range cfield.name {
-			if c == 0 {
-				l = i
-				break
-			}
-			b[i] = byte(c)
+		fields[i] = taosField{
+			Name:  goString(unsafe.Pointer(&cfield.name)),
+			Type:  uint8(cfield._type),
+			Bytes: int16(cfield.bytes),
 		}
-		field.Name = string(b[0:l])
-		field.Type = uint8(cfield._type)
-		field.Bytes = int16(cfield.bytes)
-		fields[i] = field
 	}
 	return fields
 }
@@ -231,4 +226,192 @@ func (sub *taosTopic) consume() (res *taosRes) {
 
 func (sub *taosTopic) unsubscribe(keepProgress int) {
 	C.taos_unsubscribe(unsafe.Pointer(sub.ref), (C.int)(keepProgress))
+}
+
+func (db *taosDB) stmtInit() (stmt *taosStmt) {
+	ref := C.taos_stmt_init(db.ref)
+	if ref != nil {
+		stmt = &taosStmt{ref: ref}
+	}
+	return
+}
+
+func (stmt *taosStmt) prepare(sql string) int32 {
+	csql := C.CString(sql)
+	clen := C.ulong(len(sql))
+	defer C.free(unsafe.Pointer(csql))
+	return int32(C.taos_stmt_prepare(stmt.ref, csql, clen))
+}
+
+func (stmt *taosStmt) bindParam(params []driver.Value) int32 {
+	if len(params) == 0 {
+		return int32(C.taos_stmt_bind_param(stmt.ref, nil))
+	}
+	binds := make([]C.TAOS_BIND, len(params))
+	for i, param := range params {
+		bind := C.TAOS_BIND{}
+		switch param.(type) {
+		case bool:
+			bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
+			value := param.(bool)
+			p := C.malloc(1)
+			if value {
+				*(*C.int8_t)(p) = C.int8_t(1)
+			} else {
+				*(*C.int8_t)(p) = C.int8_t(0)
+			}
+			defer C.free(p)
+			bind.buffer = p
+		case int8:
+			bind.buffer_type = C.TSDB_DATA_TYPE_TINYINT
+			value := param.(int8)
+			p := C.malloc(1)
+			*(*C.int8_t)(p) = C.int8_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case int16:
+			bind.buffer_type = C.TSDB_DATA_TYPE_SMALLINT
+			value := param.(int16)
+			p := C.malloc(2)
+			*(*C.int16_t)(p) = C.int16_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case int:
+			bind.buffer_type = C.TSDB_DATA_TYPE_INT
+			value := param.(int)
+			p := C.malloc(4)
+			*(*C.int32_t)(p) = C.int32_t(value)
+			defer C.free(p)
+			bind.buffer = p
+			bind.is_null = nil
+		case int32:
+			value := param.(int32)
+			bind.buffer_type = C.TSDB_DATA_TYPE_INT
+			p := C.malloc(4)
+			*(*C.int32_t)(p) = C.int32_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case int64:
+			bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
+			value := param.(int64)
+			p := C.malloc(8)
+			*(*C.int64_t)(p) = C.int64_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case uint8:
+			bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
+			buf := param.(uint8)
+			cbuf := C.malloc(1)
+			*(*C.char)(cbuf) = C.char(buf)
+			defer C.free(cbuf)
+			bind.buffer = cbuf
+		case uint16:
+			bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
+			value := param.(uint16)
+			p := C.malloc(2)
+			*(*C.int16_t)(p) = C.int16_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case uint32:
+			bind.buffer_type = C.TSDB_DATA_TYPE_UINT
+			value := param.(uint32)
+			p := C.malloc(4)
+			*(*C.uint32_t)(p) = C.uint32_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case uint64:
+			bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
+			value := param.(uint64)
+			p := C.malloc(8)
+			*(*C.uint64_t)(p) = C.uint64_t(value)
+			defer C.free(p)
+			bind.buffer = p
+		case float32:
+			bind.buffer_type = C.TSDB_DATA_TYPE_FLOAT
+			value := param.(float32)
+			p := C.malloc(4)
+			*(*C.float)(p) = C.float(value)
+			defer C.free(p)
+			bind.buffer = p
+		case float64:
+			bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
+			value := param.(float64)
+			p := C.malloc(8)
+			*(*C.double)(p) = C.double(value)
+			defer C.free(p)
+			bind.buffer = p
+		case []byte:
+			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
+			buf := param.([]byte)
+			cbuf := C.CString(string(buf))
+			defer C.free(unsafe.Pointer(cbuf))
+			bind.buffer = unsafe.Pointer(cbuf)
+			clen := int32(len(buf))
+			p := C.malloc(C.size_t(unsafe.Sizeof(clen)))
+			bind.length = (*C.ulong)(p)
+			*(bind.length) = C.ulong(clen)
+			defer C.free(p)
+		case string:
+			bind.buffer_type = C.TSDB_DATA_TYPE_NCHAR
+			value := param.(string)
+			p := unsafe.Pointer(C.CString(string(value)))
+			defer C.free(p)
+			bind.buffer = unsafe.Pointer(p)
+			clen := int32(len(value))
+			bind.length = (*C.ulong)(C.malloc(C.size_t(unsafe.Sizeof(clen))))
+			*(bind.length) = C.ulong(clen)
+			defer C.free(unsafe.Pointer(bind.length))
+		case time.Time:
+			bind.buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
+			ts := param.(time.Time)
+			p := C.malloc(8)
+			defer C.free(p)
+			*(*C.int64_t)(p) = C.int64_t(ts.UnixNano() / 1e3)
+			bind.buffer = p
+		default:
+			return -1
+		}
+		binds[i] = bind
+	}
+	return int32(C.taos_stmt_bind_param(stmt.ref, (*C.TAOS_BIND)(&binds[0])))
+}
+
+func (stmt *taosStmt) isInsert() int32 {
+	p := C.malloc(C.size_t(4))
+	isInsert := (*C.int)(p)
+	defer C.free(p)
+	C.taos_stmt_is_insert(stmt.ref, isInsert)
+	return int32(*isInsert)
+}
+
+func (stmt *taosStmt) addBatch() int32 {
+	return int32(C.taos_stmt_add_batch(stmt.ref))
+}
+
+func (stmt *taosStmt) execute() int32 {
+	return int32(C.taos_stmt_execute(stmt.ref))
+}
+
+func (stmt *taosStmt) useResult() (res *taosRes) {
+	ref := C.taos_stmt_use_result(stmt.ref)
+	if ref != nil {
+		res = &taosRes{ref: ref}
+	}
+	return
+}
+
+func (stmt *taosStmt) close() int32 {
+	return int32(C.taos_stmt_close(stmt.ref))
+}
+
+func goString(p unsafe.Pointer) string {
+	return C.GoString((*C.char)(p))
+}
+
+func getErrno() int32 {
+	return int32(*(*C.int32_t)(C.taosGetErrno()))
+}
+
+func tstrerror(code int32) (msg string) {
+	return C.GoString(C.tstrerror(C.int32_t(code)))
 }
