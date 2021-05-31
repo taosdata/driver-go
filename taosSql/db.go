@@ -25,13 +25,34 @@ import (
 
 type DB interface {
 	Subscribe(restart bool, name string, sql string, interval time.Duration) (Topic, error)
-	Exec(sql string) (driver.Result, error)
-	Query(sql string) (driver.Rows, error)
+	Exec(sql string, params ...driver.Value) (driver.Result, error)
+	Query(sql string, params ...driver.Value) (driver.Rows, error)
 	Close() error
 }
 
 type taosDB struct {
 	ref unsafe.Pointer
+}
+
+type taosStmt struct {
+	ref unsafe.Pointer
+}
+
+type Topic interface {
+	Consume() (driver.Rows, error)
+	Unsubscribe(keepProgress bool)
+}
+
+type taosTopic struct {
+	ref unsafe.Pointer
+	res *taosRes
+}
+
+func getError() error {
+	if errno := getErrno(); errno < 0 {
+		return errors.New(tstrerror(errno))
+	}
+	return nil
 }
 
 func Open(dbname string) (db DB, err error) {
@@ -58,18 +79,69 @@ func (db *taosDB) Close() error {
 // name: the topic name,
 // sql: the sql statement,
 // interval: Pulling interval
-func (db *taosDB) Subscribe(restart bool, name string, sql string, interval time.Duration) (Topic, error) {
-	topic := db.subscribe(restart, name, sql, interval)
+func (db *taosDB) Subscribe(restart bool, name string, sql string, interval time.Duration) (topic Topic, err error) {
+	topic = db.subscribe(restart, name, sql, interval)
 	if topic == nil {
-		return nil, errors.New("failed to subscribe")
+		err = getError()
+		if err != nil {
+			return
+		} else {
+			err = errors.New("failed to subscribe")
+			return
+		}
 	}
 	return topic, nil
 }
 
-func (db *taosDB) Exec(sql string) (result driver.Result, err error) {
-	res := db.query(sql)
+func (db *taosDB) execute(sql string, params []driver.Value) (res *taosRes, err error) {
+	stmt := db.stmtInit()
+	if stmt == nil {
+		if err = getError(); err != nil {
+			return
+		} else {
+			err = errors.New("failed to init stmt")
+			return
+		}
+	}
+
+	defer stmt.close()
+	if rc := stmt.prepare(sql); rc < 0 {
+		err = errors.New(tstrerror(rc))
+		return
+	}
+
+	if rc := stmt.bindParam(params); rc < 0 {
+		err = errors.New(tstrerror(rc))
+		return
+	}
+	if isInsert := stmt.isInsert(); isInsert == 1 {
+		if rc := stmt.addBatch(); rc < 0 {
+			err = errors.New(tstrerror(rc))
+			return
+		}
+	}
+	if rc := stmt.execute(); rc < 0 {
+		err = errors.New(tstrerror(rc))
+		return
+	}
+	res = stmt.useResult()
+	return
+}
+
+func (db *taosDB) Exec(sql string, params ...driver.Value) (result driver.Result, err error) {
+	var res *taosRes
+	if len(params) == 0 {
+		res = db.query(sql)
+	} else {
+		if res, err = db.execute(sql, params); err != nil {
+			return
+		}
+	}
+
 	if res == nil {
-		err = fmt.Errorf("failed to exec: %s", sql)
+		if err = getError(); err == nil {
+			err = fmt.Errorf("failed to exec: %s", sql)
+		}
 		return
 	}
 	defer res.freeResult()
@@ -78,7 +150,6 @@ func (db *taosDB) Exec(sql string) (result driver.Result, err error) {
 		return
 	}
 	rowsAffected := res.affectedRows()
-
 	if errno := res.errno(); errno != 0 {
 		err = errors.New(res.errstr())
 		return
@@ -87,10 +158,20 @@ func (db *taosDB) Exec(sql string) (result driver.Result, err error) {
 	return
 }
 
-func (db *taosDB) Query(sql string) (rows driver.Rows, err error) {
-	res := db.query(sql)
+func (db *taosDB) Query(sql string, params ...driver.Value) (rows driver.Rows, err error) {
+	var res *taosRes
+	if len(params) == 0 {
+		res = db.query(sql)
+	} else {
+		if res, err = db.execute(sql, params); err != nil {
+			return
+		}
+
+	}
 	if res == nil {
-		err = errors.New("failed to query")
+		if err = getError(); err == nil {
+			err = errors.New("failed to query")
+		}
 		return
 	}
 	errno := res.errno()
@@ -100,16 +181,6 @@ func (db *taosDB) Query(sql string) (rows driver.Rows, err error) {
 	}
 	rows = res
 	return
-}
-
-type Topic interface {
-	Consume() (driver.Rows, error)
-	Unsubscribe(keepProgress bool)
-}
-
-type taosTopic struct {
-	ref unsafe.Pointer
-	res *taosRes
 }
 
 func (sub *taosTopic) Consume() (rows driver.Rows, err error) {
@@ -126,12 +197,12 @@ func (sub *taosTopic) Consume() (rows driver.Rows, err error) {
 }
 
 func (sub *taosTopic) Unsubscribe(keepProgress bool) {
-	if res := sub.res; res != nil {
-		res.freeResult()
-	}
 	if keepProgress {
 		sub.unsubscribe(1)
 	} else {
 		sub.unsubscribe(0)
+	}
+	if res := sub.res; res != nil {
+		res.freeResult()
 	}
 }
