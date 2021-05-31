@@ -27,25 +27,10 @@ import "C"
 import (
 	"database/sql/driver"
 	"errors"
+	"io"
+	"log"
 	"time"
 	"unsafe"
-)
-
-const (
-	dataTypeBool      = uint8(C.TSDB_DATA_TYPE_BOOL)
-	dataTypeTinyint   = uint8(C.TSDB_DATA_TYPE_TINYINT)
-	dataTypeSmallint  = uint8(C.TSDB_DATA_TYPE_SMALLINT)
-	dataTypeInt       = uint8(C.TSDB_DATA_TYPE_INT)
-	dataTypeBigint    = uint8(C.TSDB_DATA_TYPE_BIGINT)
-	dataTypeUtinyint  = uint8(C.TSDB_DATA_TYPE_UTINYINT)
-	dataTypeUsmallint = uint8(C.TSDB_DATA_TYPE_USMALLINT)
-	dataTypeUint      = uint8(C.TSDB_DATA_TYPE_UINT)
-	dataTypeUbigint   = uint8(C.TSDB_DATA_TYPE_UBIGINT)
-	dataTypeFloat     = uint8(C.TSDB_DATA_TYPE_FLOAT)
-	dataTypeDouble    = uint8(C.TSDB_DATA_TYPE_DOUBLE)
-	dataTypeBinary    = uint8(C.TSDB_DATA_TYPE_BINARY)
-	dataTypeNchar     = uint8(C.TSDB_DATA_TYPE_NCHAR)
-	dataTypeTimestamp = uint8(C.TSDB_DATA_TYPE_TIMESTAMP)
 )
 
 // int taos_result_precision(TAOS_RES *res)
@@ -99,7 +84,7 @@ func (res *taosRes) fetchFields() []taosField {
 	for i := 0; i < num; i++ {
 		cfield := cfields[i]
 		fields[i] = taosField{
-			Name:  goString(unsafe.Pointer(&cfield.name)),
+			Name:  C.GoString((*C.char)(unsafe.Pointer(&cfield.name))),
 			Type:  uint8(cfield._type),
 			Bytes: int16(cfield.bytes),
 		}
@@ -400,12 +385,67 @@ func (stmt *taosStmt) useResult() (res *taosRes) {
 	return
 }
 
-func (stmt *taosStmt) close() int32 {
-	return int32(C.taos_stmt_close(stmt.ref))
+func (res *taosRes) Next(values []driver.Value) (err error) {
+	fields := res.fetchFields()
+	if len(values) != len(fields) {
+		err = errors.New("values and fields length not match")
+		return
+	}
+
+	row := res.fetchRow()
+	if row == nil {
+		return io.EOF
+	}
+	step := unsafe.Sizeof(int64(0))
+	for i := range fields {
+		p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(i)*step)))))
+		if p == nil {
+			continue
+		}
+		field := fields[i]
+		switch field.Type {
+		case C.TSDB_DATA_TYPE_BOOL:
+			if v := *((*byte)(p)); v != 0 {
+				values[i] = true
+			} else {
+				values[i] = false
+			}
+		case C.TSDB_DATA_TYPE_TINYINT:
+			values[i] = *((*int8)(p))
+		case C.TSDB_DATA_TYPE_SMALLINT:
+			values[i] = *((*int16)(p))
+		case C.TSDB_DATA_TYPE_INT:
+			values[i] = *((*int32)(p))
+		case C.TSDB_DATA_TYPE_BIGINT:
+			values[i] = *((*int64)(p))
+		case C.TSDB_DATA_TYPE_UTINYINT:
+			values[i] = *((*uint8)(p))
+		case C.TSDB_DATA_TYPE_USMALLINT:
+			values[i] = *((*uint16)(p))
+		case C.TSDB_DATA_TYPE_UINT:
+			values[i] = *((*uint32)(p))
+		case C.TSDB_DATA_TYPE_UBIGINT:
+			values[i] = *((*uint64)(p))
+		case C.TSDB_DATA_TYPE_FLOAT:
+			values[i] = *((*float32)(p))
+		case C.TSDB_DATA_TYPE_DOUBLE:
+			values[i] = *((*float64)(p))
+		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
+			values[i] = C.GoString((*C.char)(p))
+		case C.TSDB_DATA_TYPE_TIMESTAMP:
+			ts := *((*int64)(p))
+			precision := int(res.resultPrecision())
+			values[i] = timestampConvertToTime(ts, precision)
+		default:
+			log.Println(field)
+			values[i] = nil
+		}
+	}
+	return nil
 }
 
-func goString(p unsafe.Pointer) string {
-	return C.GoString((*C.char)(p))
+func (stmt *taosStmt) close() int32 {
+	return int32(C.taos_stmt_close(stmt.ref))
 }
 
 func getErrno() int32 {
