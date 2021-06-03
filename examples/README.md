@@ -2,8 +2,8 @@
 
 Build:
 ```
-go build -o taoslogtail taoslogtail.go
-go build -o taoslogpump taoslogpump.go
+cd taoslogtail; go build
+cd ../taoslogpump; go build
 ```
 
 Run:

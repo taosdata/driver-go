@@ -15,10 +15,6 @@
 package taosSql
 
 import (
-	"database/sql/driver"
-	"errors"
-	"io"
-	"log"
 	"unsafe"
 )
 
@@ -43,65 +39,6 @@ func (res *taosRes) Close() (err error) {
 	}
 	res.freeResult()
 	return
-}
-
-func (res *taosRes) Next(values []driver.Value) (err error) {
-	fields := res.fetchFields()
-	if len(values) != len(fields) {
-		err = errors.New("values and fields length not match")
-		return
-	}
-
-	row := res.fetchRow()
-	if row == nil {
-		return io.EOF
-	}
-	step := unsafe.Sizeof(int64(0))
-	for i := range fields {
-		p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(i)*step)))))
-		if p == nil {
-			continue
-		}
-		field := fields[i]
-		switch field.Type {
-		case dataTypeBool:
-			if v := *((*byte)(p)); v != 0 {
-				values[i] = true
-			} else {
-				values[i] = false
-			}
-		case dataTypeTinyint:
-			values[i] = *((*int8)(p))
-		case dataTypeSmallint:
-			values[i] = *((*int16)(p))
-		case dataTypeInt:
-			values[i] = *((*int32)(p))
-		case dataTypeBigint:
-			values[i] = *((*int64)(p))
-		case dataTypeUtinyint:
-			values[i] = *((*uint8)(p))
-		case dataTypeUsmallint:
-			values[i] = *((*uint16)(p))
-		case dataTypeUint:
-			values[i] = *((*uint32)(p))
-		case dataTypeUbigint:
-			values[i] = *((*uint64)(p))
-		case dataTypeFloat:
-			values[i] = *((*float32)(p))
-		case dataTypeDouble:
-			values[i] = *((*float64)(p))
-		case dataTypeBinary, dataTypeNchar:
-			values[i] = goString(p)
-		case dataTypeTimestamp:
-			ts := *((*int64)(p))
-			precision := int(res.resultPrecision())
-			values[i] = timestampConvertToTime(ts, precision)
-		default:
-			log.Println(field)
-			values[i] = nil
-		}
-	}
-	return nil
 }
 
 type taosField struct {

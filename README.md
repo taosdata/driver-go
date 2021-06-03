@@ -1,3 +1,6 @@
+
+[![Build Status](https://cloud.drone.io/api/badges/taosdata/driver-go/status.svg)](https://cloud.drone.io/taosdata/driver-go)
+
 # Go connector for TDengine
 
 TDengine提供了GO驱动程序taosSql. taosSql实现了GO语言的内置接口database/sql/driver。用户只需按如下方式引入包就可以在应用程序中访问TDengin, 详见<https://github.com/taosdata/driver-go/blob/develop/taosSql/driver_test.go>
