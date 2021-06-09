@@ -16,7 +16,9 @@ package taosSql
 
 /*
 #cgo CFLAGS: -IC:/TDengine/include -I/usr/include
-#cgo LDFLAGS: -LC:/TDengine/driver -L/usr/lib -ltaos
+#cgo linux LDFLAGS: -L/usr/lib -ltaos
+#cgo windows LDFLAGS: -LC:/TDengine/driver -ltaos
+#cgo darwin LDFLAGS: -L/usr/local/taos/driver -ltaos
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
