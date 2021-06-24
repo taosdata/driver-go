@@ -117,11 +117,6 @@ func (res *taosRes) stopQuery() {
 	C.taos_stop_query(res.ref)
 }
 
-// bool taos_is_null(TAOS_RES *res, int32_t row, int32_t col)
-func (res *taosRes) isNull(row int, col int) bool {
-	return bool(C.taos_is_null(res.ref, C.int(row), C.int(col)))
-}
-
 // void taos_free_result(TAOS_RES *res)
 func (res *taosRes) freeResult() {
 	C.taos_free_result(res.ref)
