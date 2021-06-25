@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	db, err := taos.Open("log")
+	db, err := taos.Open("", "", "", "log", 0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -34,8 +34,8 @@ type taosDB struct {
 	ref unsafe.Pointer
 }
 
-func Open(dbname string) (db DB, err error) {
-	db = taosConnect("", "", "", dbname, 0)
+func Open(host string, user string, pass string, dbname string, port int) (db DB, err error) {
+	db = taosConnect(host, user, pass, dbname, port)
 	if db == nil {
 		err = fmt.Errorf("failed to connect to database %s", dbname)
 		return

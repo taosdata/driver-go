@@ -39,7 +39,7 @@ Please refer to the [demo app](https://github.com/taosdata/TDengine/blob/develop
 
 Open DB:
 ```
-Open(dbname string) (db DB, err error)
+Open(host string, user string, pass string, dbname string, port int) (db DB, err error)
 ```
 
 Subscribe:
