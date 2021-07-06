@@ -213,7 +213,7 @@ func TestFetchFields(t *testing.T) {
 		num    int
 		fields []taosField
 	}{
-		{"show databases", 19, []taosField{{"name", 8, 32}, {"created_time", 9, 8}, {"ntables", 4, 4}, {"vgroups", 4, 4}, {"replica", 3, 2}, {"quorum", 3, 2}, {"days", 3, 2}, {"keep0,keep1,keep(D)", 8, 24}, {"cache(MB)", 4, 4}, {"blocks", 4, 4}, {"minrows", 4, 4}, {"maxrows", 4, 4}, {"wallevel", 2, 1}, {"fsync", 4, 4}, {"comp", 2, 1}, {"cachelast", 2, 1}, {"precision", 8, 3}, {"update", 2, 1}, {"status", 8, 10}}},
+		{"show databases", 19, []taosField{{"name", 8, 32}, {"created_time", 9, 8}, {"ntables", 4, 4}, {"vgroups", 4, 4}, {"replica", 3, 2}, {"quorum", 3, 2}, {"days", 3, 2}, {"keep", 8, 24}, {"cache(MB)", 4, 4}, {"blocks", 4, 4}, {"minrows", 4, 4}, {"maxrows", 4, 4}, {"wallevel", 2, 1}, {"fsync", 4, 4}, {"comp", 2, 1}, {"cachelast", 2, 1}, {"precision", 8, 3}, {"update", 2, 1}, {"status", 8, 10}}},
 		{"select ts, level, content from log limit 1", 3, []taosField{{"ts", 9, 8}, {"level", 2, 1}, {"content", 8, 100}}},
 		{"select 1", 1, []taosField{{"server_status()", 4, 4}}},
 		{"select server_version()", 1, []taosField{{"server_version()", 8, 7}}},
@@ -229,6 +229,7 @@ func TestFetchFields(t *testing.T) {
 				t.Fatal(fields)
 			}
 			if !reflect.DeepEqual(fields, c.fields) {
+				fmt.Println("\n", fields, "\n", c.fields)
 				t.Fatal("\n", fields, "\n", c.fields)
 			}
 		})
