@@ -386,7 +386,7 @@ func (stmt *taosStmt) useResult() (res *taosRes) {
 func (res *taosRes) Next(values []driver.Value) (err error) {
 	fields := res.fetchFields()
 	if len(values) != len(fields) {
-		err = &TaosError{Code: 0, ErrStr: "values and fields length not match"}
+		err = &TaosError{Code: 0xffff, ErrStr: "values and fields length not match"}
 		return
 	}
 

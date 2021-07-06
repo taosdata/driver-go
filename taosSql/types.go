@@ -43,7 +43,7 @@ func (n *NullInt64) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int64)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse int64 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int64 error"}
 	}
 	n.Inner = v
 	return nil
@@ -71,7 +71,7 @@ func (n *NullInt32) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int32)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse int32 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -99,7 +99,7 @@ func (n *NullInt16) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int16)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse int16 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int16 error"}
 	}
 	n.Inner = v
 	return nil
@@ -127,7 +127,7 @@ func (n *NullInt8) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int8)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse int8 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int8 error"}
 	}
 	n.Inner = v
 	return nil
@@ -155,7 +155,7 @@ func (n *NullUInt64) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint64)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse uint64 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint64 error"}
 	}
 	n.Inner = v
 	return nil
@@ -183,7 +183,7 @@ func (n *NullUInt32) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint32)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse uint32 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -211,7 +211,7 @@ func (n *NullUInt16) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint16)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse uint16 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint16 error"}
 	}
 	n.Inner = v
 	return nil
@@ -239,7 +239,7 @@ func (n *NullUInt8) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint8)
 	if !ok {
-		return &TaosError{Code: 0, ErrStr: "taosSql parse uint8 errer"}
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint8 error"}
 	}
 	n.Inner = v
 	return nil

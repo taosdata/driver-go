@@ -363,10 +363,11 @@ const (
 	CODE_FS_INVLD_LEVEL                int32 = 0x2207
 	CODE_FS_NO_VALID_DISK              int32 = 0x2208
 	CODE_MON_CONNECTION_INVALID        int32 = 0x2300
+	UNKNOWN                            int32 = 0xffff
 )
 
 func (e *TaosError) Error() string {
-	if e.Code != 0 {
+	if e.Code != UNKNOWN {
 		return fmt.Sprintf("[0x%x] %s", e.Code, e.ErrStr)
 	}
 	return e.ErrStr

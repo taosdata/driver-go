@@ -23,10 +23,10 @@ import (
 )
 
 var (
-	errInvalidDSNUnescaped = &TaosError{Code: 0, ErrStr: "invalid DSN: did you forget to escape a param value?"}
-	errInvalidDSNAddr      = &TaosError{Code: 0, ErrStr: "invalid DSN: network address not terminated (missing closing brace)"}
-	errInvalidDSNPort      = &TaosError{Code: 0, ErrStr: "invalid DSN: network port is not a valid number"}
-	errInvalidDSNNoSlash   = &TaosError{Code: 0, ErrStr: "invalid DSN: missing the slash separating the database name"}
+	errInvalidDSNUnescaped = &TaosError{Code: 0xffff, ErrStr: "invalid DSN: did you forget to escape a param value?"}
+	errInvalidDSNAddr      = &TaosError{Code: 0xffff, ErrStr: "invalid DSN: network address not terminated (missing closing brace)"}
+	errInvalidDSNPort      = &TaosError{Code: 0xffff, ErrStr: "invalid DSN: network port is not a valid number"}
+	errInvalidDSNNoSlash   = &TaosError{Code: 0xffff, ErrStr: "invalid DSN: missing the slash separating the database name"}
 )
 
 // Config is a configuration parsed from a DSN string.
@@ -154,7 +154,7 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			var isBool bool
 			cfg.columnsWithAlias, isBool = readBool(value)
 			if !isBool {
-				return &TaosError{Code: 0, ErrStr: "invalid bool value: " + value}
+				return &TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
 			}
 
 		// Enable client side placeholder substitution
@@ -162,7 +162,7 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			var isBool bool
 			cfg.interpolateParams, isBool = readBool(value)
 			if !isBool {
-				return &TaosError{Code: 0, ErrStr: "invalid bool value: " + value}
+				return &TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
 			}
 
 		// Time Location
@@ -180,7 +180,7 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			var isBool bool
 			cfg.parseTime, isBool = readBool(value)
 			if !isBool {
-				return &TaosError{Code: 0, ErrStr: "invalid bool value: " + value}
+				return &TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
 			}
 
 		default:

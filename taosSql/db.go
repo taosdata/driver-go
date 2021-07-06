@@ -85,7 +85,7 @@ func (db *taosDB) Subscribe(restart bool, name string, sql string, interval time
 		if err != nil {
 			return
 		} else {
-			err = &TaosError{Code: 0, ErrStr: "failed to subscribe"}
+			err = &TaosError{Code: 0xffff, ErrStr: "failed to subscribe"}
 			return
 		}
 	}
@@ -98,7 +98,7 @@ func (db *taosDB) execute(sql string, params []driver.Value) (res *taosRes, err 
 		if err = getError(); err != nil {
 			return
 		} else {
-			err = &TaosError{Code: 0, ErrStr: "failed to init stmt"}
+			err = &TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 			return
 		}
 	}
@@ -139,7 +139,7 @@ func (db *taosDB) Exec(sql string, params ...driver.Value) (result driver.Result
 
 	if res == nil {
 		if err = getError(); err == nil {
-			err = &TaosError{Code: 0, ErrStr: fmt.Sprintf("failed to exec: %s", sql)}
+			err = &TaosError{Code: 0xffff, ErrStr: fmt.Sprintf("failed to exec: %s", sql)}
 		}
 		return
 	}
@@ -169,7 +169,7 @@ func (db *taosDB) Query(sql string, params ...driver.Value) (rows driver.Rows, e
 	}
 	if res == nil {
 		if err = getError(); err == nil {
-			err = &TaosError{Code: 0, ErrStr: "failed to query"}
+			err = &TaosError{Code: 0xffff, ErrStr: "failed to query"}
 		}
 		return
 	}
