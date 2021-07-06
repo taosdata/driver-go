@@ -2,6 +2,7 @@ package taosSql
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"io"
 	"reflect"
 	"testing"
@@ -18,10 +19,15 @@ func TestColumns(t *testing.T) {
 	}
 	defer rows.Close()
 	columns := rows.Columns()
+	fmt.Println(columns)
 	if !reflect.DeepEqual(columns, []string{"name", "created_time", "ntables",
-		"vgroups", "replica", "quorum", "days", "keep0,keep1,keep(D)",
+		"vgroups", "replica", "quorum", "days", "keep0,keep1,keep2",
 		"cache(MB)", "blocks", "minrows", "maxrows", "wallevel", "fsync",
-		"comp", "cachelast", "precision", "update", "status"}) {
+		"comp", "cachelast", "precision", "update", "status"}) &&
+		!reflect.DeepEqual(columns, []string{"name", "created_time", "ntables",
+			"vgroups", "replica", "quorum", "days", "keep",
+			"cache(MB)", "blocks", "minrows", "maxrows", "wallevel", "fsync",
+			"comp", "cachelast", "precision", "update", "status"}) {
 		t.Fatal(columns)
 	}
 }
