@@ -27,7 +27,6 @@ package taosSql
 import "C"
 
 import (
-	"errors"
 	"unsafe"
 )
 
@@ -53,7 +52,10 @@ func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsaf
 	}
 
 	if taosObj == nil {
-		return nil, errors.New("taos_connect() fail!")
+		return nil, &TaosError{
+			Code:   CODE_TSC_INVALID_CONNECTION,
+			ErrStr: "invalid connection",
+		}
 	}
 
 	return taosObj, nil
@@ -71,15 +73,20 @@ func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 	mc.result = unsafe.Pointer(C.taos_query(mc.taos, csqlstr))
 	//mc.result = unsafe.Pointer(C.taos_query_c(mc.taos, csqlstr.Str, C.uint32_t(csqlstr.Len)))
 	code := C.taos_errno(mc.result)
-	if 0 != code {
+	if code != 0 {
 		errStr := C.GoString(C.taos_errstr(mc.result))
 		mc.taos_error()
-		return 0, errors.New(errStr)
+
+		return 0, &TaosError{
+			Code:   int32(code) & 0xffff,
+			ErrStr: errStr,
+		}
 	}
 
 	// read result and save into mc struct
 	num_fields := int(C.taos_field_count(mc.result))
-	if 0 == num_fields { // there are no select and show kinds of commands
+	if num_fields == 0 {
+		// there are no select and show kinds of commands
 		mc.affectedRows = int(C.taos_affected_rows(mc.result))
 		mc.insertId = 0
 	}

@@ -26,7 +26,6 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -42,7 +41,7 @@ func (mc *taosConn) readColumns(count int) ([]taosSqlField, error) {
 	columns := make([]taosSqlField, count)
 
 	if mc.result == nil {
-		return nil, errors.New("invalid result")
+		return nil, &TaosError{Code: 0, ErrStr: "invalid result"}
 	}
 
 	pFields := (*C.struct_taosField)(C.taos_fetch_fields(mc.result))
@@ -100,7 +99,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	}
 
 	if mc.result == nil {
-		return errors.New("result is nil!")
+		return &TaosError{Code: 0, ErrStr: "result is nil!"}
 	}
 
 	//var row *unsafe.Pointer

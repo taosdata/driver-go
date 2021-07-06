@@ -16,9 +16,9 @@
 package taosSql
 
 const (
-	timeFormat              = "2006-01-02 15:04:05"
-    maxTaosSqlLen           = 65380
-	defaultBufSize          = maxTaosSqlLen + 32
+	timeFormat     = "2006-01-02 15:04:05"
+	maxTaosSqlLen  = 65380
+	defaultBufSize = maxTaosSqlLen + 32
 )
 
 type fieldType byte
@@ -48,4 +48,3 @@ const (
 	statusInTransReadonly
 	statusSessionStateChanged
 )
-
