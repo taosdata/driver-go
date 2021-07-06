@@ -2,22 +2,14 @@ kind: pipeline
 name: default
 
 steps:
-- name: tdengine
-  image: alpine/git
-  commands:
-    - git clone -b develop https://github.com/taosdata/TDengine.git _tdengine
 - name: test
   image: golang
   commands:
-  - apt-get update
-  - apt-get install -y cmake build-essential gcc
-  - mkdir _tdengine/build
-  - cd _tdengine/build
-  - cmake ..
-  - make
-  - make install
-  - echo "firstEp                   $(hostname):6030" > /etc/taos/taos.cfg
-  - echo "fqdn                   $(hostname)" >> /etc/taos/taos.cfg
+  - wget https://www.taosdata.com/assets-download/TDengine-server-2.1.3.2-Linux-x64.tar.gz
+  - tar xvf TDengine-server-2.1.3.2-Linux-x64.tar.gz
+  - cd TDengine-server-2.1.3.2/
+  - printf "\n\n"|./install.sh
   - nohup taosd &
-  - cd ../../
+  - cd ../
+  - go mod tidy
   - go test -v ./...

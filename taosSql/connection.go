@@ -19,16 +19,10 @@ import "C"
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
-)
-
-var (
-	errInvalidConn = errors.New("invalid connection")
-	errConnNoExist = errors.New("no existent connection ")
 )
 
 type taosConn struct {
@@ -56,14 +50,13 @@ func (res *taosSqlResult) RowsAffected() (int64, error) {
 }
 
 func (mc *taosConn) Begin() (driver.Tx, error) {
-	return nil, errors.New("taosSql does not support transaction")
+	return nil, &TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
 func (mc *taosConn) Close() (err error) {
-	if mc.taos == nil {
-		return errConnNoExist
+	if mc.taos != nil {
+		mc.taos_close()
 	}
-	mc.taos_close()
 	return nil
 }
 
@@ -277,7 +270,7 @@ func (mc *taosConn) Ping(ctx context.Context) (err error) {
 
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return nil, errors.New("taosSql does not support transaction")
+	return nil, &TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
 func (mc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {

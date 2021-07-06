@@ -25,7 +25,6 @@ import "C"
 
 import (
 	"database/sql/driver"
-	"errors"
 	"io"
 	"log"
 	"time"
@@ -113,8 +112,8 @@ func (res *taosRes) errstr() string {
 }
 
 // int taos_errno(TAOS_RES *tres);
-func (res *taosRes) errno() int {
-	return int(C.taos_errno(res.ref))
+func (res *taosRes) errno() int32 {
+	return int32(C.taos_errno(res.ref))
 }
 
 // call after fetchRow
@@ -387,7 +386,7 @@ func (stmt *taosStmt) useResult() (res *taosRes) {
 func (res *taosRes) Next(values []driver.Value) (err error) {
 	fields := res.fetchFields()
 	if len(values) != len(fields) {
-		err = errors.New("values and fields length not match")
+		err = &TaosError{Code: 0xffff, ErrStr: "values and fields length not match"}
 		return
 	}
 

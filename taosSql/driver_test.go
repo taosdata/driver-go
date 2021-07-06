@@ -184,7 +184,7 @@ func TestAny(t *testing.T) {
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select errror"), userErr, false, fp, int64(1)})
+			&Obj{fmt.Sprintf("select error"), userErr, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select * from %s.t%d", dbName, 0), nil, false, fp, int64(-1)})
 		tests = append(tests,
