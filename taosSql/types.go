@@ -28,6 +28,8 @@ type UInt8 int8
 type UInt16 int16
 type UInt32 int32
 type UInt64 int64
+type Float32 float32
+type Double32 float64
 
 type NullInt64 struct {
 	Inner int64
@@ -245,6 +247,98 @@ func (n *NullUInt8) Scan(value interface{}) error {
 	return nil
 }
 
+type NullFloat32 struct {
+	Inner float32
+	Valid bool // Valid is true if Inner is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (n *NullFloat32) Scan(value interface{}) error {
+	if value == nil {
+		n.Inner, n.Valid = 0, false
+		return nil
+	}
+	n.Valid = true
+	v, ok := value.(float32)
+	if !ok {
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+	}
+	n.Inner = v
+	return nil
+}
+
+type NullFloat64 struct {
+	Inner float64
+	Valid bool // Valid is true if Inner is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (n *NullFloat64) Scan(value interface{}) error {
+	if value == nil {
+		n.Inner, n.Valid = 0, false
+		return nil
+	}
+	n.Valid = true
+	v, ok := value.(float64)
+	if !ok {
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+	}
+	n.Inner = v
+	return nil
+}
+
+type NullBool struct {
+	Inner bool
+	Valid bool // Valid is true if Inner is not NULL
+}
+
+func (n *NullBool) Scan(value interface{}) error {
+	if value == nil {
+		n.Valid = false
+		return nil
+	}
+	n.Valid = true
+	v, ok := value.(bool)
+	if !ok {
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+	}
+	n.Inner = v
+	return nil
+}
+
+func (n NullBool) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
+}
+
+type NullString struct {
+	Inner string
+	Valid bool // Valid is true if Inner is not NULL
+}
+
+func (n *NullString) Scan(value interface{}) error {
+	if value == nil {
+		n.Valid = false
+		return nil
+	}
+	n.Valid = true
+	v, ok := value.(string)
+	if !ok {
+		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+	}
+	n.Inner = v
+	return nil
+}
+
+func (n NullString) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
+}
+
 // Value implements the driver Valuer interface.
 func (n NullUInt8) Value() (driver.Value, error) {
 	if !n.Valid {
@@ -300,6 +394,20 @@ func (v NullInt32) String() string {
 }
 
 func (v NullInt64) String() string {
+	if v.Valid {
+		return fmt.Sprintf("%v", v.Inner)
+	}
+	return "NULL"
+}
+
+func (v NullFloat32) String() string {
+	if v.Valid {
+		return fmt.Sprintf("%v", v.Inner)
+	}
+	return "NULL"
+}
+
+func (v NullFloat64) String() string {
 	if v.Valid {
 		return fmt.Sprintf("%v", v.Inner)
 	}

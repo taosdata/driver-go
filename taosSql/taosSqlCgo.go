@@ -94,6 +94,14 @@ func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 	return num_fields, nil
 }
 
+func (mc *taosConn) taosFetchBlock() (uint, error) {
+	var block C.TAOS_ROW
+	mc.block = unsafe.Pointer(&block)
+	mc.blockOffset = 0
+	mc.blockSize = uint(C.taos_fetch_block(mc.result, (*C.TAOS_ROW)(mc.block)))
+	return mc.blockSize, nil
+}
+
 func (mc *taosConn) taos_close() {
 	C.taos_close(mc.taos)
 	mc.taos = nil

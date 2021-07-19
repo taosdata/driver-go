@@ -43,7 +43,7 @@ func (stmt *taosSqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *taosSqlStmt) Query(args []driver.Value) (driver.Rows, error) {
-	if  stmt.mc == nil || stmt.mc.taos == nil {
+	if stmt.mc == nil || stmt.mc.taos == nil {
 		return nil, errInvalidConn
 	}
 	return stmt.query(args)
@@ -51,7 +51,7 @@ func (stmt *taosSqlStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *taosSqlStmt) query(args []driver.Value) (*binaryRows, error) {
 	mc := stmt.mc
-	if  mc == nil || mc.taos == nil {
+	if mc == nil || mc.taos == nil {
 		return nil, errInvalidConn
 	}
 
