@@ -102,8 +102,30 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		return &TaosError{Code: 0xffff, ErrStr: "result is nil!"}
 	}
 
-	//var row *unsafe.Pointer
-	row := C.taos_fetch_row(mc.result)
+	var row C.TAOS_ROW
+	if mc.block == nil {
+		mc.blockScanned = 0
+		mc.taosFetchBlock()
+	}
+	if mc.blockSize == 0 {
+		mc.block = nil
+		mc.result = nil
+		C.taos_free_result(mc.result)
+		return io.EOF
+	}
+
+	if mc.blockOffset >= mc.blockSize {
+		mc.taosFetchBlock()
+	}
+	if mc.blockSize == 0 {
+		mc.block = nil
+		mc.result = nil
+		C.taos_free_result(mc.result)
+		return io.EOF
+	}
+
+	row = *(*C.TAOS_ROW)(unsafe.Pointer(uintptr(mc.block)))
+
 	if row == nil {
 		rows.rs.done = true
 		C.taos_free_result(mc.result)
@@ -112,13 +134,10 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 		return io.EOF
 	}
 
-	length := C.taos_fetch_lengths(mc.result)
-
-	//fmt.Printf("sizeof(int): %d, sizeof(int32): %d\n\n", unsafe.Sizeof(int(0)), unsafe.Sizeof(int32(0)))
-	// because sizeof(void*)  == sizeof(int*) == 8
-	// notes: sizeof(int) == 8 in go, but sizeof(int) == 4 in C.
+	// length := C.taos_fetch_lengths(mc.result)
 	for i := range dest {
-		currentRow := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + uintptr(i)*unsafe.Sizeof(int(0)))))))
+		pCol := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + uintptr(i)*unsafe.Sizeof(row)))
+		currentRow := unsafe.Pointer(pCol + uintptr(mc.blockOffset)*uintptr(rows.rs.columns[i].length))
 
 		if currentRow == nil {
 			dest[i] = nil
@@ -132,90 +151,64 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			} else {
 				dest[i] = false
 			}
-			break
 
 		case C.TSDB_DATA_TYPE_TINYINT:
 			dest[i] = (int8)(*((*int8)(currentRow)))
-			break
 
 		case C.TSDB_DATA_TYPE_SMALLINT:
 			dest[i] = (int16)(*((*int16)(currentRow)))
-			break
 
 		case C.TSDB_DATA_TYPE_INT:
 			dest[i] = (int32)(*((*int32)(currentRow))) // notes int32 of go <----> int of C
-			break
 
 		case C.TSDB_DATA_TYPE_BIGINT:
 			dest[i] = (int64)(*((*int64)(currentRow)))
-			break
 
 		case C.TSDB_DATA_TYPE_UTINYINT:
 			dest[i] = (uint8)(*((*uint8)(currentRow)))
-			break
 
 		case C.TSDB_DATA_TYPE_USMALLINT:
 			dest[i] = (uint16)(*((*uint16)(currentRow)))
-			break
 
 		case C.TSDB_DATA_TYPE_UINT:
 			dest[i] = (uint32)(*((*uint32)(currentRow))) // notes uint32 of go <----> unsigned int of C
-			break
 
 		case C.TSDB_DATA_TYPE_UBIGINT:
 			dest[i] = (uint64)(*((*uint64)(currentRow)))
-			break
 
 		case C.TSDB_DATA_TYPE_FLOAT:
-			//dest[i] = (*((*float32)(currentRow)))
-			fvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
-			var fi int32
-			fVal := make([]byte, fvLen)
-			for fi = 0; fi < fvLen; fi++ {
-				fVal[fi] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(fi))))
-			}
-
-			dest[i] = readFloat32(fVal)
-			break
+			dest[i] = *((*float32)(currentRow))
 
 		case C.TSDB_DATA_TYPE_DOUBLE:
-			//dest[i] = (*((*float64)(currentRow)))
-			dvLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
-			var di int32
-			dVal := make([]byte, dvLen)
-			for di = 0; di < dvLen; di++ {
-				dVal[di] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(di))))
-			}
-
-			dest[i] = readFloat64(dVal)
-			break
+			dest[i] = *((*float64)(currentRow))
 
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
-			charLen := *((*int32)(unsafe.Pointer(uintptr(unsafe.Pointer(length)) + uintptr(i)*unsafe.Sizeof(int32(0)))))
-			var index int32
+			charLen := rows.rs.columns[i].length
+			var index uint32
 			binaryVal := make([]byte, charLen)
 			for index = 0; index < charLen; index++ {
 				binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
 			}
 			dest[i] = string(binaryVal[:])
-			break
 
 		case C.TSDB_DATA_TYPE_TIMESTAMP:
-			if mc.cfg.parseTime == true {
+			if mc.cfg.parseTime {
 				timestamp := (int64)(*((*int64)(currentRow)))
 				dest[i] = timestampConvertToTime(timestamp, int(C.taos_result_precision(mc.result)))
 			} else {
 				dest[i] = (int64)(*((*int64)(currentRow)))
 			}
-			break
 
 		default:
 			fmt.Println("default fieldType: set dest[] to nil")
 			dest[i] = nil
-			break
 		}
 	}
-
+	// if mc.blockOffset == 0 {
+	// 	fmt.Println("block ", mc.block, " with size ", mc.blockSize, dest)
+	// }
+	mc.blockOffset++
+	mc.blockScanned++
 	return nil
 }
 

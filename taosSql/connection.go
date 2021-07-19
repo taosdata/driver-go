@@ -28,6 +28,10 @@ import (
 type taosConn struct {
 	taos         unsafe.Pointer
 	result       unsafe.Pointer
+	block        unsafe.Pointer
+	blockOffset  uint
+	blockSize    uint
+	blockScanned uint
 	affectedRows int
 	insertId     int
 	cfg          *config
@@ -246,6 +250,14 @@ func (mc *taosConn) query(query string, args []driver.Value) (*textRows, error) 
 		}
 		query = prepared
 	}
+	if mc.result != nil {
+		mc.free_result()
+	}
+	mc.result = nil
+	mc.block = nil
+	mc.blockOffset = 0
+	mc.blockSize = 0
+	mc.blockScanned = 0
 
 	num_fields, err := mc.taosQuery(query)
 	if err == nil {
