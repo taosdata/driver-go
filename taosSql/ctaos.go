@@ -331,8 +331,8 @@ func (stmt *taosStmt) bindParam(params []driver.Value) int32 {
 			bind.buffer = unsafe.Pointer(cbuf)
 			clen := int32(len(buf))
 			p := C.malloc(C.size_t(unsafe.Sizeof(clen)))
-			bind.length = (*C.ulong)(p)
-			*(bind.length) = C.ulong(clen)
+			bind.length = (*C.uintptr_t)(p)
+			*(bind.length) = C.uintptr_t(clen)
 			defer C.free(p)
 		case string:
 			bind.buffer_type = C.TSDB_DATA_TYPE_NCHAR
@@ -341,8 +341,8 @@ func (stmt *taosStmt) bindParam(params []driver.Value) int32 {
 			defer C.free(p)
 			bind.buffer = unsafe.Pointer(p)
 			clen := int32(len(value))
-			bind.length = (*C.ulong)(C.malloc(C.size_t(unsafe.Sizeof(clen))))
-			*(bind.length) = C.ulong(clen)
+			bind.length = (*C.uintptr_t)(C.malloc(C.size_t(unsafe.Sizeof(clen))))
+			*(bind.length) = C.uintptr_t(clen)
 			defer C.free(unsafe.Pointer(bind.length))
 		case time.Time:
 			bind.buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
