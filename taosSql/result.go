@@ -183,10 +183,12 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			dest[i] = *((*float64)(currentRow))
 
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
-			charLen := rows.rs.columns[i].length
-			var index uint32
-			binaryVal := make([]byte, charLen)
-			for index = 0; index < charLen; index++ {
+			currentRow = unsafe.Pointer(pCol + uintptr(mc.blockOffset)*uintptr(rows.rs.columns[i].length+2))
+			clen := (int16)(*((*int16)(currentRow)))
+			currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+			binaryVal := make([]byte, clen)
+
+			for index := int16(0); index < clen; index++ {
 				binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
 			}
 			dest[i] = string(binaryVal[:])
