@@ -267,6 +267,13 @@ func (n *NullFloat32) Scan(value interface{}) error {
 	return nil
 }
 
+func (n NullFloat32) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
+}
+
 type NullFloat64 struct {
 	Inner float64
 	Valid bool // Valid is true if Inner is not NULL
@@ -285,6 +292,13 @@ func (n *NullFloat64) Scan(value interface{}) error {
 	}
 	n.Inner = v
 	return nil
+}
+
+func (n NullFloat64) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
 }
 
 type NullBool struct {
