@@ -28,6 +28,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"time"
 	"unsafe"
 )
@@ -102,9 +103,8 @@ const (
 	C_BIGINT_NULL            = -9223372036854775808
 	C_BIGINT_UNSIGNED_NULL   = 18446744073709551615
 	C_BINARY_NULL            = byte(0xff)
+	C_NCHAR_NULL             = byte(0xff)
 	C_TIMESTAMP_NULL         = C_BIGINT_NULL
-	C_FLOAT_NULL             = 0x7FF00000
-	C_DOUBLE_NULL            = 0x7FFFFF0000000000
 )
 
 func (rows *taosSqlRows) readRow(dest []driver.Value) error {
@@ -219,18 +219,18 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 				dest[i] = *((*uint64)(currentRow))
 			}
 		case C.TSDB_DATA_TYPE_FLOAT:
-			if (float32)(*((*float32)(currentRow))) >= C_FLOAT_NULL {
+			if math.IsNaN(float64(*((*float32)(currentRow)))) {
 				dest[i] = nil
 			} else {
 				dest[i] = *((*float32)(currentRow))
 			}
 		case C.TSDB_DATA_TYPE_DOUBLE:
-			if (float64)(*((*float64)(currentRow))) >= C_DOUBLE_NULL {
+			if math.IsNaN(*((*float64)(currentRow))) {
 				dest[i] = nil
 			} else {
 				dest[i] = *((*float64)(currentRow))
 			}
-		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
+		case C.TSDB_DATA_TYPE_BINARY:
 			currentRow = unsafe.Pointer(pCol + uintptr(mc.blockOffset)*uintptr(rows.rs.columns[i].length+2))
 			clen := *((*int16)(currentRow))
 			currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
@@ -244,7 +244,20 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 			} else {
 				dest[i] = string(binaryVal[:])
 			}
+		case C.TSDB_DATA_TYPE_NCHAR:
+			currentRow = unsafe.Pointer(pCol + uintptr(mc.blockOffset)*uintptr(rows.rs.columns[i].length+2))
+			clen := *((*int16)(currentRow))
+			currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+			binaryVal := make([]byte, clen)
 
+			for index := int16(0); index < clen; index++ {
+				binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
+			}
+			if clen == 4 && binaryVal[0] == C_NCHAR_NULL && binaryVal[1] == C_NCHAR_NULL && binaryVal[2] == C_NCHAR_NULL && binaryVal[3] == C_NCHAR_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = string(binaryVal[:])
+			}
 		case C.TSDB_DATA_TYPE_TIMESTAMP:
 			if (int64)(*((*int64)(currentRow))) == C_TIMESTAMP_NULL {
 				dest[i] = nil
