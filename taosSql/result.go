@@ -91,6 +91,22 @@ func readFloat64(b []byte) float64 {
 	return pi
 }
 
+const (
+	C_BOOL_NULL              = 0x02
+	C_TINYINT_NULL           = -128
+	C_TINYINT_UNSIGNED_NULL  = 255
+	C_SMALLINT_NULL          = -32768
+	C_SMALLINT_UNSIGNED_NULL = 65535
+	C_INT_NULL               = -2147483648
+	C_INT_UNSIGNED_NULL      = 4294967295
+	C_BIGINT_NULL            = -9223372036854775808
+	C_BIGINT_UNSIGNED_NULL   = 18446744073709551615
+	C_BINARY_NULL            = byte(0xff)
+	C_TIMESTAMP_NULL         = C_BIGINT_NULL
+	C_FLOAT_NULL             = 0x7FF00000
+	C_DOUBLE_NULL            = 0x7FFFFF0000000000
+)
+
 func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	mc := rows.mc
 
@@ -146,59 +162,98 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 
 		switch rows.rs.columns[i].fieldType {
 		case C.TSDB_DATA_TYPE_BOOL:
-			if (*((*byte)(currentRow))) != 0 {
+			if (*((*byte)(currentRow))) == C_BOOL_NULL {
+				dest[i] = nil
+			} else if (*((*byte)(currentRow))) != 0 {
 				dest[i] = true
 			} else {
 				dest[i] = false
 			}
-
 		case C.TSDB_DATA_TYPE_TINYINT:
-			dest[i] = (int8)(*((*int8)(currentRow)))
-
+			if (int8)(*((*int8)(currentRow))) == C_TINYINT_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*int8)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_SMALLINT:
-			dest[i] = (int16)(*((*int16)(currentRow)))
-
+			if (int16)(*((*int16)(currentRow))) == C_SMALLINT_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*int16)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_INT:
-			dest[i] = (int32)(*((*int32)(currentRow))) // notes int32 of go <----> int of C
-
+			if (int32)(*((*int32)(currentRow))) == C_INT_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*int32)(currentRow)) // notes int32 of go <----> int of C
+			}
 		case C.TSDB_DATA_TYPE_BIGINT:
-			dest[i] = (int64)(*((*int64)(currentRow)))
-
+			if (int64)(*((*int64)(currentRow))) == C_BIGINT_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*int64)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_UTINYINT:
-			dest[i] = (uint8)(*((*uint8)(currentRow)))
+			if (uint8)(*((*uint8)(currentRow))) == C_TINYINT_UNSIGNED_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*uint8)(currentRow))
+			}
 
 		case C.TSDB_DATA_TYPE_USMALLINT:
-			dest[i] = (uint16)(*((*uint16)(currentRow)))
-
+			if (uint16)(*((*uint16)(currentRow))) == C_SMALLINT_UNSIGNED_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*uint16)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_UINT:
-			dest[i] = (uint32)(*((*uint32)(currentRow))) // notes uint32 of go <----> unsigned int of C
-
+			if (uint32)(*((*uint32)(currentRow))) == C_INT_UNSIGNED_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*uint32)(currentRow)) // notes uint32 of go <----> unsigned int of C
+			}
 		case C.TSDB_DATA_TYPE_UBIGINT:
-			dest[i] = (uint64)(*((*uint64)(currentRow)))
-
+			if (uint64)(*((*uint64)(currentRow))) == C_BIGINT_UNSIGNED_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*uint64)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_FLOAT:
-			dest[i] = *((*float32)(currentRow))
-
+			if (float32)(*((*float32)(currentRow))) >= C_FLOAT_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*float32)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_DOUBLE:
-			dest[i] = *((*float64)(currentRow))
-
+			if (float64)(*((*float64)(currentRow))) >= C_DOUBLE_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = *((*float64)(currentRow))
+			}
 		case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
 			currentRow = unsafe.Pointer(pCol + uintptr(mc.blockOffset)*uintptr(rows.rs.columns[i].length+2))
-			clen := (int16)(*((*int16)(currentRow)))
+			clen := *((*int16)(currentRow))
 			currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 			binaryVal := make([]byte, clen)
 
 			for index := int16(0); index < clen; index++ {
 				binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
 			}
-			dest[i] = string(binaryVal[:])
+			if clen == 1 && binaryVal[0] == C_BINARY_NULL {
+				dest[i] = nil
+			} else {
+				dest[i] = string(binaryVal[:])
+			}
 
 		case C.TSDB_DATA_TYPE_TIMESTAMP:
-			if mc.cfg.parseTime {
-				timestamp := (int64)(*((*int64)(currentRow)))
-				dest[i] = timestampConvertToTime(timestamp, int(C.taos_result_precision(mc.result)))
+			if (int64)(*((*int64)(currentRow))) == C_TIMESTAMP_NULL {
+				dest[i] = nil
 			} else {
-				dest[i] = (int64)(*((*int64)(currentRow)))
+				if mc.cfg.parseTime {
+					dest[i] = timestampConvertToTime(*((*int64)(currentRow)), int(C.taos_result_precision(mc.result)))
+				} else {
+					dest[i] = *((*int64)(currentRow))
+				}
 			}
 
 		default:
