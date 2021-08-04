@@ -2,19 +2,19 @@
 
 [![Build Status](https://cloud.drone.io/api/badges/taosdata/driver-go/status.svg)](https://cloud.drone.io/taosdata/driver-go)
 
-English | [简体中文](README-CN.md)
+[English](README.md) | 简体中文
 
-[TDengine] provides Go `database/sql` driver as [`taosSql`][driver-go].
+[TDengine]提供了GO驱动程序 [`taosSql`][driver-go]，实现了GO语言的内置数据库操作接口 `database/sql/driver`。
 
-## Install
+## 安装
 
-Go 1.14+ is highly recommended for newly created projects.
+对新建项目，建议使用Go 1.14+，并使用 GO Modules 方式进行管理。
 
 ```sh
 go mod init taos-demo
 ```
 
-import taosSql：
+引入taosSql：
 
 ```go
 import (
@@ -23,29 +23,29 @@ import (
 )
 ```
 
-Use `go mod` for module management:
+使用`go mod`方式管理依赖包：
 
 ```sh
 go mod tidy
 ```
 
-Or `go get` to directly install it:
+或通过`go get`直接下载安装：
 
 ```sh
 go get github.com/taosdata/driver-go/taosSql
 ```
 
-Use `win` branch if you are using the module in Windows os, since STMT-series APIs are not fully supported currently.
+因为目前STMT系列API在Windows下未全部开放，如果在Windows系统下使用taosSql，必须使用`win`分支才能编译通过：
 
 ```sh
 go get github.com/taosdata/driver-go/taosSql@win
 ```
 
-## Usage
+## 用法
 
-### `database/sql` Standard
+### `database/sql` 标准接口
 
-A simple use case：
+TDengine Go 连接器提供 database/sql 标准接口，使用方法简单示例如下：
 
 ```go
 import (
@@ -91,25 +91,27 @@ func main() {
 }
 ```
 
-APIs that are worthy to have a check:
+常用API列表：
 
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
-  This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be setted as `taosSql`, and `dataSourceName` should be an URI like `user:password@/tcp(host:port)/dbname`. For HA use case, use `user:password@/cfg/dbname` to apply configs in `/etc/taos/taos.cfg`。
+  该API用来创建`database/sql` DB对象，类型为`*DB`，DRIVER_NAME设置为字符串`taosSql`, dataSourceName设置为字符串`user:password@/tcp(host:port)/dbname`，对应于TDengine的高可用机制，可以使用 `user:password@/cfg/dbname`来使用`/etc/taos/taos.cfg`中的多EP配置。
+
+  **注意**： 该API成功创建的时候，并没有做权限等检查，只有在真正执行Query或者Exec的时候才能真正的去创建连接，并同时检查user/password/host/port是不是合法。 另外，由于整个驱动程序大部分实现都下沉到taosSql所依赖的libtaos中。所以，sql.Open本身特别轻量。
 
 - `func (db *DB) Exec(query string, args ...interface{}) (Result, error)`
 
-  Execute non resultset SQLs, like `create`, `alter` etc.
+  sql.Open内置的方法，用来执行非查询相关SQL，如`create`, `alter`等。
 
 - `func (db *DB) Query(query string, args ...interface{}) (*Rows, error)`
 
-  Execute an query with resultset.
+  sql.Open内置的方法，用来执行查询语句。
 
 - `func (db *DB) Close() error`
 
-  Close an DB object and disconnect.
+  sql.Open内置的方法，关闭DB对象。
 
-### Subscription
+### 订阅接口
 
 Open DB:
 
@@ -135,7 +137,7 @@ type Topic interface {
 }
 ```
 
-Check sample code for subscription at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go)。
+详情参见示例代码：[`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go)。
 
 [driver-go]: https://github.com/taosdata/driver-go
 [TDengine]: https://github.com/taosdata/TDengine
