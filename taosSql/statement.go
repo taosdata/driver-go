@@ -18,6 +18,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 type taosSqlStmt struct {
@@ -37,14 +39,14 @@ func (stmt *taosSqlStmt) NumInput() int {
 
 func (stmt *taosSqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 	if stmt.mc == nil || stmt.mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 	return stmt.mc.Exec(stmt.pSql, args)
 }
 
 func (stmt *taosSqlStmt) Query(args []driver.Value) (driver.Rows, error) {
 	if stmt.mc == nil || stmt.mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 	return stmt.query(args)
 }
@@ -52,7 +54,7 @@ func (stmt *taosSqlStmt) Query(args []driver.Value) (driver.Rows, error) {
 func (stmt *taosSqlStmt) query(args []driver.Value) (*binaryRows, error) {
 	mc := stmt.mc
 	if mc == nil || mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 
 	querySql := stmt.pSql

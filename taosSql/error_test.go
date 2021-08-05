@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/taosdata/driver-go/errors"
 )
 
 func TestErrorCode(t *testing.T) {
@@ -25,12 +26,12 @@ func TestErrorCode(t *testing.T) {
 		code   int32
 		errstr string
 	}{
-		{"use invalid_db_name", CODE_MND_INVALID_DB, "Invalid database name"},
-		{"create database log", CODE_MND_DB_ALREADY_EXIST, "Database already exists"},
-		{"create table log.log (ts timestamp, n int)", CODE_MND_TABLE_ALREADY_EXIST, "Table already exists"},
-		{"create table log.ac", CODE_TSC_SQL_SYNTAX_ERROR, "Incomplete SQL statement"},
-		{"create table log.ac (ts timestamp, n iii)", CODE_TSC_INVALID_OPERATION, "invalid data type"},
-		{"alter table log.dn add tag fqdn binary(128)", CODE_TSC_INVALID_OPERATION, "duplicated column names"},
+		{"use invalid_db_name", errors.MND_INVALID_DB, "Invalid database name"},
+		{"create database log", errors.MND_DB_ALREADY_EXIST, "Database already exists"},
+		{"create table log.log (ts timestamp, n int)", errors.MND_TABLE_ALREADY_EXIST, "Table already exists"},
+		{"create table log.ac", errors.TSC_SQL_SYNTAX_ERROR, "Incomplete SQL statement"},
+		{"create table log.ac (ts timestamp, n iii)", errors.TSC_INVALID_OPERATION, "invalid data type"},
+		{"alter table log.dn add tag fqdn binary(128)", errors.TSC_INVALID_OPERATION, "duplicated column names"},
 	}
 	for i, c := range cases {
 		name := fmt.Sprintf("%02d:%s", i, c.sql)
@@ -38,7 +39,7 @@ func TestErrorCode(t *testing.T) {
 			_, err = db.Exec(c.sql)
 			if err != nil {
 				switch e := err.(type) {
-				case *TaosError:
+				case *errors.TaosError:
 					fmt.Println("TaosError: ", e)
 					assert.Equal(t, e.Code, c.code)
 					assert.Contains(t, e.ErrStr, c.errstr)
