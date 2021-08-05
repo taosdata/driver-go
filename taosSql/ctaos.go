@@ -29,6 +29,8 @@ import (
 	"log"
 	"time"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 // int taos_result_precision(TAOS_RES *res)
@@ -386,7 +388,7 @@ func (stmt *taosStmt) useResult() (res *taosRes) {
 func (res *taosRes) Next(values []driver.Value) (err error) {
 	fields := res.fetchFields()
 	if len(values) != len(fields) {
-		err = &TaosError{Code: 0xffff, ErrStr: "values and fields length not match"}
+		err = &errors.TaosError{Code: 0xffff, ErrStr: "values and fields length not match"}
 		return
 	}
 

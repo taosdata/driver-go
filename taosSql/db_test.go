@@ -17,7 +17,7 @@ func testDatabase(t *testing.T) DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("create database if not exists test precision 'us' update 1")
+	_, err = db.Exec("create database if not exists test precision 'us' update 1 keep 36500")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestStmtQuery(t *testing.T) {
 		params []driver.Value
 		skip   bool
 	}{
-		{"ts timestamp, value int", "now, 1", "value = ?", vs(1), false},
+		{"ts timestamp, value int", "0, 1", "value = ?", vs(1), false},
 		{"ts timestamp, value bool", "now, true", "value = ?", vs(true), false},
 		{"ts timestamp, value tinyint", "now, 3", "value = ?", vs(int8(3)), false},
 		{"ts timestamp, value tinyint", "now, 4", "value = ?", vs(4), false},

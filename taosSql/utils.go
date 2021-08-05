@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 // Returns the bool value of the input.
@@ -441,7 +443,7 @@ func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {
 	for n, param := range named {
 		if len(param.Name) > 0 {
 			// TODO: support the use of Named Parameters #561
-			return nil, &TaosError{Code: 0xffff, ErrStr: "taosSql: driver does not support the use of Named Parameters"}
+			return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql: driver does not support the use of Named Parameters"}
 		}
 		dargs[n] = param.Value
 	}

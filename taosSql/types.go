@@ -18,6 +18,8 @@ import "C"
 import (
 	"database/sql/driver"
 	"fmt"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 type Int8 int8
@@ -45,7 +47,7 @@ func (n *NullInt64) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int64)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int64 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse int64 error"}
 	}
 	n.Inner = v
 	return nil
@@ -73,7 +75,7 @@ func (n *NullInt32) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int32)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse int32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -101,7 +103,7 @@ func (n *NullInt16) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int16)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int16 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse int16 error"}
 	}
 	n.Inner = v
 	return nil
@@ -129,7 +131,7 @@ func (n *NullInt8) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(int8)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse int8 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse int8 error"}
 	}
 	n.Inner = v
 	return nil
@@ -157,7 +159,7 @@ func (n *NullUInt64) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint64)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint64 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse uint64 error"}
 	}
 	n.Inner = v
 	return nil
@@ -185,7 +187,7 @@ func (n *NullUInt32) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint32)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse uint32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -213,7 +215,7 @@ func (n *NullUInt16) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint16)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint16 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse uint16 error"}
 	}
 	n.Inner = v
 	return nil
@@ -241,7 +243,7 @@ func (n *NullUInt8) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(uint8)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse uint8 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse uint8 error"}
 	}
 	n.Inner = v
 	return nil
@@ -261,7 +263,7 @@ func (n *NullFloat32) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(float32)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -288,7 +290,7 @@ func (n *NullFloat64) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(float64)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -314,7 +316,7 @@ func (n *NullBool) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(bool)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
 	}
 	n.Inner = v
 	return nil
@@ -340,7 +342,7 @@ func (n *NullString) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(string)
 	if !ok {
-		return &TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
 	}
 	n.Inner = v
 	return nil

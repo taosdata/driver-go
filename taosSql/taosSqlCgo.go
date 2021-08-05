@@ -28,6 +28,8 @@ import "C"
 
 import (
 	"unsafe"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 type UserChar struct {
@@ -52,8 +54,8 @@ func (mc *taosConn) taosConnect(ip, user, pass, db string, port int) (taos unsaf
 	}
 
 	if taosObj == nil {
-		return nil, &TaosError{
-			Code:   CODE_TSC_INVALID_CONNECTION,
+		return nil, &errors.TaosError{
+			Code:   errors.TSC_INVALID_CONNECTION,
 			ErrStr: "invalid connection",
 		}
 	}
@@ -77,7 +79,7 @@ func (mc *taosConn) taosQuery(sqlstr string) (int, error) {
 		errStr := C.GoString(C.taos_errstr(mc.result))
 		mc.taos_error()
 
-		return 0, &TaosError{
+		return 0, &errors.TaosError{
 			Code:   int32(code) & 0xffff,
 			ErrStr: errStr,
 		}

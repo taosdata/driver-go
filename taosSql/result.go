@@ -31,6 +31,8 @@ import (
 	"math"
 	"time"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 /******************************************************************************
@@ -42,7 +44,7 @@ func (mc *taosConn) readColumns(count int) ([]taosSqlField, error) {
 	columns := make([]taosSqlField, count)
 
 	if mc.result == nil {
-		return nil, &TaosError{Code: 0xffff, ErrStr: "invalid result"}
+		return nil, &errors.TaosError{Code: 0xffff, ErrStr: "invalid result"}
 	}
 
 	pFields := (*C.struct_taosField)(C.taos_fetch_fields(mc.result))
@@ -115,7 +117,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	}
 
 	if mc.result == nil {
-		return &TaosError{Code: 0xffff, ErrStr: "result is nil!"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "result is nil!"}
 	}
 
 	var row C.TAOS_ROW

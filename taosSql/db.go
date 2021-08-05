@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 type DB interface {
@@ -49,7 +51,7 @@ type taosTopic struct {
 
 func getError() error {
 	if errno := getErrno(); errno != 0 {
-		return &TaosError{Code: errno & 0xffff, ErrStr: tstrerror(errno)}
+		return &errors.TaosError{Code: errno & 0xffff, ErrStr: tstrerror(errno)}
 	}
 	return nil
 }
@@ -85,7 +87,7 @@ func (db *taosDB) Subscribe(restart bool, name string, sql string, interval time
 		if err != nil {
 			return
 		} else {
-			err = &TaosError{Code: 0xffff, ErrStr: "failed to subscribe"}
+			err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to subscribe"}
 			return
 		}
 	}
@@ -98,29 +100,29 @@ func (db *taosDB) execute(sql string, params []driver.Value) (res *taosRes, err 
 		if err = getError(); err != nil {
 			return
 		} else {
-			err = &TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
+			err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 			return
 		}
 	}
 
 	defer stmt.close()
 	if rc := stmt.prepare(sql); rc != 0 {
-		err = &TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
+		err = &errors.TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
 		return
 	}
 
 	if rc := stmt.bindParam(params); rc < 0 {
-		err = &TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
+		err = &errors.TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
 		return
 	}
 	if isInsert := stmt.isInsert(); isInsert == 1 {
 		if rc := stmt.addBatch(); rc != 0 {
-			err = &TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
+			err = &errors.TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
 			return
 		}
 	}
 	if rc := stmt.execute(); rc < 0 {
-		err = &TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
+		err = &errors.TaosError{Code: rc & 0xffff, ErrStr: tstrerror(rc)}
 		return
 	}
 	res = stmt.useResult()
@@ -139,18 +141,18 @@ func (db *taosDB) Exec(sql string, params ...driver.Value) (result driver.Result
 
 	if res == nil {
 		if err = getError(); err == nil {
-			err = &TaosError{Code: 0xffff, ErrStr: fmt.Sprintf("failed to exec: %s", sql)}
+			err = &errors.TaosError{Code: 0xffff, ErrStr: fmt.Sprintf("failed to exec: %s", sql)}
 		}
 		return
 	}
 	defer res.freeResult()
 	if errno := res.errno(); errno != 0 {
-		err = &TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
+		err = &errors.TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
 		return
 	}
 	rowsAffected := res.affectedRows()
 	if errno := res.errno(); errno != 0 {
-		err = &TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
+		err = &errors.TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
 		return
 	}
 	result = driver.RowsAffected(rowsAffected)
@@ -169,13 +171,13 @@ func (db *taosDB) Query(sql string, params ...driver.Value) (rows driver.Rows, e
 	}
 	if res == nil {
 		if err = getError(); err == nil {
-			err = &TaosError{Code: 0xffff, ErrStr: "failed to query"}
+			err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to query"}
 		}
 		return
 	}
 	errno := res.errno()
 	if errno != 0 {
-		err = &TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
+		err = &errors.TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
 		return
 	}
 	rows = res
@@ -186,7 +188,7 @@ func (sub *taosTopic) Consume() (rows driver.Rows, err error) {
 	res := sub.consume()
 	errno := res.errno()
 	if errno != 0 {
-		err = &TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
+		err = &errors.TaosError{Code: errno & 0xffff, ErrStr: res.errstr()}
 		return
 	}
 	sub.res = res

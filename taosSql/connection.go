@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/errors"
 )
 
 type taosConn struct {
@@ -54,7 +56,7 @@ func (res *taosSqlResult) RowsAffected() (int64, error) {
 }
 
 func (mc *taosConn) Begin() (driver.Tx, error) {
-	return nil, &TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
+	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
 func (mc *taosConn) Close() (err error) {
@@ -66,7 +68,7 @@ func (mc *taosConn) Close() (err error) {
 
 func (mc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	if mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 
 	stmt := &taosSqlStmt{
@@ -277,17 +279,17 @@ func (mc *taosConn) Ping(ctx context.Context) (err error) {
 	if mc.taos != nil {
 		return nil
 	}
-	return errInvalidConn
+	return errors.ErrTscInvalidConnection
 }
 
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return nil, &TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
+	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
 func (mc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 
 	dargs, err := namedValueToValue(args)
@@ -305,7 +307,7 @@ func (mc *taosConn) QueryContext(ctx context.Context, query string, args []drive
 
 func (mc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 
 	dargs, err := namedValueToValue(args)
@@ -318,7 +320,7 @@ func (mc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 
 func (mc *taosConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if mc.taos == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 
 	stmt, err := mc.Prepare(query)
@@ -331,7 +333,7 @@ func (mc *taosConn) PrepareContext(ctx context.Context, query string) (driver.St
 
 func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	if stmt.mc == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 	dargs, err := namedValueToValue(args)
 
@@ -348,7 +350,7 @@ func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedVa
 
 func (stmt *taosSqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	if stmt.mc == nil {
-		return nil, errInvalidConn
+		return nil, errors.ErrTscInvalidConnection
 	}
 
 	dargs, err := namedValueToValue(args)
