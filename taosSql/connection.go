@@ -61,7 +61,7 @@ func (mc *taosConn) Begin() (driver.Tx, error) {
 
 func (mc *taosConn) Close() (err error) {
 	if mc.taos != nil {
-		mc.taos_close()
+		mc.taosClose()
 	}
 	return nil
 }
@@ -223,7 +223,7 @@ func (mc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 	mc.insertId = 0
 	_, err := mc.taosQuery(query)
 	if err == nil {
-		defer mc.free_result()
+		defer mc.freeResult()
 		return &taosSqlResult{
 			affectedRows: int64(mc.affectedRows),
 			insertId:     int64(mc.insertId),
@@ -253,7 +253,7 @@ func (mc *taosConn) query(query string, args []driver.Value) (*textRows, error) 
 		query = prepared
 	}
 	if mc.result != nil {
-		mc.free_result()
+		mc.freeResult()
 	}
 	mc.result = nil
 	mc.block = nil
@@ -261,14 +261,14 @@ func (mc *taosConn) query(query string, args []driver.Value) (*textRows, error) 
 	mc.blockSize = 0
 	mc.blockScanned = 0
 
-	num_fields, err := mc.taosQuery(query)
+	numFields, err := mc.taosQuery(query)
 	if err == nil {
 		// Read Result
 		rows := new(textRows)
 		rows.mc = mc
 
 		// Columns field
-		rows.rs.columns, err = mc.readColumns(num_fields)
+		rows.rs.columns, err = mc.readColumns(numFields)
 		return rows, err
 	}
 	return nil, err

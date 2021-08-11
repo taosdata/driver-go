@@ -119,10 +119,7 @@ func (rows *taosSqlRows) ColumnTypeScanType(i int) reflect.Type {
 
 func (rows *taosSqlRows) Close() error {
 	if rows.mc != nil {
-		if rows.mc.result != nil {
-			C.taos_free_result(rows.mc.result)
-			rows.mc.result = nil
-		}
+		rows.mc.freeResult()
 		rows.mc = nil
 	}
 	return nil
