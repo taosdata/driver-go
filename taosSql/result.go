@@ -127,8 +127,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	}
 	if mc.blockSize == 0 {
 		mc.block = nil
-		mc.result = nil
-		C.taos_free_result(mc.result)
+		mc.freeResult()
 		return io.EOF
 	}
 
@@ -137,8 +136,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 	}
 	if mc.blockSize == 0 {
 		mc.block = nil
-		mc.result = nil
-		C.taos_free_result(mc.result)
+		mc.freeResult()
 		return io.EOF
 	}
 
@@ -146,8 +144,7 @@ func (rows *taosSqlRows) readRow(dest []driver.Value) error {
 
 	if row == nil {
 		rows.rs.done = true
-		C.taos_free_result(mc.result)
-		mc.result = nil
+		mc.freeResult()
 		rows.mc = nil
 		return io.EOF
 	}
