@@ -122,3 +122,11 @@ func (mc *taosConn) freeResult() {
 		mc.result = nil
 	}
 }
+
+func (mc *taosConn) setConfiguration() {
+	if GetTaosClientConf() != "" {
+		c := C.CString(GetTaosClientConf())
+		defer C.free(unsafe.Pointer(c))
+		C.taos_setConfiguration(c)
+	}
+}

@@ -41,6 +41,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	if len(mc.cfg.passwd) == 0 {
 		mc.cfg.passwd = "taosdata"
 	}
+	mc.setConfiguration()
 	mc.taos, err = mc.taosConnect(mc.cfg.addr, mc.cfg.user, mc.cfg.passwd, mc.cfg.dbName, mc.cfg.port)
 	if err != nil {
 		return nil, err

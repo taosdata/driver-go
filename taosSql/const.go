@@ -15,6 +15,11 @@
 
 package taosSql
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 const (
 	timeFormat     = "2006-01-02 15:04:05"
 	maxTaosSqlLen  = 65380
@@ -48,3 +53,18 @@ const (
 	statusInTransReadonly
 	statusSessionStateChanged
 )
+
+var taosClientConfig string
+
+func SetTaosClientConf(config string) error {
+	if json.Valid([]byte(config)) {
+		taosClientConfig = config
+		return nil
+	} else {
+		return errors.New("invalid json string")
+	}
+}
+
+func GetTaosClientConf() string {
+	return taosClientConfig
+}
