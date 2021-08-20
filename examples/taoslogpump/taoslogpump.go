@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
-	taos "github.com/taosdata/driver-go/taosSql"
+	taos "github.com/taosdata/driver-go/v2/af"
 )
 
 func main() {
-	db, err := taos.Open("log")
+	db, err := taos.Open("", "", "", "log", 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", "err")
 		os.Exit(1)

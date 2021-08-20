@@ -1,4 +1,4 @@
-package taosSql
+package af
 
 import (
 	"database/sql/driver"

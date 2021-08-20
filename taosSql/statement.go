@@ -12,18 +12,21 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
 package taosSql
 
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/wrapper"
 	"reflect"
 
-	"github.com/taosdata/driver-go/errors"
+	"github.com/taosdata/driver-go/v2/errors"
 )
 
 type taosSqlStmt struct {
-	mc         *taosConn
+	tc         *taosConn
 	id         uint32
 	pSql       string
 	paramCount int
@@ -38,49 +41,53 @@ func (stmt *taosSqlStmt) NumInput() int {
 }
 
 func (stmt *taosSqlStmt) Exec(args []driver.Value) (driver.Result, error) {
-	if stmt.mc == nil || stmt.mc.taos == nil {
+	if stmt.tc == nil || stmt.tc.taos == nil {
 		return nil, errors.ErrTscInvalidConnection
 	}
-	return stmt.mc.Exec(stmt.pSql, args)
+	return stmt.tc.Exec(stmt.pSql, args)
 }
 
 func (stmt *taosSqlStmt) Query(args []driver.Value) (driver.Rows, error) {
-	if stmt.mc == nil || stmt.mc.taos == nil {
+	if stmt.tc == nil || stmt.tc.taos == nil {
 		return nil, errors.ErrTscInvalidConnection
 	}
 	return stmt.query(args)
 }
 
-func (stmt *taosSqlStmt) query(args []driver.Value) (*binaryRows, error) {
-	mc := stmt.mc
-	if mc == nil || mc.taos == nil {
+func (stmt *taosSqlStmt) query(args []driver.Value) (*rows, error) {
+	tc := stmt.tc
+	if tc == nil || tc.taos == nil {
 		return nil, errors.ErrTscInvalidConnection
 	}
 
 	querySql := stmt.pSql
 
 	if len(args) != 0 {
-		if !mc.cfg.interpolateParams {
+		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try client-side prepare to reduce roundtrip
-		prepared, err := mc.interpolateParams(stmt.pSql, args)
+		prepared, err := common.InterpolateParams(stmt.pSql, args)
 		if err != nil {
 			return nil, err
 		}
 		querySql = prepared
 	}
 
-	num_fields, err := mc.taosQuery(querySql)
-	if err == nil {
-		// Read Result
-		rows := new(binaryRows)
-		rows.mc = mc
-		// Columns field
-		rows.rs.columns, err = mc.readColumns(num_fields)
-		return rows, err
+	result, numFields, _, err := tc.taosQuery(querySql)
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	if err != nil {
+		return nil, err
+	}
+	// Read Result
+	rs := &rows{
+		result: result,
+	}
+	// Columns field
+	rs.rh, err = wrapper.ReadColumn(result, numFields)
+	return rs, err
 }
 
 type converter struct{}

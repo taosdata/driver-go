@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/taosdata/driver-go/errors"
+	"github.com/taosdata/driver-go/v2/errors"
 )
 
 var (
@@ -43,9 +43,7 @@ type config struct {
 	dbName            string            // Database name
 	params            map[string]string // Connection parameters
 	loc               *time.Location    // Location for time.Time values
-	columnsWithAlias  bool              // Prepend table alias to column names
 	interpolateParams bool              // Interpolate placeholders into query string
-	parseTime         bool              // Parse time values to time.Time
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -53,7 +51,6 @@ func newConfig() *config {
 	return &config{
 		loc:               time.UTC,
 		interpolateParams: true,
-		parseTime:         true,
 	}
 }
 
@@ -101,13 +98,13 @@ func parseDSN(dsn string) (cfg *config, err error) {
 							}
 							//return nil, errInvalidDSNAddr
 						}
-						strs := strings.Split(dsn[k+1:i-1], ":")
-						if len(strs) == 1 {
+						strList := strings.Split(dsn[k+1:i-1], ":")
+						if len(strList) == 1 {
 							return nil, errInvalidDSNAddr
 						}
-						if len(strs[0]) != 0 {
-							cfg.addr = strs[0]
-							cfg.port, err = strconv.Atoi(strs[1])
+						if len(strList[0]) != 0 {
+							cfg.addr = strList[0]
+							cfg.port, err = strconv.Atoi(strList[1])
 							if err != nil {
 								return nil, errInvalidDSNPort
 							}
@@ -152,18 +149,10 @@ func parseDSNParams(cfg *config, params string) (err error) {
 
 		// cfg params
 		switch value := param[1]; param[0] {
-		case "columnsWithAlias":
-			var isBool bool
-			cfg.columnsWithAlias, isBool = readBool(value)
-			if !isBool {
-				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
-			}
-
 		// Enable client side placeholder substitution
 		case "interpolateParams":
-			var isBool bool
-			cfg.interpolateParams, isBool = readBool(value)
-			if !isBool {
+			cfg.interpolateParams, err = strconv.ParseBool(value)
+			if err != nil {
 				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
 			}
 
@@ -175,14 +164,6 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			cfg.loc, err = time.LoadLocation(value)
 			if err != nil {
 				return
-			}
-
-		// time.Time parsing
-		case "parseTime":
-			var isBool bool
-			cfg.parseTime, isBool = readBool(value)
-			if !isBool {
-				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
 			}
 
 		default:

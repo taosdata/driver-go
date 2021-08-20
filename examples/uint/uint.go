@@ -1,5 +1,5 @@
 /*
- * In this test program, we'll create an database and import 1000 records
+ * In this test program, we'll create a database and import 1000 records
  * with unsigned integers
  *
  * Authored by <Huo Linhe> linhe.huo@gmail.com
@@ -10,10 +10,9 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/taosdata/driver-go/v2/types"
 	"os"
 	"time"
-
-	"github.com/taosdata/driver-go/taosSql"
 )
 
 const (
@@ -68,7 +67,7 @@ func test(dbName string) {
 	}
 	defer db.Close()
 
-	// create an test database with keep option 36500 (100 years to test time before 1970).
+	// create a test database with keep option 36500 (100 years to test time before 1970).
 	sqlStr := "create database if not exists " + dbName + " keep 36500 days 30"
 	fmt.Printf("- %s\n", sqlStr)
 	_, err = db.Exec(sqlStr)
@@ -105,21 +104,21 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 	// start time
 	const ts1 = "2020-01-02T15:04:05Z"
 	st, _ := time.Parse(time.RFC3339, ts1)
-	stms := st.UnixNano() / 1000000
+	stMS := st.UnixNano() / 1000000
 
 	var i uint64 = 0
 	var max = ^uint64(0)&typeMax - 1
-	sqlStr = fmt.Sprintf("insert into %s.%s values(%d,NULL)", dbName, tableName, stms)
+	sqlStr = fmt.Sprintf("insert into %s.%s values(%d,NULL)", dbName, tableName, stMS)
 	fmt.Printf("- %s\n", sqlStr)
 	_, err = db.Exec(sqlStr)
 	for i = 0; i < 10; i++ {
-		sqlStr = fmt.Sprintf("insert into %s.%s values(%d,%d)", dbName, tableName, stms+int64(i)*100, i)
+		sqlStr = fmt.Sprintf("insert into %s.%s values(%d,%d)", dbName, tableName, stMS+int64(i)*100, i)
 		fmt.Printf("- %s\n", sqlStr)
 		_, err = db.Exec(sqlStr)
 		checkErr(err, sqlStr)
 	}
 	for i = 0; i < 10; i++ {
-		sqlStr = fmt.Sprintf("insert into %s.%s values(%d,%d)", dbName, tableName, stms+int64(i)*1000, max-i)
+		sqlStr = fmt.Sprintf("insert into %s.%s values(%d,%d)", dbName, tableName, stMS+int64(i)*1000, max-i)
 		fmt.Printf("- %s\n", sqlStr)
 		_, err = db.Exec(sqlStr)
 		checkErr(err, sqlStr)
@@ -139,7 +138,7 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 		case "uint8":
 			var (
 				ts string
-				n  taosSql.NullUInt8
+				n  types.NullUInt8
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
@@ -150,7 +149,7 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 		case "uint16":
 			var (
 				ts string
-				n  taosSql.NullUInt16
+				n  types.NullUInt16
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
@@ -159,7 +158,7 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 		case "uint32":
 			var (
 				ts string
-				n  taosSql.NullUInt32
+				n  types.NullUInt32
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")
@@ -168,7 +167,7 @@ func unsignedType(dbName string, tableName string, typeName string, typeMax uint
 		case "uint64":
 			var (
 				ts string
-				n  taosSql.NullUInt64
+				n  types.NullUInt64
 			)
 			err := rows.Scan(&ts, &n)
 			checkErr(err, "rows scan fail")

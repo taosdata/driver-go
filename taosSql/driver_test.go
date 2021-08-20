@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 )
@@ -12,18 +11,13 @@ import (
 // Ensure that all the driver interfaces are implemented
 
 var (
-	DRIVER_NAME    = "taosSql"
+	driverName     = "taosSql"
 	user           = "root"
 	password       = "taosdata"
 	host           = ""
 	port           = 6030
 	dbName         = "test"
 	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "log")
-	total          = 0
-	lock           sync.Mutex
-	nThreads       = 10
-	nRequests      = 10
-	profile        = "CPU.profile"
 )
 
 type DBTest struct {
@@ -32,7 +26,7 @@ type DBTest struct {
 }
 
 func NewDBTest(t *testing.T) (dbt *DBTest) {
-	db, err := sql.Open(DRIVER_NAME, dataSourceName)
+	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
@@ -93,7 +87,7 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows,
 	rows, err = dbt.Query(query, args...)
 	return
 }
-func TestEmpytQuery(t *testing.T) {
+func TestEmptyQuery(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// just a comment, no query
 		_, err := dbt.mustExec("")
@@ -127,11 +121,11 @@ type Obj struct {
 
 var (
 	userErr = errors.New("user error")
-	fp      = func(dbt *DBTest, query string, exec bool, eerr error, expected int64) int64 {
+	fp      = func(dbt *DBTest, query string, exec bool, eErr error, expected int64) int64 {
 		var ret int64 = 0
 		if exec == false {
 			rows, err := dbt.mustQuery(query)
-			if eerr == userErr && err != nil {
+			if eErr == userErr && err != nil {
 				return ret
 			}
 			if err != nil {
@@ -150,12 +144,12 @@ var (
 				rows.Close()
 				ret = count
 				if expected != -1 && count != expected {
-					dbt.Errorf("%s is no respected, err: %s", query, errors.New("result is not repected"))
+					dbt.Errorf("%s is no respected, err: %s", query, errors.New("result is not respected"))
 				}
 			}
 		} else {
 			res, err := dbt.mustExec(query)
-			if err != eerr {
+			if err != eErr {
 				dbt.Fatalf("%s is no respected, err: %s", query, err.Error())
 			} else {
 				count, err := res.RowsAffected()
@@ -163,7 +157,7 @@ var (
 					dbt.Fatalf("%s is no respected, err: %s", query, err.Error())
 				}
 				if expected != -1 && count != expected {
-					dbt.Fatalf("%s is no respected, err: %s", query, errors.New("result is not repected"))
+					dbt.Fatalf("%s is no respected, err: %s", query, errors.New("result is not respected"))
 				}
 			}
 		}
@@ -213,8 +207,8 @@ func TestCRUD(t *testing.T) {
 		}
 
 		id, err := res.LastInsertId()
-		if err != nil {
-			dbt.Fatalf("res.LastInsertId() returned error: %s", err.Error())
+		if err == nil {
+			dbt.Fatalf("res.LastInsertId() expect errord")
 		}
 		if id != 0 {
 			dbt.Fatalf("expected InsertId 0, got %d", id)
@@ -231,7 +225,7 @@ func TestCRUD(t *testing.T) {
 			if err != nil {
 				dbt.Error(err.Error())
 			}
-			dbt.Logf("ts: %s\t val: %t \t tag:%d", row.ts, row.value, row.degress)
+			//dbt.Logf("ts: %s\t val: %t \t tag:%d", row.ts, row.value, row.degress)
 		}
 		rows.Close()
 
@@ -245,7 +239,7 @@ func TestCRUD(t *testing.T) {
 				if err != nil {
 					dbt.Error(err.Error())
 				}
-				dbt.Logf("ts: %s\t val: %t", value.ts, value.value)
+				//dbt.Logf("ts: %s\t val: %t", value.ts, value.value)
 			}
 			rows.Close()
 		}

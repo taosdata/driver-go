@@ -2,6 +2,7 @@ package taosSql
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -23,7 +24,7 @@ func TestNanosecond(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("insert into test_go_ns_.tb1 values(now, 1)(now+1s,2)")
+	_, err = db.Exec("insert into test_go_ns_.tb1 values(1629363529469478001, 1)(1629363529469478002,2)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,6 +39,7 @@ func TestNanosecond(t *testing.T) {
 			t.Fatal(err)
 		}
 		if ts.Nanosecond()%1000 == 0 {
+			fmt.Println(ts.UnixNano())
 			t.Fatal("nanosecond is not correct")
 		}
 	}

@@ -1,37 +1,11 @@
-/*
- * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
- *
- * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-package taosSql
+package types
 
-import "C"
 import (
 	"database/sql/driver"
 	"fmt"
-
-	"github.com/taosdata/driver-go/errors"
+	"github.com/taosdata/driver-go/v2/errors"
+	"time"
 )
-
-type Int8 int8
-type Int16 int16
-type Int32 int32
-type Int64 int64
-type UInt8 int8
-type UInt16 int16
-type UInt32 int32
-type UInt64 int64
-type Float32 float32
-type Double32 float64
 
 type NullInt64 struct {
 	Inner int64
@@ -363,69 +337,109 @@ func (n NullUInt8) Value() (driver.Value, error) {
 	return n.Inner, nil
 }
 
-func (v NullUInt8) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullUInt8) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
 }
-func (v NullUInt16) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
-	}
-	return "NULL"
-}
-
-func (v NullUInt32) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullUInt16) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
 }
 
-func (v NullUInt64) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
-	}
-	return "NULL"
-}
-func (v NullInt8) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
-	}
-	return "NULL"
-}
-func (v NullInt16) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullUInt32) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
 }
 
-func (v NullInt32) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullUInt64) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+func (n NullInt8) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+func (n NullInt16) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
 }
 
-func (v NullInt64) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullInt32) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
 }
 
-func (v NullFloat32) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullInt64) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
 }
 
-func (v NullFloat64) String() string {
-	if v.Valid {
-		return fmt.Sprintf("%v", v.Inner)
+func (n NullFloat32) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
 	}
 	return "NULL"
+}
+
+func (n NullFloat64) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+
+type NullTime struct {
+	Time  time.Time
+	Valid bool // Valid is true if Time is not NULL
+}
+
+// Scan implements the Scanner interface.
+// The value type must be time.Time or string / []byte (formatted time-string),
+// otherwise Scan fails.
+func (nt *NullTime) Scan(value interface{}) (err error) {
+	if value == nil {
+		nt.Time, nt.Valid = time.Time{}, false
+		return
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		nt.Time, nt.Valid = v, true
+		return
+	case []byte:
+		nt.Time, err = time.Parse(time.RFC3339Nano, string(v))
+		nt.Valid = err == nil
+		return
+	case string:
+		nt.Time, err = time.Parse(time.RFC3339Nano, v)
+		nt.Valid = err == nil
+		return
+	}
+
+	nt.Valid = false
+	return fmt.Errorf("can't convert %T to time.Time", value)
+}
+
+// Value implements the driver Valuer interface.
+func (nt NullTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return nil, nil
+	}
+	return nt.Time, nil
 }

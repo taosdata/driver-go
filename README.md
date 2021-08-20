@@ -6,6 +6,12 @@ English | [简体中文](README-CN.md)
 
 [TDengine] provides Go `database/sql` driver as [`taosSql`][driver-go].
 
+## 提示
+
+`github.com/taosdata/driver-go/v2` Complete refactoring of the v1 version and separate the built-in database operation
+interface `database/sql/driver` to the directory `taosSql` put other advanced functions such as subscription and stmt in
+the directory `af`
+
 ## Install
 
 Go 1.14+ is highly recommended for newly created projects.
@@ -18,8 +24,8 @@ import taosSql：
 
 ```go
 import (
-    "database/sql"
-    _ "github.com/taosdata/driver-go/taosSql"
+"database/sql"
+_ "github.com/taosdata/driver-go/v2/taosSql"
 )
 ```
 
@@ -32,13 +38,7 @@ go mod tidy
 Or `go get` to directly install it:
 
 ```sh
-go get github.com/taosdata/driver-go/taosSql
-```
-
-Use `win` branch if you are using the module in Windows os, since STMT-series APIs are not fully supported currently.
-
-```sh
-go get github.com/taosdata/driver-go/taosSql@win
+go get github.com/taosdata/driver-go/v2/taosSql
 ```
 
 ## Usage
@@ -48,11 +48,14 @@ go get github.com/taosdata/driver-go/taosSql@win
 A simple use case：
 
 ```go
+package main
+
 import (
-	"fmt"
 	"database/sql"
-	_ "github.com/taosdata/driver-go/taosSql"
+	"fmt"
+	_ "github.com/taosdata/driver-go/v2/taosSql"
 )
+
 func main() {
 	var taosuri = "root:taosdata/tcp(localhost:6030)/"
 	taos, err := sql.Open("taosSql", taosuri)
@@ -95,7 +98,9 @@ APIs that are worthy to have a check:
 
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
-  This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be setted as `taosSql`, and `dataSourceName` should be an URI like `user:password@/tcp(host:port)/dbname`. For HA use case, use `user:password@/cfg/dbname` to apply configs in `/etc/taos/taos.cfg`。
+  This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be setted as `taosSql`,
+  and `dataSourceName` should be a URI like `user:password@/tcp(host:port)/dbname`. For HA use case,
+  use `user:password@/cfg/dbname` to apply configs in `/etc/taos/taos.cfg`。
 
 - `func (db *DB) Exec(query string, args ...interface{}) (Result, error)`
 
@@ -103,7 +108,7 @@ APIs that are worthy to have a check:
 
 - `func (db *DB) Query(query string, args ...interface{}) (*Rows, error)`
 
-  Execute an query with resultset.
+  Execute a query with resultset.
 
 - `func (db *DB) Close() error`
 
@@ -114,28 +119,44 @@ APIs that are worthy to have a check:
 Open DB:
 
 ```go
-Open(dbname string) (db DB, err error)
+func Open(ip, user, pass, db string, port int) (*Connector, error)
 ```
 
 Subscribe:
 
 ```go
-type DB interface {
-	Subscribe(restart bool, name string, sql string, interval time.Duration) (Topic, error)
-	Close() error
-}
+func (conn *Connector) Subscribe(restart bool, topic string, sql string, interval time.Duration) (Subscriber, error)
 ```
 
-Topic:
+Subscriber:
 
 ```go
-type Topic interface {
-	Consume() (driver.Rows, error)
-	Unsubscribe(keepProgress bool)
+type Subscriber interface {
+    Consume() (driver.Rows, error)
+    Unsubscribe(keepProgress bool)
 }
 ```
 
-Check sample code for subscription at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go)。
+Check sample code for subscription
+at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go)。
 
-[driver-go]: https://github.com/taosdata/driver-go
-[TDengine]: https://github.com/taosdata/TDengine
+### Directory structure
+
+driver-go  
+├── af //advanced function  
+├── common //common function and constants  
+├── errors // error type   
+├── examples //examples  
+├── go.mod    
+├── go.sum  
+├── README-CN.md  
+├── README.md  
+├── taosSql // database operation standard interface  
+├── types // inner type  
+└── wrapper // cgo wrapper
+
+## Link
+
+driver-go: [https://github.com/taosdata/driver-go](https://github.com/taosdata/driver-go)
+
+TDengine: [https://github.com/taosdata/TDengine](https://github.com/taosdata/TDengine)
