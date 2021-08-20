@@ -16,6 +16,7 @@
 package taosSql
 
 import (
+	"context"
 	"database/sql/driver"
 	"fmt"
 	"github.com/taosdata/driver-go/v2/common"
@@ -88,6 +89,36 @@ func (stmt *taosSqlStmt) query(args []driver.Value) (*rows, error) {
 	// Columns field
 	rs.rh, err = wrapper.ReadColumn(result, numFields)
 	return rs, err
+}
+
+func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	if stmt.tc == nil {
+		return nil, errors.ErrTscInvalidConnection
+	}
+	driveArgs, err := namedValueToValue(args)
+
+	if err != nil {
+		return nil, err
+	}
+
+	rs, err := stmt.query(driveArgs)
+	if err != nil {
+		return nil, err
+	}
+	return rs, err
+}
+
+func (stmt *taosSqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if stmt.tc == nil {
+		return nil, errors.ErrTscInvalidConnection
+	}
+
+	driveArgs, err := namedValueToValue(args)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.Exec(driveArgs)
 }
 
 type converter struct{}

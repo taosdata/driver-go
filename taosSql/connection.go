@@ -110,36 +110,6 @@ func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.
 	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
-func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if stmt.tc == nil {
-		return nil, errors.ErrTscInvalidConnection
-	}
-	driveArgs, err := namedValueToValue(args)
-
-	if err != nil {
-		return nil, err
-	}
-
-	rs, err := stmt.query(driveArgs)
-	if err != nil {
-		return nil, err
-	}
-	return rs, err
-}
-
-func (stmt *taosSqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	if stmt.tc == nil {
-		return nil, errors.ErrTscInvalidConnection
-	}
-
-	driveArgs, err := namedValueToValue(args)
-	if err != nil {
-		return nil, err
-	}
-
-	return stmt.Exec(driveArgs)
-}
-
 func (tc *taosConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
 	nv.Value, err = converter{}.ConvertValue(nv.Value)
 	return
