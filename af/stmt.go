@@ -91,7 +91,7 @@ func (s *Stmt) GetResultRows() (driver.Rows, error) {
 		result: result,
 	}
 	var err error
-	rs.rh, err = wrapper.ReadColumn(result, numFields)
+	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
 	return rs, err
 }
 

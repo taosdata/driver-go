@@ -10,7 +10,7 @@ import (
 )
 
 type rows struct {
-	rh          *wrapper.RowsHeader
+	rowsHeader  *wrapper.RowsHeader
 	done        bool
 	block       unsafe.Pointer
 	blockOffset int
@@ -19,19 +19,19 @@ type rows struct {
 }
 
 func (rs *rows) Columns() []string {
-	return rs.rh.ColNames
+	return rs.rowsHeader.ColNames
 }
 
 func (rs *rows) ColumnTypeDatabaseTypeName(i int) string {
-	return rs.rh.TypeDatabaseName(i)
+	return rs.rowsHeader.TypeDatabaseName(i)
 }
 
 func (rs *rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	return int64(rs.rh.ColLength[i]), true
+	return int64(rs.rowsHeader.ColLength[i]), true
 }
 
 func (rs *rows) ColumnTypeScanType(i int) reflect.Type {
-	return rs.rh.ScanType(i)
+	return rs.rowsHeader.ScanType(i)
 }
 
 func (rs *rows) Close() error {
@@ -66,7 +66,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.freeResult()
 		return io.EOF
 	}
-	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockOffset, rs.rh.ColLength, rs.rh.ColTypes)
+	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockOffset, rs.rowsHeader.ColLength, rs.rowsHeader.ColTypes)
 	rs.blockOffset++
 	return nil
 }

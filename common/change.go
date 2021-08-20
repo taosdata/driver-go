@@ -4,11 +4,11 @@ import "time"
 
 func TimestampConvertToTime(timestamp int64, precision int) time.Time {
 	switch precision {
-	case 0: // milli-second
+	case PrecisionMilliSecond: // milli-second
 		return time.Unix(0, timestamp*1e6)
-	case 1: // micro-second
+	case PrecisionMicroSecond: // micro-second
 		return time.Unix(0, timestamp*1e3)
-	case 2: // nano-second
+	case PrecisionNanoSecond: // nano-second
 		return time.Unix(0, timestamp)
 	default:
 		panic("unknown precision")
@@ -17,11 +17,11 @@ func TimestampConvertToTime(timestamp int64, precision int) time.Time {
 
 func TimeToTimestamp(t time.Time, precision int) (timestamp int64) {
 	switch precision {
-	case 0:
+	case PrecisionMilliSecond:
 		return t.UnixNano() / 1e6
-	case 1:
+	case PrecisionMicroSecond:
 		return t.UnixNano() / 1e3
-	case 2:
+	case PrecisionNanoSecond:
 		return t.UnixNano()
 	default:
 		panic("unknown precision")

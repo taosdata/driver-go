@@ -93,7 +93,7 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		result: result,
 	}
 	// Columns field
-	rs.rh, err = wrapper.ReadColumn(result, numFields)
+	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
 	return rs, err
 }
 

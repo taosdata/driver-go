@@ -9,13 +9,13 @@ import (
 )
 
 type subscribeRows struct {
-	result unsafe.Pointer
-	rh     *wrapper.RowsHeader
-	keep   bool
+	result     unsafe.Pointer
+	rowsHeader *wrapper.RowsHeader
+	keep       bool
 }
 
 func (rs *subscribeRows) Next(values []driver.Value) (err error) {
-	if len(values) != len(rs.rh.ColTypes) {
+	if len(values) != len(rs.rowsHeader.ColTypes) {
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "values and fields length not match"}
 		return
 	}
@@ -24,23 +24,23 @@ func (rs *subscribeRows) Next(values []driver.Value) (err error) {
 		return io.EOF
 	}
 	precision := wrapper.TaosResultPrecision(rs.result)
-	for i := range rs.rh.ColTypes {
-		values[i] = wrapper.FetchRow(row, i, rs.rh.ColTypes[i], precision)
+	for i := range rs.rowsHeader.ColTypes {
+		values[i] = wrapper.FetchRow(row, i, rs.rowsHeader.ColTypes[i], precision)
 	}
 	return nil
 }
 
 func (rs *subscribeRows) Columns() []string {
-	if rs.rh != nil {
-		return rs.rh.ColNames
+	if rs.rowsHeader != nil {
+		return rs.rowsHeader.ColNames
 	}
 	count := wrapper.TaosNumFields(rs.result)
 	var err error
-	rs.rh, err = wrapper.ReadColumn(rs.result, count)
+	rs.rowsHeader, err = wrapper.ReadColumn(rs.result, count)
 	if err != nil {
 		return nil
 	}
-	return rs.rh.ColNames
+	return rs.rowsHeader.ColNames
 }
 
 func (rs *subscribeRows) Close() (err error) {

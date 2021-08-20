@@ -87,7 +87,7 @@ func (stmt *taosSqlStmt) query(args []driver.Value) (*rows, error) {
 		result: result,
 	}
 	// Columns field
-	rs.rh, err = wrapper.ReadColumn(result, numFields)
+	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
 	return rs, err
 }
 
@@ -95,13 +95,13 @@ func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedVa
 	if stmt.tc == nil {
 		return nil, errors.ErrTscInvalidConnection
 	}
-	driveArgs, err := namedValueToValue(args)
+	driverArgs, err := namedValueToValue(args)
 
 	if err != nil {
 		return nil, err
 	}
 
-	rs, err := stmt.query(driveArgs)
+	rs, err := stmt.query(driverArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +113,12 @@ func (stmt *taosSqlStmt) ExecContext(ctx context.Context, args []driver.NamedVal
 		return nil, errors.ErrTscInvalidConnection
 	}
 
-	driveArgs, err := namedValueToValue(args)
+	driverArgs, err := namedValueToValue(args)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.Exec(driveArgs)
+	return stmt.Exec(driverArgs)
 }
 
 type converter struct{}

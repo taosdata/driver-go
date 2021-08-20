@@ -129,7 +129,7 @@ var (
 				return ret
 			}
 			if err != nil {
-				dbt.Errorf("%s is no respected, err: %s", query, err.Error())
+				dbt.Errorf("%s is not expected, err: %s", query, err.Error())
 				return ret
 			} else {
 				var count int64 = 0
@@ -144,20 +144,20 @@ var (
 				rows.Close()
 				ret = count
 				if expected != -1 && count != expected {
-					dbt.Errorf("%s is no respected, err: %s", query, errors.New("result is not respected"))
+					dbt.Errorf("%s is not expected, err: %s", query, errors.New("result is not expected"))
 				}
 			}
 		} else {
 			res, err := dbt.mustExec(query)
 			if err != eErr {
-				dbt.Fatalf("%s is no respected, err: %s", query, err.Error())
+				dbt.Fatalf("%s is not expected, err: %s", query, err.Error())
 			} else {
 				count, err := res.RowsAffected()
 				if err != nil {
-					dbt.Fatalf("%s is no respected, err: %s", query, err.Error())
+					dbt.Fatalf("%s is not expected, err: %s", query, err.Error())
 				}
 				if expected != -1 && count != expected {
-					dbt.Fatalf("%s is no respected, err: %s", query, errors.New("result is not respected"))
+					dbt.Fatalf("%s is not expected , err: %s", query, errors.New("result is not expected"))
 				}
 			}
 		}
@@ -208,7 +208,7 @@ func TestCRUD(t *testing.T) {
 
 		id, err := res.LastInsertId()
 		if err == nil {
-			dbt.Fatalf("res.LastInsertId() expect errord")
+			dbt.Fatalf("res.LastInsertId() expect error")
 		}
 		if id != 0 {
 			dbt.Fatalf("expected InsertId 0, got %d", id)
@@ -225,7 +225,6 @@ func TestCRUD(t *testing.T) {
 			if err != nil {
 				dbt.Error(err.Error())
 			}
-			//dbt.Logf("ts: %s\t val: %t \t tag:%d", row.ts, row.value, row.degress)
 		}
 		rows.Close()
 
@@ -239,7 +238,6 @@ func TestCRUD(t *testing.T) {
 				if err != nil {
 					dbt.Error(err.Error())
 				}
-				//dbt.Logf("ts: %s\t val: %t", value.ts, value.value)
 			}
 			rows.Close()
 		}
@@ -251,6 +249,7 @@ func TestCRUD(t *testing.T) {
 		}
 	})
 }
+
 func TestStmt(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		stmt, err := dbt.Prepare(fmt.Sprintf("insert into %s.t0 values(?, ?)", dbName))

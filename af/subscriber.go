@@ -28,7 +28,7 @@ func (s *taosSubscriber) Consume() (driver.Rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &subscribeRows{result: result, rh: rh}, nil
+	return &subscribeRows{result: result, rowsHeader: rh}, nil
 }
 
 func (s *taosSubscriber) Unsubscribe(keepProgress bool) {
