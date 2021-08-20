@@ -13,14 +13,14 @@ type Connector struct {
 	taos unsafe.Pointer
 }
 
-func Open(ip, user, pass, db string, port int) (*Connector, error) {
+func Open(host, user, pass, db string, port int) (*Connector, error) {
 	if len(user) == 0 {
 		user = common.DefaultUser
 	}
 	if len(pass) == 0 {
 		pass = common.DefaultPassword
 	}
-	tc, err := wrapper.TaosConnect(ip, user, pass, db, port)
+	tc, err := wrapper.TaosConnect(host, user, pass, db, port)
 	if err != nil {
 		return nil, err
 	}

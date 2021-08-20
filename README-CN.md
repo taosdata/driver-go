@@ -8,7 +8,7 @@
 
 ## 提示
 
-`github.com/taosdata/driver-go/v2` 对 v1 版本进行重构,分离出内置数据库操作接口 `database/sql/driver`到目录 `taosSql` 订阅、stmt等其他功能放到目录 `af`
+`github.com/taosdata/driver-go/v2` 对 v1 版本进行重构,分离出内置数据库操作接口 `database/sql/driver` 到目录 `taosSql`；订阅、stmt等其他功能放到目录 `af`。
 
 ## 安装
 
@@ -22,8 +22,8 @@ go mod init taos-demo
 
 ```go
 import (
-"database/sql"
-_ "github.com/taosdata/driver-go/v2/taosSql"
+    "database/sql"
+    _ "github.com/taosdata/driver-go/v2/taosSql"
 )
 ```
 
@@ -120,7 +120,7 @@ func main() {
 Open DB:
 
 ```go
-func Open(ip, user, pass, db string, port int) (*Connector, error)
+func Open(host, user, pass, db string, port int) (*Connector, error)
 ```
 
 Subscribe:
@@ -133,8 +133,8 @@ Topic:
 
 ```go
 type Subscriber interface {
-Consume() (driver.Rows, error)
-Unsubscribe(keepProgress bool)
+    Consume() (driver.Rows, error)
+    Unsubscribe(keepProgress bool)
 }
 ```
 

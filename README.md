@@ -6,7 +6,7 @@ English | [简体中文](README-CN.md)
 
 [TDengine] provides Go `database/sql` driver as [`taosSql`][driver-go].
 
-## 提示
+## Remind
 
 `github.com/taosdata/driver-go/v2` Complete refactoring of the v1 version and separate the built-in database operation
 interface `database/sql/driver` to the directory `taosSql` put other advanced functions such as subscription and stmt in
@@ -24,8 +24,8 @@ import taosSql：
 
 ```go
 import (
-"database/sql"
-_ "github.com/taosdata/driver-go/v2/taosSql"
+    "database/sql"
+    _ "github.com/taosdata/driver-go/v2/taosSql"
 )
 ```
 
@@ -119,7 +119,7 @@ APIs that are worthy to have a check:
 Open DB:
 
 ```go
-func Open(ip, user, pass, db string, port int) (*Connector, error)
+func Open(host, user, pass, db string, port int) (*Connector, error)
 ```
 
 Subscribe:
@@ -140,7 +140,7 @@ type Subscriber interface {
 Check sample code for subscription
 at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go)。
 
-### Directory structure
+## Directory structure
 
 driver-go  
 ├── af //advanced function  
