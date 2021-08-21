@@ -16,7 +16,7 @@ var (
 	password       = "taosdata"
 	host           = ""
 	port           = 6030
-	dbName         = "test"
+	dbName         = "test_taos_sql"
 	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "log")
 )
 

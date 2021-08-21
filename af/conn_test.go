@@ -13,15 +13,15 @@ func testDatabase(t *testing.T) *Connector {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("drop database if exists test")
+	//_, err = db.Exec("drop database if exists test_af")
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	_, err = db.Exec("create database if not exists test_af precision 'us' update 1 keep 36500")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("create database if not exists test precision 'us' update 1 keep 36500")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec("use test")
+	_, err = db.Exec("use test_af")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,12 +75,12 @@ func TestSubscribe(t *testing.T) {
 		t.Fatal(err)
 	}
 	sql := "select ts, value, degress from test_subscribe"
-	topic, err := db.Subscribe(true, "test_subscribetopic", sql, time.Second*1)
+	subscriber, err := db.Subscribe(true, "test_subscribe", sql, time.Second*1)
 	if err != nil {
 		t.Fatal(err, db)
 	}
 	consume := func() int {
-		rows, err := topic.Consume()
+		rows, err := subscriber.Consume()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,7 +106,7 @@ func TestSubscribe(t *testing.T) {
 		}
 		return count
 	}
-	defer topic.Unsubscribe(true)
+	defer subscriber.Unsubscribe(true)
 	_, err = db.Exec("insert into test_subscribe values(now, false, 10)")
 	if err != nil {
 		t.Fatal(err)
@@ -123,6 +123,7 @@ func TestSubscribe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(time.Second)
 	count = consume()
 	if count != 2 {
 		t.Fatal(count)
@@ -131,20 +132,20 @@ func TestSubscribe(t *testing.T) {
 
 func TestQuery(t *testing.T) {
 	db := testDatabase(t)
-	_, err := db.Exec("drop table if exists testtypes")
+	_, err := db.Exec("drop table if exists test_types")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("create table if not exists testtypes(ts timestamp, fint int, fbigint bigint, ffloat float, fdouble double, fbinary binary(16), fsmallint smallint, ftinyint tinyint, fbool bool, fnchar nchar(16))")
+	_, err = db.Exec("create table if not exists test_types(ts timestamp, f_int int, f_bigint bigint, f_float float, f_double double, f_binary binary(16), f_smallint smallint, f_tinyint tinyint, f_bool bool, f_nchar nchar(16))")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("insert into testtypes values(now, 1, 2, 3000000.3, 400000000.4, '5binary', 6, 7, true, '9nchar')")
+	_, err = db.Exec("insert into test_types values(now, 1, 2, 3000000.3, 400000000.4, '5binary', 6, 7, true, '9nchar')")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rows, err := db.Query("select ts, fint, fbigint, ffloat, fdouble, fbinary, fsmallint, ftinyint, fbool, fnchar from testtypes limit 1")
+	rows, err := db.Query("select ts, f_int, f_bigint, f_float, f_double, f_binary, f_smallint, f_tinyint, f_bool, f_nchar from test_types limit 1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +224,7 @@ func TestStmtExec(t *testing.T) {
 		{"ts timestamp, value nchar(8)", "?, ?", NewParam(2).AddTimestamp(now, 0).AddNchar("yes")},
 		{"ts timestamp, value nchar(8)", "?, ?", NewParam(2).AddTimestamp(time.Now(), 0)},
 	} {
-		tbName := fmt.Sprintf("teststmt%02d", i)
+		tbName := fmt.Sprintf("test_stmt_insert%02d", i)
 		tbType := tc.tbType
 		create := fmt.Sprintf("create table %s(%s)", tbName, tbType)
 		params := tc.params
@@ -283,7 +284,7 @@ func TestStmtQuery(t *testing.T) {
 		{"ts timestamp, value nchar(8)", "1622282105000000, 'NOW'", "ts = ? and value = ?", NewParam(2).AddTimestamp(time.Unix(1622282105, 0), 2).AddBinary([]byte("NOW")), true},
 		{"ts timestamp, value nchar(8)", "1622282105000000, 'NOW'", "ts = ? and value = ?", NewParam(2).AddBigint(1622282105000000).AddBinary([]byte("NOW")), false},
 	} {
-		tbName := fmt.Sprintf("teststmt%02d", i)
+		tbName := fmt.Sprintf("test_stmt_query%02d", i)
 		tbType := tc.tbType
 		create := fmt.Sprintf("create table %s(%s)", tbName, tbType)
 		insert := fmt.Sprintf("insert into %s values(%s)", tbName, tc.data)

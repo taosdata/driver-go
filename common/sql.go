@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"database/sql/driver"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -58,7 +59,7 @@ func InterpolateParams(query string, args []driver.Value) (string, error) {
 			return "", driver.ErrSkip
 		}
 		if buf.Len() > MaxTaosSqlLen {
-			return "", driver.ErrSkip
+			return "", errors.New("sql statement exceeds the maximum length")
 		}
 	}
 	if argPos != len(args) {
