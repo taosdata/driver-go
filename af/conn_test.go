@@ -226,7 +226,7 @@ func TestStmtExec(t *testing.T) {
 	} {
 		tbName := fmt.Sprintf("test_stmt_insert%02d", i)
 		tbType := tc.tbType
-		create := fmt.Sprintf("create table %s(%s)", tbName, tbType)
+		create := fmt.Sprintf("create table if not exists %s(%s)", tbName, tbType)
 		params := tc.params
 		name := fmt.Sprintf("%02d-%s", i, tbType)
 		pos := tc.pos
@@ -286,7 +286,7 @@ func TestStmtQuery(t *testing.T) {
 	} {
 		tbName := fmt.Sprintf("test_stmt_query%02d", i)
 		tbType := tc.tbType
-		create := fmt.Sprintf("create table %s(%s)", tbName, tbType)
+		create := fmt.Sprintf("create table if not exists %s(%s)", tbName, tbType)
 		insert := fmt.Sprintf("insert into %s values(%s)", tbName, tc.data)
 		params := tc.params
 		sql := fmt.Sprintf("select * from %s where %s", tbName, tc.clause)
