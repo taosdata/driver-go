@@ -1,5 +1,5 @@
 /*
- * In this test program, we'll create an database and import 1000 records
+ * In this test program, we'll create a database and import 1000 records
  * with unsigned integers
  *
  * Authored by <Huo Linhe> linhe.huo@gmail.com
@@ -10,10 +10,11 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/taosdata/driver-go/v2/types"
 	"os"
 	"time"
 
-	"github.com/taosdata/driver-go/taosSql"
+	_ "github.com/taosdata/driver-go/v2/taosSql"
 )
 
 type config struct {
@@ -86,7 +87,7 @@ func test(dbName string) {
 	for res.Next() {
 		var (
 			ts time.Time
-			n  taosSql.NullInt32
+			n  types.NullInt32
 		)
 		err = res.Scan(&ts, &n)
 		checkErr(err, sqlStr)

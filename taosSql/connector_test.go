@@ -11,6 +11,7 @@ func TestOpenQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer db.Close()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -20,9 +21,9 @@ func TestOpenQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	for rows.Next() {
-		var dnodeid int
+		var dnodeID int
 		var ts time.Time
-		err := rows.Scan(&ts, &dnodeid)
+		err := rows.Scan(&ts, &dnodeID)
 		if err != nil {
 			t.Fatal(err)
 		}

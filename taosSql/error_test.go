@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/errors"
+	"github.com/taosdata/driver-go/v2/errors"
 )
 
 func TestErrorCode(t *testing.T) {
@@ -24,7 +24,7 @@ func TestErrorCode(t *testing.T) {
 	cases := []struct {
 		sql    string
 		code   int32
-		errstr string
+		errStr string
 	}{
 		{"use invalid_db_name", errors.MND_INVALID_DB, "Invalid database name"},
 		{"create database log", errors.MND_DB_ALREADY_EXIST, "Database already exists"},
@@ -42,7 +42,7 @@ func TestErrorCode(t *testing.T) {
 				case *errors.TaosError:
 					fmt.Println("TaosError: ", e)
 					assert.Equal(t, e.Code, c.code)
-					assert.Contains(t, e.ErrStr, c.errstr)
+					assert.Contains(t, e.ErrStr, c.errStr)
 				default:
 					t.Fatal("expect a TaosError")
 				}
