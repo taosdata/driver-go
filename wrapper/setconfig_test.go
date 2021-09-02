@@ -1,7 +1,6 @@
 package wrapper
 
 import (
-	"github.com/taosdata/driver-go/v2/errors"
 	"testing"
 )
 
@@ -38,8 +37,7 @@ func TestSetConfig(t *testing.T) {
 		"maxBinaryDisplayWidth": "30",
 		"tempDir":               "/tmp/",
 	}
-	result := TaosSetConfig(source)
-	err := errors.GetError(result)
+	err := TaosSetConfig(source)
 	if err != nil {
 		t.Error(err)
 	}

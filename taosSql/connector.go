@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"github.com/taosdata/driver-go/v2/common"
-	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
 )
 
@@ -27,8 +26,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	if len(tc.cfg.passwd) == 0 {
 		tc.cfg.passwd = common.DefaultPassword
 	}
-	errCode := wrapper.TaosSetConfig(tc.cfg.params)
-	err = errors.GetError(errCode)
+	err = wrapper.TaosSetConfig(tc.cfg.params)
 	if err != nil {
 		return nil, err
 	}
