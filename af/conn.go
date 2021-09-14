@@ -2,6 +2,8 @@ package af
 
 import (
 	"database/sql/driver"
+	"github.com/taosdata/driver-go/v2/af/insertstmt"
+	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
@@ -33,7 +35,7 @@ func (conn *Connector) Close() error {
 	return nil
 }
 
-func (conn *Connector) StmtExecute(sql string, params *Param) (res driver.Result, err error) {
+func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.Result, err error) {
 	stmt := NewStmt(conn.taos)
 	if stmt == nil {
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
@@ -61,7 +63,7 @@ func (conn *Connector) StmtExecute(sql string, params *Param) (res driver.Result
 	return driver.RowsAffected(result), nil
 }
 
-func (conn *Connector) StmtQuery(sql string, params *Param) (rows driver.Rows, err error) {
+func (conn *Connector) StmtQuery(sql string, params *param.Param) (rows driver.Rows, err error) {
 	stmt := NewStmt(conn.taos)
 	if stmt == nil {
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
@@ -155,4 +157,8 @@ func (conn *Connector) taosQuery(sqlStr string) (result unsafe.Pointer, numField
 	}
 
 	return result, numFields, affectedRows, nil
+}
+
+func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
+	return insertstmt.NewInsertStmt(conn.taos)
 }
