@@ -598,6 +598,11 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	err = db.LoadTableInfo([]string{"test_fast_insert_with_sub_table_name_00", "test_fast_insert_with_sub_table_name_01"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	for i, tc := range []struct {
 		sTableName string
 		tags       string

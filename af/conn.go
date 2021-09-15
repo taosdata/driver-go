@@ -6,6 +6,7 @@ import (
 	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
+	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
 	"time"
 	"unsafe"
@@ -161,4 +162,13 @@ func (conn *Connector) taosQuery(sqlStr string) (result unsafe.Pointer, numField
 
 func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmt(conn.taos)
+}
+
+func (conn *Connector) LoadTableInfo(tableNameList []string) error {
+	code := wrapper.TaosLoadTableInfo(conn.taos, tableNameList)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
 }

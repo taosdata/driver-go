@@ -9,13 +9,12 @@ import (
 )
 
 type InsertStmt struct {
-	taos unsafe.Pointer
 	stmt unsafe.Pointer
 }
 
 func NewInsertStmt(taosConn unsafe.Pointer) *InsertStmt {
 	stmt := wrapper.TaosStmtInit(taosConn)
-	return &InsertStmt{stmt: stmt, taos: taosConn}
+	return &InsertStmt{stmt: stmt}
 }
 
 func (stmt *InsertStmt) Prepare(sql string) error {
@@ -45,13 +44,8 @@ func (stmt *InsertStmt) SetTableName(name string) error {
 }
 
 func (stmt *InsertStmt) SetSubTableName(name string) error {
-	code := wrapper.TaosLoadTableInfo(stmt.taos, []string{name})
+	code := wrapper.TaosStmtSetSubTBName(stmt.stmt, name)
 	err := taosError.GetError(code)
-	if err != nil {
-		return err
-	}
-	code = wrapper.TaosStmtSetSubTBName(stmt.stmt, name)
-	err = taosError.GetError(code)
 	if err != nil {
 		return err
 	}
