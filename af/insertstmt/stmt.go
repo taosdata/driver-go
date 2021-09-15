@@ -2,17 +2,15 @@ package insertstmt
 
 import (
 	"errors"
+	"github.com/taosdata/driver-go/v2/af/param"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
-	"sync"
 	"unsafe"
 )
 
 type InsertStmt struct {
-	taos     unsafe.Pointer
-	stmt     unsafe.Pointer
-	prepared bool
-	sync.RWMutex
+	taos unsafe.Pointer
+	stmt unsafe.Pointer
 }
 
 func NewInsertStmt(taosConn unsafe.Pointer) *InsertStmt {
@@ -20,26 +18,95 @@ func NewInsertStmt(taosConn unsafe.Pointer) *InsertStmt {
 	return &InsertStmt{stmt: stmt, taos: taosConn}
 }
 
-func (stmt *InsertStmt) Prepare(sql string) (*PreparedStmt, error) {
-	//must lock
-	stmt.Lock()
-	defer stmt.Unlock()
-	if stmt.prepared {
-		return nil, errors.New("duplicate prepare")
-	}
+func (stmt *InsertStmt) Prepare(sql string) error {
 	code := wrapper.TaosStmtPrepare(stmt.stmt, sql)
 	err := taosError.GetError(code)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	isInsert, code := wrapper.TaosStmtIsInsert(stmt.stmt)
 	err = taosError.GetError(code)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !isInsert {
-		return nil, errors.New("only support insert")
+		return errors.New("only support insert")
 	}
-	stmt.prepared = true
-	return NewPreparedStmt(stmt.stmt, stmt.taos), nil
+	return nil
+}
+
+func (stmt *InsertStmt) SetTableName(name string) error {
+	code := wrapper.TaosStmtSetTBName(stmt.stmt, name)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (stmt *InsertStmt) SetSubTableName(name string) error {
+	code := wrapper.TaosLoadTableInfo(stmt.taos, []string{name})
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	code = wrapper.TaosStmtSetSubTBName(stmt.stmt, name)
+	err = taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param.Param) error {
+	code := wrapper.TaosStmtSetTBNameTags(stmt.stmt, tableName, tags.GetValues())
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (stmt *InsertStmt) BindParam(params []*param.Param, bindType *param.ColumnType) error {
+	data := make([][]interface{}, len(params))
+	for columnIndex, columnData := range params {
+		value := columnData.GetValues()
+		data[columnIndex] = value
+	}
+	columnTypes, err := bindType.GetValue()
+	if err != nil {
+		return err
+	}
+	code := wrapper.TaosStmtBindParamBatch(stmt.stmt, data, columnTypes)
+	err = taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (stmt *InsertStmt) AddBatch() error {
+	code := wrapper.TaosStmtAddBatch(stmt.stmt)
+	err := taosError.GetError(code)
+	return err
+}
+
+func (stmt *InsertStmt) Execute() error {
+	code := wrapper.TaosStmtExecute(stmt.stmt)
+	err := taosError.GetError(code)
+	return err
+}
+
+func (stmt *InsertStmt) GetAffectedRows() int {
+	result := wrapper.TaosStmtUseResult(stmt.stmt)
+	defer wrapper.TaosFreeResult(result)
+	affectedRows := wrapper.TaosAffectedRows(result)
+	return affectedRows
+}
+
+func (stmt *InsertStmt) Close() error {
+	code := wrapper.TaosStmtClose(stmt.stmt)
+	err := taosError.GetError(code)
+	stmt.stmt = nil
+	return err
 }

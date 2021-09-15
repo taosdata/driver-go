@@ -385,27 +385,27 @@ func TestFastInsert(t *testing.T) {
 				return
 			}
 			insertStmt := db.InsertStmt()
-			preparedStmt, err := insertStmt.Prepare(sql)
+			err := insertStmt.Prepare(sql)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.BindParam(params, bindType)
+			err = insertStmt.BindParam(params, bindType)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.AddBatch()
+			err = insertStmt.AddBatch()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Execute()
+			err = insertStmt.Execute()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Close()
+			err = insertStmt.Close()
 			if err != nil {
 				t.Error(err)
 				return
@@ -463,32 +463,32 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 				return
 			}
 			insertStmt := db.InsertStmt()
-			preparedStmt, err := insertStmt.Prepare(sql)
+			err := insertStmt.Prepare(sql)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.SetTableName(tbName)
+			err = insertStmt.SetTableName(tbName)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.BindParam(params, bindType)
+			err = insertStmt.BindParam(params, bindType)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.AddBatch()
+			err = insertStmt.AddBatch()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Execute()
+			err = insertStmt.Execute()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Close()
+			err = insertStmt.Close()
 			if err != nil {
 				t.Error(err)
 				return
@@ -540,32 +540,32 @@ func TestFastInsertWithSetTableNameTag(t *testing.T) {
 		sql := fmt.Sprintf("insert into ? using %s tags(?,?) values(%s)", tc.sTableName, pos)
 		t.Run(name, func(t *testing.T) {
 			insertStmt := db.InsertStmt()
-			preparedStmt, err := insertStmt.Prepare(sql)
+			err := insertStmt.Prepare(sql)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.SetTableNameWithTags(tbName, tc.tags)
+			err = insertStmt.SetTableNameWithTags(tbName, tc.tags)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.BindParam(params, bindType)
+			err = insertStmt.BindParam(params, bindType)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.AddBatch()
+			err = insertStmt.AddBatch()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Execute()
+			err = insertStmt.Execute()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Close()
+			err = insertStmt.Close()
 			if err != nil {
 				t.Error(err)
 				return
@@ -624,32 +624,32 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 				return
 			}
 			insertStmt := db.InsertStmt()
-			preparedStmt, err := insertStmt.Prepare(sql)
+			err = insertStmt.Prepare(sql)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.SetSubTableName(tbName)
+			err = insertStmt.SetSubTableName(tbName)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.BindParam(params, bindType)
+			err = insertStmt.BindParam(params, bindType)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.AddBatch()
+			err = insertStmt.AddBatch()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Execute()
+			err = insertStmt.Execute()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			err = preparedStmt.Close()
+			err = insertStmt.Close()
 			if err != nil {
 				t.Error(err)
 				return
