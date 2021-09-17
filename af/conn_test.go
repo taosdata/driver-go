@@ -446,7 +446,20 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 		{"ts timestamp, value double", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddDouble(1.2)}, param.NewColumnType(2).AddTimestamp().AddDouble()},
 		{"ts timestamp, value binary(8)", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddBinary([]byte("yes"))}, param.NewColumnType(2).AddTimestamp().AddBinary(3)},
 		{"ts timestamp, value nchar(8)", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNchar("yes")}, param.NewColumnType(2).AddTimestamp().AddNchar(3)},
+
 		{"ts timestamp, value nchar(8)", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(time.Now(), common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddNchar(1)},
+		{"ts timestamp, value int", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddInt()},
+		{"ts timestamp, value bool", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddBool()},
+		{"ts timestamp, value tinyint", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddTinyint()},
+		{"ts timestamp, value smallint", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddSmallint()},
+		{"ts timestamp, value bigint", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddBigint()},
+		{"ts timestamp, value tinyint unsigned", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddUTinyint()},
+		{"ts timestamp, value smallint unsigned", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddUSmallint()},
+		{"ts timestamp, value int unsigned", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddUInt()},
+		{"ts timestamp, value bigint unsigned", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddUBigint()},
+		{"ts timestamp, value float", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddFloat()},
+		{"ts timestamp, value double", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddDouble()},
+		{"ts timestamp, value binary(8)", "?, ?", []*param.Param{param.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param.NewParam(1).AddNull()}, param.NewColumnType(2).AddTimestamp().AddBinary(3)},
 	} {
 		tbName := fmt.Sprintf("test_fast_insert_with_table_name_%02d", i)
 		tbType := tc.tbType
