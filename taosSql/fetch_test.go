@@ -2,7 +2,6 @@ package taosSql
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/taosdata/driver-go/v2/types"
 	"testing"
 	"time"
@@ -73,7 +72,6 @@ func TestFetchDatabases(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Println(name, createdTime, nTables, vGroups, replica, quorum, days)
 	}
 	end := time.Now()
 	t.Logf("time cost %v", end.Sub(start))

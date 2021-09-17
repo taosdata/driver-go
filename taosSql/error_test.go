@@ -40,7 +40,6 @@ func TestErrorCode(t *testing.T) {
 			if err != nil {
 				switch e := err.(type) {
 				case *errors.TaosError:
-					fmt.Println("TaosError: ", e)
 					assert.Equal(t, e.Code, c.code)
 					assert.Contains(t, e.ErrStr, c.errStr)
 				default:

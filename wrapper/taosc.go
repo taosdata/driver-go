@@ -13,6 +13,7 @@ package wrapper
 import "C"
 import (
 	"github.com/taosdata/driver-go/v2/errors"
+	"strings"
 	"unsafe"
 )
 
@@ -106,4 +107,12 @@ func TaosNumFields(result unsafe.Pointer) int {
 // TaosFetchRow TAOS_ROW taos_fetch_row(TAOS_RES *res);
 func TaosFetchRow(result unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_fetch_row(result))
+}
+
+// TaosLoadTableInfo taos_load_table_info(TAOS *taos, const char* tableNameList);
+func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
+	s := strings.Join(tableNameList, ",")
+	buf := C.CString(s)
+	defer C.free(unsafe.Pointer(buf))
+	return int(C.taos_load_table_info(taosConnect, buf))
 }
