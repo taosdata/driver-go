@@ -88,6 +88,9 @@ func (rh *RowsHeader) TypeDatabaseName(i int) string {
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
 		return "TIMESTAMP"
 
+	case C.TSDB_DATA_TYPE_JSON:
+		return "JSON"
+
 	default:
 		return ""
 	}
@@ -107,6 +110,7 @@ var (
 	nullTime    = reflect.TypeOf(types.NullTime{})
 	nullBool    = reflect.TypeOf(types.NullBool{})
 	nullString  = reflect.TypeOf(types.NullString{})
+	nullJson    = reflect.TypeOf(types.NullJson{})
 	unknown     = reflect.TypeOf(new(interface{})).Elem()
 )
 
@@ -154,6 +158,9 @@ func (rh *RowsHeader) ScanType(i int) reflect.Type {
 
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
 		return nullTime
+
+	case C.TSDB_DATA_TYPE_JSON:
+		return nullJson
 
 	default:
 		return unknown

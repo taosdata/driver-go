@@ -2,6 +2,8 @@ package taosSql
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -261,4 +263,46 @@ func TestStmt(t *testing.T) {
 		stmt.Exec(now.UnixNano()/int64(time.Millisecond)+int64(1), false)
 		stmt.Close()
 	})
+}
+
+func TestJson(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		t.Fatalf("error on:  sql.open %s", err.Error())
+		return
+	}
+	defer db.Close()
+	_, err = db.Exec("create database if not exists test_json")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec("create stable if not exists test_json.tjson(ts timestamp,value int )tags(t json)")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec(`insert into test_json.tj_1 using test_json.tjson tags('{"a":1,"b":"b"}')values (now,1)`)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	rows, err := db.Query("select * from test_json.tjson")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for rows.Next() {
+		row := make([]driver.Value, 3)
+		err := rows.Scan(&row[0], &row[1], &row[2])
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		s := row[2].([]byte)
+		if !json.Valid(s) {
+			t.Error("invalid json ", string(s))
+		}
+		t.Logf("%#v", row)
+	}
 }
