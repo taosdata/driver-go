@@ -172,3 +172,39 @@ func (conn *Connector) LoadTableInfo(tableNameList []string) error {
 	}
 	return nil
 }
+
+func (conn *Connector) SelectDB(db string) error {
+	code := wrapper.TaosSelectDB(conn.taos, db)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) InsertLines(lines []string) error {
+	code := wrapper.TaosInsertLines(conn.taos, lines)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) InsertTelnetLines(lines []string) error {
+	code := wrapper.TaosInsertTelnetLines(conn.taos, lines)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) InsertJsonPayload(payload string) error {
+	code := wrapper.TaosInsertJsonPayload(conn.taos, payload)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
