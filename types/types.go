@@ -443,3 +443,29 @@ func (nt NullTime) Value() (driver.Value, error) {
 	}
 	return nt.Time, nil
 }
+
+type NullJson struct {
+	Inner []byte
+	Valid bool
+}
+
+func (n *NullJson) Scan(value interface{}) error {
+	if value == nil {
+		n.Valid = false
+		return nil
+	}
+	n.Valid = true
+	v, ok := value.([]byte)
+	if !ok {
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse json error"}
+	}
+	n.Inner = v
+	return nil
+}
+
+func (n NullJson) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
+}

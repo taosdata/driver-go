@@ -127,17 +127,16 @@ func TestSubscribe(t *testing.T) {
 	if count != 1 {
 		t.Fatal(count)
 	}
-	_, err = db.Exec("insert into test_subscribe values(now, true, 11)")
+	_, err = db.Exec("insert into test_subscribe values(now + 10s, true, 11)")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("insert into test_subscribe values(now, true, 12)")
+	_, err = db.Exec("insert into test_subscribe values(now + 15s, true, 12)")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	time.Sleep(time.Second)
 	count = consume()
 	if count != 2 {
 		t.Fatal(count)

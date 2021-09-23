@@ -44,6 +44,7 @@ var convertFuncMap = map[uint8]convertFunc{
 	uint8(C.TSDB_DATA_TYPE_BINARY):    convertBinary,
 	uint8(C.TSDB_DATA_TYPE_NCHAR):     convertNchar,
 	uint8(C.TSDB_DATA_TYPE_TIMESTAMP): convertTime,
+	uint8(C.TSDB_DATA_TYPE_JSON):      convertJson,
 }
 
 func convertBool(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
@@ -193,6 +194,24 @@ func convertTime(colPointer uintptr, row int, length uint16, arg ...interface{})
 		} else {
 			panic("convertTime error")
 		}
+	}
+}
+
+// just like nchar
+func convertJson(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
+	clen := *((*int16)(currentRow))
+	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+
+	binaryVal := make([]byte, clen)
+
+	for index := int16(0); index < clen; index++ {
+		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
+	}
+	if clen == 4 && binaryVal[0] == CNcharNull && binaryVal[1] == CNcharNull && binaryVal[2] == CNcharNull && binaryVal[3] == CNcharNull {
+		return nil
+	} else {
+		return binaryVal[:]
 	}
 }
 
