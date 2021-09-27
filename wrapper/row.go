@@ -185,7 +185,13 @@ func convertTime(colPointer uintptr, row int, length uint16, arg ...interface{})
 	if (int64)(*((*int64)(currentRow))) == CTimestampNull {
 		return nil
 	} else {
-		return common.TimestampConvertToTime(*((*int64)(currentRow)), arg[0].(int))
+		if len(arg) == 1 {
+			return common.TimestampConvertToTime(*((*int64)(currentRow)), arg[0].(int))
+		} else if len(arg) == 2 {
+			return arg[1].(FormatTimeFunc)(*((*int64)(currentRow)), arg[0].(int))
+		} else {
+			panic("convertTime error")
+		}
 	}
 }
 
@@ -228,6 +234,8 @@ func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []uint16, 
 	return r
 }
 
+type FormatTimeFunc func(ts int64, precision int) driver.Value
+
 func FetchRow(row unsafe.Pointer, offset int, colType uint8, precision int) driver.Value {
 	p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(offset)*Step)))))
 	if p == nil {
@@ -268,4 +276,27 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, precision int) driv
 	default:
 		return nil
 	}
+}
+
+func ReadBlockWithTimeFormat(result, block unsafe.Pointer, blockSize int, colLength []uint16, colTypes []uint8, formatFunc FormatTimeFunc) [][]driver.Value {
+	r := make([][]driver.Value, blockSize)
+	colCount := len(colTypes)
+	precision := TaosResultPrecision(result)
+	for column := 0; column < colCount; column++ {
+		// column
+		colPointer := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(*(*C.TAOS_ROW)(block))) + uintptr(column)*PointerSize))
+		function := convertFuncMap[colTypes[column]]
+		for row := 0; row < blockSize; row++ {
+			//row
+			if column == 0 {
+				r[row] = make([]driver.Value, colCount)
+			}
+			if colTypes[column] == uint8(C.TSDB_DATA_TYPE_TIMESTAMP) {
+				r[row][column] = function(colPointer, row, colLength[column], precision, formatFunc)
+			} else {
+				r[row][column] = function(colPointer, row, colLength[column])
+			}
+		}
+	}
+	return r
 }
