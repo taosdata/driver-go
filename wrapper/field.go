@@ -110,7 +110,7 @@ var (
 	nullTime    = reflect.TypeOf(types.NullTime{})
 	nullBool    = reflect.TypeOf(types.NullBool{})
 	nullString  = reflect.TypeOf(types.NullString{})
-	nullJson    = reflect.TypeOf(types.NullJson{})
+	nullJson    = reflect.TypeOf([]byte{})
 	unknown     = reflect.TypeOf(new(interface{})).Elem()
 )
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -277,7 +278,7 @@ func TestJson(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json.tjson(ts timestamp,value int )tags(t json)")
+	_, err = db.Exec("create stable if not exists test_json.tjson(ts timestamp,value int )tags(t json(14))")
 	if err != nil {
 		t.Error(err)
 		return
@@ -303,6 +304,56 @@ func TestJson(t *testing.T) {
 		if !json.Valid(s) {
 			t.Error("invalid json ", string(s))
 		}
-		t.Logf("%#v", row)
+		t.Logf("%s", string(row[2].([]byte)))
 	}
+}
+
+func TestJsonSearch(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		t.Fatalf("error on:  sql.open %s", err.Error())
+		return
+	}
+	defer db.Close()
+	_, err = db.Exec("create database if not exists test_json")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec("create stable if not exists test_json.tjson_search(ts timestamp,value int )tags(t json(14))")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec(`insert into test_json.tjs_1 using test_json.tjson_search tags('{"a":1,"b":"b"}')values (now,1)`)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec(`insert into test_json.tjs_2 using test_json.tjson_search tags('{"a":1,"c":"c"}')values (now,2)`)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	rows, err := db.Query("select * from test_json.tjson_search where t?'a' and t->'b'='b' and value = 1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	counter := 0
+	for rows.Next() {
+		counter += 1
+		row := make([]driver.Value, 3)
+		err := rows.Scan(&row[0], &row[1], &row[2])
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		s := row[2].([]byte)
+		if !json.Valid(s) {
+			t.Error("invalid json ", string(s))
+		}
+		t.Logf("%s", string(row[2].([]byte)))
+	}
+	assert.Equal(t, 1, counter)
 }
