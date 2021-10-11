@@ -182,8 +182,8 @@ func (conn *Connector) SelectDB(db string) error {
 	return nil
 }
 
-func (conn *Connector) InsertLines(lines []string) error {
-	code := wrapper.TaosInsertLines(conn.taos, lines)
+func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
 	err := taosError.GetError(code)
 	if err != nil {
 		return err
@@ -191,8 +191,8 @@ func (conn *Connector) InsertLines(lines []string) error {
 	return nil
 }
 
-func (conn *Connector) InsertTelnetLines(lines []string) error {
-	code := wrapper.TaosInsertTelnetLines(conn.taos, lines)
+func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
 	err := taosError.GetError(code)
 	if err != nil {
 		return err
@@ -200,8 +200,8 @@ func (conn *Connector) InsertTelnetLines(lines []string) error {
 	return nil
 }
 
-func (conn *Connector) InsertJsonPayload(payload string) error {
-	code := wrapper.TaosInsertJsonPayload(conn.taos, payload)
+func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
 	err := taosError.GetError(code)
 	if err != nil {
 		return err

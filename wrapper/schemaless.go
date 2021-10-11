@@ -9,8 +9,14 @@ package wrapper
 import "C"
 import "unsafe"
 
-// TaosInsertLines DLL_EXPORT int taos_insert_lines(TAOS* taos, char* lines[], int numLines);
-func TaosInsertLines(taosConnect unsafe.Pointer, lines []string) int {
+const (
+	InfluxDBLineProtocol       = 0
+	OpenTSDBTelnetLineProtocol = 1
+	OpenTSDBJsonFormatProtocol = 2
+)
+
+// TaosSchemalessInsert DLL_EXPORT int taos_schemaless_insert(TAOS* taos, char* lines[], int numLines, int protocol, char* precision);
+func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol int, precision string) int {
 	numLines := len(lines)
 	var cLines = make([]*C.char, numLines)
 	needFreeList := make([]unsafe.Pointer, numLines)
@@ -24,30 +30,11 @@ func TaosInsertLines(taosConnect unsafe.Pointer, lines []string) int {
 		needFreeList[i] = unsafe.Pointer(cLine)
 		cLines[i] = cLine
 	}
-	return int(C.taos_insert_lines(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines)))
-}
-
-// TaosInsertTelnetLines DLL_EXPORT int taos_insert_telnet_lines(TAOS* taos, char* lines[], int numLines);
-func TaosInsertTelnetLines(taosConnect unsafe.Pointer, lines []string) int {
-	numLines := len(lines)
-	var cLines = make([]*C.char, numLines)
-	needFreeList := make([]unsafe.Pointer, numLines)
-	defer func() {
-		for _, p := range needFreeList {
-			C.free(p)
-		}
-	}()
-	for i, line := range lines {
-		cLine := C.CString(line)
-		needFreeList[i] = unsafe.Pointer(cLine)
-		cLines[i] = cLine
+	if len(precision) == 0 {
+		return int(C.taos_schemaless_insert(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), nil))
+	} else {
+		cPrecision := C.CString(precision)
+		defer C.free(unsafe.Pointer(cPrecision))
+		return int(C.taos_schemaless_insert(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), cPrecision))
 	}
-	return int(C.taos_insert_telnet_lines(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines)))
-}
-
-// TaosInsertJsonPayload DLL_EXPORT int taos_insert_json_payload(TAOS* taos, char* payload);
-func TaosInsertJsonPayload(taosConnect unsafe.Pointer, payload string) int {
-	cPayload := C.CString(payload)
-	defer C.free(unsafe.Pointer(cPayload))
-	return int(C.taos_insert_json_payload(taosConnect, cPayload))
 }

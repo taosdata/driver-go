@@ -686,11 +686,22 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 	}
 }
 
-func TestInsertLines(t *testing.T) {
+func TestInfluxDBInsertLines(t *testing.T) {
 	db := testDatabase(t)
-	err := db.InsertLines([]string{
-		"st,t1=3i64,t2=4f64,t3=\"t3\" c1=3i64,c3=L\"passit\",c2=false,c4=4f64 1626006833639000000ns",
-		"st,t1=32i64,t2=42f64,t3=\"t32\" c1=3i64,c3=L\"passit2\",c2=false,c4=42f64 1626006833639000000ns",
+	err := db.InfluxDBInsertLines([]string{
+		"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
+	}, "ns")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestOpenTSDBInsertTelnetLines(t *testing.T) {
+	db := testDatabase(t)
+	err := db.OpenTSDBInsertTelnetLines([]string{
+		"sys.if.bytes.out 1479496100 1.3E3 host=web01 interface=eth0",
+		"sys.procs.running 1479496100 42 host=web01",
 	})
 	if err != nil {
 		t.Error(err)
@@ -698,44 +709,17 @@ func TestInsertLines(t *testing.T) {
 	}
 }
 
-func TestInsertTelnetLines(t *testing.T) {
+func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	db := testDatabase(t)
-	err := db.InsertTelnetLines([]string{
-		"stb0_0 1626006833639000000ns 4i8 host=\"host0\" interface=\"eth0\"",
-		"stb0_0 1626006833641000000ns 44i8 host=\"host011\" interface=\"eth0\"",
-		"stb0_1 1626006833639000000ns 4i8 host=\"host0\" interface=\"eth0\"",
-		"stb0_2 1626006833639000000ns 4i8 host=\"host0\" interface=\"eth0\"",
-	})
-	if err != nil {
-		t.Error(err)
-		return
-	}
-}
-
-func TestInsertJsonPayloadLines(t *testing.T) {
-	db := testDatabase(t)
-	err := db.InsertJsonPayload(`[
-    {
-        "metric": "cpu_load_1",
-        "timestamp": 1626006833610123,
-        "value": 55.5,
-        "tags": {
-            "host": "ubuntu",
-            "interface": "eth1",
-            "Id": "tb1"
-        }
-    },
-    {
-        "metric": "cpu_load_2",
-        "timestamp": 1626006833610123,
-        "value": 55.5,
-        "tags": {
-            "host": "ubuntu",
-            "interface": "eth2",
-            "Id": "tb2"
-        }
+	err := db.OpenTSDBInsertJsonPayload(`{
+    "metric": "sys.cpu.nice",
+    "timestamp": 1346846400,
+    "value": 18,
+    "tags": {
+       "host": "web01",
+       "dc": "lga"
     }
-]`)
+}`)
 	if err != nil {
 		t.Error(err)
 		return
