@@ -1,5 +1,6 @@
 package af
 
+import "C"
 import (
 	"database/sql/driver"
 	"github.com/taosdata/driver-go/v2/af/insertstmt"
@@ -14,6 +15,16 @@ import (
 
 type Connector struct {
 	taos unsafe.Pointer
+}
+
+func NewConnector(taos unsafe.Pointer) (*Connector, error) {
+	if taos == nil {
+		return nil, &errors.TaosError{
+			Code:   errors.TSC_INVALID_CONNECTION,
+			ErrStr: "invalid connection",
+		}
+	}
+	return &Connector{taos: taos}, nil
 }
 
 func Open(host, user, pass, db string, port int) (*Connector, error) {
