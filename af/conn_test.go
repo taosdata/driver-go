@@ -712,7 +712,7 @@ func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	db := testDatabase(t)
 	err := db.OpenTSDBInsertJsonPayload(`{
-    "metric": "sys.cpu.nice",
+    "metric": "sys",
     "timestamp": 1346846400,
     "value": 18,
     "tags": {
