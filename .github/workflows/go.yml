@@ -1,0 +1,29 @@
+name: Go
+
+on: [push]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: tdengine/tdengine-beta:2.3.0.0
+      options: --user root
+      volumes:
+        - /etc/apt/sources.list:/etc/apt/sources.list
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: start taosd
+        run: nohup taosd &
+
+      - name: Install build-essential
+        run: apt-get update && apt-get install -y build-essential curl
+
+      - name: Test
+        run: go test -v ./...
