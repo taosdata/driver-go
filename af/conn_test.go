@@ -700,8 +700,8 @@ func TestInfluxDBInsertLines(t *testing.T) {
 func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 	db := testDatabase(t)
 	err := db.OpenTSDBInsertTelnetLines([]string{
-		"sys.if.bytes.out 1479496100 1.3E3 host=web01 interface=eth0",
-		"sys.procs.running 1479496100 42 host=web01",
+		"sys_if_bytes_out 1479496100 1.3E3 host=web01 interface=eth0",
+		"sys_procs_running 1479496100 42 host=web01",
 	})
 	if err != nil {
 		t.Error(err)
