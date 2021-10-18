@@ -1,4 +1,4 @@
-package af
+package param
 
 import (
 	taosTypes "github.com/taosdata/driver-go/v2/types"
@@ -263,4 +263,8 @@ func (p *Param) AddTimestamp(value time.Time, precision int) *Param {
 	}
 	p.column += 1
 	return p
+}
+
+func (p *Param) GetValues() []interface{} {
+	return p.value
 }

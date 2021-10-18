@@ -1,9 +1,13 @@
 package af
 
+import "C"
 import (
 	"database/sql/driver"
+	"github.com/taosdata/driver-go/v2/af/insertstmt"
+	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
+	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
 	"time"
 	"unsafe"
@@ -11,6 +15,16 @@ import (
 
 type Connector struct {
 	taos unsafe.Pointer
+}
+
+func NewConnector(taos unsafe.Pointer) (*Connector, error) {
+	if taos == nil {
+		return nil, &errors.TaosError{
+			Code:   errors.TSC_INVALID_CONNECTION,
+			ErrStr: "invalid connection",
+		}
+	}
+	return &Connector{taos: taos}, nil
 }
 
 func Open(host, user, pass, db string, port int) (*Connector, error) {
@@ -33,7 +47,7 @@ func (conn *Connector) Close() error {
 	return nil
 }
 
-func (conn *Connector) StmtExecute(sql string, params *Param) (res driver.Result, err error) {
+func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.Result, err error) {
 	stmt := NewStmt(conn.taos)
 	if stmt == nil {
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
@@ -61,7 +75,7 @@ func (conn *Connector) StmtExecute(sql string, params *Param) (res driver.Result
 	return driver.RowsAffected(result), nil
 }
 
-func (conn *Connector) StmtQuery(sql string, params *Param) (rows driver.Rows, err error) {
+func (conn *Connector) StmtQuery(sql string, params *param.Param) (rows driver.Rows, err error) {
 	stmt := NewStmt(conn.taos)
 	if stmt == nil {
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
@@ -155,4 +169,53 @@ func (conn *Connector) taosQuery(sqlStr string) (result unsafe.Pointer, numField
 	}
 
 	return result, numFields, affectedRows, nil
+}
+
+func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
+	return insertstmt.NewInsertStmt(conn.taos)
+}
+
+func (conn *Connector) LoadTableInfo(tableNameList []string) error {
+	code := wrapper.TaosLoadTableInfo(conn.taos, tableNameList)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) SelectDB(db string) error {
+	code := wrapper.TaosSelectDB(conn.taos, db)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
 }

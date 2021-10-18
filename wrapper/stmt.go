@@ -148,14 +148,14 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
 				buf := param.(taosTypes.TaosUTinyint)
 				cbuf := C.malloc(1)
-				*(*C.char)(cbuf) = C.char(buf)
+				*(*C.uint8_t)(cbuf) = C.uint8_t(buf)
 				needFreePointer = append(needFreePointer, cbuf)
 				bind.buffer = cbuf
 			case taosTypes.TaosUSmallint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
 				value := param.(taosTypes.TaosUSmallint)
 				p := C.malloc(2)
-				*(*C.int16_t)(p) = C.int16_t(value)
+				*(*C.uint16_t)(p) = C.uint16_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
 			case taosTypes.TaosUInt:
@@ -242,4 +242,284 @@ func TaosStmtUseResult(stmt unsafe.Pointer) unsafe.Pointer {
 // TaosStmtClose int        taos_stmt_close(TAOS_STMT *stmt);
 func TaosStmtClose(stmt unsafe.Pointer) int {
 	return int(C.taos_stmt_close(stmt))
+}
+
+//TaosStmtSetSubTBName int        taos_stmt_set_sub_tbname(TAOS_STMT* stmt, const char* name);
+func TaosStmtSetSubTBName(stmt unsafe.Pointer, name string) int {
+	cStr := C.CString(name)
+	defer C.free(unsafe.Pointer(cStr))
+	return int(C.taos_stmt_set_sub_tbname(stmt, cStr))
+}
+
+//typedef struct TAOS_MULTI_BIND {
+//int            buffer_type;
+//void          *buffer;
+//uintptr_t      buffer_length;
+//int32_t       *length;
+//char          *is_null;
+//int            num;
+//} TAOS_MULTI_BIND;
+
+// TaosStmtBindParamBatch int        taos_stmt_bind_param_batch(TAOS_STMT* stmt, TAOS_MULTI_BIND* bind);
+func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bindType []*taosTypes.ColumnType) int {
+	var binds = make([]C.TAOS_MULTI_BIND, len(multiBind))
+	var needFreePointer []unsafe.Pointer
+	defer func() {
+		for _, pointer := range needFreePointer {
+			C.free(pointer)
+		}
+	}()
+	for columnIndex, columnData := range multiBind {
+		bind := C.TAOS_MULTI_BIND{}
+		//malloc
+		rowLen := len(multiBind[0])
+		bind.num = C.int(rowLen)
+		nullList := unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
+		needFreePointer = append(needFreePointer, nullList)
+		lengthList := unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen * 4))))
+		needFreePointer = append(needFreePointer, lengthList)
+		var p unsafe.Pointer
+		columnType := bindType[columnIndex]
+		switch columnType.Type {
+		case taosTypes.TaosBoolType:
+			//1
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
+			bind.buffer_length = C.uintptr_t(1)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosBool)
+					current := unsafe.Pointer(uintptr(p) + uintptr(i))
+					if value {
+						*(*C.int8_t)(current) = C.int8_t(1)
+					} else {
+						*(*C.int8_t)(current) = C.int8_t(0)
+					}
+				}
+			}
+		case taosTypes.TaosTinyintType:
+			//1
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_TINYINT
+			bind.buffer_length = C.uintptr_t(1)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosTinyint)
+					current := unsafe.Pointer(uintptr(p) + uintptr(i))
+					*(*C.int8_t)(current) = C.int8_t(value)
+				}
+			}
+		case taosTypes.TaosSmallintType:
+			//2
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_SMALLINT
+			bind.buffer_length = C.uintptr_t(2)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosSmallint)
+					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
+					*(*C.int16_t)(current) = C.int16_t(value)
+				}
+			}
+		case taosTypes.TaosIntType:
+			//4
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_INT
+			bind.buffer_length = C.uintptr_t(4)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosInt)
+					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
+					*(*C.int32_t)(current) = C.int32_t(value)
+				}
+			}
+		case taosTypes.TaosBigintType:
+			//8
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
+			bind.buffer_length = C.uintptr_t(8)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosBigint)
+					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
+					*(*C.int64_t)(current) = C.int64_t(value)
+				}
+			}
+		case taosTypes.TaosUTinyintType:
+			//1
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
+			bind.buffer_length = C.uintptr_t(1)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosUTinyint)
+					current := unsafe.Pointer(uintptr(p) + uintptr(i))
+					*(*C.uint8_t)(current) = C.uint8_t(value)
+				}
+			}
+		case taosTypes.TaosUSmallintType:
+			//2
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
+			bind.buffer_length = C.uintptr_t(2)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosUSmallint)
+					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
+					*(*C.uint16_t)(current) = C.uint16_t(value)
+				}
+			}
+		case taosTypes.TaosUIntType:
+			//4
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_UINT
+			bind.buffer_length = C.uintptr_t(4)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosUInt)
+					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
+					*(*C.uint32_t)(current) = C.uint32_t(value)
+				}
+			}
+		case taosTypes.TaosUBigintType:
+			//8
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
+			bind.buffer_length = C.uintptr_t(8)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosUBigint)
+					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
+					*(*C.uint64_t)(current) = C.uint64_t(value)
+				}
+			}
+		case taosTypes.TaosFloatType:
+			//4
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_FLOAT
+			bind.buffer_length = C.uintptr_t(4)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosFloat)
+					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
+					*(*C.float)(current) = C.float(value)
+				}
+			}
+		case taosTypes.TaosDoubleType:
+			//8
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
+			bind.buffer_length = C.uintptr_t(8)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosDouble)
+					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
+					*(*C.double)(current) = C.double(value)
+				}
+			}
+		case taosTypes.TaosBinaryType:
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(columnType.MaxLen * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
+			bind.buffer_length = C.uintptr_t(columnType.MaxLen)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosBinary)
+					for j := 0; j < len(value); j++ {
+						*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(columnType.MaxLen*i+j))) = (C.char)(value[j])
+					}
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
+					*(*C.int32_t)(l) = C.int32_t(len(value))
+				}
+			}
+		case taosTypes.TaosNcharType:
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(columnType.MaxLen * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_NCHAR
+			bind.buffer_length = C.uintptr_t(columnType.MaxLen)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosNchar)
+					for j := 0; j < len(value); j++ {
+						*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(columnType.MaxLen*i+j))) = (C.char)(value[j])
+					}
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
+					*(*C.int32_t)(l) = C.int32_t(len(value))
+				}
+			}
+		case taosTypes.TaosTimestampType:
+			//8
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
+			bind.buffer_length = C.uintptr_t(8)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.int)(currentNull) = C.int(1)
+				} else {
+					*(*C.int)(currentNull) = C.int(0)
+					value := rowData.(taosTypes.TaosTimestamp)
+					ts := common.TimeToTimestamp(value.T, value.Precision)
+					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
+					*(*C.int64_t)(current) = C.int64_t(ts)
+				}
+			}
+		}
+		needFreePointer = append(needFreePointer, p)
+		bind.buffer = p
+		bind.length = (*C.int32_t)(lengthList)
+		bind.is_null = (*C.char)(nullList)
+		binds[columnIndex] = bind
+	}
+	return int(C.taos_stmt_bind_param_batch(stmt, (*C.TAOS_MULTI_BIND)(&binds[0])))
 }

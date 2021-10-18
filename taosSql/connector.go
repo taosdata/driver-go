@@ -4,12 +4,16 @@ import (
 	"context"
 	"database/sql/driver"
 	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
+	"sync"
 )
 
 type connector struct {
 	cfg *config
 }
+
+var once = sync.Once{}
 
 // Connect implements driver.Connector interface.
 // Connect returns a connection to the database.
@@ -18,7 +22,15 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	tc := &taosConn{
 		cfg: c.cfg,
 	}
-
+	if c.cfg.net == "cfg" && len(c.cfg.configPath) > 0 {
+		once.Do(func() {
+			code := wrapper.TaosOptions(common.TSDB_OPTION_CONFIGDIR, c.cfg.configPath)
+			err = errors.GetError(code)
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
 	// Connect to Server
 	if len(tc.cfg.user) == 0 {
 		tc.cfg.user = common.DefaultUser

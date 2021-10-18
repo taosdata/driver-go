@@ -1,6 +1,7 @@
 package types
 
 import (
+	"reflect"
 	"time"
 )
 
@@ -20,4 +21,26 @@ type TaosNchar string
 type TaosTimestamp struct {
 	T         time.Time
 	Precision int
+}
+
+var (
+	TaosBoolType      = reflect.TypeOf(TaosBool(false))
+	TaosTinyintType   = reflect.TypeOf(TaosTinyint(0))
+	TaosSmallintType  = reflect.TypeOf(TaosSmallint(0))
+	TaosIntType       = reflect.TypeOf(TaosInt(0))
+	TaosBigintType    = reflect.TypeOf(TaosBigint(0))
+	TaosUTinyintType  = reflect.TypeOf(TaosUTinyint(0))
+	TaosUSmallintType = reflect.TypeOf(TaosUSmallint(0))
+	TaosUIntType      = reflect.TypeOf(TaosUInt(0))
+	TaosUBigintType   = reflect.TypeOf(TaosUBigint(0))
+	TaosFloatType     = reflect.TypeOf(TaosFloat(0))
+	TaosDoubleType    = reflect.TypeOf(TaosDouble(0))
+	TaosBinaryType    = reflect.TypeOf(TaosBinary(nil))
+	TaosNcharType     = reflect.TypeOf(TaosNchar(""))
+	TaosTimestampType = reflect.TypeOf(TaosTimestamp{})
+)
+
+type ColumnType struct {
+	Type   reflect.Type
+	MaxLen int
 }

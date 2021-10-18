@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/taosdata/driver-go/v2/af/param"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
 	"unsafe"
@@ -42,8 +43,8 @@ func (s *Stmt) Prepare(sql string) error {
 	return err
 }
 
-func (s *Stmt) SetTableNameWithTags(tableName string, tags *Param) error {
-	code := wrapper.TaosStmtSetTBNameTags(s.stmt, tableName, tags.value)
+func (s *Stmt) SetTableNameWithTags(tableName string, tags *param.Param) error {
+	code := wrapper.TaosStmtSetTBNameTags(s.stmt, tableName, tags.GetValues())
 	err := taosError.GetError(code)
 	return err
 }
@@ -54,7 +55,7 @@ func (s *Stmt) SetTableName(tableName string) error {
 	return err
 }
 
-func (s *Stmt) BindRow(row *Param) error {
+func (s *Stmt) BindRow(row *param.Param) error {
 	if s.paramCount == 0 {
 		code := wrapper.TaosStmtBindParam(s.stmt, nil)
 		err := taosError.GetError(code)
@@ -63,10 +64,11 @@ func (s *Stmt) BindRow(row *Param) error {
 	if row == nil {
 		return fmt.Errorf("row param got nil")
 	}
-	if len(row.value) != s.paramCount {
-		return fmt.Errorf("row param count error : expect %d got %d", s.paramCount, len(row.value))
+	value := row.GetValues()
+	if len(value) != s.paramCount {
+		return fmt.Errorf("row param count error : expect %d got %d", s.paramCount, len(value))
 	}
-	code := wrapper.TaosStmtBindParam(s.stmt, row.value)
+	code := wrapper.TaosStmtBindParam(s.stmt, value)
 	err := taosError.GetError(code)
 	return err
 }

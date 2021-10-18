@@ -17,6 +17,7 @@ package taosSql
 
 import (
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +45,7 @@ type config struct {
 	params            map[string]string // Connection parameters
 	loc               *time.Location    // Location for time.Time values
 	interpolateParams bool              // Interpolate placeholders into query string
+	configPath        string
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -98,18 +100,27 @@ func parseDSN(dsn string) (cfg *config, err error) {
 							}
 							//return nil, errInvalidDSNAddr
 						}
-						strList := strings.Split(dsn[k+1:i-1], ":")
-						if len(strList) == 1 {
-							return nil, errInvalidDSNAddr
-						}
-						if len(strList[0]) != 0 {
-							cfg.addr = strList[0]
-							cfg.port, err = strconv.Atoi(strList[1])
+						if dsn[j+1:k] == "cfg" {
+							cfgPath := dsn[k+1 : i-1]
+							cfg.configPath, err = filepath.Abs(cfgPath)
 							if err != nil {
-								return nil, errInvalidDSNPort
+								return nil, err
 							}
+							break
+						} else {
+							strList := strings.Split(dsn[k+1:i-1], ":")
+							if len(strList) == 1 {
+								return nil, errInvalidDSNAddr
+							}
+							if len(strList[0]) != 0 {
+								cfg.addr = strList[0]
+								cfg.port, err = strconv.Atoi(strList[1])
+								if err != nil {
+									return nil, errInvalidDSNPort
+								}
+							}
+							break
 						}
-						break
 					}
 				}
 				cfg.net = dsn[j+1 : k]
