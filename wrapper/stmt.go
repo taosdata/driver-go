@@ -274,16 +274,16 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 		//malloc
 		rowLen := len(multiBind[0])
 		bind.num = C.int(rowLen)
-		nullList := unsafe.Pointer(C.malloc(C.ulong(rowLen)))
+		nullList := unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
 		needFreePointer = append(needFreePointer, nullList)
-		lengthList := unsafe.Pointer(C.malloc(C.ulong(rowLen * 4)))
+		lengthList := unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen * 4))))
 		needFreePointer = append(needFreePointer, lengthList)
 		var p unsafe.Pointer
 		columnType := bindType[columnIndex]
 		switch columnType.Type {
 		case taosTypes.TaosBoolType:
 			//1
-			p = unsafe.Pointer(C.malloc(C.ulong(rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
 			bind.buffer_length = C.uintptr_t(1)
 			for i, rowData := range columnData {
@@ -303,7 +303,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosTinyintType:
 			//1
-			p = unsafe.Pointer(C.malloc(C.ulong(rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_TINYINT
 			bind.buffer_length = C.uintptr_t(1)
 			for i, rowData := range columnData {
@@ -319,7 +319,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosSmallintType:
 			//2
-			p = unsafe.Pointer(C.malloc(C.ulong(2 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_SMALLINT
 			bind.buffer_length = C.uintptr_t(2)
 			for i, rowData := range columnData {
@@ -335,7 +335,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosIntType:
 			//4
-			p = unsafe.Pointer(C.malloc(C.ulong(4 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_INT
 			bind.buffer_length = C.uintptr_t(4)
 			for i, rowData := range columnData {
@@ -351,7 +351,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosBigintType:
 			//8
-			p = unsafe.Pointer(C.malloc(C.ulong(8 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
 			bind.buffer_length = C.uintptr_t(8)
 			for i, rowData := range columnData {
@@ -367,7 +367,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosUTinyintType:
 			//1
-			p = unsafe.Pointer(C.malloc(C.ulong(rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
 			bind.buffer_length = C.uintptr_t(1)
 			for i, rowData := range columnData {
@@ -383,7 +383,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosUSmallintType:
 			//2
-			p = unsafe.Pointer(C.malloc(C.ulong(2 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
 			bind.buffer_length = C.uintptr_t(2)
 			for i, rowData := range columnData {
@@ -399,7 +399,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosUIntType:
 			//4
-			p = unsafe.Pointer(C.malloc(C.ulong(4 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_UINT
 			bind.buffer_length = C.uintptr_t(4)
 			for i, rowData := range columnData {
@@ -415,7 +415,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosUBigintType:
 			//8
-			p = unsafe.Pointer(C.malloc(C.ulong(8 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
 			bind.buffer_length = C.uintptr_t(8)
 			for i, rowData := range columnData {
@@ -431,7 +431,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosFloatType:
 			//4
-			p = unsafe.Pointer(C.malloc(C.ulong(4 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_FLOAT
 			bind.buffer_length = C.uintptr_t(4)
 			for i, rowData := range columnData {
@@ -447,7 +447,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosDoubleType:
 			//8
-			p = unsafe.Pointer(C.malloc(C.ulong(8 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
 			bind.buffer_length = C.uintptr_t(8)
 			for i, rowData := range columnData {
@@ -462,7 +462,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 				}
 			}
 		case taosTypes.TaosBinaryType:
-			p = unsafe.Pointer(C.malloc(C.ulong(columnType.MaxLen * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(columnType.MaxLen * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
 			bind.buffer_length = C.uintptr_t(columnType.MaxLen)
 			for i, rowData := range columnData {
@@ -480,7 +480,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 				}
 			}
 		case taosTypes.TaosNcharType:
-			p = unsafe.Pointer(C.malloc(C.ulong(columnType.MaxLen * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(columnType.MaxLen * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_NCHAR
 			bind.buffer_length = C.uintptr_t(columnType.MaxLen)
 			for i, rowData := range columnData {
@@ -499,7 +499,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 			}
 		case taosTypes.TaosTimestampType:
 			//8
-			p = unsafe.Pointer(C.malloc(C.ulong(8 * rowLen)))
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
 			bind.buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
 			bind.buffer_length = C.uintptr_t(8)
 			for i, rowData := range columnData {

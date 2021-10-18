@@ -1,5 +1,6 @@
 package af
 
+import "C"
 import (
 	"database/sql/driver"
 	"github.com/taosdata/driver-go/v2/af/insertstmt"
@@ -14,6 +15,16 @@ import (
 
 type Connector struct {
 	taos unsafe.Pointer
+}
+
+func NewConnector(taos unsafe.Pointer) (*Connector, error) {
+	if taos == nil {
+		return nil, &errors.TaosError{
+			Code:   errors.TSC_INVALID_CONNECTION,
+			ErrStr: "invalid connection",
+		}
+	}
+	return &Connector{taos: taos}, nil
 }
 
 func Open(host, user, pass, db string, port int) (*Connector, error) {
@@ -166,6 +177,42 @@ func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 
 func (conn *Connector) LoadTableInfo(tableNameList []string) error {
 	code := wrapper.TaosLoadTableInfo(conn.taos, tableNameList)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) SelectDB(db string) error {
+	code := wrapper.TaosSelectDB(conn.taos, db)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
+	err := taosError.GetError(code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
+	code := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
 	err := taosError.GetError(code)
 	if err != nil {
 		return err

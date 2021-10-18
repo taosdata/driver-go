@@ -685,3 +685,43 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 		})
 	}
 }
+
+func TestInfluxDBInsertLines(t *testing.T) {
+	db := testDatabase(t)
+	err := db.InfluxDBInsertLines([]string{
+		"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
+	}, "ns")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestOpenTSDBInsertTelnetLines(t *testing.T) {
+	db := testDatabase(t)
+	err := db.OpenTSDBInsertTelnetLines([]string{
+		"sys_if_bytes_out 1479496100 1.3E3 host=web01 interface=eth0",
+		"sys_procs_running 1479496100 42 host=web01",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestOpenTSDBInsertJsonPayload(t *testing.T) {
+	db := testDatabase(t)
+	err := db.OpenTSDBInsertJsonPayload(`{
+    "metric": "sys",
+    "timestamp": 1346846400,
+    "value": 18,
+    "tags": {
+       "host": "web01",
+       "dc": "lga"
+    }
+}`)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}

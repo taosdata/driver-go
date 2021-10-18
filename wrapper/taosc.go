@@ -9,6 +9,9 @@ package wrapper
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
+int taos_options_wrapper(TSDB_OPTION option, char *arg) {
+	return taos_options(option,arg);
+}
 */
 import "C"
 import (
@@ -115,4 +118,18 @@ func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
 	buf := C.CString(s)
 	defer C.free(unsafe.Pointer(buf))
 	return int(C.taos_load_table_info(taosConnect, buf))
+}
+
+// TaosSelectDB int taos_select_db(TAOS *taos, const char *db);
+func TaosSelectDB(taosConnect unsafe.Pointer, db string) int {
+	cDB := C.CString(db)
+	defer C.free(unsafe.Pointer(cDB))
+	return int(C.taos_select_db(taosConnect, cDB))
+}
+
+// TaosOptions int   taos_options(TSDB_OPTION option, const void *arg, ...);
+func TaosOptions(option int, value string) int {
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+	return int(C.taos_options_wrapper((C.TSDB_OPTION)(option), cValue))
 }
