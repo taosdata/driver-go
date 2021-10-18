@@ -75,6 +75,16 @@ const (
 	TSC_FILE_EMPTY                int32 = 0x021A
 	TSC_LINE_SYNTAX_ERROR         int32 = 0x021B
 	TSC_NO_META_CACHED            int32 = 0x021C
+	TSC_DUP_COL_NAMES             int32 = 0x021D
+	TSC_INVALID_TAG_LENGTH        int32 = 0x021E
+	TSC_INVALID_COLUMN_LENGTH     int32 = 0x021F
+	TSC_DUP_TAG_NAMES             int32 = 0x0220
+	TSC_INVALID_JSON              int32 = 0x0221
+	TSC_INVALID_JSON_TYPE         int32 = 0x0222
+	TSC_INVALID_JSON_CONFIG       int32 = 0x0223
+	TSC_VALUE_OUT_OF_RANGE        int32 = 0x0224
+	TSC_INVALID_PROTOCOL_TYPE     int32 = 0x0225
+	TSC_INVALID_PRECISION_TYPE    int32 = 0x0226
 	MND_MSG_NOT_PROCESSED         int32 = 0x0300
 	MND_ACTION_IN_PROGRESS        int32 = 0x0301
 	MND_ACTION_NEED_REPROCESSED   int32 = 0x0302
@@ -148,6 +158,8 @@ const (
 	MND_FUNC_ALREADY_EXIST        int32 = 0x0373
 	MND_INVALID_FUNC              int32 = 0x0374
 	MND_INVALID_FUNC_BUFSIZE      int32 = 0x0375
+	MND_INVALID_TAG_LENGTH        int32 = 0x0376
+	MND_INVALID_COLUMN_LENGTH     int32 = 0x0377
 	MND_DB_NOT_SELECTED           int32 = 0x0380
 	MND_DB_ALREADY_EXIST          int32 = 0x0381
 	MND_INVALID_DB_OPTION         int32 = 0x0382
@@ -224,7 +236,8 @@ const (
 	QRY_TOO_MANY_TIMEWINDOW       int32 = 0x070A
 	QRY_NOT_ENOUGH_BUFFER         int32 = 0x070B
 	QRY_INCONSISTAN               int32 = 0x070C
-	QRY_SYS_ERROR                 int32 = 0x070D
+	QRY_INVALID_TIME_CONDITION    int32 = 0x070D
+	QRY_SYS_ERROR                 int32 = 0x070E
 	GRANT_EXPIRED                 int32 = 0x0800
 	GRANT_DNODE_LIMITED           int32 = 0x0801
 	GRANT_ACCT_LIMITED            int32 = 0x0802
@@ -641,6 +654,46 @@ var (
 		Code:   TSC_NO_META_CACHED,
 		ErrStr: "No table meta cached",
 	}
+	ErrTscDupColNames = &TaosError{
+		Code:   TSC_DUP_COL_NAMES,
+		ErrStr: "duplicated column names",
+	}
+	ErrTscInvalidTagLength = &TaosError{
+		Code:   TSC_INVALID_TAG_LENGTH,
+		ErrStr: "Invalid tag length",
+	}
+	ErrTscInvalidColumnLength = &TaosError{
+		Code:   TSC_INVALID_COLUMN_LENGTH,
+		ErrStr: "Invalid column length",
+	}
+	ErrTscDupTagNames = &TaosError{
+		Code:   TSC_DUP_TAG_NAMES,
+		ErrStr: "duplicated tag names",
+	}
+	ErrTscInvalidJson = &TaosError{
+		Code:   TSC_INVALID_JSON,
+		ErrStr: "Invalid JSON format",
+	}
+	ErrTscInvalidJsonType = &TaosError{
+		Code:   TSC_INVALID_JSON_TYPE,
+		ErrStr: "Invalid JSON data type",
+	}
+	ErrTscInvalidJsonConfig = &TaosError{
+		Code:   TSC_INVALID_JSON_CONFIG,
+		ErrStr: "Invalid JSON configuration",
+	}
+	ErrTscValueOutOfRange = &TaosError{
+		Code:   TSC_VALUE_OUT_OF_RANGE,
+		ErrStr: "Value out of range",
+	}
+	ErrTscInvalidProtocolType = &TaosError{
+		Code:   TSC_INVALID_PROTOCOL_TYPE,
+		ErrStr: "Invalid line protocol type",
+	}
+	ErrTscInvalidPrecisionType = &TaosError{
+		Code:   TSC_INVALID_PRECISION_TYPE,
+		ErrStr: "Invalid timestamp precision type",
+	}
 	ErrMndMsgNotProcessed = &TaosError{
 		Code:   MND_MSG_NOT_PROCESSED,
 		ErrStr: "Message not processed",
@@ -703,7 +756,7 @@ var (
 	}
 	ErrMndMnodeIsRunning = &TaosError{
 		Code:   MND_MNODE_IS_RUNNING,
-		ErrStr: "mnode is alreay running",
+		ErrStr: "mnode is already running",
 	}
 	ErrMndFailedToConfigSync = &TaosError{
 		Code:   MND_FAILED_TO_CONFIG_SYNC,
@@ -932,6 +985,14 @@ var (
 	ErrMndInvalidFuncBufsize = &TaosError{
 		Code:   MND_INVALID_FUNC_BUFSIZE,
 		ErrStr: "Invalid func bufSize",
+	}
+	ErrMndInvalidTagLength = &TaosError{
+		Code:   MND_INVALID_TAG_LENGTH,
+		ErrStr: "invalid tag length",
+	}
+	ErrMndInvalidColumnLength = &TaosError{
+		Code:   MND_INVALID_COLUMN_LENGTH,
+		ErrStr: "invalid column length",
 	}
 	ErrMndDbNotSelected = &TaosError{
 		Code:   MND_DB_NOT_SELECTED,
@@ -1211,7 +1272,7 @@ var (
 	}
 	ErrQryExceedTagsLimit = &TaosError{
 		Code:   QRY_EXCEED_TAGS_LIMIT,
-		ErrStr: "Tag conditon too many",
+		ErrStr: "Tag condition too many",
 	}
 	ErrQryNotReady = &TaosError{
 		Code:   QRY_NOT_READY,
@@ -1236,6 +1297,10 @@ var (
 	ErrQryInconsistan = &TaosError{
 		Code:   QRY_INCONSISTAN,
 		ErrStr: "File inconsistency in replica",
+	}
+	ErrQryInvalidTimeCondition = &TaosError{
+		Code:   QRY_INVALID_TIME_CONDITION,
+		ErrStr: "invalid time condition",
 	}
 	ErrQrySysError = &TaosError{
 		Code:   QRY_SYS_ERROR,
@@ -1347,7 +1412,7 @@ var (
 	}
 	ErrHttpServerOffline = &TaosError{
 		Code:   HTTP_SERVER_OFFLINE,
-		ErrStr: "http server is not onlin",
+		ErrStr: "http server is not online",
 	}
 	ErrHttpUnsupportUrl = &TaosError{
 		Code:   HTTP_UNSUPPORT_URL,
@@ -1856,6 +1921,7 @@ var (
 )
 
 var errorMap = map[int32]*TaosError{
+
 	RPC_ACTION_IN_PROGRESS:        ErrRpcActionInProgress,
 	RPC_AUTH_REQUIRED:             ErrRpcAuthRequired,
 	RPC_AUTH_FAILURE:              ErrRpcAuthFailure,
@@ -1918,6 +1984,16 @@ var errorMap = map[int32]*TaosError{
 	TSC_FILE_EMPTY:                ErrTscFileEmpty,
 	TSC_LINE_SYNTAX_ERROR:         ErrTscLineSyntaxError,
 	TSC_NO_META_CACHED:            ErrTscNoMetaCached,
+	TSC_DUP_COL_NAMES:             ErrTscDupColNames,
+	TSC_INVALID_TAG_LENGTH:        ErrTscInvalidTagLength,
+	TSC_INVALID_COLUMN_LENGTH:     ErrTscInvalidColumnLength,
+	TSC_DUP_TAG_NAMES:             ErrTscDupTagNames,
+	TSC_INVALID_JSON:              ErrTscInvalidJson,
+	TSC_INVALID_JSON_TYPE:         ErrTscInvalidJsonType,
+	TSC_INVALID_JSON_CONFIG:       ErrTscInvalidJsonConfig,
+	TSC_VALUE_OUT_OF_RANGE:        ErrTscValueOutOfRange,
+	TSC_INVALID_PROTOCOL_TYPE:     ErrTscInvalidProtocolType,
+	TSC_INVALID_PRECISION_TYPE:    ErrTscInvalidPrecisionType,
 	MND_MSG_NOT_PROCESSED:         ErrMndMsgNotProcessed,
 	MND_ACTION_IN_PROGRESS:        ErrMndActionInProgress,
 	MND_ACTION_NEED_REPROCESSED:   ErrMndActionNeedReprocessed,
@@ -1991,6 +2067,8 @@ var errorMap = map[int32]*TaosError{
 	MND_FUNC_ALREADY_EXIST:        ErrMndFuncAlreadyExist,
 	MND_INVALID_FUNC:              ErrMndInvalidFunc,
 	MND_INVALID_FUNC_BUFSIZE:      ErrMndInvalidFuncBufsize,
+	MND_INVALID_TAG_LENGTH:        ErrMndInvalidTagLength,
+	MND_INVALID_COLUMN_LENGTH:     ErrMndInvalidColumnLength,
 	MND_DB_NOT_SELECTED:           ErrMndDbNotSelected,
 	MND_DB_ALREADY_EXIST:          ErrMndDbAlreadyExist,
 	MND_INVALID_DB_OPTION:         ErrMndInvalidDbOption,
@@ -2067,6 +2145,7 @@ var errorMap = map[int32]*TaosError{
 	QRY_TOO_MANY_TIMEWINDOW:       ErrQryTooManyTimewindow,
 	QRY_NOT_ENOUGH_BUFFER:         ErrQryNotEnoughBuffer,
 	QRY_INCONSISTAN:               ErrQryInconsistan,
+	QRY_INVALID_TIME_CONDITION:    ErrQryInvalidTimeCondition,
 	QRY_SYS_ERROR:                 ErrQrySysError,
 	GRANT_EXPIRED:                 ErrGrantExpired,
 	GRANT_DNODE_LIMITED:           ErrGrantDnodeLimited,
