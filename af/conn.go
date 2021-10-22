@@ -205,6 +205,7 @@ func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) err
 			ErrStr: errStr,
 		}
 	}
+	wrapper.TaosFreeResult(result)
 	return nil
 }
 
@@ -219,6 +220,7 @@ func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
 			ErrStr: errStr,
 		}
 	}
+	wrapper.TaosFreeResult(result)
 	return nil
 }
 
@@ -233,5 +235,6 @@ func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 			ErrStr: errStr,
 		}
 	}
+	wrapper.TaosFreeResult(result)
 	return nil
 }
