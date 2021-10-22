@@ -3,14 +3,15 @@ package af
 import "C"
 import (
 	"database/sql/driver"
+	"time"
+	"unsafe"
+
 	"github.com/taosdata/driver-go/v2/af/insertstmt"
 	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
-	"time"
-	"unsafe"
 )
 
 type Connector struct {
@@ -194,28 +195,43 @@ func (conn *Connector) SelectDB(db string) error {
 }
 
 func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
-	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
-	err := taosError.GetError(code)
-	if err != nil {
-		return err
+	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
+	code := wrapper.TaosError(result)
+	if code != 0 {
+		errStr := wrapper.TaosErrorStr(result)
+		wrapper.TaosFreeResult(result)
+		return &errors.TaosError{
+			Code:   int32(code) & 0xffff,
+			ErrStr: errStr,
+		}
 	}
 	return nil
 }
 
 func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
-	code := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
-	err := taosError.GetError(code)
-	if err != nil {
-		return err
+	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
+	code := wrapper.TaosError(result)
+	if code != 0 {
+		errStr := wrapper.TaosErrorStr(result)
+		wrapper.TaosFreeResult(result)
+		return &errors.TaosError{
+			Code:   int32(code) & 0xffff,
+			ErrStr: errStr,
+		}
 	}
 	return nil
 }
 
 func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
-	code := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
-	err := taosError.GetError(code)
-	if err != nil {
-		return err
+	result := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
+	code := wrapper.TaosError(result)
+	if code != 0 {
+		errStr := wrapper.TaosErrorStr(result)
+		wrapper.TaosFreeResult(result)
+		return &errors.TaosError{
+			Code:   int32(code) & 0xffff,
+			ErrStr: errStr,
+		}
 	}
 	return nil
 }
