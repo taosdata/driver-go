@@ -6,9 +6,10 @@ package wrapper
 import "C"
 import (
 	"database/sql/driver"
-	"github.com/taosdata/driver-go/v2/common"
 	"math"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/common"
 )
 
 const (
@@ -236,7 +237,7 @@ func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []uint16, 
 
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
-func FetchRow(row unsafe.Pointer, offset int, colType uint8, precision int) driver.Value {
+func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{}) driver.Value {
 	p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(offset)*Step)))))
 	if p == nil {
 		return nil
@@ -271,8 +272,13 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, precision int) driv
 	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
 		return C.GoString((*C.char)(p))
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
-		ts := *((*int64)(p))
-		return common.TimestampConvertToTime(ts, precision)
+		if len(arg) == 1 {
+			return common.TimestampConvertToTime(*((*int64)(p)), arg[0].(int))
+		} else if len(arg) == 2 {
+			return arg[1].(FormatTimeFunc)(*((*int64)(p)), arg[0].(int))
+		} else {
+			panic("convertTime error")
+		}
 	default:
 		return nil
 	}
