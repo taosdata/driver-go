@@ -97,10 +97,7 @@ func (h Handle) Value() interface{} {
 //
 // The method panics if the handle is invalid.
 func (h Handle) Delete() {
-	_, ok := handles.LoadAndDelete(uintptr(h))
-	if !ok {
-		panic("runtime/cgo: misuse of an invalid Handle")
-	}
+	handles.Delete(uintptr(h))
 }
 
 var (
