@@ -9,15 +9,25 @@ package wrapper
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
+extern void QueryCallback(void *param,TAOS_RES *,int code);
+extern void FetchRowsCallback(void *param,TAOS_RES *,int numOfRows);
 int taos_options_wrapper(TSDB_OPTION option, char *arg) {
 	return taos_options(option,arg);
-}
+};
+void taos_fetch_rows_a_wrapper(TAOS_RES *res, void *param){
+	return taos_fetch_rows_a(res,FetchRowsCallback,param);
+};
+void taos_query_a_wrapper(TAOS *taos,const char *sql, void *param){
+	return taos_query_a(taos,sql,QueryCallback,param);
+};
 */
 import "C"
 import (
-	"github.com/taosdata/driver-go/v2/errors"
 	"strings"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
 // TaosFreeResult void taos_free_result(TAOS_RES *res);
@@ -132,4 +142,16 @@ func TaosOptions(option int, value string) int {
 	cValue := C.CString(value)
 	defer C.free(unsafe.Pointer(cValue))
 	return int(C.taos_options_wrapper((C.TSDB_OPTION)(option), cValue))
+}
+
+// TaosQueryA void taos_query_a(TAOS *taos, const char *sql, void (*fp)(void *param, TAOS_RES *, int code), void *param);
+func TaosQueryA(taosConnect unsafe.Pointer, sql string, caller cgo.Handle) {
+	cSql := C.CString(sql)
+	defer C.free(unsafe.Pointer(cSql))
+	C.taos_query_a_wrapper(taosConnect, cSql, unsafe.Pointer(caller))
+}
+
+// TaosFetchRowsA void taos_fetch_rows_a(TAOS_RES *res, void (*fp)(void *param, TAOS_RES *, int numOfRows), void *param);
+func TaosFetchRowsA(res unsafe.Pointer, caller cgo.Handle) {
+	C.taos_fetch_rows_a_wrapper(res, unsafe.Pointer(caller))
 }
