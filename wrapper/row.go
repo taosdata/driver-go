@@ -199,7 +199,7 @@ func convertTime(colPointer uintptr, row int, length uint16, arg ...interface{})
 
 // just like nchar
 func convertJson(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
-	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length+2))
+	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length*4+2))
 	clen := *((*int16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
@@ -208,7 +208,7 @@ func convertJson(colPointer uintptr, row int, length uint16, arg ...interface{})
 	for index := int16(0); index < clen; index++ {
 		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
 	}
-	if clen == 1 && binaryVal[0] == CBinaryNull {
+	if clen == 4 && binaryVal[0] == CNcharNull && binaryVal[1] == CNcharNull && binaryVal[2] == CNcharNull && binaryVal[3] == CNcharNull {
 		return nil
 	} else {
 		return binaryVal
