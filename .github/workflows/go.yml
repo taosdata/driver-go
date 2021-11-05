@@ -1,29 +1,34 @@
 name: Go
 
-on: [push]
+on: [ push ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
-    container:
-      image: tdengine/tdengine-beta:2.3.0.0
-      options: --user root
-      volumes:
-        - /etc/apt/sources.list:/etc/apt/sources.list
     steps:
-      - uses: actions/checkout@v2
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          path: 'driver-go'
+      - name: checkout TDengine
+        uses: actions/checkout@v2
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'develop'
+      - name: install build-essential
+        run: sudo apt-get update && sudo apt-get install -y build-essential curl gcc cmake
+
+      - name: install TDengine
+        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=true -DBUILD_JDBC=false && make && sudo make install
+
+      - name: start taosd
+        run: nohup taosd &
 
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
 
-      - name: start taosd
-        run: nohup taosd &
-
-      - name: Install build-essential
-        run: apt-get update && apt-get install -y build-essential curl
-
       - name: Test
-        run: go test -v ./...
+        run: go test -v ./driver-go/...
