@@ -24,7 +24,7 @@ func TestTaosOptions(t *testing.T) {
 			name: "test_options",
 			args: args{
 				option: common.TSDB_OPTION_CONFIGDIR,
-				value:  "/home/taos",
+				value:  "/etc/taos",
 			},
 			want: 0,
 		},
