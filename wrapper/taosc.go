@@ -38,10 +38,10 @@ func TaosFreeResult(res unsafe.Pointer) {
 // TaosConnect TAOS *taos_connect(const char *ip, const char *user, const char *pass, const char *db, uint16_t port);
 func TaosConnect(host, user, pass, db string, port int) (taos unsafe.Pointer, err error) {
 	cUser := C.CString(user)
-	cPass := C.CString(pass)
-	cdb := C.CString(db)
 	defer C.free(unsafe.Pointer(cUser))
+	cPass := C.CString(pass)
 	defer C.free(unsafe.Pointer(cPass))
+	cdb := C.CString(db)
 	defer C.free(unsafe.Pointer(cdb))
 	var taosObj unsafe.Pointer
 	if len(host) == 0 {
@@ -154,4 +154,21 @@ func TaosQueryA(taosConnect unsafe.Pointer, sql string, caller cgo.Handle) {
 // TaosFetchRowsA void taos_fetch_rows_a(TAOS_RES *res, void (*fp)(void *param, TAOS_RES *, int numOfRows), void *param);
 func TaosFetchRowsA(res unsafe.Pointer, caller cgo.Handle) {
 	C.taos_fetch_rows_a_wrapper(res, unsafe.Pointer(caller))
+}
+
+// TaosResetCurrentDB void taos_reset_current_db(TAOS *taos);
+func TaosResetCurrentDB(taosConnect unsafe.Pointer) {
+	C.taos_reset_current_db(taosConnect)
+}
+
+// TaosValidateSql int taos_validate_sql(TAOS *taos, const char *sql);
+func TaosValidateSql(taosConnect unsafe.Pointer, sql string) int {
+	cSql := C.CString(sql)
+	defer C.free(unsafe.Pointer(cSql))
+	return int(C.taos_validate_sql(taosConnect, cSql))
+}
+
+// TaosIsUpdateQuery bool taos_is_update_query(TAOS_RES *res);
+func TaosIsUpdateQuery(res unsafe.Pointer) bool {
+	return bool(C.taos_is_update_query(res))
 }
