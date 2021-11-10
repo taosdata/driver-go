@@ -181,16 +181,9 @@ func TestTaosResetCurrentDB(t *testing.T) {
 			assert.Equal(t, "log", currentDB)
 			TaosFreeResult(result)
 			TaosResetCurrentDB(tt.args.taosConnect)
-			result = TaosQuery(tt.args.taosConnect, "select database()")
+			result = TaosQuery(tt.args.taosConnect, "show stables")
 			code = TaosError(result)
-			if code != 0 {
-				errStr := TaosErrorStr(result)
-				TaosFreeResult(result)
-				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-				return
-			}
-			currentDB = FetchRow(row, 0, 10)
-			assert.Equal(t, "", currentDB)
+			assert.Equal(t, errors.MND_DB_NOT_SELECTED, int32(code&0xffff))
 			TaosFreeResult(result)
 		})
 	}
