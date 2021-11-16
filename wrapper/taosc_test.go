@@ -6,7 +6,9 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
@@ -24,7 +26,7 @@ func TestTaosOptions(t *testing.T) {
 			name: "test_options",
 			args: args{
 				option: common.TSDB_OPTION_CONFIGDIR,
-				value:  "/home/taos",
+				value:  "/etc/taos",
 			},
 			want: 0,
 		},
@@ -137,6 +139,132 @@ func TestTaosQueryA(t *testing.T) {
 					}
 					t.Log("fetch rows a", r.n)
 				}
+			}
+		})
+	}
+}
+
+func TestTaosResetCurrentDB(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	type args struct {
+		taosConnect unsafe.Pointer
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test",
+			args: args{
+				taosConnect: conn,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			TaosSelectDB(tt.args.taosConnect, "log")
+			result := TaosQuery(tt.args.taosConnect, "select database()")
+			code := TaosError(result)
+			if code != 0 {
+				errStr := TaosErrorStr(result)
+				TaosFreeResult(result)
+				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+				return
+			}
+			row := TaosFetchRow(result)
+			currentDB := FetchRow(row, 0, 10)
+			assert.Equal(t, "log", currentDB)
+			TaosFreeResult(result)
+			TaosResetCurrentDB(tt.args.taosConnect)
+			result = TaosQuery(tt.args.taosConnect, "select database()")
+			code = TaosError(result)
+			if code != 0 {
+				errStr := TaosErrorStr(result)
+				TaosFreeResult(result)
+				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+				return
+			}
+			row = TaosFetchRow(result)
+			currentDB = FetchRow(row, 0, 10)
+			assert.Nil(t, currentDB)
+			TaosFreeResult(result)
+		})
+	}
+}
+
+func TestTaosValidateSql(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	type args struct {
+		taosConnect unsafe.Pointer
+		sql         string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "valid",
+			args: args{
+				taosConnect: conn,
+				sql:         "show log.stables",
+			},
+			want: 0,
+		},
+		{
+			name: "TSC_SQL_SYNTAX_ERROR",
+			args: args{
+				taosConnect: conn,
+				sql:         "slect 1",
+			},
+			want: int(errors.TSC_SQL_SYNTAX_ERROR),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TaosValidateSql(tt.args.taosConnect, tt.args.sql); got&0xffff != tt.want {
+				t.Errorf("TaosValidateSql() = %v, want %v", got&0xffff, tt.want)
+			}
+		})
+	}
+}
+
+func TestTaosIsUpdateQuery(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{
+			name: "create database if not exists is_update",
+			want: true,
+		},
+		{
+			name: "show log.stables",
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TaosQuery(conn, tt.name)
+			defer TaosFreeResult(result)
+			if got := TaosIsUpdateQuery(result); got != tt.want {
+				t.Errorf("TaosIsUpdateQuery() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -6,12 +6,6 @@ import (
 
 func TestSetConfig(t *testing.T) {
 	source := map[string]string{
-		"firstEp":               "LAPTOP-NNKFTLTG.localdomain:6030",
-		"secondEp":              "LAPTOP-NNKFTLTG.localdomain:6030",
-		"serverPort":            "6030",
-		"configDir":             "/etc/taos",
-		"logDir":                "/var/log/taos",
-		"scriptDir":             "/etc/taos",
 		"numOfThreadsPerCore":   "1.000000",
 		"rpcTimer":              "300",
 		"rpcForceTcp":           "0",
