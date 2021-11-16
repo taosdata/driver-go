@@ -223,6 +223,7 @@ const (
 	TDB_MESSED_MSG                int32 = 0x0614
 	TDB_IVLD_TAG_VAL              int32 = 0x0615
 	TDB_NO_CACHE_LAST_ROW         int32 = 0x0616
+	TDB_INCOMPLETE_DFILESET       int32 = 0x0617
 	QRY_INVALID_QHANDLE           int32 = 0x0700
 	QRY_INVALID_MSG               int32 = 0x0701
 	QRY_NO_DISKSPACE              int32 = 0x0702
@@ -236,8 +237,8 @@ const (
 	QRY_TOO_MANY_TIMEWINDOW       int32 = 0x070A
 	QRY_NOT_ENOUGH_BUFFER         int32 = 0x070B
 	QRY_INCONSISTAN               int32 = 0x070C
-	QRY_INVALID_TIME_CONDITION    int32 = 0x070D
-	QRY_SYS_ERROR                 int32 = 0x070E
+	QRY_SYS_ERROR                 int32 = 0x070D
+	QRY_INVALID_TIME_CONDITION    int32 = 0x070E
 	GRANT_EXPIRED                 int32 = 0x0800
 	GRANT_DNODE_LIMITED           int32 = 0x0801
 	GRANT_ACCT_LIMITED            int32 = 0x0802
@@ -1246,6 +1247,10 @@ var (
 		Code:   TDB_NO_CACHE_LAST_ROW,
 		ErrStr: "TSDB no cache last row data",
 	}
+	ErrTdbIncompleteDfileset = &TaosError{
+		Code:   TDB_INCOMPLETE_DFILESET,
+		ErrStr: "TSDB incomplete DFileSet",
+	}
 	ErrQryInvalidQhandle = &TaosError{
 		Code:   QRY_INVALID_QHANDLE,
 		ErrStr: "Invalid handle",
@@ -1298,13 +1303,13 @@ var (
 		Code:   QRY_INCONSISTAN,
 		ErrStr: "File inconsistency in replica",
 	}
-	ErrQryInvalidTimeCondition = &TaosError{
-		Code:   QRY_INVALID_TIME_CONDITION,
-		ErrStr: "invalid time condition",
-	}
 	ErrQrySysError = &TaosError{
 		Code:   QRY_SYS_ERROR,
 		ErrStr: "System error",
+	}
+	ErrQryInvalidTimeCondition = &TaosError{
+		Code:   QRY_INVALID_TIME_CONDITION,
+		ErrStr: "invalid time condition",
 	}
 	ErrGrantExpired = &TaosError{
 		Code:   GRANT_EXPIRED,
@@ -2132,6 +2137,7 @@ var errorMap = map[int32]*TaosError{
 	TDB_MESSED_MSG:                ErrTdbMessedMsg,
 	TDB_IVLD_TAG_VAL:              ErrTdbIvldTagVal,
 	TDB_NO_CACHE_LAST_ROW:         ErrTdbNoCacheLastRow,
+	TDB_INCOMPLETE_DFILESET:       ErrTdbIncompleteDfileset,
 	QRY_INVALID_QHANDLE:           ErrQryInvalidQhandle,
 	QRY_INVALID_MSG:               ErrQryInvalidMsg,
 	QRY_NO_DISKSPACE:              ErrQryNoDiskspace,
@@ -2145,8 +2151,8 @@ var errorMap = map[int32]*TaosError{
 	QRY_TOO_MANY_TIMEWINDOW:       ErrQryTooManyTimewindow,
 	QRY_NOT_ENOUGH_BUFFER:         ErrQryNotEnoughBuffer,
 	QRY_INCONSISTAN:               ErrQryInconsistan,
-	QRY_INVALID_TIME_CONDITION:    ErrQryInvalidTimeCondition,
 	QRY_SYS_ERROR:                 ErrQrySysError,
+	QRY_INVALID_TIME_CONDITION:    ErrQryInvalidTimeCondition,
 	GRANT_EXPIRED:                 ErrGrantExpired,
 	GRANT_DNODE_LIMITED:           ErrGrantDnodeLimited,
 	GRANT_ACCT_LIMITED:            ErrGrantAcctLimited,
@@ -2313,5 +2319,12 @@ func GetError(code int) error {
 	return &TaosError{
 		Code:   int32(code) & 0xffff,
 		ErrStr: "unknown error",
+	}
+}
+
+func NewError(code int, errStr string) *TaosError {
+	return &TaosError{
+		Code:   int32(code) & 0xffff,
+		ErrStr: errStr,
 	}
 }

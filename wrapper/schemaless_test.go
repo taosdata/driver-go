@@ -31,10 +31,7 @@ func BenchmarkTelnetSchemaless(b *testing.B) {
 		if code != 0 {
 			errStr := wrapper.TaosErrorStr(result)
 			wrapper.TaosFreeResult(result)
-			b.Error(&errors.TaosError{
-				Code:   int32(code) & 0xffff,
-				ErrStr: errStr,
-			})
+			b.Error(errors.NewError(code, errStr))
 			return
 		}
 		wrapper.TaosFreeResult(result)
@@ -50,10 +47,7 @@ func TestSchemalessTelnet(t *testing.T) {
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
 		wrapper.TaosFreeResult(result)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
+		t.Error(errors.NewError(code, errStr))
 		return
 	}
 	wrapper.TaosFreeResult(result)
@@ -65,10 +59,7 @@ func TestSchemalessTelnet(t *testing.T) {
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
 		wrapper.TaosFreeResult(result)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
+		t.Error(errors.TaosError(code, errStr))
 		return
 	}
 	wrapper.TaosFreeResult(result)
