@@ -59,7 +59,7 @@ func TestSchemalessTelnet(t *testing.T) {
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
 		wrapper.TaosFreeResult(result)
-		t.Error(errors.TaosError(code, errStr))
+		t.Error(errors.NewError(code, errStr))
 		return
 	}
 	wrapper.TaosFreeResult(result)
