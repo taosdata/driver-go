@@ -2322,7 +2322,7 @@ func GetError(code int) error {
 	}
 }
 
-func NewError(code int, errStr string) *TaosError {
+func NewError(code int, errStr string) error {
 	return &TaosError{
 		Code:   int32(code) & 0xffff,
 		ErrStr: errStr,
