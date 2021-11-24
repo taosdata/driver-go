@@ -53,6 +53,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	_ "github.com/taosdata/driver-go/v2/taosSql"
 )
 
