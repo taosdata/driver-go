@@ -321,6 +321,7 @@ func TestJson(t *testing.T) {
 		}
 		if info != nil && !json.Valid(info) {
 			t.Error("invalid json ", string(info))
+			return
 		}
 		if info == nil {
 			t.Logf("null")

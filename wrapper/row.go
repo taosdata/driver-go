@@ -298,6 +298,8 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{})
 		} else {
 			panic("convertTime error")
 		}
+	case C.TSDB_DATA_TYPE_JSON:
+		return []byte(C.GoString((*C.char)(p)))
 	default:
 		return nil
 	}

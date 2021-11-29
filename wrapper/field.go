@@ -6,10 +6,11 @@ package wrapper
 import "C"
 import (
 	"bytes"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/types"
 	"reflect"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/types"
 )
 
 type RowsHeader struct {
