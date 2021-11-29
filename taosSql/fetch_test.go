@@ -2,9 +2,10 @@ package taosSql
 
 import (
 	"database/sql"
-	"github.com/taosdata/driver-go/v2/types"
 	"testing"
 	"time"
+
+	"github.com/taosdata/driver-go/v2/types"
 )
 
 func TestFetchBlock(t *testing.T) {
@@ -23,7 +24,7 @@ func TestFetchBlock(t *testing.T) {
 			ts        time.Time
 			cpu       float32
 			diskUsed  types.NullFloat32
-			reqInsert types.NullInt32
+			reqInsert types.NullInt64
 		}
 		err := rows.Scan(&r.ts, &r.cpu, &r.diskUsed, &r.reqInsert)
 		if err != nil {
