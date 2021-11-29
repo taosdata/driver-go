@@ -6,10 +6,11 @@ package wrapper
 import "C"
 import (
 	"bytes"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/types"
 	"reflect"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/types"
 )
 
 type RowsHeader struct {
@@ -158,4 +159,13 @@ func (rh *RowsHeader) ScanType(i int) reflect.Type {
 	default:
 		return unknown
 	}
+}
+
+func FetchLengths(res unsafe.Pointer, count int) []int {
+	lengths := TaosFetchLengths(res)
+	result := make([]int, count)
+	for i := 0; i < count; i++ {
+		result[i] = int(*(*C.int)(unsafe.Pointer(uintptr(lengths) + uintptr(C.sizeof_int*C.int(i)))))
+	}
+	return result
 }

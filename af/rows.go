@@ -2,11 +2,12 @@ package af
 
 import (
 	"database/sql/driver"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
 	"io"
 	"reflect"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/wrapper"
 )
 
 type rows struct {
@@ -15,6 +16,7 @@ type rows struct {
 	block       unsafe.Pointer
 	blockOffset int
 	blockSize   int
+	lengthList  []int
 	result      unsafe.Pointer
 }
 
@@ -66,13 +68,16 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.freeResult()
 		return io.EOF
 	}
-	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockOffset, rs.rowsHeader.ColLength, rs.rowsHeader.ColTypes)
+	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockOffset, rs.lengthList, rs.rowsHeader.ColTypes)
 	rs.blockOffset++
 	return nil
 }
 
 func (rs *rows) taosFetchBlock() {
 	rs.blockSize, rs.block = wrapper.TaosFetchBlock(rs.result)
+	if len(rs.lengthList) == 0 {
+		rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
+	}
 	rs.blockOffset = 0
 }
 
