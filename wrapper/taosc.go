@@ -172,3 +172,8 @@ func TaosValidateSql(taosConnect unsafe.Pointer, sql string) int {
 func TaosIsUpdateQuery(res unsafe.Pointer) bool {
 	return bool(C.taos_is_update_query(res))
 }
+
+// TaosFetchLengths int* taos_fetch_lengths(TAOS_RES *res);
+func TaosFetchLengths(res unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_fetch_lengths(res))
+}
