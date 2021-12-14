@@ -128,12 +128,13 @@ func TestTaosQueryA(t *testing.T) {
 					for i := 0; i < r.n; i++ {
 						values := make([]driver.Value, len(rowsHeader.ColNames))
 						row := TaosFetchRow(res)
+						lengths := FetchLengths(res, len(rowsHeader.ColNames))
 						for j := range rowsHeader.ColTypes {
 							if row == nil {
 								t.Error(io.EOF)
 								return
 							}
-							values[j] = FetchRow(row, j, rowsHeader.ColTypes[j], precision)
+							values[j] = FetchRow(row, j, rowsHeader.ColTypes[j], lengths[j], precision)
 						}
 						t.Log(values)
 					}
@@ -177,7 +178,8 @@ func TestTaosResetCurrentDB(t *testing.T) {
 				return
 			}
 			row := TaosFetchRow(result)
-			currentDB := FetchRow(row, 0, 10)
+			lengths := FetchLengths(result, 1)
+			currentDB := FetchRow(row, 0, 10, lengths[0])
 			assert.Equal(t, "log", currentDB)
 			TaosFreeResult(result)
 			TaosResetCurrentDB(tt.args.taosConnect)
@@ -190,7 +192,8 @@ func TestTaosResetCurrentDB(t *testing.T) {
 				return
 			}
 			row = TaosFetchRow(result)
-			currentDB = FetchRow(row, 0, 10)
+			lengths = FetchLengths(result, 1)
+			currentDB = FetchRow(row, 0, 10, lengths[0])
 			assert.Nil(t, currentDB)
 			TaosFreeResult(result)
 		})

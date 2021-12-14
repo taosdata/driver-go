@@ -237,7 +237,7 @@ func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []int, col
 
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
-func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{}) driver.Value {
+func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...interface{}) driver.Value {
 	p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(offset)*Step)))))
 	if p == nil {
 		return nil
@@ -270,7 +270,11 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{})
 	case C.TSDB_DATA_TYPE_DOUBLE:
 		return *((*float64)(p))
 	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
-		return C.GoString((*C.char)(p))
+		data := make([]byte, length)
+		for i := 0; i < length; i++ {
+			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+		}
+		return string(data)
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
 		if len(arg) == 1 {
 			return common.TimestampConvertToTime(*((*int64)(p)), arg[0].(int))

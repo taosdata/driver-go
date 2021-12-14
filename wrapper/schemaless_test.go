@@ -13,10 +13,21 @@ var conn unsafe.Pointer
 
 func TestMain(m *testing.M) {
 	var err error
-	conn, err = wrapper.TaosConnect("", "root", "taosdata", "log", 0)
+	conn, err = wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		panic(err)
 		return
+	}
+	res := wrapper.TaosQuery(conn, "create database if not exists test_schemaless_common")
+	if wrapper.TaosError(res) != 0 {
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		panic(errStr)
+	}
+	wrapper.TaosFreeResult(res)
+	code := wrapper.TaosSelectDB(conn, "test_schemaless_common")
+	if code != 0 {
+		panic("use db test_schemaless_common fail")
 	}
 	m.Run()
 	defer wrapper.TaosClose(conn)
