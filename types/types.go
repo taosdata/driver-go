@@ -443,3 +443,46 @@ func (nt NullTime) Value() (driver.Value, error) {
 	}
 	return nt.Time, nil
 }
+
+type NullJson struct {
+	Inner RawMessage
+	Valid bool
+}
+
+func (n *NullJson) Scan(value interface{}) error {
+	if value == nil {
+		n.Valid = false
+		return nil
+	}
+	n.Valid = true
+	v, ok := value.([]byte)
+	if !ok {
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse json error"}
+	}
+	n.Inner = v
+	return nil
+}
+
+func (n NullJson) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
+}
+
+type RawMessage []byte
+
+func (m RawMessage) MarshalJSON() ([]byte, error) {
+	if m == nil {
+		return []byte("null"), nil
+	}
+	return m, nil
+}
+
+func (m *RawMessage) UnmarshalJSON(data []byte) error {
+	if m == nil {
+		return &errors.TaosError{Code: 0xffff, ErrStr: "json.RawMessage: UnmarshalJSON on nil pointer"}
+	}
+	*m = append((*m)[0:0], data...)
+	return nil
+}

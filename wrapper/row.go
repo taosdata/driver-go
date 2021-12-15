@@ -44,6 +44,7 @@ var convertFuncMap = map[uint8]convertFunc{
 	uint8(C.TSDB_DATA_TYPE_BINARY):    convertBinary,
 	uint8(C.TSDB_DATA_TYPE_NCHAR):     convertNchar,
 	uint8(C.TSDB_DATA_TYPE_TIMESTAMP): convertTime,
+	uint8(C.TSDB_DATA_TYPE_JSON):      convertJson,
 }
 
 func convertBool(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
@@ -196,6 +197,24 @@ func convertTime(colPointer uintptr, row int, length int, arg ...interface{}) dr
 	}
 }
 
+// just like nchar
+func convertJson(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
+	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
+	clen := *((*int16)(currentRow))
+	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+
+	binaryVal := make([]byte, clen)
+
+	for index := int16(0); index < clen; index++ {
+		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
+	}
+	if clen == 4 && binaryVal[0] == CNcharNull && binaryVal[1] == CNcharNull && binaryVal[2] == CNcharNull && binaryVal[3] == CNcharNull {
+		return nil
+	} else {
+		return binaryVal
+	}
+}
+
 type convertFunc func(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value
 
 func ReadRow(dest []driver.Value, result, block unsafe.Pointer, row int, colLength []int, colTypes []uint8) {
@@ -283,6 +302,12 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 		} else {
 			panic("convertTime error")
 		}
+	case C.TSDB_DATA_TYPE_JSON:
+		data := make([]byte, length)
+		for i := 0; i < length; i++ {
+			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+		}
+		return data
 	default:
 		return nil
 	}
