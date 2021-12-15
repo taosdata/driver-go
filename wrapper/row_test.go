@@ -41,7 +41,7 @@ func TestFetchRowJSON(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, "create stable if not exists test_json.tjsonr(ts timestamp,value int )tags(t json(14))")
+	res = TaosQuery(conn, "create stable if not exists test_json.tjsonr(ts timestamp,value int )tags(t json)")
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -110,8 +110,9 @@ func TestFetchRowJSON(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		var d []driver.Value
 		row := TaosFetchRow(res)
+		lengths := FetchLengths(res, numFields)
 		for j := range headers.ColTypes {
-			d = append(d, FetchRow(row, j, headers.ColTypes[j], precision))
+			d = append(d, FetchRow(row, j, headers.ColTypes[j], lengths[j], precision))
 		}
 		data = append(data, d)
 	}
