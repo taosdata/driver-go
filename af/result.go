@@ -2,10 +2,11 @@ package af
 
 import (
 	"database/sql/driver"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
 	"io"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/wrapper"
 )
 
 type subscribeRows struct {
@@ -24,8 +25,9 @@ func (rs *subscribeRows) Next(values []driver.Value) (err error) {
 		return io.EOF
 	}
 	precision := wrapper.TaosResultPrecision(rs.result)
+	lengths := wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColTypes))
 	for i := range rs.rowsHeader.ColTypes {
-		values[i] = wrapper.FetchRow(row, i, rs.rowsHeader.ColTypes[i], precision)
+		values[i] = wrapper.FetchRow(row, i, rs.rowsHeader.ColTypes[i], lengths[i], precision)
 	}
 	return nil
 }

@@ -47,7 +47,7 @@ var convertFuncMap = map[uint8]convertFunc{
 	uint8(C.TSDB_DATA_TYPE_JSON):      convertJson,
 }
 
-func convertBool(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertBool(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (*((*byte)(currentRow))) == CBoolNull {
 		return nil
@@ -58,7 +58,7 @@ func convertBool(colPointer uintptr, row int, length uint16, arg ...interface{})
 	}
 }
 
-func convertTinyint(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertTinyint(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (int8)(*((*int8)(currentRow))) == CTinyintNull {
 		return nil
@@ -67,7 +67,7 @@ func convertTinyint(colPointer uintptr, row int, length uint16, arg ...interface
 	}
 }
 
-func convertSmallint(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertSmallint(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (int16)(*((*int16)(currentRow))) == CSmallintNull {
 		return nil
@@ -76,7 +76,7 @@ func convertSmallint(colPointer uintptr, row int, length uint16, arg ...interfac
 	}
 }
 
-func convertInt(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertInt(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (int32)(*((*int32)(currentRow))) == CIntNull {
 		return nil
@@ -85,7 +85,7 @@ func convertInt(colPointer uintptr, row int, length uint16, arg ...interface{}) 
 	}
 }
 
-func convertBigint(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertBigint(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (int64)(*((*int64)(currentRow))) == CBigintNull {
 		return nil
@@ -94,7 +94,7 @@ func convertBigint(colPointer uintptr, row int, length uint16, arg ...interface{
 	}
 }
 
-func convertUTinyint(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertUTinyint(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (uint8)(*((*uint8)(currentRow))) == CTinyintUnsignedNull {
 		return nil
@@ -103,7 +103,7 @@ func convertUTinyint(colPointer uintptr, row int, length uint16, arg ...interfac
 	}
 }
 
-func convertUSmallint(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertUSmallint(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (uint16)(*((*uint16)(currentRow))) == CSmallintUnsignedNull {
 		return nil
@@ -112,7 +112,7 @@ func convertUSmallint(colPointer uintptr, row int, length uint16, arg ...interfa
 	}
 }
 
-func convertUInt(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertUInt(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (uint32)(*((*uint32)(currentRow))) == CIntUnsignedNull {
 		return nil
@@ -121,7 +121,7 @@ func convertUInt(colPointer uintptr, row int, length uint16, arg ...interface{})
 	}
 }
 
-func convertUBigint(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertUBigint(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (uint64)(*((*uint64)(currentRow))) == CBigintUnsignedNull {
 		return nil
@@ -130,7 +130,7 @@ func convertUBigint(colPointer uintptr, row int, length uint16, arg ...interface
 	}
 }
 
-func convertFloat(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertFloat(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if math.IsNaN(float64(*((*float32)(currentRow)))) {
 		return nil
@@ -139,7 +139,7 @@ func convertFloat(colPointer uintptr, row int, length uint16, arg ...interface{}
 	}
 }
 
-func convertDouble(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertDouble(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if math.IsNaN(*((*float64)(currentRow))) {
 		return nil
@@ -148,8 +148,8 @@ func convertDouble(colPointer uintptr, row int, length uint16, arg ...interface{
 	}
 }
 
-func convertBinary(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
-	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length+2))
+func convertBinary(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
+	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	clen := *((*int16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
@@ -165,8 +165,8 @@ func convertBinary(colPointer uintptr, row int, length uint16, arg ...interface{
 	}
 }
 
-func convertNchar(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
-	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length*4+2))
+func convertNchar(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
+	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	clen := *((*int16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
@@ -182,7 +182,7 @@ func convertNchar(colPointer uintptr, row int, length uint16, arg ...interface{}
 	}
 }
 
-func convertTime(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
+func convertTime(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	if (int64)(*((*int64)(currentRow))) == CTimestampNull {
 		return nil
@@ -198,8 +198,8 @@ func convertTime(colPointer uintptr, row int, length uint16, arg ...interface{})
 }
 
 // just like nchar
-func convertJson(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value {
-	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length*4+2))
+func convertJson(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
+	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
 	clen := *((*int16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
@@ -215,9 +215,9 @@ func convertJson(colPointer uintptr, row int, length uint16, arg ...interface{})
 	}
 }
 
-type convertFunc func(colPointer uintptr, row int, length uint16, arg ...interface{}) driver.Value
+type convertFunc func(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value
 
-func ReadRow(dest []driver.Value, result, block unsafe.Pointer, row int, colLength []uint16, colTypes []uint8) {
+func ReadRow(dest []driver.Value, result, block unsafe.Pointer, row int, colLength []int, colTypes []uint8) {
 	//block (pointer)->  | *col1 | *col2 | *col3 | ...*coln |
 	//                       ↓
 	//                   | row1 | row2 | row3 | row4 | ....
@@ -235,7 +235,7 @@ func ReadRow(dest []driver.Value, result, block unsafe.Pointer, row int, colLeng
 	}
 }
 
-func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []uint16, colTypes []uint8) [][]driver.Value {
+func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []int, colTypes []uint8) [][]driver.Value {
 	r := make([][]driver.Value, blockSize)
 	colCount := len(colTypes)
 	precision := TaosResultPrecision(result)
@@ -256,7 +256,7 @@ func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []uint16, 
 
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
-func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{}) driver.Value {
+func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...interface{}) driver.Value {
 	p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(offset)*Step)))))
 	if p == nil {
 		return nil
@@ -289,7 +289,11 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{})
 	case C.TSDB_DATA_TYPE_DOUBLE:
 		return *((*float64)(p))
 	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
-		return C.GoString((*C.char)(p))
+		data := make([]byte, length)
+		for i := 0; i < length; i++ {
+			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+		}
+		return string(data)
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
 		if len(arg) == 1 {
 			return common.TimestampConvertToTime(*((*int64)(p)), arg[0].(int))
@@ -299,13 +303,17 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, arg ...interface{})
 			panic("convertTime error")
 		}
 	case C.TSDB_DATA_TYPE_JSON:
-		return []byte(C.GoString((*C.char)(p)))
+		data := make([]byte, length)
+		for i := 0; i < length; i++ {
+			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+		}
+		return data
 	default:
 		return nil
 	}
 }
 
-func ReadBlockWithTimeFormat(result, block unsafe.Pointer, blockSize int, colLength []uint16, colTypes []uint8, formatFunc FormatTimeFunc) [][]driver.Value {
+func ReadBlockWithTimeFormat(result, block unsafe.Pointer, blockSize int, colLength []int, colTypes []uint8, formatFunc FormatTimeFunc) [][]driver.Value {
 	r := make([][]driver.Value, blockSize)
 	colCount := len(colTypes)
 	precision := TaosResultPrecision(result)

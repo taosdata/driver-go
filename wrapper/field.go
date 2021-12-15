@@ -167,3 +167,12 @@ func (rh *RowsHeader) ScanType(i int) reflect.Type {
 		return unknown
 	}
 }
+
+func FetchLengths(res unsafe.Pointer, count int) []int {
+	lengths := TaosFetchLengths(res)
+	result := make([]int, count)
+	for i := 0; i < count; i++ {
+		result[i] = int(*(*C.int)(unsafe.Pointer(uintptr(lengths) + uintptr(C.sizeof_int*C.int(i)))))
+	}
+	return result
+}
