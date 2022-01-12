@@ -272,3 +272,67 @@ func TestTaosIsUpdateQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestTaosResultBlock(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	var caller = NewTestCaller()
+	type args struct {
+		taosConnect unsafe.Pointer
+		sql         string
+		caller      *TestCaller
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test",
+			args: args{
+				taosConnect: conn,
+				sql:         "show databases",
+				caller:      caller,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := cgo.NewHandle(tt.args.caller)
+			go TaosQueryA(tt.args.taosConnect, tt.args.sql, p)
+			r := <-tt.args.caller.QueryResult
+			t.Log("query finish")
+			count := TaosNumFields(r.res)
+			rowsHeader, err := ReadColumn(r.res, count)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			t.Logf("%#v", rowsHeader)
+			if r.n != 0 {
+				t.Error("query result", r.n)
+				return
+			}
+			res := r.res
+			for {
+				go TaosFetchRowsA(res, p)
+				r = <-tt.args.caller.FetchResult
+				if r.n == 0 {
+					t.Log("success")
+					TaosFreeResult(r.res)
+					break
+				} else {
+					res = r.res
+					block := TaosResultBlock(res)
+					assert.NotNil(t, block)
+					lengths := FetchLengths(res, count)
+					values := ReadBlock(res, block, r.n, lengths, rowsHeader.ColTypes)
+					t.Log(values)
+				}
+			}
+		})
+	}
+}
