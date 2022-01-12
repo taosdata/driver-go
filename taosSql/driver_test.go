@@ -442,3 +442,49 @@ func TestJsonMatch(t *testing.T) {
 	}
 	assert.Equal(t, 1, counter)
 }
+
+func TestChinese(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		t.Fatalf("error on:  sql.open %s", err.Error())
+		return
+	}
+	defer db.Close()
+	_, err = db.Exec("create database if not exists test_chinese")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec("drop table if exists test_chinese.chinese")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,value nchar(32))")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, value) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	rows, err := db.Query("select * from test_chinese.chinese")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	counter := 0
+	for rows.Next() {
+		counter += 1
+		row := make([]driver.Value, 2)
+		err := rows.Scan(&row[0], &row[1])
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		t.Log(row)
+	}
+	assert.Equal(t, 1, counter)
+}

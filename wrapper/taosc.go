@@ -177,3 +177,8 @@ func TaosIsUpdateQuery(res unsafe.Pointer) bool {
 func TaosFetchLengths(res unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_fetch_lengths(res))
 }
+
+// TaosResultBlock TAOS_ROW *taos_result_block(TAOS_RES *res);
+func TaosResultBlock(result unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_result_block(result))
+}
