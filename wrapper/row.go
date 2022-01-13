@@ -26,7 +26,7 @@ const (
 	CNcharNull            = byte(0xff)
 	CTimestampNull        = CBigintNull
 	PointerSize           = unsafe.Sizeof(uintptr(1))
-	Step                  = unsafe.Sizeof(int64(0))
+	Step                  = unsafe.Sizeof(uintptr(1))
 )
 
 var convertFuncMap = map[uint8]convertFunc{
@@ -257,7 +257,7 @@ func ReadBlock(result, block unsafe.Pointer, blockSize int, colLength []int, col
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
 func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...interface{}) driver.Value {
-	p := (unsafe.Pointer)(uintptr(*((*int)(unsafe.Pointer(uintptr(row) + uintptr(offset)*Step)))))
+	p := unsafe.Pointer(*(*uintptr)(unsafe.Pointer(uintptr(row) + uintptr(offset)*Step)))
 	if p == nil {
 		return nil
 	}
