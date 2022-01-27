@@ -6,12 +6,15 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v2/af/async"
 	"github.com/taosdata/driver-go/v2/af/insertstmt"
+	"github.com/taosdata/driver-go/v2/af/locker"
 	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v2/wrapper/handler"
 )
 
 type Connector struct {
@@ -20,10 +23,7 @@ type Connector struct {
 
 func NewConnector(taos unsafe.Pointer) (*Connector, error) {
 	if taos == nil {
-		return nil, &errors.TaosError{
-			Code:   errors.TSC_INVALID_CONNECTION,
-			ErrStr: "invalid connection",
-		}
+		return nil, errors.ErrTscInvalidConnection
 	}
 	return &Connector{taos: taos}, nil
 }
@@ -35,7 +35,9 @@ func Open(host, user, pass, db string, port int) (*Connector, error) {
 	if len(pass) == 0 {
 		pass = common.DefaultPassword
 	}
+	locker.Lock()
 	tc, err := wrapper.TaosConnect(host, user, pass, db, port)
+	locker.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +45,9 @@ func Open(host, user, pass, db string, port int) (*Connector, error) {
 }
 
 func (conn *Connector) Close() error {
+	locker.Lock()
 	wrapper.TaosClose(conn.taos)
+	locker.Unlock()
 	conn.taos = nil
 	return nil
 }
@@ -110,13 +114,24 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 		}
 		query = prepared
 	}
-
-	result, _, affectedRows, err := conn.taosQuery(query)
-	if err != nil {
-		return nil, err
+	asyncHandler := async.GetHandler()
+	defer async.PutHandler(asyncHandler)
+	result := conn.taosQuery(query, asyncHandler)
+	defer func() {
+		if result != nil && result.Res != nil {
+			locker.Lock()
+			wrapper.TaosFreeResult(result.Res)
+			locker.Unlock()
+		}
+	}()
+	res := result.Res
+	code := wrapper.TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := wrapper.TaosErrorStr(res)
+		return nil, errors.NewError(code, errStr)
 	}
-	defer wrapper.TaosFreeResult(result)
-	return driver.RowsAffected(affectedRows), nil
+	affectRows := wrapper.TaosAffectedRows(res)
+	return driver.RowsAffected(affectRows), nil
 }
 
 func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, error) {
@@ -131,17 +146,28 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 		query = prepared
 	}
 
-	result, numFields, _, err := conn.taosQuery(query)
+	handler := async.GetHandler()
+	result := conn.taosQuery(query, handler)
+	res := result.Res
+	code := wrapper.TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := wrapper.TaosErrorStr(res)
+		locker.Lock()
+		wrapper.TaosFreeResult(result.Res)
+		locker.Unlock()
+		return nil, errors.NewError(code, errStr)
+	}
+	numFields := wrapper.TaosNumFields(res)
+	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
 		return nil, err
 	}
-	// Read Result
 	rs := &rows{
-		result: result,
+		handler:    handler,
+		rowsHeader: rowsHeader,
+		result:     res,
 	}
-	// Columns field
-	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
-	return rs, err
+	return rs, nil
 
 }
 
@@ -150,26 +176,12 @@ func (conn *Connector) Subscribe(restart bool, topic string, sql string, interva
 	return &taosSubscriber{sub: sub}, nil
 }
 
-func (conn *Connector) taosQuery(sqlStr string) (result unsafe.Pointer, numFields int, affectedRows int, err error) {
-	result = wrapper.TaosQuery(conn.taos, sqlStr)
-	code := wrapper.TaosError(result)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(result)
-		wrapper.TaosFreeResult(result)
-		return nil, 0, 0, &errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		}
-	}
-
-	// read result and save into tc struct
-	numFields = wrapper.TaosFieldCount(result)
-	if numFields == 0 {
-		// there are no select and show kinds of commands
-		affectedRows = wrapper.TaosAffectedRows(result)
-	}
-
-	return result, numFields, affectedRows, nil
+func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler) *handler.AsyncResult {
+	locker.Lock()
+	wrapper.TaosQueryA(conn.taos, sqlStr, handler.Handler)
+	locker.Unlock()
+	r := <-handler.Caller.QueryResult
+	return r
 }
 
 func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
@@ -177,7 +189,9 @@ func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 }
 
 func (conn *Connector) LoadTableInfo(tableNameList []string) error {
+	locker.Lock()
 	code := wrapper.TaosLoadTableInfo(conn.taos, tableNameList)
+	locker.Unlock()
 	err := taosError.GetError(code)
 	if err != nil {
 		return err
@@ -186,7 +200,9 @@ func (conn *Connector) LoadTableInfo(tableNameList []string) error {
 }
 
 func (conn *Connector) SelectDB(db string) error {
+	locker.Lock()
 	code := wrapper.TaosSelectDB(conn.taos, db)
+	locker.Unlock()
 	err := taosError.GetError(code)
 	if err != nil {
 		return err
@@ -195,30 +211,34 @@ func (conn *Connector) SelectDB(db string) error {
 }
 
 func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
+	locker.Lock()
 	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
+	locker.Unlock()
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
+		locker.Unlock()
 		wrapper.TaosFreeResult(result)
-		return &errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		}
+		locker.Unlock()
+		return errors.NewError(code, errStr)
 	}
+	locker.Lock()
 	wrapper.TaosFreeResult(result)
+	locker.Unlock()
 	return nil
 }
 
 func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
+	locker.Lock()
 	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
+	locker.Unlock()
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
+		locker.Lock()
 		wrapper.TaosFreeResult(result)
-		return &errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		}
+		locker.Unlock()
+		return errors.NewError(code, errStr)
 	}
 	wrapper.TaosFreeResult(result)
 	return nil
@@ -229,12 +249,12 @@ func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
+		locker.Lock()
 		wrapper.TaosFreeResult(result)
-		return &errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		}
+		locker.Unlock()
+		return errors.NewError(code, errStr)
 	}
+	locker.Lock()
 	wrapper.TaosFreeResult(result)
 	return nil
 }

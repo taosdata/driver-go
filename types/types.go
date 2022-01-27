@@ -3,8 +3,9 @@ package types
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/taosdata/driver-go/v2/errors"
 	"time"
+
+	"github.com/taosdata/driver-go/v2/errors"
 )
 
 type NullInt64 struct {
@@ -264,7 +265,7 @@ func (n *NullFloat64) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(float64)
 	if !ok {
-		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float64 error"}
 	}
 	n.Inner = v
 	return nil
@@ -290,7 +291,7 @@ func (n *NullBool) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(bool)
 	if !ok {
-		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse bool error"}
 	}
 	n.Inner = v
 	return nil
@@ -316,7 +317,7 @@ func (n *NullString) Scan(value interface{}) error {
 	n.Valid = true
 	v, ok := value.(string)
 	if !ok {
-		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse float32 error"}
+		return &errors.TaosError{Code: 0xffff, ErrStr: "taosSql parse string error"}
 	}
 	n.Inner = v
 	return nil

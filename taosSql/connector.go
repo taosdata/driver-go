@@ -3,10 +3,11 @@ package taosSql
 import (
 	"context"
 	"database/sql/driver"
+	"sync"
+
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
-	"sync"
 )
 
 type connector struct {
@@ -24,7 +25,9 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	}
 	if c.cfg.net == "cfg" && len(c.cfg.configPath) > 0 {
 		once.Do(func() {
+			locker.Lock()
 			code := wrapper.TaosOptions(common.TSDB_OPTION_CONFIGDIR, c.cfg.configPath)
+			locker.Unlock()
 			err = errors.GetError(code)
 		})
 	}
@@ -38,11 +41,15 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	if len(tc.cfg.passwd) == 0 {
 		tc.cfg.passwd = common.DefaultPassword
 	}
+	locker.Lock()
 	err = wrapper.TaosSetConfig(tc.cfg.params)
+	locker.Unlock()
 	if err != nil {
 		return nil, err
 	}
+	locker.Lock()
 	tc.taos, err = wrapper.TaosConnect(tc.cfg.addr, tc.cfg.user, tc.cfg.passwd, tc.cfg.dbName, tc.cfg.port)
+	locker.Unlock()
 	if err != nil {
 		return nil, err
 	}

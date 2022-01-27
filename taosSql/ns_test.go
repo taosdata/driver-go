@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// @author: xftan
+// @date: 2022/1/27 16:19
+// @description: test nano second timestamp
 func TestNanosecond(t *testing.T) {
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {

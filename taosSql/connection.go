@@ -3,12 +3,13 @@ package taosSql
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/taosdata/driver-go/v2/common"
-	"github.com/taosdata/driver-go/v2/wrapper"
 	"strings"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v2/wrapper/handler"
 )
 
 type taosConn struct {
@@ -22,7 +23,9 @@ func (tc *taosConn) Begin() (driver.Tx, error) {
 
 func (tc *taosConn) Close() (err error) {
 	if tc.taos != nil {
+		locker.Lock()
 		wrapper.TaosClose(tc.taos)
+		locker.Unlock()
 	}
 	tc.taos = nil
 	return nil
@@ -59,13 +62,24 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-
-	result, _, affectedRows, err := tc.taosQuery(query)
-	if err != nil {
-		return nil, err
+	handler := asyncHandlerPool.Get()
+	defer asyncHandlerPool.Put(handler)
+	result := tc.taosQuery(query, handler)
+	defer func() {
+		if result != nil && result.Res != nil {
+			locker.Lock()
+			wrapper.TaosFreeResult(result.Res)
+			locker.Unlock()
+		}
+	}()
+	res := result.Res
+	code := wrapper.TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := wrapper.TaosErrorStr(res)
+		return nil, errors.NewError(code, errStr)
 	}
-	defer wrapper.TaosFreeResult(result)
-	return driver.RowsAffected(affectedRows), nil
+	affectRows := wrapper.TaosAffectedRows(res)
+	return driver.RowsAffected(affectRows), nil
 
 }
 
@@ -84,17 +98,28 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		}
 		query = prepared
 	}
-	result, numFields, _, err := tc.taosQuery(query)
+	handler := asyncHandlerPool.Get()
+	result := tc.taosQuery(query, handler)
+	res := result.Res
+	code := wrapper.TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := wrapper.TaosErrorStr(res)
+		locker.Lock()
+		wrapper.TaosFreeResult(result.Res)
+		locker.Unlock()
+		return nil, errors.NewError(code, errStr)
+	}
+	numFields := wrapper.TaosNumFields(res)
+	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
 		return nil, err
 	}
-	// Read Result
 	rs := &rows{
-		result: result,
+		handler:    handler,
+		rowsHeader: rowsHeader,
+		result:     res,
 	}
-	// Columns field
-	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
-	return rs, err
+	return rs, nil
 }
 
 // Ping implements driver.Pinger interface
@@ -115,24 +140,10 @@ func (tc *taosConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
 	return
 }
 
-func (tc *taosConn) taosQuery(sqlStr string) (result unsafe.Pointer, numFields int, affectedRows int, err error) {
-	result = wrapper.TaosQuery(tc.taos, sqlStr)
-	code := wrapper.TaosError(result)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(result)
-		wrapper.TaosFreeResult(result)
-		return nil, 0, 0, &errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		}
-	}
-
-	// read result and save into tc struct
-	numFields = wrapper.TaosFieldCount(result)
-	if numFields == 0 {
-		// there are no select and show kinds of commands
-		affectedRows = wrapper.TaosAffectedRows(result)
-	}
-
-	return result, numFields, affectedRows, nil
+func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler) *handler.AsyncResult {
+	locker.Lock()
+	wrapper.TaosQueryA(tc.taos, sqlStr, handler.Handler)
+	locker.Unlock()
+	r := <-handler.Caller.QueryResult
+	return r
 }

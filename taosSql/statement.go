@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/taosdata/driver-go/v2/common"
-	"github.com/taosdata/driver-go/v2/wrapper"
 	"reflect"
 
 	"github.com/taosdata/driver-go/v2/errors"
@@ -37,43 +35,7 @@ func (stmt *taosSqlStmt) Query(args []driver.Value) (driver.Rows, error) {
 	if stmt.tc == nil || stmt.tc.taos == nil {
 		return nil, errors.ErrTscInvalidConnection
 	}
-	return stmt.query(args)
-}
-
-func (stmt *taosSqlStmt) query(args []driver.Value) (*rows, error) {
-	tc := stmt.tc
-	if tc == nil || tc.taos == nil {
-		return nil, errors.ErrTscInvalidConnection
-	}
-
-	querySql := stmt.pSql
-
-	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
-			return nil, driver.ErrSkip
-		}
-		// try client-side prepare to reduce roundtrip
-		prepared, err := common.InterpolateParams(stmt.pSql, args)
-		if err != nil {
-			return nil, err
-		}
-		querySql = prepared
-	}
-
-	result, numFields, _, err := tc.taosQuery(querySql)
-	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-	// Read Result
-	rs := &rows{
-		result: result,
-	}
-	// Columns field
-	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
-	return rs, err
+	return stmt.tc.Query(stmt.pSql, args)
 }
 
 func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
@@ -86,7 +48,7 @@ func (stmt *taosSqlStmt) QueryContext(ctx context.Context, args []driver.NamedVa
 		return nil, err
 	}
 
-	rs, err := stmt.query(driverArgs)
+	rs, err := stmt.Query(driverArgs)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,9 @@ import (
 	"github.com/taosdata/driver-go/v2/errors"
 )
 
+// @author: xftan
+// @date: 2022/1/27 16:18
+// @description: test error code
 func TestErrorCode(t *testing.T) {
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {

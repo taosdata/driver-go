@@ -1,9 +1,9 @@
 package common
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -14,7 +14,7 @@ func InterpolateParams(query string, args []driver.Value) (string, error) {
 	if strings.Count(query, "?") != len(args) {
 		return "", driver.ErrSkip
 	}
-	buf := bytes.NewBufferString("")
+	buf := &strings.Builder{}
 	argPos := 0
 
 	for i := 0; i < len(query); i++ {
@@ -34,12 +34,30 @@ func InterpolateParams(query string, args []driver.Value) (string, error) {
 			continue
 		}
 		switch v := arg.(type) {
+		case int8:
+			buf.WriteString(strconv.FormatInt(int64(v), 10))
+		case int16:
+			buf.WriteString(strconv.FormatInt(int64(v), 10))
+		case int32:
+			buf.WriteString(strconv.FormatInt(int64(v), 10))
 		case int64:
 			buf.WriteString(strconv.FormatInt(v, 10))
+		case uint8:
+			buf.WriteString(strconv.FormatUint(uint64(v), 10))
+		case uint16:
+			buf.WriteString(strconv.FormatUint(uint64(v), 10))
+		case uint32:
+			buf.WriteString(strconv.FormatUint(uint64(v), 10))
 		case uint64:
 			buf.WriteString(strconv.FormatUint(v, 10))
+		case float32:
+			fmt.Fprintf(buf, "%f", v)
 		case float64:
-			buf.WriteString(strconv.FormatFloat(v, 'g', -1, 64))
+			fmt.Fprintf(buf, "%f", v)
+		case int:
+			buf.WriteString(strconv.Itoa(v))
+		case uint:
+			buf.WriteString(strconv.FormatUint(uint64(v), 10))
 		case bool:
 			if v {
 				buf.WriteByte('1')

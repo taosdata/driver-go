@@ -8,6 +8,9 @@ import (
 	"github.com/taosdata/driver-go/v2/types"
 )
 
+// @author: xftan
+// @date: 2022/1/27 16:19
+// @description: test fetch block
 func TestFetchBlock(t *testing.T) {
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
@@ -36,6 +39,9 @@ func TestFetchBlock(t *testing.T) {
 	t.Logf("time cost %v", end.Sub(start))
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:19
+// @description: test query sql `show databases`
 func TestFetchDatabases(t *testing.T) {
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {

@@ -9,6 +9,9 @@ import (
 	"github.com/taosdata/driver-go/v2/errors"
 )
 
+// @author: xftan
+// @date: 2022/1/27 17:24
+// @description: test fetch json result
 func TestFetchRowJSON(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -122,6 +125,9 @@ func TestFetchRowJSON(t *testing.T) {
 	assert.Nil(t, data[2][2])
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:24
+// @description:  test TS-781 error
 func TestFetchRow(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -230,6 +236,9 @@ func TestFetchRow(t *testing.T) {
 	assert.Empty(t, names)
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:24
+// @description: test TS-781 nchar type error
 func TestFetchRowNchar(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

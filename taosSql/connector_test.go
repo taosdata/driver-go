@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// @author: xftan
+// @date: 2022/1/27 16:15
+// @description: test sql query
 func TestOpenQuery(t *testing.T) {
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
@@ -33,6 +36,9 @@ func TestOpenQuery(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:16
+// @description: test set config
 func TestSetConfig(t *testing.T) {
 	db, err := sql.Open("taosSql", "root:taosdata/tcp(localhost:6030)/log?debugFlag=135&asyncLog=0")
 	if err != nil {
