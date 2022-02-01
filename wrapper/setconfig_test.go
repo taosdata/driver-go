@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// @author: xftan
+// @date: 2022/1/27 17:27
+// @description: test taos_set_config
 func TestSetConfig(t *testing.T) {
 	source := map[string]string{
 		"numOfThreadsPerCore":   "1.000000",

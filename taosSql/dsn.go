@@ -36,16 +36,18 @@ var (
 // If a new Config is created instead of being parsed from a DSN string,
 // the NewConfig function should be used, which sets default values.
 type config struct {
-	user              string // Username
-	passwd            string // Password (requires User)
-	net               string // Network type
-	addr              string // Network address (requires Net)
-	port              int
-	dbName            string            // Database name
-	params            map[string]string // Connection parameters
-	loc               *time.Location    // Location for time.Time values
-	interpolateParams bool              // Interpolate placeholders into query string
-	configPath        string
+	user                    string // Username
+	passwd                  string // Password (requires User)
+	net                     string // Network type
+	addr                    string // Network address (requires Net)
+	port                    int
+	dbName                  string            // Database name
+	params                  map[string]string // Connection parameters
+	loc                     *time.Location    // Location for time.Time values
+	interpolateParams       bool              // Interpolate placeholders into query string
+	configPath              string
+	cgoThread               int
+	cgoAsyncHandlerPoolSize int
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -175,6 +177,18 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			cfg.loc, err = time.LoadLocation(value)
 			if err != nil {
 				return
+			}
+
+		case "cgoThread":
+			cfg.cgoThread, err = strconv.Atoi(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid cgoThread value: " + value}
+			}
+
+		case "cgoAsyncHandlerPoolSize":
+			cfg.cgoAsyncHandlerPoolSize, err = strconv.Atoi(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid cgoAsyncHandlerPoolSize value: " + value}
 			}
 
 		default:

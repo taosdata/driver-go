@@ -8,10 +8,11 @@ package wrapper
 */
 import "C"
 import (
-	"bytes"
 	"encoding/json"
-	"github.com/taosdata/driver-go/v2/errors"
+	"strings"
 	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/errors"
 )
 
 // TaosSetConfig int   taos_set_config(const char *config);
@@ -27,7 +28,7 @@ func TaosSetConfig(params map[string]string) error {
 	if int(result.retCode) == -5 || int(result.retCode) == 0 {
 		return nil
 	}
-	buf := bytes.NewBufferString("")
+	buf := &strings.Builder{}
 	for _, c := range result.retMsg {
 		if c == 0 {
 			break

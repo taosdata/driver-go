@@ -2,9 +2,11 @@ package af
 
 import (
 	"database/sql/driver"
+	"unsafe"
+
+	"github.com/taosdata/driver-go/v2/af/locker"
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
-	"unsafe"
 )
 
 type Subscriber interface {
@@ -17,7 +19,9 @@ type taosSubscriber struct {
 }
 
 func (s *taosSubscriber) Consume() (driver.Rows, error) {
+	locker.Lock()
 	result := wrapper.TaosConsume(s.sub)
+	locker.Unlock()
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		err := &errors.TaosError{Code: int32(code) & 0xffff, ErrStr: wrapper.TaosErrorStr(result)}
@@ -32,5 +36,7 @@ func (s *taosSubscriber) Consume() (driver.Rows, error) {
 }
 
 func (s *taosSubscriber) Unsubscribe(keepProgress bool) {
+	locker.Lock()
 	wrapper.TaosUnsubscribe(s.sub, keepProgress)
+	locker.Unlock()
 }

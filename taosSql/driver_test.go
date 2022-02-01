@@ -91,6 +91,10 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows,
 	rows, err = dbt.Query(query, args...)
 	return
 }
+
+// @author: xftan
+// @date: 2022/1/27 16:16
+// @description: test no sql query
 func TestEmptyQuery(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// just a comment, no query
@@ -101,6 +105,10 @@ func TestEmptyQuery(t *testing.T) {
 
 	})
 }
+
+// @author: xftan
+// @date: 2022/1/27 16:16
+// @description: test wrong sql query
 func TestErrorQuery(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// just a comment, no query
@@ -169,6 +177,9 @@ var (
 	}
 )
 
+// @author: xftan
+// @date: 2022/1/27 16:17
+// @description: test random write and query
 func TestAny(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		now := time.Now()
@@ -194,6 +205,10 @@ func TestAny(t *testing.T) {
 		}
 	})
 }
+
+// @author: xftan
+// @date: 2022/1/27 16:17
+// @description: test query and insert
 func TestCRUD(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// Create Data
@@ -254,6 +269,9 @@ func TestCRUD(t *testing.T) {
 	})
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:17
+// @description: test sql stmt
 func TestStmt(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		stmt, err := dbt.Prepare(fmt.Sprintf("insert into %s.t0 values(?, ?)", dbName))
@@ -267,6 +285,9 @@ func TestStmt(t *testing.T) {
 	})
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:17
+// @description: test sql json tag
 func TestJson(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -333,6 +354,9 @@ func TestJson(t *testing.T) {
 	assert.Equal(t, 3, counter)
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:17
+// @description: test json tag search
 func TestJsonSearch(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -388,6 +412,9 @@ func TestJsonSearch(t *testing.T) {
 	assert.Equal(t, 1, counter)
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:17
+// @description: test json tag with match
 func TestJsonMatch(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -443,6 +470,9 @@ func TestJsonMatch(t *testing.T) {
 	assert.Equal(t, 1, counter)
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:18
+// @description:  test chinese insert and query
 func TestChinese(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {

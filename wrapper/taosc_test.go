@@ -12,6 +12,9 @@ import (
 	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
+// @author: xftan
+// @date: 2022/1/27 17:29
+// @description: test taos_options
 func TestTaosOptions(t *testing.T) {
 	type args struct {
 		option int
@@ -71,6 +74,9 @@ func (t *TestCaller) FetchCall(res unsafe.Pointer, numOfRows int) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:29
+// @description: test taos_query_a
 func TestTaosQueryA(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -136,7 +142,6 @@ func TestTaosQueryA(t *testing.T) {
 							}
 							values[j] = FetchRow(row, j, rowsHeader.ColTypes[j], lengths[j], precision)
 						}
-						t.Log(values)
 					}
 					t.Log("fetch rows a", r.n)
 				}
@@ -145,6 +150,9 @@ func TestTaosQueryA(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:29
+// @description: test taos_reset_current_db
 func TestTaosResetCurrentDB(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -200,6 +208,9 @@ func TestTaosResetCurrentDB(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:30
+// @description: test taos_validate_sql
 func TestTaosValidateSql(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -242,6 +253,9 @@ func TestTaosValidateSql(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:30
+// @description: test taos_is_update_query
 func TestTaosIsUpdateQuery(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -273,6 +287,9 @@ func TestTaosIsUpdateQuery(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 17:30
+// @description: taos_result_block
 func TestTaosResultBlock(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -294,7 +311,7 @@ func TestTaosResultBlock(t *testing.T) {
 			name: "test",
 			args: args{
 				taosConnect: conn,
-				sql:         "show databases",
+				sql:         "show users",
 				caller:      caller,
 			},
 		},
@@ -311,7 +328,7 @@ func TestTaosResultBlock(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			t.Logf("%#v", rowsHeader)
+			//t.Logf("%#v", rowsHeader)
 			if r.n != 0 {
 				t.Error("query result", r.n)
 				return
@@ -330,8 +347,45 @@ func TestTaosResultBlock(t *testing.T) {
 					assert.NotNil(t, block)
 					lengths := FetchLengths(res, count)
 					values := ReadBlock(res, block, r.n, lengths, rowsHeader.ColTypes)
-					t.Log(values)
+					_ = values
 				}
+			}
+		})
+	}
+}
+
+// @author: xftan
+// @date: 2022/1/27 17:31
+// @description: test taos_load_table_info
+func TestTaosLoadTableInfo(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	type args struct {
+		taosConnect   unsafe.Pointer
+		tableNameList []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "log",
+			args: args{
+				taosConnect:   conn,
+				tableNameList: []string{"log"},
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TaosLoadTableInfo(tt.args.taosConnect, tt.args.tableNameList); got != tt.want {
+				t.Errorf("TaosLoadTableInfo() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 		panic("use db test_schemaless_common fail")
 	}
 	m.Run()
-	defer wrapper.TaosClose(conn)
+	wrapper.TaosClose(conn)
 }
 
 func BenchmarkTelnetSchemaless(b *testing.B) {
@@ -49,7 +49,9 @@ func BenchmarkTelnetSchemaless(b *testing.B) {
 	}
 }
 
-// Just check if C api is available
+// @author: xftan
+// @date: 2022/1/27 17:26
+// @description: test schemaless opentsdb telnet
 func TestSchemalessTelnet(t *testing.T) {
 	result := wrapper.TaosSchemalessInsert(conn, []string{
 		"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
@@ -75,4 +77,114 @@ func TestSchemalessTelnet(t *testing.T) {
 	}
 	wrapper.TaosFreeResult(result)
 	t.Log("finish ", time.Now().Sub(s))
+}
+
+// @author: xftan
+// @date: 2022/1/27 17:26
+// @description: test schemaless influxDB
+func TestSchemalessInfluxDB(t *testing.T) {
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
+		}, wrapper.InfluxDBLineProtocol, "")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
+		}, wrapper.InfluxDBLineProtocol, "ns")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000",
+		}, wrapper.InfluxDBLineProtocol, "u")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000",
+		}, wrapper.InfluxDBLineProtocol, "μ")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 1577836800000",
+		}, wrapper.InfluxDBLineProtocol, "ms")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 1577836800",
+		}, wrapper.InfluxDBLineProtocol, "s")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 26297280",
+		}, wrapper.InfluxDBLineProtocol, "m")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsert(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 438288",
+		}, wrapper.InfluxDBLineProtocol, "h")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
 }

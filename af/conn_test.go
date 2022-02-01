@@ -3,11 +3,12 @@ package af
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/taosdata/driver-go/v2/af/param"
-	"github.com/taosdata/driver-go/v2/common"
 	"io"
 	"testing"
 	"time"
+
+	"github.com/taosdata/driver-go/v2/af/param"
+	"github.com/taosdata/driver-go/v2/common"
 )
 
 func testDatabase(t *testing.T) *Connector {
@@ -33,6 +34,9 @@ func testDatabase(t *testing.T) *Connector {
 	return db
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:06
+// @description: test af open connect
 func TestOpen(t *testing.T) {
 	db := testDatabase(t)
 	// select database
@@ -71,6 +75,9 @@ func TestOpen(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:07
+// @description: test subscribe
 func TestSubscribe(t *testing.T) {
 	db := testDatabase(t)
 	_, err := db.Exec("drop table if exists test_subscribe")
@@ -98,6 +105,7 @@ func TestSubscribe(t *testing.T) {
 			return 0
 		}
 		defer rows.Close()
+		t.Log(rows.Columns())
 		count := 0
 		for err == nil {
 			row := make([]driver.Value, 3)
@@ -143,6 +151,9 @@ func TestSubscribe(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:07
+// @description: test query
 func TestQuery(t *testing.T) {
 	db := testDatabase(t)
 	_, err := db.Exec("drop table if exists test_types")
@@ -212,8 +223,13 @@ func TestQuery(t *testing.T) {
 	if fNchar != "9nchar" {
 		t.Fatal(fNchar)
 	}
+	rows.Columns()
+
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:07
+// @description: test stmt exec
 func TestStmtExec(t *testing.T) {
 	db := testDatabase(t)
 	now := time.Now()
@@ -255,9 +271,18 @@ func TestStmtExec(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			_, err = db.StmtExecute(sql, params)
+			result, err := db.StmtExecute(sql, params)
 			if err != nil {
 				t.Error(err)
+				return
+			}
+			affectRows, err := result.RowsAffected()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if affectRows != 1 {
+				t.Errorf("expect 1 got %d", affectRows)
 				return
 			}
 			var rows driver.Rows
@@ -274,6 +299,9 @@ func TestStmtExec(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:07
+// @description: test stmt query
 func TestStmtQuery(t *testing.T) {
 	db := testDatabase(t)
 	for i, tc := range []struct {
@@ -345,6 +373,9 @@ func TestStmtQuery(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:07
+// @description: test stmt insert
 func TestFastInsert(t *testing.T) {
 	db := testDatabase(t)
 	now := time.Now()
@@ -423,6 +454,9 @@ func TestFastInsert(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:08
+// @description: test stmt insert with set table name
 func TestFastInsertWithSetTableName(t *testing.T) {
 	db := testDatabase(t)
 	now := time.Now()
@@ -519,6 +553,9 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:08
+// @description: test stmt insert with set table name and tag
 func TestFastInsertWithSetTableNameTag(t *testing.T) {
 	db := testDatabase(t)
 	now := time.Now()
@@ -597,6 +634,9 @@ func TestFastInsertWithSetTableNameTag(t *testing.T) {
 
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:08
+// @description: test stmt insert with set sub table name
 func TestFastInsertWithSetSubTableName(t *testing.T) {
 	db := testDatabase(t)
 	now := time.Now()
@@ -685,6 +725,9 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:08
+// @description: test influxDB insert with line protocol
 func TestInfluxDBInsertLines(t *testing.T) {
 	db := testDatabase(t)
 	err := db.InfluxDBInsertLines([]string{
@@ -696,6 +739,9 @@ func TestInfluxDBInsertLines(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:09
+// @description: test telnet insert with line protocol
 func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 	db := testDatabase(t)
 	err := db.OpenTSDBInsertTelnetLines([]string{
@@ -708,6 +754,9 @@ func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2022/1/27 16:09
+// @description: test telnet insert with
 func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	db := testDatabase(t)
 	err := db.OpenTSDBInsertJsonPayload(`{
