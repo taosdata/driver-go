@@ -143,7 +143,7 @@ func TestAllTypeQuery(t *testing.T) {
 			&c13,
 			&tt,
 		)
-		assert.Equal(t, now, ts)
+		assert.Equal(t, now.UTC(), ts.UTC())
 		assert.Equal(t, v1, c1)
 		assert.Equal(t, v2, c2)
 		assert.Equal(t, v3, c3)
@@ -383,7 +383,7 @@ func TestAllTypeQueryCompression(t *testing.T) {
 			&c13,
 			&tt,
 		)
-		assert.Equal(t, now, ts)
+		assert.Equal(t, now.UTC(), ts.UTC())
 		assert.Equal(t, v1, c1)
 		assert.Equal(t, v2, c2)
 		assert.Equal(t, v3, c3)
