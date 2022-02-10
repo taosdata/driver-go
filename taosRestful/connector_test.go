@@ -255,7 +255,7 @@ func TestAllTypeQueryNull(t *testing.T) {
 			&c13,
 			&tt,
 		)
-		assert.Equal(t, now, ts)
+		assert.Equal(t, now.UTC(), ts.UTC())
 		assert.Nil(t, c1)
 		assert.Nil(t, c2)
 		assert.Nil(t, c3)
