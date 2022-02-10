@@ -16,6 +16,7 @@ jobs:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: 'develop'
+          submodules: 'recursive'
 
       - name: install TDengine
         run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
