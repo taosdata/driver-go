@@ -8,7 +8,7 @@ English | [简体中文](README-CN.md)
 
 ## Remind
 
-`github.com/taosdata/driver-go/v2` Complete refactoring of the v1 version and separate the built-in database operation interface `database/sql/driver` to the directory `taosSql` put other advanced functions such as subscription and stmt in the directory `af`.
+`github.com/taosdata/driver-go/v2`  is completely refactoring based on the v1 version. It also separates the built-in database operation interface `database/sql/driver` into the directory `taosSql` and put other advanced functions such as subscription and stmt in the directory `af`.
 
 ## Install
 
@@ -138,7 +138,7 @@ type Subscriber interface {
 ```
 
 Check sample code for subscription
-at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go)。
+at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go).
 
 ## restful implementation of the `database/sql` standard interface
 
