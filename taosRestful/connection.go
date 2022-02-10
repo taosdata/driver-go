@@ -96,7 +96,8 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	result, err := tc.taosQuery(context.TODO(), query, 512)
+	//lint:ignore SA1012 context.TODO() will cause extra cost
+	result, err := tc.taosQuery(nil, query, 512)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,8 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		}
 		query = prepared
 	}
-	result, err := tc.taosQuery(context.TODO(), query, tc.readBufferSize)
+	//lint:ignore SA1012 context.TODO() will cause extra cost
+	result, err := tc.taosQuery(nil, query, tc.readBufferSize)
 	if err != nil {
 		return nil, err
 	}
