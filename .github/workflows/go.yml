@@ -17,10 +17,9 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
           submodules: 'recursive'
-          remote: true
 
       - name: install TDengine
-        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
+        run: cd TDengine && git submodule update --init --recursive --remote && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
 
       - name: start taosd
         run: nohup sudo taosd &
