@@ -146,7 +146,7 @@ func (tc *taosConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
 }
 
 func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (*common.TDEngineRestfulResp, error) {
-	body := io.NopCloser(strings.NewReader(sql))
+	body := ioutil.NopCloser(strings.NewReader(sql))
 	req := &http.Request{
 		Method:     http.MethodPost,
 		URL:        tc.url,
