@@ -8,7 +8,7 @@ English | [简体中文](README-CN.md)
 
 ## Remind
 
-`github.com/taosdata/driver-go/v2` Complete refactoring of the v1 version and separate the built-in database operation interface `database/sql/driver` to the directory `taosSql` put other advanced functions such as subscription and stmt in the directory `af`
+`github.com/taosdata/driver-go/v2` Complete refactoring of the v1 version and separate the built-in database operation interface `database/sql/driver` to the directory `taosSql` put other advanced functions such as subscription and stmt in the directory `af`.
 
 ## Install
 
@@ -216,11 +216,11 @@ The driverName of `sql.Open` is `taosRestful`
 
 The DSN format is:
 
-``database username:database password@connection-method(domain or ip:port)/[database][? Parameter]`
+```database username:database password@connection-method(domain or ip:port)/[database][? Parameter]```
 
 Example:
 
-`root:taosdata@http(localhost:6041)/test?readBufferSize=52428800`
+```root:taosdata@http(localhost:6041)/test?readBufferSize=52428800```
 
 Parameters:
 

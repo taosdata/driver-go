@@ -209,11 +209,11 @@ import (
 
 DSN 格式为：
 
-`数据库用户名:数据库密码@连接方式(域名或ip:端口)/[数据库][?参数]`
+```数据库用户名:数据库密码@连接方式(域名或ip:端口)/[数据库][?参数]```
 
 样例：
 
-`root:taosdata@http(localhost:6041)/test?readBufferSize=52428800`
+```root:taosdata@http(localhost:6041)/test?readBufferSize=52428800```
 
 参数：
 
