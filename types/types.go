@@ -36,6 +36,13 @@ func (n NullInt64) Value() (driver.Value, error) {
 	return n.Inner, nil
 }
 
+func (n NullInt64) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+
 type NullInt32 struct {
 	Inner int32
 	Valid bool // Valid is true if Inner is not NULL
@@ -62,6 +69,13 @@ func (n NullInt32) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return n.Inner, nil
+}
+
+func (n NullInt32) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
 }
 
 type NullInt16 struct {
@@ -92,6 +106,13 @@ func (n NullInt16) Value() (driver.Value, error) {
 	return n.Inner, nil
 }
 
+func (n NullInt16) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+
 type NullInt8 struct {
 	Inner int8
 	Valid bool // Valid is true if Inner is not NULL
@@ -118,6 +139,13 @@ func (n NullInt8) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return n.Inner, nil
+}
+
+func (n NullInt8) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
 }
 
 type NullUInt64 struct {
@@ -148,6 +176,13 @@ func (n NullUInt64) Value() (driver.Value, error) {
 	return n.Inner, nil
 }
 
+func (n NullUInt64) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+
 type NullUInt32 struct {
 	Inner uint32
 	Valid bool // Valid is true if Inner is not NULL
@@ -174,6 +209,13 @@ func (n NullUInt32) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return n.Inner, nil
+}
+
+func (n NullUInt32) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
 }
 
 type NullUInt16 struct {
@@ -204,6 +246,13 @@ func (n NullUInt16) Value() (driver.Value, error) {
 	return n.Inner, nil
 }
 
+func (n NullUInt16) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+
 type NullUInt8 struct {
 	Inner uint8
 	Valid bool // Valid is true if Inner is not NULL
@@ -222,6 +271,21 @@ func (n *NullUInt8) Scan(value interface{}) error {
 	}
 	n.Inner = v
 	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (n NullUInt8) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Inner, nil
+}
+
+func (n NullUInt8) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
 }
 
 type NullFloat32 struct {
@@ -251,6 +315,13 @@ func (n NullFloat32) Value() (driver.Value, error) {
 	return n.Inner, nil
 }
 
+func (n NullFloat32) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
+}
+
 type NullFloat64 struct {
 	Inner float64
 	Valid bool // Valid is true if Inner is not NULL
@@ -276,6 +347,13 @@ func (n NullFloat64) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return n.Inner, nil
+}
+
+func (n NullFloat64) String() string {
+	if n.Valid {
+		return fmt.Sprintf("%v", n.Inner)
+	}
+	return "NULL"
 }
 
 type NullBool struct {
@@ -328,81 +406,6 @@ func (n NullString) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return n.Inner, nil
-}
-
-// Value implements the driver Valuer interface.
-func (n NullUInt8) Value() (driver.Value, error) {
-	if !n.Valid {
-		return nil, nil
-	}
-	return n.Inner, nil
-}
-
-func (n NullUInt8) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-func (n NullUInt16) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-
-func (n NullUInt32) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-
-func (n NullUInt64) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-func (n NullInt8) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-func (n NullInt16) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-
-func (n NullInt32) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-
-func (n NullInt64) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-
-func (n NullFloat32) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
-}
-
-func (n NullFloat64) String() string {
-	if n.Valid {
-		return fmt.Sprintf("%v", n.Inner)
-	}
-	return "NULL"
 }
 
 type NullTime struct {

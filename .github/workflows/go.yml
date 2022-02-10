@@ -16,12 +16,16 @@ jobs:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: 'develop'
+          submodules: 'recursive'
 
       - name: install TDengine
-        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false && make && sudo make install
+        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
 
       - name: start taosd
         run: nohup sudo taosd &
+
+      - name: start taosadapter
+        run: nohup sudo taosadapter &
 
       - name: Set up Go
         uses: actions/setup-go@v2

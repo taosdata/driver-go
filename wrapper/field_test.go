@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/errors"
 )
 
@@ -95,14 +96,14 @@ func TestRowsHeader_TypeDatabaseName(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "unknown",
+			name: "NULL",
 			fields: fields{
 				ColTypes: []uint8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 			},
 			args: args{
 				i: 0,
 			},
-			want: "",
+			want: "NULL",
 		},
 		{
 			name: "BOOL",
@@ -235,7 +236,7 @@ func TestRowsHeader_TypeDatabaseName(t *testing.T) {
 			want: "INT UNSIGNED",
 		},
 		{
-			name: "BIGINT UNSIGNEDD",
+			name: "BIGINT UNSIGNED",
 			fields: fields{
 				ColTypes: []uint8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 			},
@@ -295,7 +296,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 0,
 			},
-			want: unknown,
+			want: common.UnknownType,
 		},
 		{
 			name: "BOOL",
@@ -305,7 +306,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 1,
 			},
-			want: nullBool,
+			want: common.NullBool,
 		},
 		{
 			name: "TINYINT",
@@ -315,7 +316,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 2,
 			},
-			want: nullInt8,
+			want: common.NullInt8,
 		},
 		{
 			name: "SMALLINT",
@@ -325,7 +326,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 3,
 			},
-			want: nullInt16,
+			want: common.NullInt16,
 		}, {
 			name: "INT",
 			fields: fields{
@@ -334,7 +335,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 4,
 			},
-			want: nullInt32,
+			want: common.NullInt32,
 		},
 		{
 			name: "BIGINT",
@@ -344,7 +345,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 5,
 			},
-			want: nullInt64,
+			want: common.NullInt64,
 		},
 		{
 			name: "FLOAT",
@@ -354,7 +355,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 6,
 			},
-			want: nullFloat32,
+			want: common.NullFloat32,
 		},
 		{
 			name: "DOUBLE",
@@ -364,7 +365,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 7,
 			},
-			want: nullFloat64,
+			want: common.NullFloat64,
 		},
 		{
 			name: "BINARY",
@@ -374,7 +375,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 8,
 			},
-			want: nullString,
+			want: common.NullString,
 		},
 		{
 			name: "TIMESTAMP",
@@ -384,7 +385,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 9,
 			},
-			want: nullTime,
+			want: common.NullTime,
 		},
 		{
 			name: "NCHAR",
@@ -394,7 +395,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 10,
 			},
-			want: nullString,
+			want: common.NullString,
 		},
 		{
 			name: "TINYINT UNSIGNED",
@@ -404,7 +405,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 11,
 			},
-			want: nullUInt8,
+			want: common.NullUInt8,
 		},
 		{
 			name: "SMALLINT UNSIGNED",
@@ -414,7 +415,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 12,
 			},
-			want: nullUInt16,
+			want: common.NullUInt16,
 		},
 		{
 			name: "INT UNSIGNED",
@@ -424,7 +425,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 13,
 			},
-			want: nullUInt32,
+			want: common.NullUInt32,
 		},
 		{
 			name: "BIGINT UNSIGNEDD",
@@ -434,7 +435,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 14,
 			},
-			want: nullUInt64,
+			want: common.NullUInt64,
 		},
 		{
 			name: "JSON",
@@ -444,7 +445,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 			args: args{
 				i: 15,
 			},
-			want: nullJson,
+			want: common.NullJson,
 		},
 	}
 	for _, tt := range tests {
