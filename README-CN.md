@@ -57,8 +57,8 @@ import (
 )
 
 func main() {
-    var taosuri = "root:taosdata/tcp(localhost:6030)/"
-    taos, err := sql.Open("taosSql", taosuri)
+    var taosUri = "root:taosdata/tcp(localhost:6030)/"
+    taos, err := sql.Open("taosSql", taosUri)
     if err != nil {
         fmt.Println("failed to connect TDengine, err:", err)
         return

@@ -75,12 +75,12 @@ func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 		dbt.Exec("DROP TABLE IF EXISTS test_taos_restful.test")
 	}
 }
-func (dbt *DBTest) fail(method, query string, err error) {
-	if len(query) > 300 {
-		query = "[query too large to print]"
-	}
-	dbt.Fatalf("error on %s %s: %s", method, query, err.Error())
-}
+// func (dbt *DBTest) fail(method, query string, err error) {
+// 	if len(query) > 300 {
+// 		query = "[query too large to print]"
+// 	}
+// 	dbt.Fatalf("error on %s %s: %s", method, query, err.Error())
+// }
 
 func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result, err error) {
 	res, err = dbt.Exec(query, args...)
@@ -132,12 +132,12 @@ type Obj struct {
 }
 
 var (
-	userErr = errors.New("user error")
+	errUser = errors.New("user error")
 	fp      = func(dbt *DBTest, query string, exec bool, eErr error, expected int64) int64 {
 		var ret int64 = 0
 		if exec == false {
 			rows, err := dbt.mustQuery(query)
-			if eErr == userErr && err != nil {
+			if eErr == errUser && err != nil {
 				return ret
 			}
 			if err != nil {
@@ -193,7 +193,7 @@ func TestAny(t *testing.T) {
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select error"), userErr, false, fp, int64(1)})
+			&Obj{"select error", errUser, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select * from %s.t%d", dbName, 0), nil, false, fp, int64(-1)})
 		tests = append(tests,

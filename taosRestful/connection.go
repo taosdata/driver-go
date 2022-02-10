@@ -96,7 +96,7 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	result, err := tc.taosQuery(nil, query, 512)
+	result, err := tc.taosQuery(context.TODO(), query, 512)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		}
 		query = prepared
 	}
-	result, err := tc.taosQuery(nil, query, tc.readBufferSize)
+	result, err := tc.taosQuery(context.TODO(), query, tc.readBufferSize)
 	if err != nil {
 		return nil, err
 	}
@@ -282,10 +282,7 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						row[column] = nil
 						iter.Skip()
 					}
-					if iter.Error != nil {
-						return false
-					}
-					return true
+					return iter.Error == nil
 				})
 				if iter.Error != nil {
 					return false
@@ -298,10 +295,7 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 		default:
 			iter.Skip()
 		}
-		if iter.Error != nil {
-			return false
-		}
-		return true
+		return iter.Error == nil
 	})
 	if iter.Error != nil && iter.Error != io.EOF {
 		return nil, iter.Error
@@ -374,7 +368,7 @@ var valuerReflectType = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
 // still use nil pointers to those types to mean nil/NULL, just like
 // string/*string.
 //
-// This is an exact copy of the same-named unexported function from the
+// This is an exact copy of the same-named nonexported function from the
 // database/sql package.
 func callValuerValue(vr driver.Valuer) (v driver.Value, err error) {
 	if rv := reflect.ValueOf(vr); rv.Kind() == reflect.Ptr &&

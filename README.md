@@ -57,8 +57,8 @@ import (
 )
 
 func main() {
-    var taosuri = "root:taosdata/tcp(localhost:6030)/"
-    taos, err := sql.Open("taosSql", taosuri)
+    var taosUri = "root:taosdata/tcp(localhost:6030)/"
+    taos, err := sql.Open("taosSql", taosUri)
     if err != nil {
         fmt.Println("failed to connect TDengine, err:", err)
         return
@@ -98,7 +98,7 @@ APIs that are worthy to have a check:
 
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
-  This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be setted as `taosSql`,
+  This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be set as `taosSql`,
   and `dataSourceName` should be a URI like `user:password@/tcp(host:port)/dbname`. For HA use case,
   use `user:password@/cfg/dbname` to apply configs in `/etc/taos/taos.cfg`。
 
@@ -216,11 +216,15 @@ The driverName of `sql.Open` is `taosRestful`
 
 The DSN format is:
 
-```database username:database password@connection-method(domain or ip:port)/[database][? Parameter]```
+```text
+database username:database password@connection-method(domain or ip:port)/[database][? Parameter]
+```
 
 Example:
 
-```root:taosdata@http(localhost:6041)/test?readBufferSize=52428800```
+```text
+root:taosdata@http(localhost:6041)/test?readBufferSize=52428800
+```
 
 Parameters:
 
