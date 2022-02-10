@@ -49,46 +49,48 @@ TDengine Go 连接器提供 database/sql 标准接口，使用方法简单示例
 package main
 
 import (
-	"database/sql"
-	"fmt"
-	_ "github.com/taosdata/driver-go/v2/taosSql"
+    "database/sql"
+    "fmt"
+    "time"
+
+    _ "github.com/taosdata/driver-go/v2/taosSql"
 )
 
 func main() {
-	var taosuri = "root:taosdata/tcp(localhost:6030)/"
-	taos, err := sql.Open("taosSql", taosuri)
-	if err != nil {
-		fmt.Println("failed to connect TDengine, err:", err)
-		return
-	}
-	defer taos.Close()
-	taos.Exec("create database if not exists test")
-	taos.Exec("use test")
-	taos.Exec("create table if not exists tb1 (ts timestamp, a int)")
-	_, err = taos.Exec("insert into tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
-	if err != nil {
-		fmt.Println("failed to insert, err:", err)
-		return
-	}
-	rows, err := taos.Query("select * from tb1")
-	if err != nil {
-		fmt.Println("failed to select from table, err:", err)
-		return
-	}
+    var taosuri = "root:taosdata/tcp(localhost:6030)/"
+    taos, err := sql.Open("taosSql", taosuri)
+    if err != nil {
+        fmt.Println("failed to connect TDengine, err:", err)
+        return
+    }
+    defer taos.Close()
+    taos.Exec("create database if not exists test")
+    taos.Exec("use test")
+    taos.Exec("create table if not exists tb1 (ts timestamp, a int)")
+    _, err = taos.Exec("insert into tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
+    if err != nil {
+        fmt.Println("failed to insert, err:", err)
+        return
+    }
+    rows, err := taos.Query("select * from tb1")
+    if err != nil {
+        fmt.Println("failed to select from table, err:", err)
+        return
+    }
 
-	defer rows.Close()
-	for rows.Next() {
-		var r struct {
-			ts time.Time
-			a  int
-		}
-		err := rows.Scan(&r.ts, &r.a)
-		if err != nil {
-			fmt.Println("scan error:\n", err)
-			return
-		}
-		fmt.Println(r.ts, r.a)
-	}
+    defer rows.Close()
+    for rows.Next() {
+        var r struct {
+            ts time.Time
+            a  int
+        }
+        err := rows.Scan(&r.ts, &r.a)
+        if err != nil {
+            fmt.Println("scan error:\n", err)
+            return
+        }
+        fmt.Println(r.ts, r.a)
+    }
 }
 ```
 
@@ -140,6 +142,138 @@ type Subscriber interface {
 
 详情参见示例代码：[`examples/taoslogtail.go`](examples/taoslogtail/taoslogtail.go)。
 
+## restful 实现 `database/sql` 标准接口
+
+通过 restful 方式实现 `database/sql` 接口，使用方法简单示例如下：
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    "time"
+
+    _ "github.com/taosdata/driver-go/v2/taosRestful"
+)
+
+func main() {
+    var taosDSN = "root:taosdata@http(localhost:6041)/"
+    taos, err := sql.Open("taosRestful", taosDSN)
+    if err != nil {
+        fmt.Println("failed to connect TDengine, err:", err)
+        return
+    }
+    defer taos.Close()
+    taos.Exec("create database if not exists test")
+    taos.Exec("create table if not exists test.tb1 (ts timestamp, a int)")
+    _, err = taos.Exec("insert into test.tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
+    if err != nil {
+        fmt.Println("failed to insert, err:", err)
+        return
+    }
+    rows, err := taos.Query("select * from test.tb1")
+    if err != nil {
+        fmt.Println("failed to select from table, err:", err)
+        return
+    }
+
+    defer rows.Close()
+    for rows.Next() {
+        var r struct {
+            ts time.Time
+            a  int
+        }
+        err := rows.Scan(&r.ts, &r.a)
+        if err != nil {
+            fmt.Println("scan error:\n", err)
+            return
+        }
+        fmt.Println(r.ts, r.a)
+    }
+}
+```
+
+### 使用
+
+引入
+
+```go
+import (
+    "database/sql"
+    _ "github.com/taosdata/driver-go/v2/taosRestful"
+)
+```
+
+`sql.Open` 的 driverName 为 `taosRestful`
+
+DSN 格式为：
+
+`数据库用户名:数据库密码@连接方式(域名或ip:端口)/[数据库][?参数]`
+
+样例：
+
+`root:taosdata@http(localhost:6041)/test?readBufferSize=52428800`
+
+参数：
+
+- `disableCompression` 是否接受压缩数据，默认为 `true` 不接受压缩数据，如果传输数据使用 gzip 压缩设置为 `false`。
+- `readBufferSize` 读取数据的缓存区大小默认为 4K (4096)，当查询结果数据量多时可以适当调大该值。
+
+### 使用限制
+
+由于 restful 接口无状态所以 `use db` 语法不会生效，需要将 db 名称放到 sql 语句中，如：`create table if not exists tb1 (ts timestamp, a int)` 改为 `create table if not exists test.tb1 (ts timestamp, a int)` 否则将报错 `[0x217] Database not specified or available`
+
+也可以将 db 名称放到 DSN 中，将 `root:taosdata@http(localhost:6041)/` 改为 `root:taosdata@http(localhost:6041)/test`，此方法在 TDengine 2.4.0.5 版本的 taosadapter 开始支持。当指定的 db 不存在时执行 `create database` 语句不会报报错，而执行针对该 db 的其他查询或写入操作会报错。完整示例如下：
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    "time"
+
+    _ "github.com/taosdata/driver-go/v2/taosRestful"
+)
+
+func main() {
+    var taosDSN = "root:taosdata@http(localhost:6041)/test"
+    taos, err := sql.Open("taosRestful", taosDSN)
+    if err != nil {
+        fmt.Println("failed to connect TDengine, err:", err)
+        return
+    }
+    defer taos.Close()
+    taos.Exec("create database if not exists test")
+    taos.Exec("create table if not exists tb1 (ts timestamp, a int)")
+    _, err = taos.Exec("insert into tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
+    if err != nil {
+        fmt.Println("failed to insert, err:", err)
+        return
+    }
+    rows, err := taos.Query("select * from tb1")
+    if err != nil {
+        fmt.Println("failed to select from table, err:", err)
+        return
+    }
+
+    defer rows.Close()
+    for rows.Next() {
+        var r struct {
+            ts time.Time
+            a  int
+        }
+        err := rows.Scan(&r.ts, &r.a)
+        if err != nil {
+            fmt.Println("scan error:\n", err)
+            return
+        }
+        fmt.Println(r.ts, r.a)
+    }
+}
+```
+
 ## 目录结构
 
 driver-go  
@@ -147,11 +281,12 @@ driver-go
 ├── common //通用方法以及常量  
 ├── errors //错误类型  
 ├── examples //样例  
-├── go.mod    
+├── go.mod
 ├── go.sum  
 ├── README-CN.md  
 ├── README.md  
-├── taosSql // 数据库操作标准接口  
+├── taosRestful // 数据库操作标准接口(restful)  
+├── taosSql // 数据库操作标准接口
 ├── types // 内置类型  
 └── wrapper // cgo 包装器
 

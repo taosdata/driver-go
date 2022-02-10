@@ -39,6 +39,7 @@ func testDatabase(t *testing.T) *Connector {
 // @description: test af open connect
 func TestOpen(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	// select database
 	_, err := db.Exec("use log")
 	if err != nil {
@@ -80,6 +81,7 @@ func TestOpen(t *testing.T) {
 // @description: test subscribe
 func TestSubscribe(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	_, err := db.Exec("drop table if exists test_subscribe")
 	if err != nil {
 		t.Error(err)
@@ -156,6 +158,7 @@ func TestSubscribe(t *testing.T) {
 // @description: test query
 func TestQuery(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	_, err := db.Exec("drop table if exists test_types")
 	if err != nil {
 		t.Error(err)
@@ -232,6 +235,7 @@ func TestQuery(t *testing.T) {
 // @description: test stmt exec
 func TestStmtExec(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	now := time.Now()
 	for i, tc := range []struct {
 		tbType string
@@ -304,6 +308,7 @@ func TestStmtExec(t *testing.T) {
 // @description: test stmt query
 func TestStmtQuery(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	for i, tc := range []struct {
 		tbType string
 		data   string
@@ -378,6 +383,7 @@ func TestStmtQuery(t *testing.T) {
 // @description: test stmt insert
 func TestFastInsert(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	now := time.Now()
 	for i, tc := range []struct {
 		tbType   string
@@ -459,6 +465,7 @@ func TestFastInsert(t *testing.T) {
 // @description: test stmt insert with set table name
 func TestFastInsertWithSetTableName(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	now := time.Now()
 	for i, tc := range []struct {
 		tbType   string
@@ -558,6 +565,7 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 // @description: test stmt insert with set table name and tag
 func TestFastInsertWithSetTableNameTag(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	now := time.Now()
 	_, err := db.Exec("create stable if not exists set_table_name_tag_int (ts timestamp,value int) tags(i smallint,v binary(8))")
 	if err != nil {
@@ -639,6 +647,7 @@ func TestFastInsertWithSetTableNameTag(t *testing.T) {
 // @description: test stmt insert with set sub table name
 func TestFastInsertWithSetSubTableName(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	now := time.Now()
 	_, err := db.Exec("create stable if not exists set_table_name_sub_int (ts timestamp,value int) tags(i smallint,v binary(8))")
 	if err != nil {
@@ -730,6 +739,7 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 // @description: test influxDB insert with line protocol
 func TestInfluxDBInsertLines(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	err := db.InfluxDBInsertLines([]string{
 		"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
 	}, "ns")
@@ -744,6 +754,7 @@ func TestInfluxDBInsertLines(t *testing.T) {
 // @description: test telnet insert with line protocol
 func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	err := db.OpenTSDBInsertTelnetLines([]string{
 		"sys_if_bytes_out 1479496100 1.3E3 host=web01 interface=eth0",
 		"sys_procs_running 1479496100 42 host=web01",
@@ -759,6 +770,7 @@ func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 // @description: test telnet insert with
 func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	db := testDatabase(t)
+	defer db.Close()
 	err := db.OpenTSDBInsertJsonPayload(`{
     "metric": "sys",
     "timestamp": 1346846400,
