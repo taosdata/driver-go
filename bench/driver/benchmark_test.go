@@ -75,7 +75,7 @@ func TestMain(m *testing.M) {
 			panic(err)
 		}
 	}
-	ts := time.Now().UnixMilli()
+	ts := time.Now().UnixNano() / 1e6
 	for i := 0; i < 10000; i++ {
 		data = append(data, fmt.Sprintf("insert into benchmark_driver.alltype_insert values(%d,1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')", int64(i)+ts))
 	}

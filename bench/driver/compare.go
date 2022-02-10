@@ -206,7 +206,7 @@ func testInsert() {
 	if err != nil {
 		panic(err)
 	}
-	ts := time.Now().UnixMilli()
+	ts := time.Now().UnixNano() / 1e6
 	for i := 0; i < 50000; i++ {
 		dataC = append(dataC, fmt.Sprintf("insert into benchmark_driver.alltype_insert_c values(%d,1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')", int64(i)+ts))
 		dataRestful = append(dataRestful, fmt.Sprintf("insert into benchmark_driver.alltype_insert_restful values(%d,1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')", int64(i)+ts))
