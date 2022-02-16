@@ -276,19 +276,21 @@ func main() {
 
 ## 目录结构
 
-driver-go  
-├── af //高级功能  
-├── common //通用方法以及常量  
-├── errors //错误类型  
-├── examples //样例  
-├── go.mod  
-├── go.sum  
-├── README-CN.md  
-├── README.md  
-├── taosRestful // 数据库操作标准接口(restful)  
-├── taosSql // 数据库操作标准接口  
-├── types // 内置类型  
+```text
+driver-go
+├── af //高级功能
+├── common //通用方法以及常量
+├── errors //错误类型
+├── examples //样例
+├── go.mod
+├── go.sum
+├── README-CN.md
+├── README.md
+├── taosRestful // 数据库操作标准接口(restful)
+├── taosSql // 数据库操作标准接口
+├── types // 内置类型
 └── wrapper // cgo 包装器
+```
 
 ## 导航
 

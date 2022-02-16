@@ -287,19 +287,21 @@ func main() {
 
 ## Directory structure
 
-driver-go  
-├── af //advanced function  
-├── common //common function and constants  
-├── errors // error type  
-├── examples //examples  
-├── go.mod  
-├── go.sum  
-├── README-CN.md  
-├── README.md  
-├── taosRestful // database operation standard interface (restful)  
-├── taosSql // database operation standard interface  
-├── types // inner type  
+```text
+driver-go
+├── af //advanced function
+├── common //common function and constants
+├── errors // error type
+├── examples //examples
+├── go.mod
+├── go.sum
+├── README-CN.md
+├── README.md
+├── taosRestful // database operation standard interface (restful)
+├── taosSql // database operation standard interface
+├── types // inner type
 └── wrapper // cgo wrapper
+```
 
 ## Link
 
