@@ -217,7 +217,7 @@ func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) err
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
-		locker.Unlock()
+		locker.Lock()
 		wrapper.TaosFreeResult(result)
 		locker.Unlock()
 		return errors.NewError(code, errStr)
@@ -256,5 +256,6 @@ func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 	}
 	locker.Lock()
 	wrapper.TaosFreeResult(result)
+	locker.Unlock()
 	return nil
 }

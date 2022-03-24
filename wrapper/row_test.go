@@ -93,7 +93,7 @@ func TestFetchRowJSON(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	res = TaosQuery(conn, `select * from test_json.tjsonr`)
+	res = TaosQuery(conn, `select * from test_json.tjsonr order by ts`)
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -120,6 +120,7 @@ func TestFetchRowJSON(t *testing.T) {
 		data = append(data, d)
 	}
 	TaosFreeResult(res)
+	t.Log(data)
 	assert.Equal(t, `{"a":1,"b":"b"}`, string(data[0][2].([]byte)))
 	assert.Equal(t, `{"a":1,"c":"c"}`, string(data[1][2].([]byte)))
 	assert.Nil(t, data[2][2])
