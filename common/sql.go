@@ -72,7 +72,9 @@ func InterpolateParams(query string, args []driver.Value) (string, error) {
 		case []byte:
 			buf.Write(v)
 		case string:
+			buf.WriteByte('\'')
 			buf.WriteString(v)
+			buf.WriteByte('\'')
 		default:
 			return "", driver.ErrSkip
 		}
