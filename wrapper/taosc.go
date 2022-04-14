@@ -41,8 +41,11 @@ func TaosConnect(host, user, pass, db string, port int) (taos unsafe.Pointer, er
 	defer C.free(unsafe.Pointer(cUser))
 	cPass := C.CString(pass)
 	defer C.free(unsafe.Pointer(cPass))
-	cdb := C.CString(db)
-	defer C.free(unsafe.Pointer(cdb))
+	cdb := (*C.char)(nil)
+	if len(db) > 0 {
+		cdb = C.CString(db)
+		defer C.free(unsafe.Pointer(cdb))
+	}
 	var taosObj unsafe.Pointer
 	if len(host) == 0 {
 		taosObj = C.taos_connect(nil, cUser, cPass, cdb, (C.ushort)(0))
@@ -185,4 +188,24 @@ func TaosFetchLengths(res unsafe.Pointer) unsafe.Pointer {
 // TaosResultBlock TAOS_ROW *taos_result_block(TAOS_RES *res);
 func TaosResultBlock(result unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_result_block(result))
+}
+
+// TaosFetchBlockS int taos_fetch_block_s(TAOS_RES *res, int* numOfRows, TAOS_ROW *rows)
+func TaosFetchBlockS(result unsafe.Pointer) (unsafe.Pointer, int, int) {
+	var block C.TAOS_ROW
+	b := unsafe.Pointer(&block)
+	var size int
+	cSize := unsafe.Pointer(&size)
+	errCode := int(C.taos_fetch_block_s(result, (*C.int)(cSize), (*C.TAOS_ROW)(b)))
+	return b, size, errCode
+}
+
+// TaosIsNull bool        taos_is_null(TAOS_RES *res, int32_t row, int32_t col);
+func TaosIsNull(result unsafe.Pointer, row int, col int) bool {
+	return bool(C.taos_is_null(result, (C.int32_t)(row), (C.int32_t)(col)))
+}
+
+// TaosGetColumnDataOffset int        *taos_get_column_data_offset(TAOS_RES *res, int columnIndex);
+func TaosGetColumnDataOffset(result unsafe.Pointer, columnIndex int) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_get_column_data_offset(result, (C.int)(columnIndex)))
 }

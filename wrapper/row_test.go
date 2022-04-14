@@ -44,7 +44,7 @@ func TestFetchRowJSON(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, "create stable if not exists test_json.tjsonr(ts timestamp,value int )tags(t json)")
+	res = TaosQuery(conn, "create stable if not exists test_json.tjsonr(ts timestamp,v int )tags(t json)")
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -161,7 +161,7 @@ func TestFetchRow(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 using %s.stb1 tags(1) values(now, 'log');", db, db))
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags(1)", db, db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -171,7 +171,8 @@ func TestFetchRow(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb2 using %s.stb1 tags(2) values(now, 'test');", db, db))
+
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values(now, 'log');", db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -181,7 +182,7 @@ func TestFetchRow(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb3 using %s.stb1 tags(3) values(now, 'db02')", db, db))
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb2 using %s.stb1 tags(2)", db, db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -191,7 +192,47 @@ func TestFetchRow(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb4 using %s.stb1 tags(4) values(now, 'db3');", db, db))
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb2 values(now, 'test');", db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb3 using %s.stb1 tags(3)", db, db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb3 values(now, 'db02')", db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb4 using %s.stb1 tags(4)", db, db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb4 values(now, 'db3');", db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -272,7 +313,8 @@ func TestFetchRowNchar(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 using %s.stb1 tags(1) values(now, 'log');", db, db))
+
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags(1)", db, db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -282,7 +324,8 @@ func TestFetchRowNchar(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb2 using %s.stb1 tags(2) values(now, 'test');", db, db))
+
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb2 using %s.stb1 tags(2)", db, db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -292,7 +335,8 @@ func TestFetchRowNchar(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb3 using %s.stb1 tags(3) values(now, 'db02')", db, db))
+
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb3 using %s.stb1 tags(3)", db, db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -302,7 +346,49 @@ func TestFetchRowNchar(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb4 using %s.stb1 tags(4) values(now, 'db3');", db, db))
+
+	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb4 using %s.stb1 tags(4)", db, db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values(now, 'log');", db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb2 values(now, 'test');", db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb3 values(now, 'db02')", db))
+	code = TaosError(res)
+	if code != int(errors.SUCCESS) {
+		errStr := TaosErrorStr(res)
+		err := errors.NewError(code, errStr)
+		t.Error(err)
+		TaosFreeResult(res)
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb4 values(now, 'db3');", db))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)

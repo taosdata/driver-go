@@ -334,6 +334,7 @@ func TestTaosResultBlock(t *testing.T) {
 				return
 			}
 			res := r.res
+			precision := TaosResultPrecision(res)
 			for {
 				go TaosFetchRowsA(res, p)
 				r = <-tt.args.caller.FetchResult
@@ -345,8 +346,7 @@ func TestTaosResultBlock(t *testing.T) {
 					res = r.res
 					block := TaosResultBlock(res)
 					assert.NotNil(t, block)
-					lengths := FetchLengths(res, count)
-					values := ReadBlock(res, block, r.n, lengths, rowsHeader.ColTypes)
+					values := ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
 					_ = values
 				}
 			}

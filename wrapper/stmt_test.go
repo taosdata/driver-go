@@ -411,14 +411,14 @@ func query(conn unsafe.Pointer, sql string) ([][]driver.Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	precision := TaosResultPrecision(res)
 	var result [][]driver.Value
 	for {
 		columns, block := TaosFetchBlock(res)
 		if columns == 0 {
 			break
 		}
-		lengths := FetchLengths(res, fileCount)
-		r := ReadBlock(res, block, columns, lengths, rh.ColTypes)
+		r := ReadBlock(block, columns, rh.ColTypes, precision)
 		result = append(result, r...)
 	}
 	return result, nil

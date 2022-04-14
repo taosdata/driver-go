@@ -65,3 +65,12 @@ func FetchLengths(res unsafe.Pointer, count int) []int {
 	}
 	return result
 }
+
+func GetColumnDataOffset(res unsafe.Pointer, columnIndex int, count int) []int {
+	offset := TaosGetColumnDataOffset(res, columnIndex)
+	result := make([]int, count)
+	for i := 0; i < count; i++ {
+		result[i] = int(*(*C.int)(unsafe.Pointer(uintptr(offset) + uintptr(C.sizeof_int*C.int(i)))))
+	}
+	return result
+}
