@@ -60,7 +60,7 @@ func TestReadBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql := fmt.Sprintf("insert into test_block_raw.all_type values(now,1,1,1,1,1,1,1,1,1,1,1,'中文','中文')")
+	sql := fmt.Sprintf("insert into test_block_raw.all_type values(now,1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')(now+1s,null,null,null,null,null,null,null,null,null,null,null,null,null)")
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -71,6 +71,7 @@ func TestReadBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
+	//sql = "select c1 ,c2 ,c3 ,c4 ,c5 ,c6 ,c7 ,c8 ,c9 ,c10,c11,c12,c13 from test_block_raw.all_type"
 	sql = "select * from test_block_raw.all_type"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
@@ -99,7 +100,6 @@ func TestReadBlock(t *testing.T) {
 		if blockSize == 0 {
 			break
 		}
-		TaosFreeResult(res)
 		data := ReadBlock(block, blockSize, rh.ColTypes, precision)
 		t.Log(data)
 	}
