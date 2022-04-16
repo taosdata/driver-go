@@ -32,7 +32,7 @@ func (rs *rows) ColumnTypeDatabaseTypeName(i int) string {
 }
 
 func (rs *rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	return int64(rs.rowsHeader.ColLength[i]), true
+	return rs.rowsHeader.ColLength[i], true
 }
 
 func (rs *rows) ColumnTypeScanType(i int) reflect.Type {
