@@ -62,7 +62,7 @@ func TMQListDestroy(list unsafe.Pointer) {
 func TMQConsumerNew(conf unsafe.Pointer) (unsafe.Pointer, error) {
 	p := (*C.char)(C.calloc(C.size_t(C.uint(1024)), C.size_t(C.uint(1024))))
 	defer C.free(unsafe.Pointer(p))
-	tmq := unsafe.Pointer(C.tmq_consumer_new1((*C.struct_tmq_conf_t)(conf), p, C.int32_t(1024)))
+	tmq := unsafe.Pointer(C.tmq_consumer_new((*C.struct_tmq_conf_t)(conf), p, C.int32_t(1024)))
 	errStr := C.GoString(p)
 	if len(errStr) > 0 {
 		return tmq, errors.NewError(-1, errStr)

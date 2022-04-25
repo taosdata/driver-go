@@ -31,7 +31,7 @@ func TestReadBlock(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	time.Sleep(time.Second)
 	res = TaosQuery(conn, "drop table if exists test_block_raw.all_type")
 	code = TaosError(res)
 	if code != 0 {
@@ -41,7 +41,6 @@ func TestReadBlock(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
 	res = TaosQuery(conn, "create table if not exists test_block_raw.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+

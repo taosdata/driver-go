@@ -110,14 +110,7 @@ func (stmt *InsertStmt) Execute() error {
 }
 
 func (stmt *InsertStmt) GetAffectedRows() int {
-	result := wrapper.TaosStmtUseResult(stmt.stmt)
-	defer func() {
-		locker.Lock()
-		wrapper.TaosFreeResult(result)
-		locker.Unlock()
-	}()
-	affectedRows := wrapper.TaosAffectedRows(result)
-	return affectedRows
+	return wrapper.TaosStmtAffectedRowsOnce(stmt.stmt)
 }
 
 func (stmt *InsertStmt) Close() error {

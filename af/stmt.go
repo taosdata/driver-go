@@ -92,16 +92,7 @@ func (s *Stmt) GetAffectedRows() int {
 	if !s.isInsert {
 		return 0
 	}
-	result := wrapper.TaosStmtUseResult(s.stmt)
-	defer func() {
-		if result != nil {
-			locker.Lock()
-			wrapper.TaosFreeResult(result)
-			locker.Unlock()
-		}
-	}()
-	affectedRows := wrapper.TaosAffectedRows(result)
-	return affectedRows
+	return wrapper.TaosStmtAffectedRowsOnce(s.stmt)
 }
 
 func (s *Stmt) GetResultRows() (driver.Rows, error) {
