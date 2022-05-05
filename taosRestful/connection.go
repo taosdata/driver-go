@@ -89,7 +89,10 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	if d.Code != 0 || d.Status != "succ" {
 		return nil, taosErrors.NewError(d.Code, d.Desc)
 	}
-	tc.header = map[string][]string{"Authorization": {fmt.Sprintf("Taosd %s", d.Desc)}}
+	tc.header = map[string][]string{
+		"Authorization": {fmt.Sprintf("Taosd %s", d.Desc)},
+		"Connection":    {"keep-alive"},
+	}
 	if !cfg.disableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
 	}
@@ -203,7 +206,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 		return nil, errors.New(string(body))
 	}
 	respBody := resp.Body
-	if !tc.cfg.disableCompression {
+	if !tc.cfg.disableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
 		respBody, err = gzip.NewReader(resp.Body)
 		if err != nil {
 			return nil, err
@@ -407,4 +410,26 @@ func callValuerValue(vr driver.Valuer) (v driver.Value, err error) {
 		return nil, nil
 	}
 	return vr.Value()
+}
+
+// EqualFold is strings.EqualFold, ASCII only. It reports whether s and t
+// are equal, ASCII-case-insensitively.
+func EqualFold(s, t string) bool {
+	if len(s) != len(t) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if lower(s[i]) != lower(t[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// lower returns the ASCII lowercase version of b.
+func lower(b byte) byte {
+	if 'A' <= b && b <= 'Z' {
+		return b + ('a' - 'A')
+	}
+	return b
 }
