@@ -47,9 +47,9 @@ func TestTmq(t *testing.T) {
 		"c8 int unsigned,"+
 		"c9 bigint unsigned,"+
 		"c10 float,"+
-		"c11 double"+
-		//"c12 binary(20),"+
-		//"c13 nchar(20)"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
 		") tags(t1 int)")
 	code = wrapper.TaosError(result)
 	if code != 0 {
@@ -91,7 +91,7 @@ func TestTmq(t *testing.T) {
 	wrapper.TaosFreeResult(result)
 
 	//create topic
-	result = wrapper.TaosQuery(conn, "create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11 from ct1")
+	result = wrapper.TaosQuery(conn, "create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13 from ct1")
 	code = wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
@@ -101,7 +101,7 @@ func TestTmq(t *testing.T) {
 	}
 	wrapper.TaosFreeResult(result)
 	now := time.Now()
-	result = wrapper.TaosQuery(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11)", now.Format(time.RFC3339Nano)))
+	result = wrapper.TaosQuery(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2')", now.Format(time.RFC3339Nano)))
 	code = wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
@@ -112,8 +112,7 @@ func TestTmq(t *testing.T) {
 	wrapper.TaosFreeResult(result)
 
 	config := NewConfig()
-	//defer config.Destroy()
-	config.SetConnectDB("af_test_tmq")
+	defer config.Destroy()
 	config.SetGroupID("test")
 	consumer, err := NewConsumer(config)
 	if err != nil {
@@ -144,6 +143,10 @@ func TestTmq(t *testing.T) {
 	assert.Equal(t, uint64(9), row1[9].(uint64))
 	assert.Equal(t, float32(10), row1[10].(float32))
 	assert.Equal(t, float64(11), row1[11].(float64))
-	//assert.Equal(t, "1", row1[12].(string))
-	//assert.Equal(t, "2", row1[13].(string))
+	assert.Equal(t, "1", row1[12].(string))
+	assert.Equal(t, "2", row1[13].(string))
+	err = consumer.Commit(time.Minute)
+	assert.NoError(t, err)
+	err = consumer.Close()
+	assert.NoError(t, err)
 }

@@ -44,10 +44,6 @@ func (c *Config) SetConnectPort(port string) error {
 	return c.SetConfig("td.connect.port", port)
 }
 
-func (c *Config) SetConnectDB(db string) error {
-	return c.SetConfig("td.connect.db", db)
-}
-
 func (c *Config) SetConfig(key string, value string) error {
 	errCode := wrapper.TMQConfSet(c.cConfig, key, value)
 	if errCode != errors.SUCCESS {

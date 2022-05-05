@@ -2,8 +2,11 @@ package wrapper
 
 import (
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
 func TestTMQ(t *testing.T) {
@@ -96,8 +99,9 @@ func TestTMQ(t *testing.T) {
 	//build consumer
 	conf := TMQConfNew()
 	TMQConfSet(conf, "group.id", "tg2")
-	TMQConfSet(conf, "td.connect.db", "abc1")
-	TMQConfSetOffsetCommitCB(conf)
+	c := make(chan *TMQCommitCallbackResult, 1)
+	h := cgo.NewHandle(c)
+	TMQConfSetOffsetCommitCB(conf, h)
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Error(err)
@@ -114,11 +118,21 @@ func TestTMQ(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
-
+	errCode, list := TMQSubscription(tmq)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Error(errors.NewError(int(errCode), errStr))
+		return
+	}
+	size := TMQListGetSize(list)
+	r := TMQListToCArray(list, int(size))
+	assert.Equal(t, []string{"1.topic_ctb_column"}, r)
 	for i := 0; i < 10; i++ {
 		message := TMQConsumerPoll(tmq, 500)
 		if message != nil {
 			t.Log(message)
+			topic := TMQGetTopicName(message)
+			assert.Equal(t, "topic_ctb_column", topic)
 			fileCount := TaosNumFields(message)
 			rh, err := ReadColumn(message, fileCount)
 			if err != nil {
@@ -143,7 +157,19 @@ func TestTMQ(t *testing.T) {
 			}
 			TaosFreeResult(message)
 
-			TMQCommit(tmq, nil, false)
+			TMQCommit(tmq, nil, true)
+			timer := time.NewTimer(time.Minute)
+			select {
+			case d := <-c:
+				assert.Equal(t, int32(0), d.ErrCode)
+				PutTMQCommitCallbackResult(d)
+				timer.Stop()
+				break
+			case <-timer.C:
+				timer.Stop()
+				t.Error("wait tmq commit callback timeout")
+				return
+			}
 		}
 	}
 
@@ -153,4 +179,15 @@ func TestTMQ(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+}
+
+func TestTMQList(t *testing.T) {
+	list := TMQListNew()
+	TMQListAppend(list, "1")
+	TMQListAppend(list, "2")
+	TMQListAppend(list, "3")
+	size := TMQListGetSize(list)
+	r := TMQListToCArray(list, int(size))
+	assert.Equal(t, []string{"1", "2", "3"}, r)
+	TMQListDestroy(list)
 }

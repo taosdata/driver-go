@@ -7,28 +7,40 @@ import (
 
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
 type Consumer struct {
 	conf      *Config
 	cConsumer unsafe.Pointer
+	c         chan *wrapper.TMQCommitCallbackResult
+	handle    cgo.Handle
+	timer     *time.Timer
 }
 
 func NewConsumer(conf *Config) (*Consumer, error) {
+	c := make(chan *wrapper.TMQCommitCallbackResult, 1)
+	h := cgo.NewHandle(c)
+	wrapper.TMQConfSetOffsetCommitCB(conf.cConfig, h)
 	cConsumer, err := wrapper.TMQConsumerNew(conf.cConfig)
 	if err != nil {
 		return nil, err
 	}
+	t := time.NewTimer(time.Minute)
+	t.Stop()
 	consumer := &Consumer{
 		conf:      conf,
 		cConsumer: cConsumer,
+		c:         c,
+		timer:     t,
+		handle:    h,
 	}
 	return consumer, nil
 }
 
 func (c *Consumer) Subscribe(topics []string) error {
 	topicList := wrapper.TMQListNew()
-	//defer wrapper.TMQListDestroy(topicList)
+	defer wrapper.TMQListDestroy(topicList)
 	for _, topic := range topics {
 		errCode := wrapper.TMQListAppend(topicList, topic)
 		if errCode != 0 {
@@ -85,9 +97,33 @@ type Result struct {
 	data [][]driver.Value
 }
 
-func (c *Consumer) Commit(async bool) error {
-	errCode := wrapper.TMQCommit(c.cConsumer, nil, async)
+func (c *Consumer) Commit(timeout time.Duration) error {
+	errCode := wrapper.TMQCommit(c.cConsumer, nil, true)
 	if errCode != errors.SUCCESS {
+		errStr := wrapper.TMQErr2Str(errCode)
+		return errors.NewError(int(errCode), errStr)
+	}
+	c.timer.Reset(timeout)
+	select {
+	case d := <-c.c:
+		if d.ErrCode != errors.SUCCESS {
+			errStr := wrapper.TMQErr2Str(d.ErrCode)
+			err := errors.NewError(int(d.ErrCode), errStr)
+			return err
+		}
+		wrapper.PutTMQCommitCallbackResult(d)
+		break
+	case <-c.timer.C:
+		c.timer.Stop()
+		return &errors.TaosError{Code: 0xffff, ErrStr: "commit timeout"}
+	}
+	return nil
+}
+
+func (c *Consumer) Close() error {
+	defer c.handle.Delete()
+	errCode := wrapper.TMQConsumerClose(c.cConsumer)
+	if errCode != 0 {
 		errStr := wrapper.TMQErr2Str(errCode)
 		return errors.NewError(int(errCode), errStr)
 	}
