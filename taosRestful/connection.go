@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql/driver"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -31,7 +30,13 @@ type taosConn struct {
 	readBufferSize int
 }
 
-func newTaosConn(cfg *config) *taosConn {
+type TaosResponse struct {
+	Status string `json:"status"`
+	Code   int    `json:"code"`
+	Desc   string `json:"desc"`
+}
+
+func newTaosConn(cfg *config) (*taosConn, error) {
 	readBufferSize := cfg.readBufferSize
 	if readBufferSize <= 0 {
 		readBufferSize = 4 << 10
@@ -56,16 +61,39 @@ func newTaosConn(cfg *config) *taosConn {
 	}
 	tc.url = &url.URL{
 		Scheme: cfg.net,
-		User:   url.UserPassword(cfg.user, cfg.passwd),
 		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
 		Path:   path,
 	}
-	basic := "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.user+":"+cfg.passwd))
-	tc.header = map[string][]string{"Authorization": {basic}}
+	loginUrl := &url.URL{
+		Scheme: cfg.net,
+		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
+		Path:   fmt.Sprintf("/rest/login/%s/%s", cfg.user, cfg.passwd),
+	}
+	if cfg.platformToken != "" {
+		loginUrl.RawQuery = fmt.Sprintf("token=%s", cfg.platformToken)
+	}
+	resp, err := tc.client.Get(loginUrl.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("login response error")
+	}
+	decoder := jsonitor.NewDecoder(resp.Body)
+	var d TaosResponse
+	err = decoder.Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+	if d.Code != 0 || d.Status != "succ" {
+		return nil, taosErrors.NewError(d.Code, d.Desc)
+	}
+	tc.header = map[string][]string{"Authorization": {fmt.Sprintf("Taosd %s", d.Desc)}}
 	if !cfg.disableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
 	}
-	return tc
+	return tc, nil
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {

@@ -30,8 +30,8 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	if len(c.cfg.addr) == 0 {
 		c.cfg.addr = "127.0.0.1"
 	}
-	tc := newTaosConn(c.cfg)
-	return tc, nil
+	tc, err := newTaosConn(c.cfg)
+	return tc, err
 }
 
 // Driver implements driver.Connector interface.
