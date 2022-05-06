@@ -29,7 +29,7 @@ type config struct {
 	interpolateParams  bool              // Interpolate placeholders into query string
 	disableCompression bool
 	readBufferSize     int
-	platformToken      string
+	token              string // cloud platform token
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -152,8 +152,8 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			if err != nil {
 				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid int value: " + value}
 			}
-		case "platformToken":
-			cfg.platformToken = value
+		case "token":
+			cfg.token = value
 		default:
 			// lazy init
 			if cfg.params == nil {

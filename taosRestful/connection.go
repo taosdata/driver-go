@@ -69,8 +69,8 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
 		Path:   fmt.Sprintf("/rest/login/%s/%s", cfg.user, cfg.passwd),
 	}
-	if cfg.platformToken != "" {
-		loginUrl.RawQuery = fmt.Sprintf("token=%s", cfg.platformToken)
+	if cfg.token != "" {
+		loginUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
 	}
 	resp, err := tc.client.Get(loginUrl.String())
 	if err != nil {
