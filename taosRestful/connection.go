@@ -93,7 +93,7 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	//if d.Code != 0 || d.Status != "succ" {
 	//	return nil, taosErrors.NewError(d.Code, d.Desc)
 	//}
-	basic := "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.user+":"+cfg.passwd))
+	basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
 
 	tc.header = map[string][]string{
 		"Authorization": {fmt.Sprintf("Basic %s", basic)},
