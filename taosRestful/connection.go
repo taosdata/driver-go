@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql/driver"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -64,33 +65,38 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
 		Path:   path,
 	}
-	loginUrl := &url.URL{
-		Scheme: cfg.net,
-		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
-		Path:   fmt.Sprintf("/rest/login/%s/%s", cfg.user, cfg.passwd),
-	}
 	if cfg.token != "" {
-		loginUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
+		tc.url.RawQuery = fmt.Sprintf("token=%s", cfg.token)
 	}
-	resp, err := tc.client.Get(loginUrl.String())
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("login response error")
-	}
-	decoder := jsonitor.NewDecoder(resp.Body)
-	var d TaosResponse
-	err = decoder.Decode(&d)
-	if err != nil {
-		return nil, err
-	}
-	if d.Code != 0 || d.Status != "succ" {
-		return nil, taosErrors.NewError(d.Code, d.Desc)
-	}
+	//loginUrl := &url.URL{
+	//	Scheme: cfg.net,
+	//	Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
+	//	Path:   fmt.Sprintf("/rest/login/%s/%s", cfg.user, cfg.passwd),
+	//}
+	//if cfg.token != "" {
+	//	loginUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
+	//}
+	//resp, err := tc.client.Get(loginUrl.String())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer resp.Body.Close()
+	//if resp.StatusCode != http.StatusOK {
+	//	return nil, errors.New("login response error")
+	//}
+	//decoder := jsonitor.NewDecoder(resp.Body)
+	//var d TaosResponse
+	//err = decoder.Decode(&d)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//if d.Code != 0 || d.Status != "succ" {
+	//	return nil, taosErrors.NewError(d.Code, d.Desc)
+	//}
+	basic := "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.user+":"+cfg.passwd))
+
 	tc.header = map[string][]string{
-		"Authorization": {fmt.Sprintf("Taosd %s", d.Desc)},
+		"Authorization": {fmt.Sprintf("Basic %s", basic)},
 		"Connection":    {"keep-alive"},
 	}
 	if !cfg.disableCompression {

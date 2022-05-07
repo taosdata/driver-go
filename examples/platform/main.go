@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("taosRestful", "root:taosdata@http(192.168.1.163:8085)/?platformToken=c37ef4dbec8708c0227b4e8cb84ffffb9b8711a1")
+	db, err := sql.Open("taosRestful", "root:taosdata@http(192.168.1.163:8085)/?token=c37ef4dbec8708c0227b4e8cb84ffffb9b8711a1")
 	if err != nil {
 		panic(err)
 	}
