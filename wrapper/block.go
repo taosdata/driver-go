@@ -288,3 +288,48 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 	}
 	return r
 }
+
+func ItemRawBlock(colType uint8, pHeader, pStart uintptr, row int, precision int, timeFormat FormatTimeFunc) driver.Value {
+	if IsVarDataType(colType) {
+		switch colType {
+		case uint8(common.TSDB_DATA_TYPE_BINARY):
+			return rawConvertBinary(pHeader, pStart, row)
+		case uint8(common.TSDB_DATA_TYPE_NCHAR):
+			return rawConvertNchar(pHeader, pStart, row)
+		case uint8(common.TSDB_DATA_TYPE_JSON):
+			return rawConvertJson(pHeader, pStart, row)
+		}
+	} else {
+		if ItemIsNull(pHeader, row) {
+			return nil
+		} else {
+			switch colType {
+			case uint8(common.TSDB_DATA_TYPE_BOOL):
+				return rawConvertBool(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_TINYINT):
+				return rawConvertTinyint(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_SMALLINT):
+				return rawConvertSmallint(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_INT):
+				return rawConvertInt(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_BIGINT):
+				return rawConvertBigint(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_UTINYINT):
+				return rawConvertUTinyint(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_USMALLINT):
+				return rawConvertUSmallint(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_UINT):
+				return rawConvertUInt(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_UBIGINT):
+				return rawConvertUBigint(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_FLOAT):
+				return rawConvertFloat(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_DOUBLE):
+				return rawConvertDouble(pStart, row)
+			case uint8(common.TSDB_DATA_TYPE_TIMESTAMP):
+				return rawConvertTime(pStart, row, precision, timeFormat)
+			}
+		}
+	}
+	return nil
+}
