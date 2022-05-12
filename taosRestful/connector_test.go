@@ -15,7 +15,7 @@ import (
 // @date: 2021/12/21 10:58
 // @description: test common use of restful
 func TestOpenQuery(t *testing.T) {
-	db, err := sql.Open("taosRestful", dataSourceName)
+	db, err := sql.Open("taosRestful", "root:taosdata@http(127.0.0.1:6041)/?token=123")
 	if err != nil {
 		t.Fatal(err)
 	}

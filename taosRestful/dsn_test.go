@@ -18,14 +18,16 @@ func TestParseDsn(t *testing.T) {
 		addr   string
 		port   int
 		dbName string
+		token  string
 	}{{},
 		{dsn: "abcd", errs: "invalid DSN: missing the slash separating the database name"},
-		{"user:passwd@http(fqdn:6041)/dbname", "", "user", "passwd", "http", "fqdn", 6041, "dbname"},
+		{dsn: "user:passwd@http(fqdn:6041)/dbname", user: "user", passwd: "passwd", net: "http", addr: "fqdn", port: 6041, dbName: "dbname"},
 		{dsn: "user:passwd@http()/dbname", errs: "invalid DSN: network address not terminated (missing closing brace)"},
-		{"user:passwd@http(:)/dbname", "", "user", "passwd", "http", "", 0, "dbname"},
-		{"user:passwd@http(:0)/dbname", "", "user", "passwd", "http", "", 0, "dbname"},
-		{"user:passwd@https(:0)/", "", "user", "passwd", "https", "", 0, ""},
-		{"user:passwd@https(:0)/?interpolateParams=false&test=1", "", "user", "passwd", "https", "", 0, ""},
+		{dsn: "user:passwd@http(:)/dbname", user: "user", passwd: "passwd", net: "http", dbName: "dbname"},
+		{dsn: "user:passwd@http(:0)/dbname", user: "user", passwd: "passwd", net: "http", dbName: "dbname"},
+		{dsn: "user:passwd@https(:0)/", user: "user", passwd: "passwd", net: "https"},
+		{dsn: "user:passwd@https(:0)/?interpolateParams=false&test=1", user: "user", passwd: "passwd", net: "https"},
+		{dsn: "user:passwd@https(:0)/?interpolateParams=false&token=token", user: "user", passwd: "passwd", net: "https", token: "token"},
 	}
 	for i, tc := range tcs {
 		name := fmt.Sprintf("%d - %s", i, tc.dsn)

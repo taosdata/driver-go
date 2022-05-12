@@ -31,7 +31,7 @@ type taosConn struct {
 	readBufferSize int
 }
 
-func newTaosConn(cfg *config) *taosConn {
+func newTaosConn(cfg *config) (*taosConn, error) {
 	readBufferSize := cfg.readBufferSize
 	if readBufferSize <= 0 {
 		readBufferSize = 4 << 10
@@ -56,16 +56,22 @@ func newTaosConn(cfg *config) *taosConn {
 	}
 	tc.url = &url.URL{
 		Scheme: cfg.net,
-		User:   url.UserPassword(cfg.user, cfg.passwd),
 		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
 		Path:   path,
 	}
-	basic := "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.user+":"+cfg.passwd))
-	tc.header = map[string][]string{"Authorization": {basic}}
+	if cfg.token != "" {
+		tc.url.RawQuery = fmt.Sprintf("token=%s", cfg.token)
+	}
+	basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
+
+	tc.header = map[string][]string{
+		"Authorization": {fmt.Sprintf("Basic %s", basic)},
+		"Connection":    {"keep-alive"},
+	}
 	if !cfg.disableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
 	}
-	return tc
+	return tc, nil
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {
@@ -175,7 +181,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 		return nil, errors.New(string(body))
 	}
 	respBody := resp.Body
-	if !tc.cfg.disableCompression {
+	if !tc.cfg.disableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
 		respBody, err = gzip.NewReader(resp.Body)
 		if err != nil {
 			return nil, err
@@ -379,4 +385,26 @@ func callValuerValue(vr driver.Valuer) (v driver.Value, err error) {
 		return nil, nil
 	}
 	return vr.Value()
+}
+
+// EqualFold is strings.EqualFold, ASCII only. It reports whether s and t
+// are equal, ASCII-case-insensitively.
+func EqualFold(s, t string) bool {
+	if len(s) != len(t) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if lower(s[i]) != lower(t[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// lower returns the ASCII lowercase version of b.
+func lower(b byte) byte {
+	if 'A' <= b && b <= 'Z' {
+		return b + ('a' - 'A')
+	}
+	return b
 }
