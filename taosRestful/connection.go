@@ -31,12 +31,6 @@ type taosConn struct {
 	readBufferSize int
 }
 
-type TaosResponse struct {
-	Status string `json:"status"`
-	Code   int    `json:"code"`
-	Desc   string `json:"desc"`
-}
-
 func newTaosConn(cfg *config) (*taosConn, error) {
 	readBufferSize := cfg.readBufferSize
 	if readBufferSize <= 0 {
@@ -68,31 +62,6 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	if cfg.token != "" {
 		tc.url.RawQuery = fmt.Sprintf("token=%s", cfg.token)
 	}
-	//loginUrl := &url.URL{
-	//	Scheme: cfg.net,
-	//	Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
-	//	Path:   fmt.Sprintf("/rest/login/%s/%s", cfg.user, cfg.passwd),
-	//}
-	//if cfg.token != "" {
-	//	loginUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
-	//}
-	//resp, err := tc.client.Get(loginUrl.String())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//defer resp.Body.Close()
-	//if resp.StatusCode != http.StatusOK {
-	//	return nil, errors.New("login response error")
-	//}
-	//decoder := jsonitor.NewDecoder(resp.Body)
-	//var d TaosResponse
-	//err = decoder.Decode(&d)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//if d.Code != 0 || d.Status != "succ" {
-	//	return nil, taosErrors.NewError(d.Code, d.Desc)
-	//}
 	basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
 
 	tc.header = map[string][]string{
