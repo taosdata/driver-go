@@ -166,3 +166,8 @@ func TMQGetTopicName(message unsafe.Pointer) string {
 func TMQGetVgroupID(message unsafe.Pointer) int32 {
 	return int32(C.tmq_get_vgroup_id(message))
 }
+
+// TMQGetTableName DLL_EXPORT const char *tmq_get_table_name(TAOS_RES *res);
+func TMQGetTableName(message unsafe.Pointer) string {
+	return C.GoString(C.tmq_get_table_name(message))
+}

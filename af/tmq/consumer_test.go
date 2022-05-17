@@ -114,6 +114,14 @@ func TestTmq(t *testing.T) {
 	config := NewConfig()
 	defer config.Destroy()
 	config.SetGroupID("test")
+	config.SetCommitCallback(func(result *wrapper.TMQCommitCallbackResult) {
+		if result.ErrCode != 0 {
+			errStr := wrapper.TMQErr2Str(result.ErrCode)
+			err := errors.NewError(int(result.ErrCode), errStr)
+			t.Error(err)
+			return
+		}
+	})
 	consumer, err := NewConsumer(config)
 	if err != nil {
 		t.Error(err)
@@ -130,7 +138,7 @@ func TestTmq(t *testing.T) {
 		return
 	}
 
-	row1 := message.data[0]
+	row1 := message[0].Data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
 	assert.Equal(t, int8(2), row1[2].(int8))
@@ -145,7 +153,7 @@ func TestTmq(t *testing.T) {
 	assert.Equal(t, float64(11), row1[11].(float64))
 	assert.Equal(t, "1", row1[12].(string))
 	assert.Equal(t, "2", row1[13].(string))
-	err = consumer.Commit(time.Minute)
+	err = consumer.Commit()
 	assert.NoError(t, err)
 	err = consumer.Close()
 	assert.NoError(t, err)

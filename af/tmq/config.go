@@ -9,7 +9,9 @@ import (
 )
 
 type Config struct {
-	cConfig unsafe.Pointer
+	cConfig          unsafe.Pointer
+	cb               func(*wrapper.TMQCommitCallbackResult)
+	needGetTableName bool
 }
 
 func NewConfig() *Config {
@@ -44,6 +46,11 @@ func (c *Config) SetConnectPort(port string) error {
 	return c.SetConfig("td.connect.port", port)
 }
 
+func (c *Config) SetMsgWithTableName(b bool) error {
+	c.needGetTableName = b
+	return c.SetConfig("msg.with.table.name", strconv.FormatBool(b))
+}
+
 func (c *Config) SetConfig(key string, value string) error {
 	errCode := wrapper.TMQConfSet(c.cConfig, key, value)
 	if errCode != errors.SUCCESS {
@@ -51,6 +58,10 @@ func (c *Config) SetConfig(key string, value string) error {
 		return errors.NewError(int(errCode), errStr)
 	}
 	return nil
+}
+
+func (c *Config) SetCommitCallback(f func(*wrapper.TMQCommitCallbackResult)) {
+	c.cb = f
 }
 
 func (c *Config) Destroy() {
