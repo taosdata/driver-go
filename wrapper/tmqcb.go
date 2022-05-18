@@ -19,5 +19,9 @@ import (
 func TMQCommitCB(consumer unsafe.Pointer, resp C.enum_tmq_resp_err_t, offsets unsafe.Pointer, param unsafe.Pointer) {
 	c := cgo.Handle(param).Value().(chan *TMQCommitCallbackResult)
 	r := GetTMQCommitCallbackResult(int32(resp), consumer, offsets)
+	defer func() {
+		// Avoid panic due to channel closed
+		recover()
+	}()
 	c <- r
 }

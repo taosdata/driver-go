@@ -1,6 +1,7 @@
 package tmq
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -114,7 +115,7 @@ func TestTmq(t *testing.T) {
 	config := NewConfig()
 	defer config.Destroy()
 	config.SetGroupID("test")
-	config.SetCommitCallback(func(result *wrapper.TMQCommitCallbackResult) {
+	config.EnableAutoCommit(func(result *wrapper.TMQCommitCallbackResult) {
 		if result.ErrCode != 0 {
 			errStr := wrapper.TMQErr2Str(result.ErrCode)
 			err := errors.NewError(int(result.ErrCode), errStr)
@@ -153,7 +154,7 @@ func TestTmq(t *testing.T) {
 	assert.Equal(t, float64(11), row1[11].(float64))
 	assert.Equal(t, "1", row1[12].(string))
 	assert.Equal(t, "2", row1[13].(string))
-	err = consumer.Commit()
+	_, err = consumer.Commit(context.Background(), nil)
 	assert.NoError(t, err)
 	err = consumer.Close()
 	assert.NoError(t, err)

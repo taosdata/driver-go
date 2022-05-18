@@ -104,11 +104,20 @@ func TestTMQ(t *testing.T) {
 	conf := TMQConfNew()
 	TMQConfSet(conf, "msg.with.table.name", "true")
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
-	TMQConfSet(conf, "enable.auto.commit", "false")
+	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
-	TMQConfSetOffsetCommitCB(conf, h)
+	TMQConfSetAutoCommitCB(conf, h)
+	go func() {
+		for {
+			select {
+			case r := <-c:
+				t.Log("auto commit", r)
+				PutTMQCommitCallbackResult(r)
+			}
+		}
+	}()
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Error(err)
@@ -136,6 +145,8 @@ func TestTMQ(t *testing.T) {
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"topic_ctb_column"}, r)
+	c2 := make(chan *TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
 	for i := 0; i < 5; i++ {
 
 		message := TMQConsumerPoll(tmq, 500)
@@ -171,11 +182,10 @@ func TestTMQ(t *testing.T) {
 				t.Log(data)
 			}
 			TaosFreeResult(message)
-
-			TMQCommit(tmq, nil, true)
+			TMQCommitAsync(tmq, nil, h2)
 			timer := time.NewTimer(time.Minute)
 			select {
-			case d := <-c:
+			case d := <-c2:
 				assert.Equal(t, int32(0), d.ErrCode)
 				PutTMQCommitCallbackResult(d)
 				timer.Stop()
@@ -306,12 +316,21 @@ func TestTMQDB(t *testing.T) {
 	//build consumer
 	conf := TMQConfNew()
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
-	TMQConfSet(conf, "enable.auto.commit", "false")
+	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
-	TMQConfSetOffsetCommitCB(conf, h)
+	TMQConfSetAutoCommitCB(conf, h)
+	go func() {
+		for {
+			select {
+			case r := <-c:
+				t.Log("auto commit", r)
+				PutTMQCommitCallbackResult(r)
+			}
+		}
+	}()
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Error(err)
@@ -338,6 +357,8 @@ func TestTMQDB(t *testing.T) {
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"test_tmq_db_topic"}, r)
 	totalCount := 0
+	c2 := make(chan *TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
 	for i := 0; i < 5; i++ {
 		message := TMQConsumerPoll(tmq, 500)
 		if message != nil {
@@ -372,10 +393,10 @@ func TestTMQDB(t *testing.T) {
 			}
 			TaosFreeResult(message)
 
-			TMQCommit(tmq, nil, true)
+			TMQCommitAsync(tmq, nil, h2)
 			timer := time.NewTimer(time.Minute)
 			select {
-			case d := <-c:
+			case d := <-c2:
 				assert.Equal(t, int32(0), d.ErrCode)
 				PutTMQCommitCallbackResult(d)
 				timer.Stop()
@@ -500,12 +521,21 @@ func TestTMQDBMultiTable(t *testing.T) {
 	//build consumer
 	conf := TMQConfNew()
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
-	TMQConfSet(conf, "enable.auto.commit", "false")
+	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
-	TMQConfSetOffsetCommitCB(conf, h)
+	TMQConfSetAutoCommitCB(conf, h)
+	go func() {
+		for {
+			select {
+			case r := <-c:
+				t.Log("auto commit", r)
+				PutTMQCommitCallbackResult(r)
+			}
+		}
+	}()
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Error(err)
@@ -537,6 +567,8 @@ func TestTMQDBMultiTable(t *testing.T) {
 		"ct1": {},
 		"ct2": {},
 	}
+	c2 := make(chan *TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
 	for i := 0; i < 5; i++ {
 		message := TMQConsumerPoll(tmq, 500)
 		if message != nil {
@@ -570,10 +602,10 @@ func TestTMQDBMultiTable(t *testing.T) {
 			}
 			TaosFreeResult(message)
 
-			TMQCommit(tmq, nil, true)
+			TMQCommitAsync(tmq, nil, h2)
 			timer := time.NewTimer(time.Minute)
 			select {
-			case d := <-c:
+			case d := <-c2:
 				assert.Equal(t, int32(0), d.ErrCode)
 				PutTMQCommitCallbackResult(d)
 				timer.Stop()
@@ -677,12 +709,21 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	//build consumer
 	conf := TMQConfNew()
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
-	TMQConfSet(conf, "enable.auto.commit", "false")
+	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
-	TMQConfSetOffsetCommitCB(conf, h)
+	TMQConfSetAutoCommitCB(conf, h)
+	go func() {
+		for {
+			select {
+			case r := <-c:
+				t.Log("auto commit", r)
+				PutTMQCommitCallbackResult(r)
+			}
+		}
+	}()
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Error(err)
@@ -710,6 +751,8 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	assert.Equal(t, []string{"tmq_test_db_multi_insert_topic"}, r)
 	totalCount := 0
 	var tables [][]string
+	c2 := make(chan *TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
 	for i := 0; i < 5; i++ {
 		message := TMQConsumerPoll(tmq, 500)
 		if message != nil {
@@ -744,10 +787,10 @@ func TestTMQDBMultiInsert(t *testing.T) {
 			}
 			TaosFreeResult(message)
 
-			TMQCommit(tmq, nil, true)
+			TMQCommitAsync(tmq, nil, h2)
 			timer := time.NewTimer(time.Minute)
 			select {
-			case d := <-c:
+			case d := <-c2:
 				assert.Equal(t, int32(0), d.ErrCode)
 				PutTMQCommitCallbackResult(d)
 				timer.Stop()
@@ -769,4 +812,5 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, totalCount, 3)
 	t.Log(tables)
+	time.Sleep(time.Minute)
 }

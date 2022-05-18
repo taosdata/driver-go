@@ -1,6 +1,7 @@
 package tmq
 
 import (
+	"context"
 	"database/sql/driver"
 	"time"
 	"unsafe"
@@ -10,41 +11,43 @@ import (
 	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
+var (
+	ClosedError = errors.NewError(0xffff, "consumer closed")
+)
+
 type Consumer struct {
-	conf      *Config
-	cConsumer unsafe.Pointer
-	c         chan *wrapper.TMQCommitCallbackResult
-	handle    cgo.Handle
-	exit      chan struct{}
-	cb        func(result *wrapper.TMQCommitCallbackResult)
+	conf                 *Config
+	cConsumer            unsafe.Pointer
+	autoCommitChan       chan *wrapper.TMQCommitCallbackResult
+	autoCommitHandle     cgo.Handle
+	autoCommitHandleFunc CommitHandleFunc
+	asyncCommitChan      chan *wrapper.TMQCommitCallbackResult
+	asyncCommitHandle    cgo.Handle
+	exit                 chan struct{}
 }
 
 func NewConsumer(conf *Config) (*Consumer, error) {
-	//avoid blocking due to auto commit
-	c := make(chan *wrapper.TMQCommitCallbackResult, 2)
-	h := cgo.NewHandle(c)
-	wrapper.TMQConfSetOffsetCommitCB(conf.cConfig, h)
 	cConsumer, err := wrapper.TMQConsumerNew(conf.cConfig)
 	if err != nil {
 		return nil, err
 	}
+	asyncChan := make(chan *wrapper.TMQCommitCallbackResult, 1)
+	asyncHandle := cgo.NewHandle(asyncChan)
 	consumer := &Consumer{
-		conf:      conf,
-		cConsumer: cConsumer,
-		c:         c,
-		handle:    h,
-		exit:      make(chan struct{}),
+		conf:              conf,
+		cConsumer:         cConsumer,
+		exit:              make(chan struct{}),
+		asyncCommitChan:   asyncChan,
+		asyncCommitHandle: asyncHandle,
 	}
-	if conf.cb != nil {
-		consumer.cb = conf.cb
-	} else {
-		consumer.cb = IgnoreCommitCallback
+	if conf.autoCommit {
+		autoChan := make(chan *wrapper.TMQCommitCallbackResult, 1)
+		autoHandle := cgo.NewHandle(autoChan)
+		wrapper.TMQConfSetAutoCommitCB(conf.cConfig, autoHandle)
+		consumer.autoCommitChan = autoChan
+		consumer.autoCommitHandle = autoHandle
 	}
 	return consumer, nil
-}
-
-func IgnoreCommitCallback(_ *wrapper.TMQCommitCallbackResult) {
-	return
 }
 
 func (c *Consumer) handlerCommitCallback() {
@@ -52,9 +55,11 @@ func (c *Consumer) handlerCommitCallback() {
 		for {
 			select {
 			case <-c.exit:
+				c.autoCommitHandle.Delete()
+				close(c.asyncCommitChan)
 				return
-			case d := <-c.c:
-				c.cb(d)
+			case d := <-c.autoCommitChan:
+				c.autoCommitHandleFunc(d)
 				wrapper.PutTMQCommitCallbackResult(d)
 			}
 		}
@@ -126,21 +131,30 @@ type Result struct {
 	Data      [][]driver.Value
 }
 
-func (c *Consumer) Commit() error {
-	errCode := wrapper.TMQCommit(c.cConsumer, nil, true)
-	if errCode != errors.SUCCESS {
-		errStr := wrapper.TMQErr2Str(errCode)
-		return errors.NewError(int(errCode), errStr)
+func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) (unsafe.Pointer, error) {
+	wrapper.TMQCommitAsync(c.cConsumer, offset, c.asyncCommitHandle)
+	for {
+		select {
+		case <-c.exit:
+			c.asyncCommitHandle.Delete()
+			close(c.asyncCommitChan)
+			return nil, ClosedError
+		case <-ctx.Done():
+			return offset, ctx.Err()
+		case d := <-c.asyncCommitChan:
+			callbackOffset := d.Offset
+			return callbackOffset, d.GetError()
+		}
 	}
-	return nil
 }
 
 func (c *Consumer) Close() error {
-	defer c.handle.Delete()
+	defer c.autoCommitHandle.Delete()
 	errCode := wrapper.TMQConsumerClose(c.cConsumer)
 	if errCode != 0 {
 		errStr := wrapper.TMQErr2Str(errCode)
 		return errors.NewError(int(errCode), errStr)
 	}
+	close(c.exit)
 	return nil
 }

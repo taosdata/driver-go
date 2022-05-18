@@ -24,6 +24,14 @@ type TMQCommitCallbackResult struct {
 	Offset   unsafe.Pointer
 }
 
+func (t *TMQCommitCallbackResult) GetError() error {
+	if t.ErrCode == 0 {
+		return nil
+	}
+	errStr := TMQErr2Str(t.ErrCode)
+	return errors.NewError(int(t.ErrCode), errStr)
+}
+
 func GetTMQCommitCallbackResult(errCode int32, consumer unsafe.Pointer, offset unsafe.Pointer) *TMQCommitCallbackResult {
 	t, ok := tmqCommitCallbackResultPool.Get().(*TMQCommitCallbackResult)
 	if ok {
@@ -59,11 +67,19 @@ func TMQConfDestroy(conf unsafe.Pointer) {
 	C.tmq_conf_destroy((*C.struct_tmq_conf_t)(conf))
 }
 
-//typedef void(tmq_commit_cb(tmq_t *, tmq_resp_err_t, tmq_topic_vgroup_list_t *, void *param));
+//DLL_EXPORT void           tmq_conf_set_auto_commit_cb(tmq_conf_t *conf, tmq_commit_cb *cb, void *param);
+func TMQConfSetAutoCommitCB(conf unsafe.Pointer, h cgo.Handle) {
+	C.tmq_conf_set_auto_commit_cb((*C.struct_tmq_conf_t)(conf), (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
+}
 
-// TMQConfSetOffsetCommitCB  void           tmq_conf_set_offset_commit_cb(tmq_conf_t *conf, tmq_commit_cb *cb);
-func TMQConfSetOffsetCommitCB(conf unsafe.Pointer, h cgo.Handle) {
-	C.tmq_conf_set_offset_commit_cb((*C.struct_tmq_conf_t)(conf), (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
+//DLL_EXPORT void tmq_commit_async(tmq_t *tmq, const tmq_topic_vgroup_list_t *offsets, tmq_commit_cb *cb, void *param);
+func TMQCommitAsync(consumer unsafe.Pointer, offsets unsafe.Pointer, h cgo.Handle) {
+	C.tmq_commit_async((*C.tmq_t)(consumer), (*C.tmq_topic_vgroup_list_t)(offsets), (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
+}
+
+//DLL_EXPORT tmq_resp_err_t tmq_commit_sync(tmq_t *tmq, const tmq_topic_vgroup_list_t *offsets);
+func TMQCommitSync(consumer unsafe.Pointer, offsets unsafe.Pointer) int32 {
+	return int32(C.tmq_commit_sync((*C.tmq_t)(consumer), (*C.tmq_topic_vgroup_list_t)(offsets)))
 }
 
 // TMQListNew tmq_list_t *tmq_list_new();
@@ -146,15 +162,6 @@ func TMQConsumerPoll(consumer unsafe.Pointer, blockingTime int64) unsafe.Pointer
 // TMQConsumerClose tmq_resp_err_t tmq_consumer_close(tmq_t *tmq);
 func TMQConsumerClose(consumer unsafe.Pointer) int32 {
 	return int32(C.tmq_consumer_close((*C.tmq_t)(consumer)))
-}
-
-// TMQCommit tmq_resp_err_t tmq_commit(tmq_t *tmq, const tmq_topic_vgroup_list_t *offsets, int32_t async);
-func TMQCommit(consumer unsafe.Pointer, offsets unsafe.Pointer, async bool) int32 {
-	if async {
-		return int32(C.tmq_commit((*C.tmq_t)(consumer), (*C.tmq_topic_vgroup_list_t)(offsets), (C.int32_t)(1)))
-	} else {
-		return int32(C.tmq_commit((*C.tmq_t)(consumer), (*C.tmq_topic_vgroup_list_t)(offsets), (C.int32_t)(0)))
-	}
 }
 
 // TMQGetTopicName char       *tmq_get_topic_name(tmq_message_t *message);

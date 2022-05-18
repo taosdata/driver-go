@@ -10,9 +10,12 @@ import (
 
 type Config struct {
 	cConfig          unsafe.Pointer
-	cb               func(*wrapper.TMQCommitCallbackResult)
+	autoCommit       bool
+	cb               CommitHandleFunc
 	needGetTableName bool
 }
+
+type CommitHandleFunc func(*wrapper.TMQCommitCallbackResult)
 
 func NewConfig() *Config {
 	return &Config{cConfig: wrapper.TMQConfNew()}
@@ -20,10 +23,6 @@ func NewConfig() *Config {
 
 func (c *Config) SetGroupID(groupID string) error {
 	return c.SetConfig("group.id", groupID)
-}
-
-func (c *Config) SetEnableAutoCommit(enable bool) error {
-	return c.SetConfig("enable.auto.commit", strconv.FormatBool(enable))
 }
 
 func (c *Config) SetAutoOffsetReset(auto bool) error {
@@ -60,8 +59,24 @@ func (c *Config) SetConfig(key string, value string) error {
 	return nil
 }
 
-func (c *Config) SetCommitCallback(f func(*wrapper.TMQCommitCallbackResult)) {
+func (c *Config) EnableAutoCommit(f CommitHandleFunc) error {
+	err := c.SetConfig("enable.auto.commit", "true")
+	if err != nil {
+		return err
+	}
 	c.cb = f
+	c.autoCommit = true
+	return nil
+}
+
+func (c *Config) DisableAutoCommit() error {
+	err := c.SetConfig("enable.auto.commit", "false")
+	if err != nil {
+		return err
+	}
+	c.cb = nil
+	c.autoCommit = false
+	return nil
 }
 
 func (c *Config) Destroy() {
