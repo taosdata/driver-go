@@ -186,7 +186,6 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 		if err != nil {
 			return nil, err
 		}
-
 	}
 	data, err := marshalBody(respBody, bufferSize)
 	if err != nil {
@@ -198,11 +197,14 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	return data, nil
 }
 
+const HTTPDTimeFormat = "2006-01-02T15:04:05.999999999-0700"
+
 func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, error) {
 	var result common.TDEngineRestfulResp
 	iter := jsonI.BorrowIterator(make([]byte, bufferSize))
 	defer jsonI.ReturnIterator(iter)
 	iter.Reset(body)
+	timeFormat := time.RFC3339Nano
 	iter.ReadObjectCB(func(iter *jsonitor.Iterator, s string) bool {
 		switch s {
 		case "status":
@@ -255,7 +257,7 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						iter.Skip()
 						row[column] = nil
 					case common.TSDB_DATA_TYPE_BOOL:
-						row[column] = iter.ReadBool()
+						row[column] = iter.ReadAny().ToBool()
 					case common.TSDB_DATA_TYPE_TINYINT:
 						row[column] = iter.ReadInt8()
 					case common.TSDB_DATA_TYPE_SMALLINT:
@@ -272,9 +274,20 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						row[column] = iter.ReadString()
 					case common.TSDB_DATA_TYPE_TIMESTAMP:
 						b := iter.ReadString()
-						row[column], err = time.Parse(time.RFC3339Nano, b)
+						row[column], err = time.Parse(timeFormat, b)
 						if err != nil {
-							iter.ReportError("parse time", err.Error())
+							//maybe httpd
+							pErr, ok := err.(*time.ParseError)
+							if ok && pErr.LayoutElem == "Z07:00" {
+								row[column], err = time.Parse(HTTPDTimeFormat, b)
+								if err != nil {
+									iter.ReportError("parse time", err.Error())
+								} else {
+									timeFormat = HTTPDTimeFormat
+								}
+							} else {
+								iter.ReportError("parse time", err.Error())
+							}
 						}
 					case common.TSDB_DATA_TYPE_NCHAR:
 						row[column] = iter.ReadString()
