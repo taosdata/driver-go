@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/common/param"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	taosTypes "github.com/taosdata/driver-go/v2/types"
 )
@@ -405,6 +406,188 @@ func TestStmtExec(t *testing.T) {
 	}
 }
 
+func TestStmtQuery(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	err = exec(conn, "create database if not exists test_wrapper precision 'us' keep 36500")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "use test_wrapper")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for i, tc := range []struct {
+		tbType string
+		data   string
+		clause string
+		params *param.Param
+		skip   bool
+	}{
+		{
+			tbType: "ts timestamp, v int",
+			data:   "0, 1",
+			clause: "v = ?",
+			params: param.NewParam(1).AddInt(1),
+		},
+		{
+			tbType: "ts timestamp, v bool",
+			data:   "now, true",
+			clause: "v = ?",
+			params: param.NewParam(1).AddBool(true),
+		},
+		{
+			tbType: "ts timestamp, v tinyint",
+			data:   "now, 3",
+			clause: "v = ?",
+			params: param.NewParam(1).AddTinyint(3),
+		},
+		{
+			tbType: "ts timestamp, v smallint",
+			data:   "now, 5",
+			clause: "v = ?",
+			params: param.NewParam(1).AddSmallint(5),
+		},
+		{
+			tbType: "ts timestamp, v int",
+			data:   "now, 6",
+			clause: "v = ?",
+			params: param.NewParam(1).AddInt(6),
+		},
+		{
+			tbType: "ts timestamp, v bigint",
+			data:   "now, 7",
+			clause: "v = ?",
+			params: param.NewParam(1).AddBigint(7),
+		},
+		{
+			tbType: "ts timestamp, v tinyint unsigned",
+			data:   "now, 1",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUTinyint(1),
+		},
+		{
+			tbType: "ts timestamp, v smallint unsigned",
+			data:   "now, 2",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUSmallint(2),
+		},
+		{
+			tbType: "ts timestamp, v int unsigned",
+			data:   "now, 3",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUInt(3),
+		},
+		{
+			tbType: "ts timestamp, v bigint unsigned",
+			data:   "now, 4",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUBigint(4),
+		},
+		{
+			tbType: "ts timestamp, v tinyint unsigned",
+			data:   "now, 1",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUTinyint(1),
+		},
+		{
+			tbType: "ts timestamp, v smallint unsigned",
+			data:   "now, 2",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUSmallint(2),
+		},
+		{
+			tbType: "ts timestamp, v int unsigned",
+			data:   "now, 3",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUInt(3),
+		},
+		{
+			tbType: "ts timestamp, v bigint unsigned",
+			data:   "now, 4",
+			clause: "v = ?",
+			params: param.NewParam(1).AddUBigint(4),
+		},
+		{
+			tbType: "ts timestamp, v float",
+			data:   "now, 1.2",
+			clause: "v = ?",
+			params: param.NewParam(1).AddFloat(1.2),
+		},
+		{
+			tbType: "ts timestamp, v double",
+			data:   "now, 1.3",
+			clause: "v = ?",
+			params: param.NewParam(1).AddDouble(1.3),
+		},
+		{
+			tbType: "ts timestamp, v double",
+			data:   "now, 1.4",
+			clause: "v = ?",
+			params: param.NewParam(1).AddDouble(1.4),
+		},
+		{
+			tbType: "ts timestamp, v binary(8)",
+			data:   "now, 'yes'",
+			clause: "v = ?",
+			params: param.NewParam(1).AddBinary([]byte("yes")),
+		},
+		{
+			tbType: "ts timestamp, v nchar(8)",
+			data:   "now, 'OK'",
+			clause: "v = ?",
+			params: param.NewParam(1).AddNchar("OK"),
+		},
+		{
+			tbType: "ts timestamp, v nchar(8)",
+			data:   "1622282105000000, 'NOW'",
+			clause: "ts = ? and v = ?",
+			params: param.NewParam(2).AddTimestamp(time.Unix(1622282105, 0), common.PrecisionMicroSecond).AddBinary([]byte("NOW")),
+		},
+		{
+			tbType: "ts timestamp, v nchar(8)",
+			data:   "1622282105000000, 'NOW'",
+			clause: "ts = ? and v = ?",
+			params: param.NewParam(2).AddBigint(1622282105000000).AddBinary([]byte("NOW")),
+		},
+	} {
+		tbName := fmt.Sprintf("test_stmt_query%02d", i)
+		tbType := tc.tbType
+		create := fmt.Sprintf("create table if not exists %s(%s)", tbName, tbType)
+		insert := fmt.Sprintf("insert into %s values(%s)", tbName, tc.data)
+		params := tc.params
+		sql := fmt.Sprintf("select * from %s where %s", tbName, tc.clause)
+		name := fmt.Sprintf("%02d-%s", i, tbType)
+		var err error
+		t.Run(name, func(t *testing.T) {
+			if tc.skip {
+				t.Skip("Skip, not support yet")
+			}
+			if err = exec(conn, create); err != nil {
+				t.Error(err)
+				return
+			}
+			if err = exec(conn, insert); err != nil {
+				t.Error(err)
+				return
+			}
+
+			rows, err := StmtQuery(t, conn, sql, params)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			t.Log(rows)
+		})
+	}
+}
+
 func query(conn unsafe.Pointer, sql string) ([][]driver.Value, error) {
 	res := TaosQuery(conn, sql)
 	defer TaosFreeResult(res)
@@ -433,4 +616,59 @@ func query(conn unsafe.Pointer, sql string) ([][]driver.Value, error) {
 		result = append(result, r...)
 	}
 	return result, nil
+}
+
+func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Param) (rows [][]driver.Value, err error) {
+	stmt := TaosStmtInit(conn)
+	if stmt == nil {
+		err = taosError.NewError(0xffff, "failed to init stmt")
+		return
+	}
+	defer TaosStmtClose(stmt)
+	code := TaosStmtPrepare(stmt, sql)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		return nil, taosError.NewError(code, errStr)
+	}
+	value := params.GetValues()
+	code = TaosStmtBindParam(stmt, value)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		return nil, taosError.NewError(code, errStr)
+	}
+	//code = TaosStmtAddBatch(stmt)
+	//if code != 0 {
+	//	errStr := TaosStmtErrStr(stmt)
+	//	return nil, taosError.NewError(code, errStr)
+	//}
+	code = TaosStmtExecute(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		return nil, taosError.NewError(code, errStr)
+	}
+	res := TaosStmtUseResult(stmt)
+	numFields := TaosFieldCount(res)
+	rowsHeader, err := ReadColumn(res, numFields)
+	t.Log(rowsHeader)
+	if err != nil {
+		return nil, err
+	}
+	precision := TaosResultPrecision(res)
+	var data [][]driver.Value
+	for {
+		blockSize, errCode, block := TaosFetchRawBlock(res)
+		if errCode != int(taosError.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := taosError.NewError(code, errStr)
+			TaosFreeResult(res)
+			return nil, err
+		}
+		if blockSize == 0 {
+			break
+		}
+		d := ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
+		data = append(data, d...)
+	}
+	TaosFreeResult(res)
+	return data, nil
 }

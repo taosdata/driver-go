@@ -281,3 +281,116 @@ func TestReadBlock2(t *testing.T) {
 		assert.Nil(t, row2[i])
 	}
 }
+
+func TestBlockTag(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	defer TaosClose(conn)
+
+	res := TaosQuery(conn, "create database if not exists test_block_abc1")
+	code := TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	res = TaosQuery(conn, "use test_block_abc1")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	res = TaosQuery(conn, "create table if not exists meters(ts timestamp, v int) tags(location varchar(16))")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	res = TaosQuery(conn, "create table if not exists tb1 using meters tags('abcd')")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	sql := "select tbname,location from meters;"
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	fileCount := TaosNumFields(res)
+	rh, err := ReadColumn(res, fileCount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	precision := TaosResultPrecision(res)
+	payloadOffset := uintptr(4 * fileCount)
+	pHeaderList := make([]uintptr, fileCount)
+	pStartList := make([]uintptr, fileCount)
+	var data [][]driver.Value
+	for {
+		blockSize, errCode, block := TaosFetchRawBlock(res)
+		if errCode != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(code, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		if blockSize == 0 {
+			break
+		}
+		nullBitMapOffset := uintptr(BitmapLen(blockSize))
+		tmpPHeader := uintptr(block) + payloadOffset + 12 // length i32, group u64
+		tmpPStart := tmpPHeader
+		for column := 0; column < fileCount; column++ {
+			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(column)*4)))
+			if IsVarDataType(rh.ColTypes[column]) {
+				pHeaderList[column] = tmpPHeader
+				tmpPStart = tmpPHeader + uintptr(4*blockSize)
+				pStartList[column] = tmpPStart
+			} else {
+				pHeaderList[column] = tmpPHeader
+				tmpPStart = tmpPHeader + nullBitMapOffset
+				pStartList[column] = tmpPStart
+			}
+			tmpPHeader = tmpPStart + uintptr(colLength)
+		}
+		for row := 0; row < blockSize; row++ {
+			rowV := make([]driver.Value, fileCount)
+			for column := 0; column < fileCount; column++ {
+				v := ItemRawBlock(rh.ColTypes[column], pHeaderList[column], pStartList[column], row, precision, func(ts int64, precision int) driver.Value {
+					return common.TimestampConvertToTime(ts, precision)
+				})
+				rowV[column] = v
+			}
+			data = append(data, rowV)
+		}
+	}
+	TaosFreeResult(res)
+	t.Log(data)
+	t.Log(len(data[0][1].(string)))
+}

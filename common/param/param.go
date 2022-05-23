@@ -1,8 +1,9 @@
 package param
 
 import (
-	taosTypes "github.com/taosdata/driver-go/v2/types"
 	"time"
+
+	taosTypes "github.com/taosdata/driver-go/v2/types"
 )
 
 type Param struct {

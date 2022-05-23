@@ -2,6 +2,7 @@ package param
 
 import (
 	"fmt"
+
 	"github.com/taosdata/driver-go/v2/types"
 )
 

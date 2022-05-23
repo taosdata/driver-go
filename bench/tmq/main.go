@@ -113,7 +113,7 @@ func main() {
 	wrapper.TMQConfSet(conf, "enable.auto.commit", "false")
 	c := make(chan *wrapper.TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
-	wrapper.TMQConfSetOffsetCommitCB(conf, h)
+	wrapper.TMQConfSetAutoCommitCB(conf, h)
 	tmq, err := wrapper.TMQConsumerNew(conf)
 	if err != nil {
 		panic(err)
@@ -130,6 +130,8 @@ func main() {
 		panic(errors.NewError(int(errCode), errStr))
 		return
 	}
+	c2 := make(chan *wrapper.TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
 	for {
 		message := wrapper.TMQConsumerPoll(tmq, 500)
 		if message != nil {
@@ -158,7 +160,7 @@ func main() {
 			}
 			wrapper.TaosFreeResult(message)
 
-			wrapper.TMQCommit(tmq, nil, false)
+			wrapper.TMQCommitAsync(tmq, nil, h2)
 			timer := time.NewTimer(time.Minute)
 			select {
 			case d := <-c:

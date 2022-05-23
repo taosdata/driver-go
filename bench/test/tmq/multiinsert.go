@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
@@ -10,6 +13,7 @@ import (
 )
 
 func main() {
+	go http.ListenAndServe(":6060", nil)
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		panic(err)
@@ -76,26 +80,36 @@ func main() {
 		return
 	}
 	wrapper.TaosFreeResult(result)
-	{
-		result = wrapper.TaosQuery(conn, "insert into ct0 values(now,1) ct1 values(now,1,2) ct2 values(now,1,2,'3')")
-		code = wrapper.TaosError(result)
-		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
+	go func() {
+		for {
+			result = wrapper.TaosQuery(conn, "insert into ct0 values(now,1) ct1 values(now,1,2) ct2 values(now,1,2,'3')")
+			code = wrapper.TaosError(result)
+			if code != 0 {
+				errStr := wrapper.TaosErrorStr(result)
+				wrapper.TaosFreeResult(result)
+				panic(errors.TaosError{Code: int32(code), ErrStr: errStr})
+				return
+			}
 			wrapper.TaosFreeResult(result)
-			panic(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
 		}
-		wrapper.TaosFreeResult(result)
-	}
+	}()
 	//build consumer
 	conf := wrapper.TMQConfNew()
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
-	wrapper.TMQConfSet(conf, "enable.auto.commit", "false")
+	wrapper.TMQConfSet(conf, "enable.auto.commit", "true")
 	wrapper.TMQConfSet(conf, "group.id", "tg2")
 	wrapper.TMQConfSet(conf, "msg.with.table.name", "true")
 	c := make(chan *wrapper.TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
-	wrapper.TMQConfSetOffsetCommitCB(conf, h)
+	wrapper.TMQConfSetAutoCommitCB(conf, h)
+	go func() {
+		for {
+			select {
+			case r := <-c:
+				wrapper.PutTMQCommitCallbackResult(r)
+			}
+		}
+	}()
 	tmq, err := wrapper.TMQConsumerNew(conf)
 	if err != nil {
 		panic(err)
@@ -113,12 +127,13 @@ func main() {
 		return
 	}
 	totalCount := 0
-	var tables [][]string
-	for i := 0; i < 5; i++ {
+	c2 := make(chan *wrapper.TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
+	var table []string
+	for {
 		message := wrapper.TMQConsumerPoll(tmq, 500)
 		if message != nil {
 			fmt.Println(message)
-			var table []string
 			for {
 				blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
 				if errCode != int(errors.SUCCESS) {
@@ -146,10 +161,10 @@ func main() {
 			}
 			wrapper.TaosFreeResult(message)
 
-			wrapper.TMQCommit(tmq, nil, true)
+			wrapper.TMQCommitAsync(tmq, nil, h2)
 			timer := time.NewTimer(time.Minute)
 			select {
-			case d := <-c:
+			case d := <-c2:
 				wrapper.PutTMQCommitCallbackResult(d)
 				timer.Stop()
 				break
@@ -158,15 +173,14 @@ func main() {
 				panic("wait tmq commit callback timeout")
 				return
 			}
-			tables = append(tables, table)
 		}
+		table = table[:0]
 	}
 
-	errCode = wrapper.TMQConsumerClose(tmq)
-	if errCode != 0 {
-		errStr := wrapper.TMQErr2Str(errCode)
-		panic(errors.NewError(int(errCode), errStr))
-		return
-	}
-	fmt.Println(tables)
+	//errCode = wrapper.TMQConsumerClose(tmq)
+	//if errCode != 0 {
+	//	errStr := wrapper.TMQErr2Str(errCode)
+	//	panic(errors.NewError(int(errCode), errStr))
+	//	return
+	//}
 }

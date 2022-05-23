@@ -9,7 +9,7 @@ import (
 
 	"github.com/taosdata/driver-go/v2/af/async"
 	"github.com/taosdata/driver-go/v2/af/locker"
-	"github.com/taosdata/driver-go/v2/af/param"
+	"github.com/taosdata/driver-go/v2/common/param"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
 )
@@ -31,39 +31,45 @@ func (s *Stmt) Prepare(sql string) error {
 	locker.Lock()
 	code := wrapper.TaosStmtPrepare(s.stmt, sql)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	if err != nil {
-		return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
 	}
 	isInsert, code := wrapper.TaosStmtIsInsert(s.stmt)
-	err = taosError.GetError(code)
-	if err != nil {
-		return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
 	}
 	s.isInsert = isInsert
 	numParams, code := wrapper.TaosStmtNumParams(s.stmt)
-	err = taosError.GetError(code)
-	if err != nil {
-		return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
 	}
 	s.paramCount = numParams
-	return err
+	return nil
 }
 
 func (s *Stmt) SetTableNameWithTags(tableName string, tags *param.Param) error {
 	locker.Lock()
 	code := wrapper.TaosStmtSetTBNameTags(s.stmt, tableName, tags.GetValues())
 	locker.Unlock()
-	err := taosError.GetError(code)
-	return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }
 
 func (s *Stmt) SetTableName(tableName string) error {
 	locker.Lock()
 	code := wrapper.TaosStmtSetTBName(s.stmt, tableName)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }
 
 func (s *Stmt) BindRow(row *param.Param) error {
@@ -71,8 +77,11 @@ func (s *Stmt) BindRow(row *param.Param) error {
 		locker.Lock()
 		code := wrapper.TaosStmtBindParam(s.stmt, nil)
 		locker.Unlock()
-		err := taosError.GetError(code)
-		return err
+		if code != 0 {
+			errStr := wrapper.TaosStmtErrStr(s.stmt)
+			return taosError.NewError(code, errStr)
+		}
+		return nil
 	}
 	if row == nil {
 		return fmt.Errorf("row param got nil")
@@ -84,8 +93,11 @@ func (s *Stmt) BindRow(row *param.Param) error {
 	locker.Lock()
 	code := wrapper.TaosStmtBindParam(s.stmt, value)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }
 
 func (s *Stmt) GetAffectedRows() int {
@@ -114,23 +126,32 @@ func (s *Stmt) AddBatch() error {
 	locker.Lock()
 	code := wrapper.TaosStmtAddBatch(s.stmt)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }
 
 func (s *Stmt) Execute() error {
 	locker.Lock()
 	code := wrapper.TaosStmtExecute(s.stmt)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }
 
 func (s *Stmt) Close() error {
 	locker.Lock()
 	code := wrapper.TaosStmtClose(s.stmt)
 	locker.Unlock()
-	err := taosError.GetError(code)
 	s.stmt = nil
-	return err
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(s.stmt)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }
