@@ -36,13 +36,7 @@ func (rs *subscribeRows) Columns() []string {
 	if rs.rowsHeader != nil {
 		return rs.rowsHeader.ColNames
 	}
-	count := wrapper.TaosNumFields(rs.result)
-	var err error
-	rs.rowsHeader, err = wrapper.ReadColumn(rs.result, count)
-	if err != nil {
-		return nil
-	}
-	return rs.rowsHeader.ColNames
+	return nil
 }
 
 func (rs *subscribeRows) Close() (err error) {

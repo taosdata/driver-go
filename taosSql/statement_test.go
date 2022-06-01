@@ -1,157 +1,71 @@
 package taosSql
 
 import (
-	"database/sql/driver"
-	"reflect"
+	"database/sql"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // @author: xftan
-// @date: 2022/1/27 16:20
-// @description: test convert value
-func Test_converter_ConvertValue(t *testing.T) {
-	ptr := int8(8)
-	type args struct {
-		v interface{}
+// @date: 2022/5/31 20:24
+// @description: test stmt query
+func TestStmtQuery(t *testing.T) {
+	db, err := sql.Open("taosSql", dataSourceName)
+	if err != nil {
+		t.Fatal(err)
 	}
-	tests := []struct {
-		name    string
-		args    args
-		want    driver.Value
-		wantErr bool
-	}{
-		{
-			name: "int8",
-			args: args{
-				v: int8(8),
-			},
-			want:    int64(8),
-			wantErr: false,
-		},
-		{
-			name: "int8",
-			args: args{
-				v: int16(8),
-			},
-			want:    int64(8),
-			wantErr: false,
-		},
-		{
-			name: "int8",
-			args: args{
-				v: int32(8),
-			},
-			want:    int64(8),
-			wantErr: false,
-		},
-		{
-			name: "int8",
-			args: args{
-				v: int64(8),
-			},
-			want:    int64(8),
-			wantErr: false,
-		},
-		{
-			name: "uint8",
-			args: args{
-				v: uint8(8),
-			},
-			want:    uint64(8),
-			wantErr: false,
-		},
-		{
-			name: "uint16",
-			args: args{
-				v: uint16(8),
-			},
-			want:    uint64(8),
-			wantErr: false,
-		},
-		{
-			name: "uint32",
-			args: args{
-				v: uint32(8),
-			},
-			want:    uint64(8),
-			wantErr: false,
-		},
-		{
-			name: "uint64",
-			args: args{
-				v: uint64(8),
-			},
-			want:    uint64(8),
-			wantErr: false,
-		},
-		{
-			name: "float32",
-			args: args{
-				v: float32(8),
-			},
-			want:    float64(8),
-			wantErr: false,
-		},
-		{
-			name: "float64",
-			args: args{
-				v: float64(8),
-			},
-			want:    float64(8),
-			wantErr: false,
-		},
-		{
-			name: "bool",
-			args: args{
-				v: true,
-			},
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name: "bytes",
-			args: args{
-				v: []byte{'1', '2', '3'},
-			},
-			want:    []byte{'1', '2', '3'},
-			wantErr: false,
-		},
-		{
-			name: "string",
-			args: args{
-				v: "123",
-			},
-			want:    "123",
-			wantErr: false,
-		},
-		{
-			name: "nil",
-			args: args{
-				v: nil,
-			},
-			want:    nil,
-			wantErr: false,
-		},
-		{
-			name: "ptr",
-			args: args{
-				v: &ptr,
-			},
-			want:    int64(8),
-			wantErr: false,
-		},
+	defer db.Close()
+	err = db.Ping()
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := converter{}
-			got, err := c.ConvertValue(tt.args.v)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ConvertValue() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ConvertValue() got = %v, want %v", got, tt.want)
-			}
-		})
+	stmt, err := db.Prepare("select ts, dnodeid from dn")
+	if err != nil {
+		t.Fatal(err)
 	}
+	rows, err := stmt.Query()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var dnodeID int
+		var ts time.Time
+		err := rows.Scan(&ts, &dnodeID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ts.IsZero() {
+			t.Fatal(ts)
+		}
+	}
+}
+
+// @author: xftan
+// @date: 2022/5/31 20:23
+// @description: test stmt exec
+func TestStmtExec(t *testing.T) {
+	db, err := sql.Open("taosSql", dataSourceName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	err = db.Ping()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stmt, err := db.Prepare("create database if not exists test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := stmt.Exec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.GreaterOrEqual(t, affected, int64(0))
 }

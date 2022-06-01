@@ -135,11 +135,6 @@ func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.
 	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
-func (tc *taosConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
-	nv.Value, err = converter{}.ConvertValue(nv.Value)
-	return
-}
-
 func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler) *handler.AsyncResult {
 	locker.Lock()
 	wrapper.TaosQueryA(tc.taos, sqlStr, handler.Handler)

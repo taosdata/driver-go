@@ -10,6 +10,7 @@ import (
 
 	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/wrapper"
 )
 
 func testDatabase(t *testing.T) *Connector {
@@ -874,5 +875,28 @@ func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 		return
+	}
+}
+
+func TestConnector_SelectDB(t *testing.T) {
+	taos, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	conn, err := NewConnector(taos)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer conn.Close()
+	_, err = conn.Exec("create database if not exists test_select_db")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = conn.SelectDB("test_select_db")
+	if err != nil {
+		t.Error(err)
 	}
 }
