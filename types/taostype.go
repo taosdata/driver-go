@@ -5,23 +5,25 @@ import (
 	"time"
 )
 
-type TaosBool bool
-type TaosTinyint int8
-type TaosSmallint int16
-type TaosInt int32
-type TaosBigint int64
-type TaosUTinyint uint8
-type TaosUSmallint uint16
-type TaosUInt uint32
-type TaosUBigint uint64
-type TaosFloat float32
-type TaosDouble float64
-type TaosBinary []byte
-type TaosNchar string
-type TaosTimestamp struct {
-	T         time.Time
-	Precision int
-}
+type (
+	TaosBool      bool
+	TaosTinyint   int8
+	TaosSmallint  int16
+	TaosInt       int32
+	TaosBigint    int64
+	TaosUTinyint  uint8
+	TaosUSmallint uint16
+	TaosUInt      uint32
+	TaosUBigint   uint64
+	TaosFloat     float32
+	TaosDouble    float64
+	TaosBinary    []byte
+	TaosNchar     string
+	TaosTimestamp struct {
+		T         time.Time
+		Precision int
+	}
+)
 
 var (
 	TaosBoolType      = reflect.TypeOf(TaosBool(false))

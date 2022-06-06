@@ -1,6 +1,7 @@
 package insertstmt
 
 import (
+	"database/sql/driver"
 	"errors"
 	"unsafe"
 
@@ -74,7 +75,7 @@ func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param2.Para
 }
 
 func (stmt *InsertStmt) BindParam(params []*param2.Param, bindType *param2.ColumnType) error {
-	data := make([][]interface{}, len(params))
+	data := make([][]driver.Value, len(params))
 	for columnIndex, columnData := range params {
 		value := columnData.GetValues()
 		data[columnIndex] = value

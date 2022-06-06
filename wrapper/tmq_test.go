@@ -285,7 +285,7 @@ func TestTMQDB(t *testing.T) {
 	TaosFreeResult(result)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists test_tmq_db_topic as tmq_test_db")
+	result = TaosQuery(conn, "create topic if not exists test_tmq_db_topic as DATABASE tmq_test_db")
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -476,7 +476,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 	TaosFreeResult(result)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists test_tmq_db_multi_topic as tmq_test_db_multi")
+	result = TaosQuery(conn, "create topic if not exists test_tmq_db_multi_topic as DATABASE tmq_test_db_multi")
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -686,7 +686,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	TaosFreeResult(result)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists tmq_test_db_multi_insert_topic as tmq_test_db_multi_insert")
+	result = TaosQuery(conn, "create topic if not exists tmq_test_db_multi_insert_topic as DATABASE tmq_test_db_multi_insert")
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -812,5 +812,4 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, totalCount, 3)
 	t.Log(tables)
-	time.Sleep(time.Minute)
 }

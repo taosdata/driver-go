@@ -8,7 +8,10 @@ package wrapper
 */
 import "C"
 import (
+	"bytes"
+	"database/sql/driver"
 	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v2/common"
@@ -37,8 +40,26 @@ func TaosStmtPrepare(stmt unsafe.Pointer, sql string) int {
 //int       num;
 //} TAOS_MULTI_BIND;
 
+// TaosStmtSetTags int        taos_stmt_set_tags(TAOS_STMT *stmt, TAOS_MULTI_BIND *tags);
+func TaosStmtSetTags(stmt unsafe.Pointer, tags []driver.Value) int {
+	if len(tags) == 0 {
+		return int(C.taos_stmt_set_tags(stmt, nil))
+	}
+	binds, needFreePointer, err := generateTaosBindList(tags)
+	defer func() {
+		for _, pointer := range needFreePointer {
+			C.free(pointer)
+		}
+	}()
+	if err != nil {
+		return -1
+	}
+	result := int(C.taos_stmt_set_tags(stmt, (*C.TAOS_MULTI_BIND)(&binds[0])))
+	return result
+}
+
 // TaosStmtSetTBNameTags int        taos_stmt_set_tbname_tags(TAOS_STMT* stmt, const char* name, TAOS_MULTI_BIND* tags);
-func TaosStmtSetTBNameTags(stmt unsafe.Pointer, name string, tags []interface{}) int {
+func TaosStmtSetTBNameTags(stmt unsafe.Pointer, name string, tags []driver.Value) int {
 	cStr := C.CString(name)
 	defer C.free(unsafe.Pointer(cStr))
 	if len(tags) == 0 {
@@ -83,7 +104,7 @@ func TaosStmtNumParams(stmt unsafe.Pointer) (count int, errorCode int) {
 }
 
 // TaosStmtBindParam int        taos_stmt_bind_param(TAOS_STMT *stmt, TAOS_MULTI_BIND *bind);
-func TaosStmtBindParam(stmt unsafe.Pointer, params []interface{}) int {
+func TaosStmtBindParam(stmt unsafe.Pointer, params []driver.Value) int {
 	if len(params) == 0 {
 		return int(C.taos_stmt_bind_param(stmt, nil))
 	}
@@ -102,7 +123,7 @@ func TaosStmtBindParam(stmt unsafe.Pointer, params []interface{}) int {
 	return result
 }
 
-func generateTaosBindList(params []interface{}) ([]C.TAOS_MULTI_BIND, []unsafe.Pointer, error) {
+func generateTaosBindList(params []driver.Value) ([]C.TAOS_MULTI_BIND, []unsafe.Pointer, error) {
 	binds := make([]C.TAOS_MULTI_BIND, len(params))
 	var needFreePointer []unsafe.Pointer
 	for i, param := range params {
@@ -277,7 +298,7 @@ func TaosStmtSetSubTBName(stmt unsafe.Pointer, name string) int {
 }
 
 // TaosStmtBindParamBatch int        taos_stmt_bind_param_batch(TAOS_STMT* stmt, TAOS_MULTI_BIND* bind);
-func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bindType []*taosTypes.ColumnType) int {
+func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bindType []*taosTypes.ColumnType) int {
 	var binds = make([]C.TAOS_MULTI_BIND, len(multiBind))
 	var needFreePointer []unsafe.Pointer
 	defer func() {
@@ -553,4 +574,107 @@ func TaosStmtAffectedRows(stmt unsafe.Pointer) int {
 // TaosStmtAffectedRowsOnce  int         taos_stmt_affected_rows_once(TAOS_STMT *stmt);
 func TaosStmtAffectedRowsOnce(stmt unsafe.Pointer) int {
 	return int(C.taos_stmt_affected_rows_once(stmt))
+}
+
+//typedef struct TAOS_FIELD_E {
+//char    name[65];
+//int8_t  type;
+//uint8_t precision;
+//uint8_t scale;
+//int32_t bytes;
+//} TAOS_FIELD_E;
+type StmtField struct {
+	Name      string
+	FieldType int8
+	Precision uint8
+	Scale     uint8
+	Bytes     int32
+}
+
+func (s *StmtField) GetType() (*taosTypes.ColumnType, error) {
+	switch s.FieldType {
+	case common.TSDB_DATA_TYPE_BOOL:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosBoolType}, nil
+	case common.TSDB_DATA_TYPE_TINYINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosTinyintType}, nil
+	case common.TSDB_DATA_TYPE_SMALLINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosSmallintType}, nil
+	case common.TSDB_DATA_TYPE_INT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosIntType}, nil
+	case common.TSDB_DATA_TYPE_BIGINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosBigintType}, nil
+	case common.TSDB_DATA_TYPE_UTINYINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUTinyintType}, nil
+	case common.TSDB_DATA_TYPE_USMALLINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUSmallintType}, nil
+	case common.TSDB_DATA_TYPE_UINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUIntType}, nil
+	case common.TSDB_DATA_TYPE_UBIGINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUBigintType}, nil
+	case common.TSDB_DATA_TYPE_FLOAT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosFloatType}, nil
+	case common.TSDB_DATA_TYPE_DOUBLE:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosDoubleType}, nil
+	case common.TSDB_DATA_TYPE_BINARY:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosBinaryType}, nil
+	case common.TSDB_DATA_TYPE_NCHAR:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosNcharType}, nil
+	case common.TSDB_DATA_TYPE_TIMESTAMP:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosTimestampType}, nil
+	}
+	return nil, fmt.Errorf("unsupported type: %d, name %s", s.FieldType, s.Name)
+}
+
+// TaosStmtGetTagFields DLL_EXPORT int        taos_stmt_get_tag_fields(TAOS_STMT *stmt, int* fieldNum, TAOS_FIELD_E** fields);
+func TaosStmtGetTagFields(stmt unsafe.Pointer) (code, num int, fields unsafe.Pointer) {
+	cNum := unsafe.Pointer(&num)
+	var cField *C.TAOS_FIELD_E
+	code = int(C.taos_stmt_get_tag_fields(stmt, (*C.int)(cNum), (**C.TAOS_FIELD_E)(unsafe.Pointer(&cField))))
+	if code != 0 {
+		return code, num, nil
+	}
+	if num == 0 {
+		return code, num, nil
+	}
+	return code, num, unsafe.Pointer(cField)
+}
+
+// TaosStmtGetColFields DLL_EXPORT int        taos_stmt_get_col_fields(TAOS_STMT *stmt, int* fieldNum, TAOS_FIELD_E** fields);
+func TaosStmtGetColFields(stmt unsafe.Pointer) (code, num int, fields unsafe.Pointer) {
+	cNum := unsafe.Pointer(&num)
+	var cField *C.TAOS_FIELD_E
+	code = int(C.taos_stmt_get_col_fields(stmt, (*C.int)(cNum), (**C.TAOS_FIELD_E)(unsafe.Pointer(&cField))))
+	if code != 0 {
+		return code, num, nil
+	}
+	if num == 0 {
+		return code, num, nil
+	}
+	return code, num, unsafe.Pointer(cField)
+}
+
+func StmtParseFields(num int, fields unsafe.Pointer) []*StmtField {
+	if num == 0 {
+		return nil
+	}
+	result := make([]*StmtField, num)
+	buf := bytes.NewBufferString("")
+	for i := 0; i < num; i++ {
+		r := &StmtField{}
+		field := *(*C.TAOS_FIELD_E)(unsafe.Pointer(uintptr(fields) + uintptr(C.sizeof_struct_TAOS_FIELD_E*C.int(i))))
+		for _, c := range field.name {
+			if c == 0 {
+				break
+			}
+			buf.WriteByte(byte(c))
+		}
+		r.Name = buf.String()
+		buf.Reset()
+		r.FieldType = int8(field._type)
+		r.Precision = uint8(field.precision)
+		r.Scale = uint8(field.scale)
+		r.Bytes = int32(field.bytes)
+		result[i] = r
+	}
+	return result
 }

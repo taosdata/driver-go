@@ -21,7 +21,7 @@ var (
 	host           = ""
 	port           = 6030
 	dbName         = "test_taos_sql"
-	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "log")
+	dataSourceName = fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s?interpolateParams=true", user, password, host, port, "")
 )
 
 type DBTest struct {

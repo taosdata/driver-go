@@ -7,6 +7,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/common/param"
 	taosError "github.com/taosdata/driver-go/v2/errors"
@@ -37,91 +38,91 @@ func TestStmt(t *testing.T) {
 	for i, tc := range []struct {
 		tbType      string
 		pos         string
-		params      [][]interface{}
+		params      [][]driver.Value
 		bindType    []*taosTypes.ColumnType
 		expectValue interface{}
 	}{
 		{
 			tbType:      "ts timestamp, v int",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosInt(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosInt(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosIntType}},
 			expectValue: int32(1),
 		},
 		{
 			tbType:      "ts timestamp, v bool",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosBool(true)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosBool(true)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosBoolType}},
 			expectValue: true,
 		},
 		{
 			tbType:      "ts timestamp, v tinyint",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosTinyint(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosTinyint(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosTinyintType}},
 			expectValue: int8(1),
 		},
 		{
 			tbType:      "ts timestamp, v smallint",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosSmallint(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosSmallint(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosSmallintType}},
 			expectValue: int16(1),
 		},
 		{
 			tbType:      "ts timestamp, v bigint",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosBigint(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosBigint(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosBigintType}},
 			expectValue: int64(1),
 		},
 		{
 			tbType:      "ts timestamp, v tinyint unsigned",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUTinyint(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUTinyint(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosUTinyintType}},
 			expectValue: uint8(1),
 		},
 		{
 			tbType:      "ts timestamp, v smallint unsigned",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUSmallint(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUSmallint(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosUSmallintType}},
 			expectValue: uint16(1),
 		},
 		{
 			tbType:      "ts timestamp, v int unsigned",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUInt(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUInt(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosUIntType}},
 			expectValue: uint32(1),
 		},
 		{
 			tbType:      "ts timestamp, v bigint unsigned",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUBigint(1)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosUBigint(1)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosUBigintType}},
 			expectValue: uint64(1),
 		},
 		{
 			tbType:      "ts timestamp, v float",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosFloat(1.2)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosFloat(1.2)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosFloatType}},
 			expectValue: float32(1.2),
 		},
 		{
 			tbType:      "ts timestamp, v double",
 			pos:         "?, ?",
-			params:      [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosDouble(1.2)}},
+			params:      [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosDouble(1.2)}},
 			bindType:    []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {Type: taosTypes.TaosDoubleType}},
 			expectValue: 1.2,
 		},
 		{
 			tbType: "ts timestamp, v binary(8)",
 			pos:    "?, ?",
-			params: [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosBinary("yes")}},
+			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosBinary("yes")}},
 			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
 				Type:   taosTypes.TaosBinaryType,
 				MaxLen: 3,
@@ -131,7 +132,7 @@ func TestStmt(t *testing.T) {
 		{
 			tbType: "ts timestamp, v nchar(8)",
 			pos:    "?, ?",
-			params: [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosNchar("yes")}},
+			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosNchar("yes")}},
 			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
 				Type:   taosTypes.TaosNcharType,
 				MaxLen: 3,
@@ -141,7 +142,7 @@ func TestStmt(t *testing.T) {
 		{
 			tbType: "ts timestamp, v nchar(8)",
 			pos:    "?, ?",
-			params: [][]interface{}{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {nil}},
+			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {nil}},
 			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
 				Type:   taosTypes.TaosNcharType,
 				MaxLen: 1,
@@ -243,91 +244,91 @@ func TestStmtExec(t *testing.T) {
 	for i, tc := range []struct {
 		tbType      string
 		pos         string
-		params      []interface{}
+		params      []driver.Value
 		expectValue interface{}
 	}{
 		{
 			tbType:      "ts timestamp, v int",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosInt(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosInt(1)},
 			expectValue: int32(1),
 		},
 		{
 			tbType:      "ts timestamp, v bool",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBool(true)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBool(true)},
 			expectValue: true,
 		},
 		{
 			tbType:      "ts timestamp, v tinyint",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosTinyint(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosTinyint(1)},
 			expectValue: int8(1),
 		},
 		{
 			tbType:      "ts timestamp, v smallint",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosSmallint(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosSmallint(1)},
 			expectValue: int16(1),
 		},
 		{
 			tbType:      "ts timestamp, v bigint",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBigint(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBigint(1)},
 			expectValue: int64(1),
 		},
 		{
 			tbType:      "ts timestamp, v tinyint unsigned",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUTinyint(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUTinyint(1)},
 			expectValue: uint8(1),
 		},
 		{
 			tbType:      "ts timestamp, v smallint unsigned",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUSmallint(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUSmallint(1)},
 			expectValue: uint16(1),
 		},
 		{
 			tbType:      "ts timestamp, v int unsigned",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUInt(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUInt(1)},
 			expectValue: uint32(1),
 		},
 		{
 			tbType:      "ts timestamp, v bigint unsigned",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUBigint(1)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosUBigint(1)},
 			expectValue: uint64(1),
 		},
 		{
 			tbType:      "ts timestamp, v float",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosFloat(1.2)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosFloat(1.2)},
 			expectValue: float32(1.2),
 		},
 		{
 			tbType:      "ts timestamp, v double",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosDouble(1.2)},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosDouble(1.2)},
 			expectValue: 1.2,
 		},
 		{
 			tbType:      "ts timestamp, v binary(8)",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBinary("yes")},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBinary("yes")},
 			expectValue: "yes",
 		}, //3
 		{
 			tbType:      "ts timestamp, v nchar(8)",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosNchar("yes")},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosNchar("yes")},
 			expectValue: "yes",
 		}, //3
 		{
 			tbType:      "ts timestamp, v nchar(8)",
 			pos:         "?, ?",
-			params:      []interface{}{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, nil},
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, nil},
 			expectValue: nil,
 		}, //1
 	} {
@@ -671,4 +672,181 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 	}
 	TaosFreeResult(res)
 	return data, nil
+}
+
+func TestGetFields(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	stmt := TaosStmtInit(conn)
+	err = exec(conn, "create database if not exists test_stmt_field")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "create table if not exists test_stmt_field.all_type(ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
+		")"+
+		"tags(tts timestamp,"+
+		"tc1 bool,"+
+		"tc2 tinyint,"+
+		"tc3 smallint,"+
+		"tc4 int,"+
+		"tc5 bigint,"+
+		"tc6 tinyint unsigned,"+
+		"tc7 smallint unsigned,"+
+		"tc8 int unsigned,"+
+		"tc9 bigint unsigned,"+
+		"tc10 float,"+
+		"tc11 double,"+
+		"tc12 binary(20),"+
+		"tc13 nchar(20)"+
+		")")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	code := TaosStmtPrepare(stmt, "insert into ? using test_stmt_field.all_type tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code = TaosStmtSetTBName(stmt, "test_stmt_field.ct2")
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code, tagCount, tagsP := TaosStmtGetTagFields(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	columns := StmtParseFields(columnCount, columnsP)
+	tags := StmtParseFields(tagCount, tagsP)
+	assert.Equal(t, []*StmtField{
+		{"ts", 9, 0, 0, 8},
+		{"c1", 1, 0, 0, 1},
+		{"c2", 2, 0, 0, 1},
+		{"c3", 3, 0, 0, 2},
+		{"c4", 4, 0, 0, 4},
+		{"c5", 5, 0, 0, 8},
+		{"c6", 11, 0, 0, 1},
+		{"c7", 12, 0, 0, 2},
+		{"c8", 13, 0, 0, 4},
+		{"c9", 14, 0, 0, 8},
+		{"c10", 6, 0, 0, 4},
+		{"c11", 7, 0, 0, 8},
+		{"c12", 8, 0, 0, 22},
+		{"c13", 10, 0, 0, 82},
+	}, columns)
+	assert.Equal(t, []*StmtField{
+		{"tts", 9, 0, 0, 8},
+		{"tc1", 1, 0, 0, 1},
+		{"tc2", 2, 0, 0, 1},
+		{"tc3", 3, 0, 0, 2},
+		{"tc4", 4, 0, 0, 4},
+		{"tc5", 5, 0, 0, 8},
+		{"tc6", 11, 0, 0, 1},
+		{"tc7", 12, 0, 0, 2},
+		{"tc8", 13, 0, 0, 4},
+		{"tc9", 14, 0, 0, 8},
+		{"tc10", 6, 0, 0, 4},
+		{"tc11", 7, 0, 0, 8},
+		{"tc12", 8, 0, 0, 22},
+		{"tc13", 10, 0, 0, 82},
+	}, tags)
+}
+
+func TestGetFieldsCommonTable(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	stmt := TaosStmtInit(conn)
+	err = exec(conn, "create database if not exists test_stmt_field")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	TaosSelectDB(conn, "test_stmt_field")
+	err = exec(conn, "create table if not exists ct(ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
+		")")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	code := TaosStmtPrepare(stmt, "insert into ct values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	columns := StmtParseFields(columnCount, columnsP)
+	assert.Equal(t, []*StmtField{
+		{"ts", 9, 0, 0, 8},
+		{"c1", 1, 0, 0, 1},
+		{"c2", 2, 0, 0, 1},
+		{"c3", 3, 0, 0, 2},
+		{"c4", 4, 0, 0, 4},
+		{"c5", 5, 0, 0, 8},
+		{"c6", 11, 0, 0, 1},
+		{"c7", 12, 0, 0, 2},
+		{"c8", 13, 0, 0, 4},
+		{"c9", 14, 0, 0, 8},
+		{"c10", 6, 0, 0, 4},
+		{"c11", 7, 0, 0, 8},
+		{"c12", 8, 0, 0, 22},
+		{"c13", 10, 0, 0, 82},
+	}, columns)
 }
