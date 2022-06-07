@@ -178,6 +178,8 @@ func TestTMQ(t *testing.T) {
 				precision := TaosResultPrecision(message)
 				tableName := TMQGetTableName(message)
 				assert.Equal(t, "ct1", tableName)
+				dbName := TMQGetDBName(message)
+				assert.Equal(t, "abc1", dbName)
 				data := ReadBlock(block, blockSize, rh.ColTypes, precision)
 				t.Log(data)
 			}

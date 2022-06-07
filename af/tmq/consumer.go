@@ -100,6 +100,7 @@ func (c *Consumer) Poll(timeout time.Duration) ([]*Result, error) {
 	}
 	defer wrapper.TaosFreeResult(message)
 	var result []*Result
+	db := wrapper.TMQGetDBName(message)
 	for {
 		blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
 		if errCode != int(errors.SUCCESS) {
@@ -110,7 +111,7 @@ func (c *Consumer) Poll(timeout time.Duration) ([]*Result, error) {
 		if blockSize == 0 {
 			break
 		}
-		r := &Result{}
+		r := &Result{DBName: db}
 		if c.conf.needGetTableName {
 			r.TableName = wrapper.TMQGetTableName(message)
 		}
@@ -127,8 +128,9 @@ func (c *Consumer) Poll(timeout time.Duration) ([]*Result, error) {
 }
 
 type Result struct {
-	TableName string
 	Data      [][]driver.Value
+	DBName    string
+	TableName string
 }
 
 func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) (unsafe.Pointer, error) {

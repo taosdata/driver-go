@@ -15,7 +15,7 @@ import (
 )
 
 //Client can't get stmt structure even by reflection.
-//So the sql can't contain unset table name and labels
+//So the sql can't contain unset table name and tags.
 
 type Stmt struct {
 	stmt     unsafe.Pointer

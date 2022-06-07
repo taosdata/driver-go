@@ -178,3 +178,8 @@ func TMQGetVgroupID(message unsafe.Pointer) int32 {
 func TMQGetTableName(message unsafe.Pointer) string {
 	return C.GoString(C.tmq_get_table_name(message))
 }
+
+// TMQGetDBName const char *tmq_get_db_name(TAOS_RES *res);
+func TMQGetDBName(message unsafe.Pointer) string {
+	return C.GoString(C.tmq_get_db_name(message))
+}
