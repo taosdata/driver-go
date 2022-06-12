@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v2/af/async"
 	"github.com/taosdata/driver-go/v2/af/locker"
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
@@ -19,7 +20,6 @@ type rows struct {
 	block       unsafe.Pointer
 	blockOffset int
 	blockSize   int
-	lengthList  []int
 	result      unsafe.Pointer
 }
 
@@ -77,27 +77,40 @@ func (rs *rows) Next(dest []driver.Value) error {
 }
 
 func (rs *rows) taosFetchBlock() error {
-	result := rs.asyncFetchRows()
-	if result.N == 0 {
-		rs.blockSize = 0
-		return nil
-	} else {
-		if result.N < 0 {
-			code := wrapper.TaosError(result.Res)
-			errStr := wrapper.TaosErrorStr(result.Res)
-			return errors.NewError(code, errStr)
-		}
+	//rr := wrapper.TaosFetchRow(rs.result)
+	//if rr == nil {
+	//	panic(rr)
+	//}
+	size, errcode, block := wrapper.TaosFetchRawBlock(rs.result)
+	if errcode != 0 {
+		errStr := wrapper.TaosErrorStr(rs.result)
+		return errors.NewError(errcode, errStr)
 	}
-	rs.blockSize = result.N
-	rs.block = wrapper.TaosResultBlock(result.Res)
-	rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
+	rs.blockSize = size
+	rs.block = block
 	rs.blockOffset = 0
+	//result := rs.asyncFetchRows()
+	//if result.N == 0 {
+	//	rs.blockSize = 0
+	//	rs.done = true
+	//	return nil
+	//} else {
+	//	if result.N < 0 {
+	//		code := wrapper.TaosError(result.Res)
+	//		errStr := wrapper.TaosErrorStr(result.Res)
+	//		return errors.NewError(code, errStr)
+	//	}
+	//}
+	//rs.blockSize = result.N
+	//rs.block = wrapper.TaosGetRawBlock(result.Res)
+	//rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
+	//rs.blockOffset = 0
 	return nil
 }
 
 func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 	locker.Lock()
-	wrapper.TaosFetchRowsA(rs.result, rs.handler.Handler)
+	wrapper.TaosFetchRawBlockA(rs.result, rs.handler.Handler)
 	locker.Unlock()
 	r := <-rs.handler.Caller.FetchResult
 	return r
@@ -109,5 +122,8 @@ func (rs *rows) freeResult() {
 		wrapper.TaosFreeResult(rs.result)
 		locker.Unlock()
 		rs.result = nil
+	}
+	if rs.handler != nil {
+		async.PutHandler(rs.handler)
 	}
 }

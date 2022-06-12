@@ -289,7 +289,7 @@ func TestTaosIsUpdateQuery(t *testing.T) {
 
 // @author: xftan
 // @date: 2022/1/27 17:30
-// @description: taos_result_block
+// @description: taos async raw block
 func TestTaosResultBlock(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -336,7 +336,7 @@ func TestTaosResultBlock(t *testing.T) {
 			res := r.res
 			precision := TaosResultPrecision(res)
 			for {
-				go TaosFetchRowsA(res, p)
+				go TaosFetchRawBlockA(res, p)
 				r = <-tt.args.caller.FetchResult
 				if r.n == 0 {
 					t.Log("success")
@@ -344,10 +344,11 @@ func TestTaosResultBlock(t *testing.T) {
 					break
 				} else {
 					res = r.res
-					block := TaosResultBlock(res)
+					block := TaosGetRawBlock(res)
 					assert.NotNil(t, block)
 					values := ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
 					_ = values
+					t.Log(values)
 				}
 			}
 		})

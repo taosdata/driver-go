@@ -93,14 +93,28 @@ func (c *Consumer) Unsubscribe() error {
 	return nil
 }
 
-func (c *Consumer) Poll(timeout time.Duration) ([]*Result, error) {
+type Result struct {
+	DBName string
+	Topic  string
+	Data   []*Data
+}
+type Data struct {
+	TableName string
+	Data      [][]driver.Value
+}
+
+func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	message := wrapper.TMQConsumerPoll(c.cConsumer, timeout.Milliseconds())
 	if message == nil {
 		return nil, &errors.TaosError{Code: 0xffff, ErrStr: "invalid result"}
 	}
 	defer wrapper.TaosFreeResult(message)
-	var result []*Result
+	topic := wrapper.TMQGetTopicName(message)
 	db := wrapper.TMQGetDBName(message)
+	result := &Result{
+		DBName: db,
+		Topic:  topic,
+	}
 	for {
 		blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
 		if errCode != int(errors.SUCCESS) {
@@ -111,7 +125,7 @@ func (c *Consumer) Poll(timeout time.Duration) ([]*Result, error) {
 		if blockSize == 0 {
 			break
 		}
-		r := &Result{DBName: db}
+		r := &Data{}
 		if c.conf.needGetTableName {
 			r.TableName = wrapper.TMQGetTableName(message)
 		}
@@ -122,15 +136,9 @@ func (c *Consumer) Poll(timeout time.Duration) ([]*Result, error) {
 		}
 		precision := wrapper.TaosResultPrecision(message)
 		r.Data = append(r.Data, wrapper.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
-		result = append(result, r)
+		result.Data = append(result.Data, r)
 	}
 	return result, nil
-}
-
-type Result struct {
-	Data      [][]driver.Value
-	DBName    string
-	TableName string
 }
 
 func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) (unsafe.Pointer, error) {

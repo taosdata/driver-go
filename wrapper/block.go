@@ -194,10 +194,10 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 	colCount := len(colTypes)
 	payloadOffset := uintptr(4 * colCount)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
-	pHeader := uintptr(block) + payloadOffset + 12 // length i32, group u64
+	pHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*len(colTypes)) // length i32, group u64
 	pStart := pHeader
 	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(column)*4)))
+		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*len(colTypes)) + uintptr(column)*4)))
 		if IsVarDataType(colTypes[column]) {
 			convertF := rawConvertVarDataMap[colTypes[column]]
 			pStart = pHeader + uintptr(4*blockSize)
@@ -231,10 +231,10 @@ func ReadRow(dest []driver.Value, result, block unsafe.Pointer, blockSize int, r
 	colCount := len(colTypes)
 	payloadOffset := uintptr(4 * colCount)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
-	pHeader := uintptr(block) + payloadOffset + 12 // length i32, group u64
+	pHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*len(colTypes)) // length i32, group u64
 	pStart := pHeader
 	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(column)*4)))
+		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*len(colTypes)) + uintptr(column)*4)))
 		if IsVarDataType(colTypes[column]) {
 			convertF := rawConvertVarDataMap[colTypes[column]]
 			pStart = pHeader + uintptr(4*blockSize)
@@ -257,10 +257,10 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 	colCount := len(colTypes)
 	payloadOffset := uintptr(4 * colCount)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
-	pHeader := uintptr(block) + payloadOffset + 12 // length i32, group u64
+	pHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*len(colTypes)) // length i32, group u64
 	pStart := pHeader
 	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(column)*4)))
+		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*len(colTypes)) + uintptr(column)*4)))
 		if IsVarDataType(colTypes[column]) {
 			convertF := rawConvertVarDataMap[colTypes[column]]
 			pStart = pHeader + uintptr(4*blockSize)

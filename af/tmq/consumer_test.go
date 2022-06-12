@@ -139,8 +139,8 @@ func TestTmq(t *testing.T) {
 		return
 	}
 
-	row1 := message[0].Data[0]
-	assert.Equal(t, "af_test_tmq", message[0].DBName)
+	row1 := message.Data[0].Data[0]
+	assert.Equal(t, "af_test_tmq", message.DBName)
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
 	assert.Equal(t, int8(2), row1[2].(int8))

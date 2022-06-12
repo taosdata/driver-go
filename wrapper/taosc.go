@@ -11,6 +11,7 @@ package wrapper
 #include <taos.h>
 extern void QueryCallback(void *param,TAOS_RES *,int code);
 extern void FetchRowsCallback(void *param,TAOS_RES *,int numOfRows);
+extern void FetchRawBlockCallback(void *param,TAOS_RES *,int numOfRows);
 int taos_options_wrapper(TSDB_OPTION option, char *arg) {
 	return taos_options(option,arg);
 };
@@ -19,6 +20,9 @@ void taos_fetch_rows_a_wrapper(TAOS_RES *res, void *param){
 };
 void taos_query_a_wrapper(TAOS *taos,const char *sql, void *param){
 	return taos_query_a(taos,sql,QueryCallback,param);
+};
+void taos_fetch_raw_block_a_wrapper(TAOS_RES *res, void *param){
+	return taos_fetch_raw_block_a(res,FetchRawBlockCallback,param);
 };
 */
 import "C"
@@ -208,4 +212,14 @@ func TaosIsNull(result unsafe.Pointer, row int, col int) bool {
 // TaosGetColumnDataOffset int        *taos_get_column_data_offset(TAOS_RES *res, int columnIndex);
 func TaosGetColumnDataOffset(result unsafe.Pointer, columnIndex int) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_get_column_data_offset(result, (C.int)(columnIndex)))
+}
+
+// TaosFetchRawBlockA void        taos_fetch_raw_block_a(TAOS_RES* res, __taos_async_fn_t fp, void* param);
+func TaosFetchRawBlockA(res unsafe.Pointer, caller cgo.Handle) {
+	C.taos_fetch_raw_block_a_wrapper(res, unsafe.Pointer(caller))
+}
+
+// TaosGetRawBlock const void *taos_get_raw_block(TAOS_RES* res);
+func TaosGetRawBlock(result unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_get_raw_block(result))
 }

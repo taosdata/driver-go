@@ -232,10 +232,10 @@ func TestReadBlock2(t *testing.T) {
 			break
 		}
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
-		tmpPHeader := uintptr(block) + payloadOffset + 12 // length i32, group u64
+		tmpPHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*fileCount) // length i32, group u64
 		tmpPStart := tmpPHeader
 		for column := 0; column < fileCount; column++ {
-			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(column)*4)))
+			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*fileCount) + uintptr(column)*4)))
 			if IsVarDataType(rh.ColTypes[column]) {
 				pHeaderList[column] = tmpPHeader
 				tmpPStart = tmpPHeader + uintptr(4*blockSize)
@@ -364,10 +364,10 @@ func TestBlockTag(t *testing.T) {
 			break
 		}
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
-		tmpPHeader := uintptr(block) + payloadOffset + 12 // length i32, group u64
+		tmpPHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*fileCount) // length i32, group u64
 		tmpPStart := tmpPHeader
 		for column := 0; column < fileCount; column++ {
-			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(column)*4)))
+			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*fileCount) + uintptr(column)*4)))
 			if IsVarDataType(rh.ColTypes[column]) {
 				pHeaderList[column] = tmpPHeader
 				tmpPStart = tmpPHeader + uintptr(4*blockSize)
@@ -394,3 +394,43 @@ func TestBlockTag(t *testing.T) {
 	t.Log(data)
 	t.Log(len(data[0][1].(string)))
 }
+
+// get stmt blob test data
+//func TestN(t *testing.T) {
+//	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+//	if err != nil {
+//		t.Error(err)
+//		return
+//	}
+//
+//	defer TaosClose(conn)
+//	sql := "select * from test_ws_stmt.ct;"
+//	res := TaosQuery(conn, sql)
+//	code := TaosError(res)
+//	if code != 0 {
+//		errStr := TaosErrorStr(res)
+//		TaosFreeResult(res)
+//		t.Error(errors.NewError(code, errStr))
+//		return
+//	}
+//	for {
+//		blockSize, errCode, block := TaosFetchRawBlock(res)
+//		if errCode != int(errors.SUCCESS) {
+//			errStr := TaosErrorStr(res)
+//			err := errors.NewError(code, errStr)
+//			t.Error(err)
+//			TaosFreeResult(res)
+//			return
+//		}
+//		if blockSize == 0 {
+//			break
+//		}
+//		length := *((*int32)(block))
+//		blob := make([]byte, length)
+//		for i := 0; i < int(length); i++ {
+//			blob[i] = *((*byte)(unsafe.Pointer(uintptr(block) + uintptr(i))))
+//		}
+//		t.Log(blob)
+//	}
+//	TaosFreeResult(res)
+//}
