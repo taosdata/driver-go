@@ -43,7 +43,7 @@ func (dbt *DBTest) CreateTables(numOfSubTab int) {
 	dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
 	dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
 	dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
-	dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, value BOOL) tags (degress int)", dbName))
+	dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, v BOOL) tags (degress int)", dbName))
 	for i := 0; i < numOfSubTab; i++ {
 		dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
 	}
@@ -305,7 +305,7 @@ func TestJson(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json.tjson(ts timestamp,value int )tags(t json)")
+	_, err = db.Exec("create stable if not exists test_json.tjson(ts timestamp,v int )tags(t json)")
 	if err != nil {
 		t.Error(err)
 		return
@@ -325,7 +325,7 @@ func TestJson(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	rows, err := db.Query("select * from test_json.tjson")
+	rows, err := db.Query("select t from test_json.tjson")
 	if err != nil {
 		t.Error(err)
 		return
@@ -374,7 +374,7 @@ func TestJsonSearch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json.tjson_search(ts timestamp,value int )tags(t json)")
+	_, err = db.Exec("create stable if not exists test_json.tjson_search(ts timestamp,v int )tags(t json)")
 	if err != nil {
 		t.Error(err)
 		return
@@ -389,7 +389,7 @@ func TestJsonSearch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	rows, err := db.Query("select * from test_json.tjson_search where t contains 'a' and t->'b'='b' and value = 1")
+	rows, err := db.Query("select * from test_json.tjson_search where t contains 'a' and t->'b'='b' and v = 1")
 	if err != nil {
 		t.Error(err)
 		return
@@ -406,6 +406,7 @@ func TestJsonSearch(t *testing.T) {
 		s := row[2].([]byte)
 		if !json.Valid(s) {
 			t.Error("invalid json ", string(s))
+			return
 		}
 		t.Logf("%s", string(row[2].([]byte)))
 	}
@@ -432,7 +433,7 @@ func TestJsonMatch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json.tjson_match(ts timestamp,value int )tags(t json)")
+	_, err = db.Exec("create stable if not exists test_json.tjson_match(ts timestamp,v int )tags(t json)")
 	if err != nil {
 		t.Error(err)
 		return
@@ -447,7 +448,7 @@ func TestJsonMatch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	rows, err := db.Query("select * from test_json.tjson_match where t contains 'a' and t->'b' match '.*b.*|.*e.*' and value = 1")
+	rows, err := db.Query("select * from test_json.tjson_match where t contains 'a' and t->'b' match '.*b.*|.*e.*' and v = 1")
 	if err != nil {
 		t.Error(err)
 		return
@@ -490,7 +491,7 @@ func TestChinese(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,value nchar(32))")
+	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,v nchar(32))")
 	if err != nil {
 		t.Error(err)
 		return

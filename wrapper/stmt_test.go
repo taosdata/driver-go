@@ -407,6 +407,7 @@ func TestStmtExec(t *testing.T) {
 	}
 }
 
+//todo TD-16644
 func TestStmtQuery(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -637,11 +638,6 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 		errStr := TaosStmtErrStr(stmt)
 		return nil, taosError.NewError(code, errStr)
 	}
-	//code = TaosStmtAddBatch(stmt)
-	//if code != 0 {
-	//	errStr := TaosStmtErrStr(stmt)
-	//	return nil, taosError.NewError(code, errStr)
-	//}
 	code = TaosStmtExecute(stmt)
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
@@ -825,6 +821,8 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	code, _, _ = TaosStmtGetTagFields(stmt)
+	assert.Equal(t, 0x225, code&0xffff)
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
@@ -849,4 +847,15 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		{"c12", 8, 0, 0, 22},
 		{"c13", 10, 0, 0, 82},
 	}, columns)
+}
+
+func exec(conn unsafe.Pointer, sql string) error {
+	res := TaosQuery(conn, sql)
+	defer TaosFreeResult(res)
+	code := TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		return taosError.NewError(code, errStr)
+	}
+	return nil
 }

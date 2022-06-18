@@ -720,9 +720,10 @@ jvm_gc_pause_seconds_max,action=end\ of\ minor\ GC,cause=Allocation\ Failure,hos
 // @date: 2022/1/27 16:08
 // @description: test influxDB insert with line protocol
 func TestInfluxDBInsertLines(t *testing.T) {
+	a := `measurement,host=host1 field1=252112078i,field2=2.0,fieldKey="Launch 🚀" 1655195094707974091`
 	db := testDatabase(t)
 	defer db.Close()
-	data := strings.Split(raw, "\n")
+	data := strings.Split(a, "\n")
 	err := db.InfluxDBInsertLines(data, "ns")
 	if err != nil {
 		t.Error(err)

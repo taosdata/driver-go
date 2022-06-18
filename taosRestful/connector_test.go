@@ -12,36 +12,6 @@ import (
 )
 
 // @author: xftan
-// @date: 2021/12/21 10:58
-// @description: test common use of restful
-func TestOpenQuery(t *testing.T) {
-	db, err := sql.Open("taosRestful", "root:taosdata@http(127.0.0.1:6041)/?token=123")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	err = db.Ping()
-	if err != nil {
-		t.Fatal(err)
-	}
-	rows, err := db.Query("select ts, dnodeid from log.dn")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for rows.Next() {
-		var dnodeID int
-		var ts time.Time
-		err := rows.Scan(&ts, &dnodeID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if ts.IsZero() {
-			t.Fatal(ts)
-		}
-	}
-}
-
-// @author: xftan
 // @date: 2021/12/21 10:59
 // @description: test restful query of all type
 func TestAllTypeQuery(t *testing.T) {

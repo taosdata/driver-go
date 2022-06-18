@@ -231,7 +231,7 @@ func TestTaosValidateSql(t *testing.T) {
 			name: "valid",
 			args: args{
 				taosConnect: conn,
-				sql:         "show log.stables",
+				sql:         "show grants",
 			},
 			want: 0,
 		},
@@ -350,43 +350,6 @@ func TestTaosResultBlock(t *testing.T) {
 					_ = values
 					t.Log(values)
 				}
-			}
-		})
-	}
-}
-
-// @author: xftan
-// @date: 2022/1/27 17:31
-// @description: test taos_load_table_info
-func TestTaosLoadTableInfo(t *testing.T) {
-	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer TaosClose(conn)
-	type args struct {
-		taosConnect   unsafe.Pointer
-		tableNameList []string
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "log",
-			args: args{
-				taosConnect:   conn,
-				tableNameList: []string{"log"},
-			},
-			want: 0,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := TaosLoadTableInfo(tt.args.taosConnect, tt.args.tableNameList); got != tt.want {
-				t.Errorf("TaosLoadTableInfo() = %v, want %v", got, tt.want)
 			}
 		})
 	}

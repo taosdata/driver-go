@@ -5,7 +5,7 @@ package wrapper
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
-extern void TMQCommitCB(tmq_t *, tmq_resp_err_t, tmq_topic_vgroup_list_t *, void *param);
+extern void TMQCommitCB(tmq_t *, int32_t,  void *param);
 */
 import "C"
 import (
@@ -21,7 +21,6 @@ var tmqCommitCallbackResultPool = sync.Pool{}
 type TMQCommitCallbackResult struct {
 	ErrCode  int32
 	Consumer unsafe.Pointer
-	Offset   unsafe.Pointer
 }
 
 func (t *TMQCommitCallbackResult) GetError() error {
@@ -32,15 +31,14 @@ func (t *TMQCommitCallbackResult) GetError() error {
 	return errors.NewError(int(t.ErrCode), errStr)
 }
 
-func GetTMQCommitCallbackResult(errCode int32, consumer unsafe.Pointer, offset unsafe.Pointer) *TMQCommitCallbackResult {
+func GetTMQCommitCallbackResult(errCode int32, consumer unsafe.Pointer) *TMQCommitCallbackResult {
 	t, ok := tmqCommitCallbackResultPool.Get().(*TMQCommitCallbackResult)
 	if ok {
 		t.ErrCode = errCode
 		t.Consumer = consumer
-		t.Offset = offset
 		return t
 	} else {
-		return &TMQCommitCallbackResult{ErrCode: errCode, Consumer: consumer, Offset: offset}
+		return &TMQCommitCallbackResult{ErrCode: errCode, Consumer: consumer}
 	}
 }
 
@@ -72,14 +70,14 @@ func TMQConfSetAutoCommitCB(conf unsafe.Pointer, h cgo.Handle) {
 	C.tmq_conf_set_auto_commit_cb((*C.struct_tmq_conf_t)(conf), (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
 }
 
-//DLL_EXPORT void tmq_commit_async(tmq_t *tmq, const tmq_topic_vgroup_list_t *offsets, tmq_commit_cb *cb, void *param);
-func TMQCommitAsync(consumer unsafe.Pointer, offsets unsafe.Pointer, h cgo.Handle) {
-	C.tmq_commit_async((*C.tmq_t)(consumer), (*C.tmq_topic_vgroup_list_t)(offsets), (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
+//DLL_EXPORT void    tmq_commit_async(tmq_t *tmq, const TAOS_RES *msg, tmq_commit_cb *cb, void *param);
+func TMQCommitAsync(consumer unsafe.Pointer, message unsafe.Pointer, h cgo.Handle) {
+	C.tmq_commit_async((*C.tmq_t)(consumer), message, (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
 }
 
-//DLL_EXPORT tmq_resp_err_t tmq_commit_sync(tmq_t *tmq, const tmq_topic_vgroup_list_t *offsets);
-func TMQCommitSync(consumer unsafe.Pointer, offsets unsafe.Pointer) int32 {
-	return int32(C.tmq_commit_sync((*C.tmq_t)(consumer), (*C.tmq_topic_vgroup_list_t)(offsets)))
+//DLL_EXPORT int32_t tmq_commit_sync(tmq_t *tmq, const TAOS_RES *msg);
+func TMQCommitSync(consumer unsafe.Pointer, message unsafe.Pointer) int32 {
+	return int32(C.tmq_commit_sync((*C.tmq_t)(consumer), message))
 }
 
 // TMQListNew tmq_list_t *tmq_list_new();
@@ -129,9 +127,9 @@ func TMQConsumerNew(conf unsafe.Pointer) (unsafe.Pointer, error) {
 	return tmq, nil
 }
 
-// TMQErr2Str const char *tmq_err2str(tmq_resp_err_t);
+// TMQErr2Str const char *tmq_err2str(int32_t);
 func TMQErr2Str(code int32) string {
-	return C.GoString(C.tmq_err2str((C.tmq_resp_err_t)(code)))
+	return C.GoString(C.tmq_err2str((C.int32_t)(code)))
 }
 
 // TMQSubscribe tmq_resp_err_t tmq_subscribe(tmq_t *tmq, tmq_list_t *topic_list);

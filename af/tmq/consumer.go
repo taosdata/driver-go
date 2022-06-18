@@ -141,19 +141,18 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	return result, nil
 }
 
-func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) (unsafe.Pointer, error) {
+func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) error {
 	wrapper.TMQCommitAsync(c.cConsumer, offset, c.asyncCommitHandle)
 	for {
 		select {
 		case <-c.exit:
 			c.asyncCommitHandle.Delete()
 			close(c.asyncCommitChan)
-			return nil, ClosedError
+			return ClosedError
 		case <-ctx.Done():
-			return offset, ctx.Err()
+			return ctx.Err()
 		case d := <-c.asyncCommitChan:
-			callbackOffset := d.Offset
-			return callbackOffset, d.GetError()
+			return d.GetError()
 		}
 	}
 }

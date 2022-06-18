@@ -13,12 +13,12 @@ import (
 	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
-//typedef void(tmq_commit_cb(tmq_t *, tmq_resp_err_t, tmq_topic_vgroup_list_t *, void *param));
+//typedef void(tmq_commit_cb(tmq_t *, int32_t code, void *param));
 
 //export TMQCommitCB
-func TMQCommitCB(consumer unsafe.Pointer, resp C.tmq_resp_err_t, offsets unsafe.Pointer, param unsafe.Pointer) {
+func TMQCommitCB(consumer unsafe.Pointer, resp C.int32_t, param unsafe.Pointer) {
 	c := cgo.Handle(param).Value().(chan *TMQCommitCallbackResult)
-	r := GetTMQCommitCallbackResult(int32(resp), consumer, offsets)
+	r := GetTMQCommitCallbackResult(int32(resp), consumer)
 	defer func() {
 		// Avoid panic due to channel closed
 		recover()

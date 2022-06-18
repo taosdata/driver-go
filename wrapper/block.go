@@ -24,7 +24,7 @@ func TaosFetchRawBlock(result unsafe.Pointer) (int, int, unsafe.Pointer) {
 }
 
 func IsVarDataType(colType uint8) bool {
-	return colType == common.TSDB_DATA_TYPE_BINARY || colType == common.TSDB_DATA_TYPE_NCHAR
+	return colType == common.TSDB_DATA_TYPE_BINARY || colType == common.TSDB_DATA_TYPE_NCHAR || colType == common.TSDB_DATA_TYPE_JSON
 }
 
 func BitmapLen(n int) int {
@@ -176,16 +176,15 @@ func rawConvertJson(pHeader, pStart uintptr, row int) driver.Value {
 		return nil
 	}
 	currentRow := unsafe.Pointer(pStart + uintptr(offset))
-	clen := *((*int16)(currentRow)) / 4
+	clen := *((*int16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
-	binaryVal := make([]byte, 0, clen)
+	binaryVal := make([]byte, clen)
 
 	for index := int16(0); index < clen; index++ {
-		binaryVal = AppendRune(binaryVal, *((*rune)(unsafe.Pointer(uintptr(currentRow) + uintptr(index*4)))))
+		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
 	}
-
-	return binaryVal
+	return binaryVal[:]
 }
 
 // ReadBlock in-place
