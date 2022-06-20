@@ -77,34 +77,21 @@ func (rs *rows) Next(dest []driver.Value) error {
 }
 
 func (rs *rows) taosFetchBlock() error {
-	//rr := wrapper.TaosFetchRow(rs.result)
-	//if rr == nil {
-	//	panic(rr)
-	//}
-	size, errcode, block := wrapper.TaosFetchRawBlock(rs.result)
-	if errcode != 0 {
-		errStr := wrapper.TaosErrorStr(rs.result)
-		return errors.NewError(errcode, errStr)
+	result := rs.asyncFetchRows()
+	if result.N == 0 {
+		rs.blockSize = 0
+		rs.done = true
+		return nil
+	} else {
+		if result.N < 0 {
+			code := wrapper.TaosError(result.Res)
+			errStr := wrapper.TaosErrorStr(result.Res)
+			return errors.NewError(code, errStr)
+		}
 	}
-	rs.blockSize = size
-	rs.block = block
+	rs.blockSize = result.N
+	rs.block = wrapper.TaosGetRawBlock(result.Res)
 	rs.blockOffset = 0
-	//result := rs.asyncFetchRows()
-	//if result.N == 0 {
-	//	rs.blockSize = 0
-	//	rs.done = true
-	//	return nil
-	//} else {
-	//	if result.N < 0 {
-	//		code := wrapper.TaosError(result.Res)
-	//		errStr := wrapper.TaosErrorStr(result.Res)
-	//		return errors.NewError(code, errStr)
-	//	}
-	//}
-	//rs.blockSize = result.N
-	//rs.block = wrapper.TaosGetRawBlock(result.Res)
-	//rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
-	//rs.blockOffset = 0
 	return nil
 }
 

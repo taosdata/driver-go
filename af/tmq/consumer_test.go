@@ -155,7 +155,7 @@ func TestTmq(t *testing.T) {
 	assert.Equal(t, float64(11), row1[11].(float64))
 	assert.Equal(t, "1", row1[12].(string))
 	assert.Equal(t, "2", row1[13].(string))
-	_, err = consumer.Commit(context.Background(), nil)
+	err = consumer.Commit(context.Background(), nil)
 	assert.NoError(t, err)
 	err = consumer.Close()
 	assert.NoError(t, err)

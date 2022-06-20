@@ -194,80 +194,81 @@ func TestStmtExec(t *testing.T) {
 	}
 }
 
+// todo
 // @author: xftan
 // @date: 2022/1/27 16:07
 // @description: test stmt query
-func TestStmtQuery(t *testing.T) {
-	db := testDatabase(t)
-	defer db.Close()
-	for i, tc := range []struct {
-		tbType string
-		data   string
-		clause string
-		params *param2.Param
-		skip   bool
-	}{
-		{"ts timestamp, v int", "0, 1", "v = ?", param2.NewParam(1).AddInt(1), false},
-		{"ts timestamp, v bool", "now, true", "v = ?", param2.NewParam(1).AddBool(true), false},
-		{"ts timestamp, v tinyint", "now, 3", "v = ?", param2.NewParam(1).AddTinyint(3), false},
-		{"ts timestamp, v smallint", "now, 5", "v = ?", param2.NewParam(1).AddSmallint(5), false},
-		{"ts timestamp, v int", "now, 6", "v = ?", param2.NewParam(1).AddInt(6), false},
-		{"ts timestamp, v bigint", "now, 7", "v = ?", param2.NewParam(1).AddBigint(7), false},
-		{"ts timestamp, v tinyint unsigned", "now, 1", "v = ?", param2.NewParam(1).AddUTinyint(1), false},
-		{"ts timestamp, v smallint unsigned", "now, 2", "v = ?", param2.NewParam(1).AddUSmallint(2), false},
-		{"ts timestamp, v int unsigned", "now, 3", "v = ?", param2.NewParam(1).AddUInt(3), false},
-		{"ts timestamp, v bigint unsigned", "now, 4", "v = ?", param2.NewParam(1).AddUBigint(4), false},
-		{"ts timestamp, v tinyint unsigned", "now, 1", "v = ?", param2.NewParam(1).AddUTinyint(1), false},
-		{"ts timestamp, v smallint unsigned", "now, 2", "v = ?", param2.NewParam(1).AddUSmallint(2), false},
-		{"ts timestamp, v int unsigned", "now, 3", "v = ?", param2.NewParam(1).AddUInt(3), false},
-		{"ts timestamp, v bigint unsigned", "now, 4", "v = ?", param2.NewParam(1).AddUBigint(4), false},
-		{"ts timestamp, v float", "now, 1.2", "v = ?", param2.NewParam(1).AddFloat(1.2), false},
-		{"ts timestamp, v double", "now, 1.3", "v = ?", param2.NewParam(1).AddDouble(1.3), false},
-		{"ts timestamp, v double", "now, 1.4", "v = ?", param2.NewParam(1).AddDouble(1.4), false},
-		{"ts timestamp, v binary(8)", "now, 'yes'", "v = ?", param2.NewParam(1).AddBinary([]byte("yes")), false},
-		{"ts timestamp, v nchar(8)", "now, 'OK'", "v = ?", param2.NewParam(1).AddNchar("OK"), false},
-		{"ts timestamp, v nchar(8)", "1622282105000000, 'NOW'", "ts = ? and v = ?", param2.NewParam(2).AddTimestamp(time.Unix(1622282105, 0), common.PrecisionMicroSecond).AddBinary([]byte("NOW")), false},
-		{"ts timestamp, v nchar(8)", "1622282105000000, 'NOW'", "ts = ? and v = ?", param2.NewParam(2).AddBigint(1622282105000000).AddBinary([]byte("NOW")), false},
-	} {
-		tbName := fmt.Sprintf("test_stmt_query%02d", i)
-		tbType := tc.tbType
-		create := fmt.Sprintf("create table if not exists %s(%s)", tbName, tbType)
-		insert := fmt.Sprintf("insert into %s values(%s)", tbName, tc.data)
-		params := tc.params
-		sql := fmt.Sprintf("select * from %s where %s", tbName, tc.clause)
-		name := fmt.Sprintf("%02d-%s", i, tbType)
-		var err error
-		t.Run(name, func(t *testing.T) {
-			if tc.skip {
-				t.Skip("Skip, not support yet")
-			}
-			if _, err = db.Exec(create); err != nil {
-				t.Error(err)
-				return
-			}
-			if _, err = db.Exec(insert); err != nil {
-				t.Error(err)
-				return
-			}
-			var rows driver.Rows
-
-			if rows, err = db.StmtQuery(sql, params); err != nil {
-				t.Error(err)
-				return
-			}
-			defer rows.Close()
-			names := rows.Columns()
-			if len(names) == 0 {
-				t.Fatal(names)
-			}
-			values := make([]driver.Value, len(names))
-			if err = rows.Next(values); err != nil {
-				t.Error(err)
-				return
-			}
-		})
-	}
-}
+//func TestStmtQuery(t *testing.T) {
+//	db := testDatabase(t)
+//	defer db.Close()
+//	for i, tc := range []struct {
+//		tbType string
+//		data   string
+//		clause string
+//		params *param2.Param
+//		skip   bool
+//	}{
+//		{"ts timestamp, v int", "0, 1", "v = ?", param2.NewParam(1).AddInt(1), false},
+//		{"ts timestamp, v bool", "now, true", "v = ?", param2.NewParam(1).AddBool(true), false},
+//		{"ts timestamp, v tinyint", "now, 3", "v = ?", param2.NewParam(1).AddTinyint(3), false},
+//		{"ts timestamp, v smallint", "now, 5", "v = ?", param2.NewParam(1).AddSmallint(5), false},
+//		{"ts timestamp, v int", "now, 6", "v = ?", param2.NewParam(1).AddInt(6), false},
+//		{"ts timestamp, v bigint", "now, 7", "v = ?", param2.NewParam(1).AddBigint(7), false},
+//		{"ts timestamp, v tinyint unsigned", "now, 1", "v = ?", param2.NewParam(1).AddUTinyint(1), false},
+//		{"ts timestamp, v smallint unsigned", "now, 2", "v = ?", param2.NewParam(1).AddUSmallint(2), false},
+//		{"ts timestamp, v int unsigned", "now, 3", "v = ?", param2.NewParam(1).AddUInt(3), false},
+//		{"ts timestamp, v bigint unsigned", "now, 4", "v = ?", param2.NewParam(1).AddUBigint(4), false},
+//		{"ts timestamp, v tinyint unsigned", "now, 1", "v = ?", param2.NewParam(1).AddUTinyint(1), false},
+//		{"ts timestamp, v smallint unsigned", "now, 2", "v = ?", param2.NewParam(1).AddUSmallint(2), false},
+//		{"ts timestamp, v int unsigned", "now, 3", "v = ?", param2.NewParam(1).AddUInt(3), false},
+//		{"ts timestamp, v bigint unsigned", "now, 4", "v = ?", param2.NewParam(1).AddUBigint(4), false},
+//		{"ts timestamp, v float", "now, 1.2", "v = ?", param2.NewParam(1).AddFloat(1.2), false},
+//		{"ts timestamp, v double", "now, 1.3", "v = ?", param2.NewParam(1).AddDouble(1.3), false},
+//		{"ts timestamp, v double", "now, 1.4", "v = ?", param2.NewParam(1).AddDouble(1.4), false},
+//		{"ts timestamp, v binary(8)", "now, 'yes'", "v = ?", param2.NewParam(1).AddBinary([]byte("yes")), false},
+//		{"ts timestamp, v nchar(8)", "now, 'OK'", "v = ?", param2.NewParam(1).AddNchar("OK"), false},
+//		{"ts timestamp, v nchar(8)", "1622282105000000, 'NOW'", "ts = ? and v = ?", param2.NewParam(2).AddTimestamp(time.Unix(1622282105, 0), common.PrecisionMicroSecond).AddBinary([]byte("NOW")), false},
+//		{"ts timestamp, v nchar(8)", "1622282105000000, 'NOW'", "ts = ? and v = ?", param2.NewParam(2).AddBigint(1622282105000000).AddBinary([]byte("NOW")), false},
+//	} {
+//		tbName := fmt.Sprintf("test_stmt_query%02d", i)
+//		tbType := tc.tbType
+//		create := fmt.Sprintf("create table if not exists %s(%s)", tbName, tbType)
+//		insert := fmt.Sprintf("insert into %s values(%s)", tbName, tc.data)
+//		params := tc.params
+//		sql := fmt.Sprintf("select * from %s where %s", tbName, tc.clause)
+//		name := fmt.Sprintf("%02d-%s", i, tbType)
+//		var err error
+//		t.Run(name, func(t *testing.T) {
+//			if tc.skip {
+//				t.Skip("Skip, not support yet")
+//			}
+//			if _, err = db.Exec(create); err != nil {
+//				t.Error(err)
+//				return
+//			}
+//			if _, err = db.Exec(insert); err != nil {
+//				t.Error(err)
+//				return
+//			}
+//			var rows driver.Rows
+//
+//			if rows, err = db.StmtQuery(sql, params); err != nil {
+//				t.Error(err)
+//				return
+//			}
+//			defer rows.Close()
+//			names := rows.Columns()
+//			if len(names) == 0 {
+//				t.Fatal(names)
+//			}
+//			values := make([]driver.Value, len(names))
+//			if err = rows.Next(values); err != nil {
+//				t.Error(err)
+//				return
+//			}
+//		})
+//	}
+//}
 
 // @author: xftan
 // @date: 2022/1/27 16:07

@@ -188,8 +188,9 @@ func TestAny(t *testing.T) {
 			&Obj{fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
-		tests = append(tests,
-			&Obj{fmt.Sprintf("select last_row(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
+		// todo 3.0
+		//tests = append(tests,
+		//	&Obj{fmt.Sprintf("select last_row(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
@@ -206,68 +207,69 @@ func TestAny(t *testing.T) {
 	})
 }
 
+//todo
 // @author: xftan
 // @date: 2022/1/27 16:17
 // @description: test query and insert
-func TestCRUD(t *testing.T) {
-	runTests(t, func(dbt *DBTest) {
-		// Create Data
-		now := time.Now()
-		res, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false))
-		if err != nil {
-			dbt.Fatalf("insert failed %s", err.Error())
-		}
-		count, err := res.RowsAffected()
-		if err != nil {
-			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-		}
-		if count != 1 {
-			dbt.Fatalf("expected 1 affected row, got %d", count)
-		}
-
-		id, err := res.LastInsertId()
-		if err == nil {
-			dbt.Fatalf("res.LastInsertId() expect error")
-		}
-		if id != 0 {
-			dbt.Fatalf("expected InsertId 0, got %d", id)
-		}
-
-		// Read
-		rows, err := dbt.mustQuery(fmt.Sprintf("select * from %s.super", dbName))
-		if err != nil {
-			dbt.Fatalf("select failed")
-		}
-		for rows.Next() {
-			var row TestResult
-			err := rows.Scan(&(row.ts), &(row.value), &(row.degress))
-			if err != nil {
-				dbt.Error(err.Error())
-			}
-		}
-		rows.Close()
-
-		rows, err = dbt.mustQuery(fmt.Sprintf("select last_row(*) from %s.super", dbName))
-		if err != nil {
-			dbt.Fatalf("select last_row failed")
-		} else {
-			for rows.Next() {
-				var value TestResult
-				err := rows.Scan(&(value.ts), &(value.value))
-				if err != nil {
-					dbt.Error(err.Error())
-				}
-			}
-			rows.Close()
-		}
-
-		query2 := "drop table if exists super"
-		dbt.mustExec(query2)
-		if err != nil {
-			dbt.Fatalf(query2)
-		}
-	})
-}
+//func TestCRUD(t *testing.T) {
+//	runTests(t, func(dbt *DBTest) {
+//		// Create Data
+//		now := time.Now()
+//		res, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false))
+//		if err != nil {
+//			dbt.Fatalf("insert failed %s", err.Error())
+//		}
+//		count, err := res.RowsAffected()
+//		if err != nil {
+//			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
+//		}
+//		if count != 1 {
+//			dbt.Fatalf("expected 1 affected row, got %d", count)
+//		}
+//
+//		id, err := res.LastInsertId()
+//		if err == nil {
+//			dbt.Fatalf("res.LastInsertId() expect error")
+//		}
+//		if id != 0 {
+//			dbt.Fatalf("expected InsertId 0, got %d", id)
+//		}
+//
+//		// Read
+//		rows, err := dbt.mustQuery(fmt.Sprintf("select * from %s.super", dbName))
+//		if err != nil {
+//			dbt.Fatalf("select failed")
+//		}
+//		for rows.Next() {
+//			var row TestResult
+//			err := rows.Scan(&(row.ts), &(row.value), &(row.degress))
+//			if err != nil {
+//				dbt.Error(err.Error())
+//			}
+//		}
+//		rows.Close()
+//
+//		rows, err = dbt.mustQuery(fmt.Sprintf("select last_row(*) from %s.super", dbName))
+//		if err != nil {
+//			dbt.Fatalf("select last_row failed")
+//		} else {
+//			for rows.Next() {
+//				var value TestResult
+//				err := rows.Scan(&(value.ts), &(value.value))
+//				if err != nil {
+//					dbt.Error(err.Error())
+//				}
+//			}
+//			rows.Close()
+//		}
+//
+//		query2 := "drop table if exists super"
+//		dbt.mustExec(query2)
+//		if err != nil {
+//			dbt.Fatalf(query2)
+//		}
+//	})
+//}
 
 // @author: xftan
 // @date: 2022/1/27 16:17
@@ -325,7 +327,7 @@ func TestJson(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	rows, err := db.Query("select t from test_json.tjson")
+	rows, err := db.Query("select * from test_json.tjson")
 	if err != nil {
 		t.Error(err)
 		return
@@ -496,7 +498,7 @@ func TestChinese(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, value) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
 	if err != nil {
 		t.Error(err)
 		return

@@ -298,20 +298,15 @@ func TestTMQDB(t *testing.T) {
 	TaosFreeResult(result)
 	go func() {
 		for i := 0; i < 5; i++ {
-			t.Log("start insert")
 			result = TaosQuery(conn, "insert into ct1 values(now,1,2,'1')")
-			t.Log("finish insert")
 			code = TaosError(result)
-			t.Log("get error", code)
 			if code != 0 {
 				errStr := TaosErrorStr(result)
 				TaosFreeResult(result)
 				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
 				return
 			}
-			t.Log("start free result")
 			TaosFreeResult(result)
-			t.Log("finish free result")
 			time.Sleep(time.Millisecond)
 		}
 	}()
