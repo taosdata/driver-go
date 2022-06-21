@@ -5,6 +5,10 @@ on: [ push ]
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.14', '1.17' ]
+    name: Go ${{ matrix.go }}
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -22,7 +26,7 @@ jobs:
         run: cd TDengine && git submodule update --init --recursive && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
 
       - name: start taosd
-        run: nohup sudo taosd &
+        run: ulimit -n 65535 && nohup sudo taosd &
 
       - name: start taosadapter
         run: nohup sudo taosadapter &
