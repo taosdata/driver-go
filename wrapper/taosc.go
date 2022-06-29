@@ -61,14 +61,7 @@ func TaosConnect(host, user, pass, db string, port int) (taos unsafe.Pointer, er
 
 	if taosObj == nil {
 		errCode := TaosError(nil)
-		if int32(errCode)&0xffff == errors.REF_NOT_EXIST {
-			return nil, &errors.TaosError{
-				Code:   errors.TSC_INVALID_CONNECTION,
-				ErrStr: "invalid connection",
-			}
-		} else {
-			return nil, errors.NewError(errCode, TaosErrorStr(nil))
-		}
+		return nil, errors.NewError(errCode, TaosErrorStr(nil))
 	}
 	return taosObj, nil
 }

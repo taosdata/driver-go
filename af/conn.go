@@ -186,8 +186,8 @@ func (conn *Connector) SelectDB(db string) error {
 	locker.Lock()
 	code := wrapper.TaosSelectDB(conn.taos, db)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	if err != nil {
+	if code != 0 {
+		err := taosError.NewError(code, wrapper.TaosErrorStr(nil))
 		return err
 	}
 	return nil

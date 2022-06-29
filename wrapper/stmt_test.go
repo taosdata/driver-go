@@ -169,8 +169,9 @@ func TestStmt(t *testing.T) {
 			}
 			insertStmt := TaosStmtInit(conn)
 			code := TaosStmtPrepare(insertStmt, sql)
-			err = taosError.GetError(code)
-			if err != nil {
+			if code != 0 {
+				errStr := TaosStmtErrStr(insertStmt)
+				err = taosError.NewError(code, errStr)
 				t.Error(err)
 				return
 			}
