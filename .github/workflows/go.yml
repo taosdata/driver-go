@@ -25,8 +25,14 @@ jobs:
       - name: install TDengine
         run: cd TDengine && git submodule update --init --recursive && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
 
-      - name: start taosd
-        run: sudo taosd &
+      - name: shell
+        run: |
+          cat >start.sh<<EOF 
+          ulimit -n 65535 && taosd 
+          EOF
+
+      - name: taosd
+        run: nohup sudo sh ./start.sh &
 
       - name: start taosadapter
         run: sudo taosadapter &
