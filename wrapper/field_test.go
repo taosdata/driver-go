@@ -183,7 +183,7 @@ func TestRowsHeader_TypeDatabaseName(t *testing.T) {
 			args: args{
 				i: 8,
 			},
-			want: "BINARY",
+			want: "VARCHAR",
 		},
 		{
 			name: "TIMESTAMP",
