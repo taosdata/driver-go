@@ -38,5 +38,5 @@ func TaosSetConfig(params map[string]string) error {
 		}
 		buf.WriteByte(byte(c))
 	}
-	return errors.NewError(result.retCode, buf.String())
+	return &errors.TaosError{Code: int32(result.retCode) & 0xffff, ErrStr: buf.String()}
 }
