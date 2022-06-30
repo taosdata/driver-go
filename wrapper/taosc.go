@@ -216,3 +216,8 @@ func TaosFetchRawBlockA(res unsafe.Pointer, caller cgo.Handle) {
 func TaosGetRawBlock(result unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_get_raw_block(result))
 }
+
+// TaosGetClientInfo const char *taos_get_client_info();
+func TaosGetClientInfo() string {
+	return C.GoString(C.taos_get_client_info())
+}
