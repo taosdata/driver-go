@@ -26,10 +26,10 @@ jobs:
         run: cd TDengine && git submodule update --init --recursive && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
 
       - name: start taosd
-        run: nohup sudo taosd &
+        run: sudo taosd &
 
       - name: start taosadapter
-        run: nohup sudo taosadapter &
+        run: sudo taosadapter &
 
       - name: Set up Go
         uses: actions/setup-go@v2
