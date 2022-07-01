@@ -390,3 +390,8 @@ func TestTaosLoadTableInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestTaosGetClientInfo(t *testing.T) {
+	s := TaosGetClientInfo()
+	assert.NotEmpty(t, s)
+}
