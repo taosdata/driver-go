@@ -16,7 +16,7 @@ import (
 type RowsHeader struct {
 	ColNames  []string
 	ColTypes  []uint8
-	ColLength []uint16
+	ColLength []int64
 }
 
 func ReadColumn(result unsafe.Pointer, count int) (*RowsHeader, error) {
@@ -26,7 +26,7 @@ func ReadColumn(result unsafe.Pointer, count int) (*RowsHeader, error) {
 	rowsHeader := &RowsHeader{
 		ColNames:  make([]string, count),
 		ColTypes:  make([]uint8, count),
-		ColLength: make([]uint16, count),
+		ColLength: make([]int64, count),
 	}
 	pFields := TaosFetchFields(result)
 	for i := 0; i < count; i++ {
@@ -40,7 +40,7 @@ func ReadColumn(result unsafe.Pointer, count int) (*RowsHeader, error) {
 		}
 		rowsHeader.ColNames[i] = buf.String()
 		rowsHeader.ColTypes[i] = (uint8)(field._type)
-		rowsHeader.ColLength[i] = (uint16)(field.bytes)
+		rowsHeader.ColLength[i] = int64((uint32)(field.bytes))
 	}
 	return rowsHeader, nil
 }
@@ -62,6 +62,15 @@ func FetchLengths(res unsafe.Pointer, count int) []int {
 	result := make([]int, count)
 	for i := 0; i < count; i++ {
 		result[i] = int(*(*C.int)(unsafe.Pointer(uintptr(lengths) + uintptr(C.sizeof_int*C.int(i)))))
+	}
+	return result
+}
+
+func GetColumnDataOffset(res unsafe.Pointer, columnIndex int, count int) []int {
+	offset := TaosGetColumnDataOffset(res, columnIndex)
+	result := make([]int, count)
+	for i := 0; i < count; i++ {
+		result[i] = int(*(*C.int)(unsafe.Pointer(uintptr(offset) + uintptr(C.sizeof_int*C.int(i)))))
 	}
 	return result
 }

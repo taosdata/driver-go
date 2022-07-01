@@ -50,7 +50,7 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 			DisableCompression:    cfg.disableCompression,
 		},
 	}
-	path := "/rest/sqlutc"
+	path := "/rest/sql"
 	if len(cfg.dbName) != 0 {
 		path = fmt.Sprintf("%s/%s", path, cfg.dbName)
 	}
@@ -59,14 +59,14 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
 		Path:   path,
 	}
+	tc.header = map[string][]string{
+		"Connection": {"keep-alive"},
+	}
 	if cfg.token != "" {
 		tc.url.RawQuery = fmt.Sprintf("token=%s", cfg.token)
-	}
-	basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
-
-	tc.header = map[string][]string{
-		"Authorization": {fmt.Sprintf("Basic %s", basic)},
-		"Connection":    {"keep-alive"},
+	} else {
+		basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
+		tc.header["Authorization"] = []string{fmt.Sprintf("Basic %s", basic)}
 	}
 	if !cfg.disableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
@@ -102,8 +102,7 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	//lint:ignore SA1012 context.TODO() will cause extra cost
-	result, err := tc.taosQuery(nil, query, 512)
+	result, err := tc.taosQuery(context.TODO(), query, 512)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +124,7 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		}
 		query = prepared
 	}
-	//lint:ignore SA1012 context.TODO() will cause extra cost
-	result, err := tc.taosQuery(nil, query, tc.readBufferSize)
+	result, err := tc.taosQuery(context.TODO(), query, tc.readBufferSize)
 	if err != nil {
 		return nil, err
 	}
@@ -173,12 +171,12 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 && resp.StatusCode != 400 {
+	if resp.StatusCode != http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New(string(body))
+		return nil, fmt.Errorf("server response: %s - %s", resp.Status, string(body))
 	}
 	respBody := resp.Body
 	if !tc.cfg.disableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
@@ -191,7 +189,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	if err != nil {
 		return nil, err
 	}
-	if data.Status != "succ" {
+	if data.Code != 0 {
 		return nil, taosErrors.NewError(data.Code, data.Desc)
 	}
 	return data, nil
@@ -207,8 +205,6 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 	timeFormat := time.RFC3339Nano
 	iter.ReadObjectCB(func(iter *jsonitor.Iterator, s string) bool {
 		switch s {
-		case "status":
-			result.Status = iter.ReadString()
 		case "code":
 			result.Code = iter.ReadInt()
 		case "desc":
@@ -222,7 +218,13 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						result.ColNames = append(result.ColNames, iter.ReadString())
 						index = 1
 					case 1:
-						result.ColTypes = append(result.ColTypes, iter.ReadInt())
+						typeStr := iter.ReadString()
+						t, exist := common.NameTypeMap[typeStr]
+						if exist {
+							result.ColTypes = append(result.ColTypes, t)
+						} else {
+							iter.ReportError("unsupported type in column_meta", typeStr)
+						}
 						index = 2
 					case 2:
 						result.ColLength = append(result.ColLength, iter.ReadInt64())
@@ -276,18 +278,7 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						b := iter.ReadString()
 						row[column], err = time.Parse(timeFormat, b)
 						if err != nil {
-							//maybe httpd
-							pErr, ok := err.(*time.ParseError)
-							if ok && pErr.LayoutElem == "Z07:00" {
-								row[column], err = time.Parse(HTTPDTimeFormat, b)
-								if err != nil {
-									iter.ReportError("parse time", err.Error())
-								} else {
-									timeFormat = HTTPDTimeFormat
-								}
-							} else {
-								iter.ReportError("parse time", err.Error())
-							}
+							iter.ReportError("parse time", err.Error())
 						}
 					case common.TSDB_DATA_TYPE_NCHAR:
 						row[column] = iter.ReadString()

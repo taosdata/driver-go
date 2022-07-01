@@ -74,7 +74,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.block = nil
 		return io.EOF
 	}
-	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockOffset, rs.lengthList, rs.rowsHeader.ColTypes)
+	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes)
 	rs.blockOffset++
 	return nil
 }
@@ -92,7 +92,7 @@ func (rs *rows) taosFetchBlock() error {
 		}
 	}
 	rs.blockSize = result.N
-	rs.block = wrapper.TaosResultBlock(result.Res)
+	rs.block = wrapper.TaosGetRawBlock(result.Res)
 	rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
 	rs.blockOffset = 0
 	return nil
@@ -100,7 +100,7 @@ func (rs *rows) taosFetchBlock() error {
 
 func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 	locker.Lock()
-	wrapper.TaosFetchRowsA(rs.result, rs.handler.Handler)
+	wrapper.TaosFetchRawBlockA(rs.result, rs.handler.Handler)
 	locker.Unlock()
 	r := <-rs.handler.Caller.FetchResult
 	return r

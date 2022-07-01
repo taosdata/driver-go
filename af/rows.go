@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v2/af/async"
 	"github.com/taosdata/driver-go/v2/af/locker"
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
@@ -19,7 +20,6 @@ type rows struct {
 	block       unsafe.Pointer
 	blockOffset int
 	blockSize   int
-	lengthList  []int
 	result      unsafe.Pointer
 }
 
@@ -32,7 +32,7 @@ func (rs *rows) ColumnTypeDatabaseTypeName(i int) string {
 }
 
 func (rs *rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	return int64(rs.rowsHeader.ColLength[i]), true
+	return rs.rowsHeader.ColLength[i], true
 }
 
 func (rs *rows) ColumnTypeScanType(i int) reflect.Type {
@@ -71,7 +71,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.freeResult()
 		return io.EOF
 	}
-	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockOffset, rs.lengthList, rs.rowsHeader.ColTypes)
+	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes)
 	rs.blockOffset++
 	return nil
 }
@@ -80,6 +80,7 @@ func (rs *rows) taosFetchBlock() error {
 	result := rs.asyncFetchRows()
 	if result.N == 0 {
 		rs.blockSize = 0
+		rs.done = true
 		return nil
 	} else {
 		if result.N < 0 {
@@ -89,15 +90,14 @@ func (rs *rows) taosFetchBlock() error {
 		}
 	}
 	rs.blockSize = result.N
-	rs.block = wrapper.TaosResultBlock(result.Res)
-	rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
+	rs.block = wrapper.TaosGetRawBlock(result.Res)
 	rs.blockOffset = 0
 	return nil
 }
 
 func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 	locker.Lock()
-	wrapper.TaosFetchRowsA(rs.result, rs.handler.Handler)
+	wrapper.TaosFetchRawBlockA(rs.result, rs.handler.Handler)
 	locker.Unlock()
 	r := <-rs.handler.Caller.FetchResult
 	return r
@@ -109,5 +109,8 @@ func (rs *rows) freeResult() {
 		wrapper.TaosFreeResult(rs.result)
 		locker.Unlock()
 		rs.result = nil
+	}
+	if rs.handler != nil {
+		async.PutHandler(rs.handler)
 	}
 }

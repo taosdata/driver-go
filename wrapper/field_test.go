@@ -84,7 +84,7 @@ func TestRowsHeader_TypeDatabaseName(t *testing.T) {
 	type fields struct {
 		ColNames  []string
 		ColTypes  []uint8
-		ColLength []uint16
+		ColLength []int64
 	}
 	type args struct {
 		i int
@@ -183,7 +183,7 @@ func TestRowsHeader_TypeDatabaseName(t *testing.T) {
 			args: args{
 				i: 8,
 			},
-			want: "BINARY",
+			want: "VARCHAR",
 		},
 		{
 			name: "TIMESTAMP",
@@ -277,7 +277,7 @@ func TestRowsHeader_ScanType(t *testing.T) {
 	type fields struct {
 		ColNames  []string
 		ColTypes  []uint8
-		ColLength []uint16
+		ColLength []int64
 	}
 	type args struct {
 		i int

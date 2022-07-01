@@ -8,10 +8,14 @@ package wrapper
 */
 import "C"
 import (
+	"bytes"
+	"database/sql/driver"
 	"errors"
+	"fmt"
+	"unsafe"
+
 	"github.com/taosdata/driver-go/v2/common"
 	taosTypes "github.com/taosdata/driver-go/v2/types"
-	"unsafe"
 )
 
 // TaosStmtInit TAOS_STMT *taos_stmt_init(TAOS *taos);
@@ -27,8 +31,35 @@ func TaosStmtPrepare(stmt unsafe.Pointer, sql string) int {
 	return int(C.taos_stmt_prepare(stmt, cSql, cLen))
 }
 
-// TaosStmtSetTBNameTags int        taos_stmt_set_tbname_tags(TAOS_STMT* stmt, const char* name, TAOS_BIND* tags);
-func TaosStmtSetTBNameTags(stmt unsafe.Pointer, name string, tags []interface{}) int {
+//typedef struct TAOS_MULTI_BIND {
+//int       buffer_type;
+//void     *buffer;
+//int32_t   buffer_length;
+//int32_t  *length;
+//char     *is_null;
+//int       num;
+//} TAOS_MULTI_BIND;
+
+// TaosStmtSetTags int        taos_stmt_set_tags(TAOS_STMT *stmt, TAOS_MULTI_BIND *tags);
+func TaosStmtSetTags(stmt unsafe.Pointer, tags []driver.Value) int {
+	if len(tags) == 0 {
+		return int(C.taos_stmt_set_tags(stmt, nil))
+	}
+	binds, needFreePointer, err := generateTaosBindList(tags)
+	defer func() {
+		for _, pointer := range needFreePointer {
+			C.free(pointer)
+		}
+	}()
+	if err != nil {
+		return -1
+	}
+	result := int(C.taos_stmt_set_tags(stmt, (*C.TAOS_MULTI_BIND)(&binds[0])))
+	return result
+}
+
+// TaosStmtSetTBNameTags int        taos_stmt_set_tbname_tags(TAOS_STMT* stmt, const char* name, TAOS_MULTI_BIND* tags);
+func TaosStmtSetTBNameTags(stmt unsafe.Pointer, name string, tags []driver.Value) int {
 	cStr := C.CString(name)
 	defer C.free(unsafe.Pointer(cStr))
 	if len(tags) == 0 {
@@ -43,7 +74,7 @@ func TaosStmtSetTBNameTags(stmt unsafe.Pointer, name string, tags []interface{})
 	if err != nil {
 		return -1
 	}
-	result := int(C.taos_stmt_set_tbname_tags(stmt, cStr, (*C.TAOS_BIND)(&binds[0])))
+	result := int(C.taos_stmt_set_tbname_tags(stmt, cStr, (*C.TAOS_MULTI_BIND)(&binds[0])))
 	return result
 }
 
@@ -72,8 +103,8 @@ func TaosStmtNumParams(stmt unsafe.Pointer) (count int, errorCode int) {
 	return int(*num), errorCode
 }
 
-// TaosStmtBindParam int        taos_stmt_bind_param(TAOS_STMT *stmt, TAOS_BIND *bind);
-func TaosStmtBindParam(stmt unsafe.Pointer, params []interface{}) int {
+// TaosStmtBindParam int        taos_stmt_bind_param(TAOS_STMT *stmt, TAOS_MULTI_BIND *bind);
+func TaosStmtBindParam(stmt unsafe.Pointer, params []driver.Value) int {
 	if len(params) == 0 {
 		return int(C.taos_stmt_bind_param(stmt, nil))
 	}
@@ -88,21 +119,22 @@ func TaosStmtBindParam(stmt unsafe.Pointer, params []interface{}) int {
 	if err != nil {
 		return -1
 	}
-	result := int(C.taos_stmt_bind_param(stmt, (*C.TAOS_BIND)(unsafe.Pointer(&binds[0]))))
+	result := int(C.taos_stmt_bind_param(stmt, (*C.TAOS_MULTI_BIND)(unsafe.Pointer(&binds[0]))))
 	return result
 }
 
-func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer, error) {
-	binds := make([]C.TAOS_BIND, len(params))
+func generateTaosBindList(params []driver.Value) ([]C.TAOS_MULTI_BIND, []unsafe.Pointer, error) {
+	binds := make([]C.TAOS_MULTI_BIND, len(params))
 	var needFreePointer []unsafe.Pointer
 	for i, param := range params {
-		bind := C.TAOS_BIND{}
+		bind := C.TAOS_MULTI_BIND{}
+		bind.num = C.int(1)
 		if param == nil {
-			bind.buffer_type = C.TSDB_DATA_TYPE_NULL
+			bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
 			p := C.malloc(1)
-			*(*C.int)(p) = C.int(1)
+			*(*C.char)(p) = C.char(1)
 			needFreePointer = append(needFreePointer, p)
-			bind.is_null = (*C.int)(p)
+			bind.is_null = (*C.char)(p)
 		} else {
 			switch param.(type) {
 			case taosTypes.TaosBool:
@@ -116,6 +148,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				}
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(1)
 			case taosTypes.TaosTinyint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_TINYINT
 				value := param.(taosTypes.TaosTinyint)
@@ -123,6 +156,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.int8_t)(p) = C.int8_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(1)
 			case taosTypes.TaosSmallint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_SMALLINT
 				value := param.(taosTypes.TaosSmallint)
@@ -130,6 +164,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.int16_t)(p) = C.int16_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(2)
 			case taosTypes.TaosInt:
 				value := param.(taosTypes.TaosInt)
 				bind.buffer_type = C.TSDB_DATA_TYPE_INT
@@ -137,6 +172,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.int32_t)(p) = C.int32_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(4)
 			case taosTypes.TaosBigint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
 				value := param.(taosTypes.TaosBigint)
@@ -144,6 +180,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.int64_t)(p) = C.int64_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(8)
 			case taosTypes.TaosUTinyint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
 				buf := param.(taosTypes.TaosUTinyint)
@@ -151,6 +188,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.uint8_t)(cbuf) = C.uint8_t(buf)
 				needFreePointer = append(needFreePointer, cbuf)
 				bind.buffer = cbuf
+				bind.buffer_length = C.uintptr_t(1)
 			case taosTypes.TaosUSmallint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
 				value := param.(taosTypes.TaosUSmallint)
@@ -158,6 +196,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.uint16_t)(p) = C.uint16_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(2)
 			case taosTypes.TaosUInt:
 				bind.buffer_type = C.TSDB_DATA_TYPE_UINT
 				value := param.(taosTypes.TaosUInt)
@@ -165,6 +204,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.uint32_t)(p) = C.uint32_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(4)
 			case taosTypes.TaosUBigint:
 				bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
 				value := param.(taosTypes.TaosUBigint)
@@ -172,6 +212,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.uint64_t)(p) = C.uint64_t(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(8)
 			case taosTypes.TaosFloat:
 				bind.buffer_type = C.TSDB_DATA_TYPE_FLOAT
 				value := param.(taosTypes.TaosFloat)
@@ -179,6 +220,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.float)(p) = C.float(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(4)
 			case taosTypes.TaosDouble:
 				bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
 				value := param.(taosTypes.TaosDouble)
@@ -186,6 +228,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				*(*C.double)(p) = C.double(value)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(8)
 			case taosTypes.TaosBinary:
 				bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
 				buf := param.(taosTypes.TaosBinary)
@@ -194,9 +237,10 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				bind.buffer = unsafe.Pointer(cbuf)
 				clen := int32(len(buf))
 				p := C.malloc(C.size_t(unsafe.Sizeof(clen)))
-				bind.length = (*C.uintptr_t)(p)
-				*(bind.length) = C.uintptr_t(clen)
+				bind.length = (*C.int32_t)(p)
+				*(bind.length) = C.int32_t(clen)
 				needFreePointer = append(needFreePointer, p)
+				bind.buffer_length = C.uintptr_t(clen)
 			case taosTypes.TaosNchar:
 				bind.buffer_type = C.TSDB_DATA_TYPE_NCHAR
 				value := param.(taosTypes.TaosNchar)
@@ -204,9 +248,10 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer = unsafe.Pointer(p)
 				clen := int32(len(value))
-				bind.length = (*C.uintptr_t)(C.malloc(C.size_t(unsafe.Sizeof(clen))))
-				*(bind.length) = C.uintptr_t(clen)
+				bind.length = (*C.int32_t)(C.malloc(C.size_t(unsafe.Sizeof(clen))))
+				*(bind.length) = C.int32_t(clen)
 				needFreePointer = append(needFreePointer, unsafe.Pointer(bind.length))
+				bind.buffer_length = C.uintptr_t(clen)
 			case taosTypes.TaosTimestamp:
 				bind.buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
 				v := param.(taosTypes.TaosTimestamp)
@@ -215,6 +260,7 @@ func generateTaosBindList(params []interface{}) ([]C.TAOS_BIND, []unsafe.Pointer
 				needFreePointer = append(needFreePointer, p)
 				*(*C.int64_t)(p) = C.int64_t(ts)
 				bind.buffer = p
+				bind.buffer_length = C.uintptr_t(8)
 			default:
 				return nil, nil, errors.New("unsupported type")
 			}
@@ -248,20 +294,11 @@ func TaosStmtClose(stmt unsafe.Pointer) int {
 func TaosStmtSetSubTBName(stmt unsafe.Pointer, name string) int {
 	cStr := C.CString(name)
 	defer C.free(unsafe.Pointer(cStr))
-	return int(C.taos_stmt_set_sub_tbname(stmt, cStr))
+	return int(C.taos_stmt_set_tbname(stmt, cStr))
 }
 
-//typedef struct TAOS_MULTI_BIND {
-//int            buffer_type;
-//void          *buffer;
-//uintptr_t      buffer_length;
-//int32_t       *length;
-//char          *is_null;
-//int            num;
-//} TAOS_MULTI_BIND;
-
 // TaosStmtBindParamBatch int        taos_stmt_bind_param_batch(TAOS_STMT* stmt, TAOS_MULTI_BIND* bind);
-func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bindType []*taosTypes.ColumnType) int {
+func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bindType []*taosTypes.ColumnType) int {
 	var binds = make([]C.TAOS_MULTI_BIND, len(multiBind))
 	var needFreePointer []unsafe.Pointer
 	defer func() {
@@ -522,4 +559,122 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]interface{}, bind
 		binds[columnIndex] = bind
 	}
 	return int(C.taos_stmt_bind_param_batch(stmt, (*C.TAOS_MULTI_BIND)(&binds[0])))
+}
+
+// TaosStmtErrStr char       *taos_stmt_errstr(TAOS_STMT *stmt);
+func TaosStmtErrStr(stmt unsafe.Pointer) string {
+	return C.GoString(C.taos_stmt_errstr(stmt))
+}
+
+// TaosStmtAffectedRows int         taos_stmt_affected_rows(TAOS_STMT *stmt);
+func TaosStmtAffectedRows(stmt unsafe.Pointer) int {
+	return int(C.taos_stmt_affected_rows(stmt))
+}
+
+// TaosStmtAffectedRowsOnce  int         taos_stmt_affected_rows_once(TAOS_STMT *stmt);
+func TaosStmtAffectedRowsOnce(stmt unsafe.Pointer) int {
+	return int(C.taos_stmt_affected_rows_once(stmt))
+}
+
+//typedef struct TAOS_FIELD_E {
+//char    name[65];
+//int8_t  type;
+//uint8_t precision;
+//uint8_t scale;
+//int32_t bytes;
+//} TAOS_FIELD_E;
+type StmtField struct {
+	Name      string
+	FieldType int8
+	Precision uint8
+	Scale     uint8
+	Bytes     int32
+}
+
+func (s *StmtField) GetType() (*taosTypes.ColumnType, error) {
+	switch s.FieldType {
+	case common.TSDB_DATA_TYPE_BOOL:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosBoolType}, nil
+	case common.TSDB_DATA_TYPE_TINYINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosTinyintType}, nil
+	case common.TSDB_DATA_TYPE_SMALLINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosSmallintType}, nil
+	case common.TSDB_DATA_TYPE_INT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosIntType}, nil
+	case common.TSDB_DATA_TYPE_BIGINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosBigintType}, nil
+	case common.TSDB_DATA_TYPE_UTINYINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUTinyintType}, nil
+	case common.TSDB_DATA_TYPE_USMALLINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUSmallintType}, nil
+	case common.TSDB_DATA_TYPE_UINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUIntType}, nil
+	case common.TSDB_DATA_TYPE_UBIGINT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosUBigintType}, nil
+	case common.TSDB_DATA_TYPE_FLOAT:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosFloatType}, nil
+	case common.TSDB_DATA_TYPE_DOUBLE:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosDoubleType}, nil
+	case common.TSDB_DATA_TYPE_BINARY:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosBinaryType}, nil
+	case common.TSDB_DATA_TYPE_NCHAR:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosNcharType}, nil
+	case common.TSDB_DATA_TYPE_TIMESTAMP:
+		return &taosTypes.ColumnType{Type: taosTypes.TaosTimestampType}, nil
+	}
+	return nil, fmt.Errorf("unsupported type: %d, name %s", s.FieldType, s.Name)
+}
+
+// TaosStmtGetTagFields DLL_EXPORT int        taos_stmt_get_tag_fields(TAOS_STMT *stmt, int* fieldNum, TAOS_FIELD_E** fields);
+func TaosStmtGetTagFields(stmt unsafe.Pointer) (code, num int, fields unsafe.Pointer) {
+	cNum := unsafe.Pointer(&num)
+	var cField *C.TAOS_FIELD_E
+	code = int(C.taos_stmt_get_tag_fields(stmt, (*C.int)(cNum), (**C.TAOS_FIELD_E)(unsafe.Pointer(&cField))))
+	if code != 0 {
+		return code, num, nil
+	}
+	if num == 0 {
+		return code, num, nil
+	}
+	return code, num, unsafe.Pointer(cField)
+}
+
+// TaosStmtGetColFields DLL_EXPORT int        taos_stmt_get_col_fields(TAOS_STMT *stmt, int* fieldNum, TAOS_FIELD_E** fields);
+func TaosStmtGetColFields(stmt unsafe.Pointer) (code, num int, fields unsafe.Pointer) {
+	cNum := unsafe.Pointer(&num)
+	var cField *C.TAOS_FIELD_E
+	code = int(C.taos_stmt_get_col_fields(stmt, (*C.int)(cNum), (**C.TAOS_FIELD_E)(unsafe.Pointer(&cField))))
+	if code != 0 {
+		return code, num, nil
+	}
+	if num == 0 {
+		return code, num, nil
+	}
+	return code, num, unsafe.Pointer(cField)
+}
+
+func StmtParseFields(num int, fields unsafe.Pointer) []*StmtField {
+	if num == 0 {
+		return nil
+	}
+	result := make([]*StmtField, num)
+	buf := bytes.NewBufferString("")
+	for i := 0; i < num; i++ {
+		r := &StmtField{}
+		field := *(*C.TAOS_FIELD_E)(unsafe.Pointer(uintptr(fields) + uintptr(C.sizeof_struct_TAOS_FIELD_E*C.int(i))))
+		for _, c := range field.name {
+			if c == 0 {
+				break
+			}
+			buf.WriteByte(byte(c))
+		}
+		r.Name = buf.String()
+		buf.Reset()
+		r.FieldType = int8(field._type)
+		r.Precision = uint8(field.precision)
+		r.Scale = uint8(field.scale)
+		r.Bytes = int32(field.bytes)
+		result[i] = r
+	}
+	return result
 }

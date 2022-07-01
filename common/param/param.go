@@ -1,20 +1,22 @@
 package param
 
 import (
-	taosTypes "github.com/taosdata/driver-go/v2/types"
+	"database/sql/driver"
 	"time"
+
+	taosTypes "github.com/taosdata/driver-go/v2/types"
 )
 
 type Param struct {
 	size   int
-	value  []interface{}
+	value  []driver.Value
 	column int
 }
 
 func NewParam(size int) *Param {
 	return &Param{
 		size:  size,
-		value: make([]interface{}, size),
+		value: make([]driver.Value, size),
 	}
 }
 
@@ -265,6 +267,6 @@ func (p *Param) AddTimestamp(value time.Time, precision int) *Param {
 	return p
 }
 
-func (p *Param) GetValues() []interface{} {
+func (p *Param) GetValues() []driver.Value {
 	return p.value
 }

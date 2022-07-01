@@ -3,7 +3,6 @@ package taosSql
 import (
 	"context"
 	"database/sql/driver"
-	"strings"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v2/common"
@@ -35,15 +34,35 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	if tc.taos == nil {
 		return nil, errors.ErrTscInvalidConnection
 	}
-
-	stmt := &taosSqlStmt{
-		tc:   tc,
-		pSql: query,
+	locker.Lock()
+	stmtP := wrapper.TaosStmtInit(tc.taos)
+	code := wrapper.TaosStmtPrepare(stmtP, query)
+	locker.Unlock()
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(stmtP)
+		err := errors.NewError(code, errStr)
+		locker.Lock()
+		wrapper.TaosStmtClose(stmtP)
+		locker.Unlock()
+		return nil, err
 	}
-
-	// find ? count and save  to stmt.paramCount
-	stmt.paramCount = strings.Count(query, "?")
-
+	locker.Lock()
+	isInsert, code := wrapper.TaosStmtIsInsert(stmtP)
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(stmtP)
+		err := errors.NewError(code, errStr)
+		locker.Lock()
+		wrapper.TaosStmtClose(stmtP)
+		locker.Unlock()
+		return nil, err
+	}
+	locker.Unlock()
+	stmt := &Stmt{
+		tc:       tc,
+		pSql:     query,
+		stmt:     stmtP,
+		isInsert: isInsert,
+	}
 	return stmt, nil
 }
 
@@ -133,11 +152,6 @@ func (tc *taosConn) Ping(ctx context.Context) (err error) {
 // BeginTx implements driver.ConnBeginTx interface
 func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
-}
-
-func (tc *taosConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
-	nv.Value, err = converter{}.ConvertValue(nv.Value)
-	return
 }
 
 func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler) *handler.AsyncResult {

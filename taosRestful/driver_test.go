@@ -40,12 +40,27 @@ func NewDBTest(t *testing.T) (dbt *DBTest) {
 }
 
 func (dbt *DBTest) CreateTables(numOfSubTab int) {
-	dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
-	dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
-	dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
-	dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, value BOOL) tags (degress int)", dbName))
+	_, err := dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
+	if err != nil {
+		dbt.Fatalf("create tables error %s", err)
+	}
+	_, err = dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
+	if err != nil {
+		dbt.Fatalf("create tables error %s", err)
+	}
+	_, err = dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
+	if err != nil {
+		dbt.Fatalf("create tables error %s", err)
+	}
+	_, err = dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, v BOOL) tags (degress int)", dbName))
+	if err != nil {
+		dbt.Fatalf("create tables error %s", err)
+	}
 	for i := 0; i < numOfSubTab; i++ {
-		dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
+		_, err := dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
+		if err != nil {
+			dbt.Fatalf("create tables error %s", err)
+		}
 	}
 }
 func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
@@ -75,6 +90,7 @@ func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 		dbt.Exec("DROP TABLE IF EXISTS test_taos_restful.test")
 	}
 }
+
 // func (dbt *DBTest) fail(method, query string, err error) {
 // 	if len(query) > 300 {
 // 		query = "[query too large to print]"
@@ -188,8 +204,9 @@ func TestAny(t *testing.T) {
 			&Obj{fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false), nil, true, fp, int64(1)})
-		tests = append(tests,
-			&Obj{fmt.Sprintf("select last_row(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
+		//todo
+		//tests = append(tests,
+		//	&Obj{fmt.Sprintf("select last_row(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
@@ -202,69 +219,6 @@ func TestAny(t *testing.T) {
 		for _, obj := range tests {
 			fp = obj.fp
 			fp(dbt, obj.query, obj.exec, obj.err, obj.expect)
-		}
-	})
-}
-
-// @author: xftan
-// @date: 2022/2/8 12:59
-// @description: test query and insert
-func TestCRUD(t *testing.T) {
-	runTests(t, func(dbt *DBTest) {
-		// Create Data
-		now := time.Now()
-		res, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false))
-		if err != nil {
-			dbt.Fatalf("insert failed %s", err.Error())
-		}
-		count, err := res.RowsAffected()
-		if err != nil {
-			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-		}
-		if count != 1 {
-			dbt.Fatalf("expected 1 affected row, got %d", count)
-		}
-
-		id, err := res.LastInsertId()
-		if err == nil {
-			dbt.Fatalf("res.LastInsertId() expect error")
-		}
-		if id != 0 {
-			dbt.Fatalf("expected InsertId 0, got %d", id)
-		}
-
-		// Read
-		rows, err := dbt.mustQuery(fmt.Sprintf("select * from %s.super", dbName))
-		if err != nil {
-			dbt.Fatalf("select failed")
-		}
-		for rows.Next() {
-			var row TestResult
-			err := rows.Scan(&(row.ts), &(row.value), &(row.degress))
-			if err != nil {
-				dbt.Error(err.Error())
-			}
-		}
-		rows.Close()
-
-		rows, err = dbt.mustQuery(fmt.Sprintf("select last_row(*) from %s.super", dbName))
-		if err != nil {
-			dbt.Fatalf("select last_row failed")
-		} else {
-			for rows.Next() {
-				var value TestResult
-				err := rows.Scan(&(value.ts), &(value.value))
-				if err != nil {
-					dbt.Error(err.Error())
-				}
-			}
-			rows.Close()
-		}
-
-		query2 := "drop table if exists super"
-		dbt.mustExec(query2)
-		if err != nil {
-			dbt.Fatalf(query2)
 		}
 	})
 }
@@ -289,12 +243,12 @@ func TestChinese(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,value nchar(32))")
+	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,v nchar(32))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, value) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
 	if err != nil {
 		t.Error(err)
 		return

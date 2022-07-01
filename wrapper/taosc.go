@@ -11,6 +11,7 @@ package wrapper
 #include <taos.h>
 extern void QueryCallback(void *param,TAOS_RES *,int code);
 extern void FetchRowsCallback(void *param,TAOS_RES *,int numOfRows);
+extern void FetchRawBlockCallback(void *param,TAOS_RES *,int numOfRows);
 int taos_options_wrapper(TSDB_OPTION option, char *arg) {
 	return taos_options(option,arg);
 };
@@ -19,6 +20,9 @@ void taos_fetch_rows_a_wrapper(TAOS_RES *res, void *param){
 };
 void taos_query_a_wrapper(TAOS *taos,const char *sql, void *param){
 	return taos_query_a(taos,sql,QueryCallback,param);
+};
+void taos_fetch_raw_block_a_wrapper(TAOS_RES *res, void *param){
+	return taos_fetch_raw_block_a(res,FetchRawBlockCallback,param);
 };
 */
 import "C"
@@ -41,8 +45,11 @@ func TaosConnect(host, user, pass, db string, port int) (taos unsafe.Pointer, er
 	defer C.free(unsafe.Pointer(cUser))
 	cPass := C.CString(pass)
 	defer C.free(unsafe.Pointer(cPass))
-	cdb := C.CString(db)
-	defer C.free(unsafe.Pointer(cdb))
+	cdb := (*C.char)(nil)
+	if len(db) > 0 {
+		cdb = C.CString(db)
+		defer C.free(unsafe.Pointer(cdb))
+	}
 	var taosObj unsafe.Pointer
 	if len(host) == 0 {
 		taosObj = C.taos_connect(nil, cUser, cPass, cdb, (C.ushort)(0))
@@ -54,14 +61,7 @@ func TaosConnect(host, user, pass, db string, port int) (taos unsafe.Pointer, er
 
 	if taosObj == nil {
 		errCode := TaosError(nil)
-		if int32(errCode)&0xffff == errors.REF_NOT_EXIST {
-			return nil, &errors.TaosError{
-				Code:   errors.TSC_INVALID_CONNECTION,
-				ErrStr: "invalid connection",
-			}
-		} else {
-			return nil, errors.NewError(errCode, TaosErrorStr(nil))
-		}
+		return nil, errors.NewError(errCode, TaosErrorStr(nil))
 	}
 	return taosObj, nil
 }
@@ -185,4 +185,39 @@ func TaosFetchLengths(res unsafe.Pointer) unsafe.Pointer {
 // TaosResultBlock TAOS_ROW *taos_result_block(TAOS_RES *res);
 func TaosResultBlock(result unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_result_block(result))
+}
+
+// TaosFetchBlockS int taos_fetch_block_s(TAOS_RES *res, int* numOfRows, TAOS_ROW *rows)
+func TaosFetchBlockS(result unsafe.Pointer) (unsafe.Pointer, int, int) {
+	var block C.TAOS_ROW
+	b := unsafe.Pointer(&block)
+	var size int
+	cSize := unsafe.Pointer(&size)
+	errCode := int(C.taos_fetch_block_s(result, (*C.int)(cSize), (*C.TAOS_ROW)(b)))
+	return b, size, errCode
+}
+
+// TaosIsNull bool        taos_is_null(TAOS_RES *res, int32_t row, int32_t col);
+func TaosIsNull(result unsafe.Pointer, row int, col int) bool {
+	return bool(C.taos_is_null(result, (C.int32_t)(row), (C.int32_t)(col)))
+}
+
+// TaosGetColumnDataOffset int        *taos_get_column_data_offset(TAOS_RES *res, int columnIndex);
+func TaosGetColumnDataOffset(result unsafe.Pointer, columnIndex int) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_get_column_data_offset(result, (C.int)(columnIndex)))
+}
+
+// TaosFetchRawBlockA void        taos_fetch_raw_block_a(TAOS_RES* res, __taos_async_fn_t fp, void* param);
+func TaosFetchRawBlockA(res unsafe.Pointer, caller cgo.Handle) {
+	C.taos_fetch_raw_block_a_wrapper(res, unsafe.Pointer(caller))
+}
+
+// TaosGetRawBlock const void *taos_get_raw_block(TAOS_RES* res);
+func TaosGetRawBlock(result unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_get_raw_block(result))
+}
+
+// TaosGetClientInfo const char *taos_get_client_info();
+func TaosGetClientInfo() string {
+	return C.GoString(C.taos_get_client_info())
 }

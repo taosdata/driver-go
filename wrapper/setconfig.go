@@ -8,7 +8,6 @@ package wrapper
 */
 import "C"
 import (
-	"encoding/json"
 	"strings"
 	"unsafe"
 
@@ -17,18 +16,22 @@ import (
 
 // TaosSetConfig int   taos_set_config(const char *config);
 func TaosSetConfig(params map[string]string) error {
-	// danger!! taos_set_config must set params. if set nil or empty map will get error
 	if len(params) == 0 {
 		return nil
 	}
-	config, _ := json.Marshal(params)
-	cConfig := C.CString(string(config))
+	buf := &strings.Builder{}
+	for k, v := range params {
+		buf.WriteString(k)
+		buf.WriteString(" ")
+		buf.WriteString(v)
+	}
+	cConfig := C.CString(buf.String())
 	defer C.free(unsafe.Pointer(cConfig))
 	result := (C.struct_setConfRet)(C.taos_set_config(cConfig))
 	if int(result.retCode) == -5 || int(result.retCode) == 0 {
 		return nil
 	}
-	buf := &strings.Builder{}
+	buf.Reset()
 	for _, c := range result.retMsg {
 		if c == 0 {
 			break

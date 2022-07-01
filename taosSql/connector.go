@@ -28,7 +28,9 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 			locker.Lock()
 			code := wrapper.TaosOptions(common.TSDB_OPTION_CONFIGDIR, c.cfg.configPath)
 			locker.Unlock()
-			err = errors.GetError(code)
+			if code != 0 {
+				err = errors.NewError(code, wrapper.TaosErrorStr(nil))
+			}
 		})
 	}
 	if err != nil {

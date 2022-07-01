@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v2/common"
-	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
@@ -150,108 +149,110 @@ func TestTaosQueryA(t *testing.T) {
 	}
 }
 
+// todo
 // @author: xftan
 // @date: 2022/1/27 17:29
 // @description: test taos_reset_current_db
-func TestTaosResetCurrentDB(t *testing.T) {
-	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer TaosClose(conn)
-	type args struct {
-		taosConnect unsafe.Pointer
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{
-			name: "test",
-			args: args{
-				taosConnect: conn,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			TaosSelectDB(tt.args.taosConnect, "log")
-			result := TaosQuery(tt.args.taosConnect, "select database()")
-			code := TaosError(result)
-			if code != 0 {
-				errStr := TaosErrorStr(result)
-				TaosFreeResult(result)
-				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-				return
-			}
-			row := TaosFetchRow(result)
-			lengths := FetchLengths(result, 1)
-			currentDB := FetchRow(row, 0, 10, lengths[0])
-			assert.Equal(t, "log", currentDB)
-			TaosFreeResult(result)
-			TaosResetCurrentDB(tt.args.taosConnect)
-			result = TaosQuery(tt.args.taosConnect, "select database()")
-			code = TaosError(result)
-			if code != 0 {
-				errStr := TaosErrorStr(result)
-				TaosFreeResult(result)
-				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-				return
-			}
-			row = TaosFetchRow(result)
-			lengths = FetchLengths(result, 1)
-			currentDB = FetchRow(row, 0, 10, lengths[0])
-			assert.Nil(t, currentDB)
-			TaosFreeResult(result)
-		})
-	}
-}
+//func TestTaosResetCurrentDB(t *testing.T) {
+//	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+//	if err != nil {
+//		t.Error(err)
+//		return
+//	}
+//	defer TaosClose(conn)
+//	type args struct {
+//		taosConnect unsafe.Pointer
+//	}
+//	tests := []struct {
+//		name string
+//		args args
+//	}{
+//		{
+//			name: "test",
+//			args: args{
+//				taosConnect: conn,
+//			},
+//		},
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			TaosSelectDB(tt.args.taosConnect, "log")
+//			result := TaosQuery(tt.args.taosConnect, "select database()")
+//			code := TaosError(result)
+//			if code != 0 {
+//				errStr := TaosErrorStr(result)
+//				TaosFreeResult(result)
+//				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+//				return
+//			}
+//			row := TaosFetchRow(result)
+//			lengths := FetchLengths(result, 1)
+//			currentDB := FetchRow(row, 0, 10, lengths[0])
+//			assert.Equal(t, "log", currentDB)
+//			TaosFreeResult(result)
+//			TaosResetCurrentDB(tt.args.taosConnect)
+//			result = TaosQuery(tt.args.taosConnect, "select database()")
+//			code = TaosError(result)
+//			if code != 0 {
+//				errStr := TaosErrorStr(result)
+//				TaosFreeResult(result)
+//				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+//				return
+//			}
+//			row = TaosFetchRow(result)
+//			lengths = FetchLengths(result, 1)
+//			currentDB = FetchRow(row, 0, 10, lengths[0])
+//			assert.Nil(t, currentDB)
+//			TaosFreeResult(result)
+//		})
+//	}
+//}
 
+// todo
 // @author: xftan
 // @date: 2022/1/27 17:30
 // @description: test taos_validate_sql
-func TestTaosValidateSql(t *testing.T) {
-	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer TaosClose(conn)
-	type args struct {
-		taosConnect unsafe.Pointer
-		sql         string
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "valid",
-			args: args{
-				taosConnect: conn,
-				sql:         "show log.stables",
-			},
-			want: 0,
-		},
-		{
-			name: "TSC_SQL_SYNTAX_ERROR",
-			args: args{
-				taosConnect: conn,
-				sql:         "slect 1",
-			},
-			want: int(errors.TSC_SQL_SYNTAX_ERROR),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := TaosValidateSql(tt.args.taosConnect, tt.args.sql); got&0xffff != tt.want {
-				t.Errorf("TaosValidateSql() = %v, want %v", got&0xffff, tt.want)
-			}
-		})
-	}
-}
+//func TestTaosValidateSql(t *testing.T) {
+//	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+//	if err != nil {
+//		t.Error(err)
+//		return
+//	}
+//	defer TaosClose(conn)
+//	type args struct {
+//		taosConnect unsafe.Pointer
+//		sql         string
+//	}
+//	tests := []struct {
+//		name string
+//		args args
+//		want int
+//	}{
+//		{
+//			name: "valid",
+//			args: args{
+//				taosConnect: conn,
+//				sql:         "show grants",
+//			},
+//			want: 0,
+//		},
+//		{
+//			name: "TSC_SQL_SYNTAX_ERROR",
+//			args: args{
+//				taosConnect: conn,
+//				sql:         "slect 1",
+//			},
+//			want: int(errors.TSC_SQL_SYNTAX_ERROR),
+//		},
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			if got := TaosValidateSql(tt.args.taosConnect, tt.args.sql); got&0xffff != tt.want {
+//				t.Errorf("TaosValidateSql() = %v, want %v", got&0xffff, tt.want)
+//			}
+//		})
+//	}
+//}
 
 // @author: xftan
 // @date: 2022/1/27 17:30
@@ -289,7 +290,7 @@ func TestTaosIsUpdateQuery(t *testing.T) {
 
 // @author: xftan
 // @date: 2022/1/27 17:30
-// @description: taos_result_block
+// @description: taos async raw block
 func TestTaosResultBlock(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -334,8 +335,9 @@ func TestTaosResultBlock(t *testing.T) {
 				return
 			}
 			res := r.res
+			precision := TaosResultPrecision(res)
 			for {
-				go TaosFetchRowsA(res, p)
+				go TaosFetchRawBlockA(res, p)
 				r = <-tt.args.caller.FetchResult
 				if r.n == 0 {
 					t.Log("success")
@@ -343,50 +345,18 @@ func TestTaosResultBlock(t *testing.T) {
 					break
 				} else {
 					res = r.res
-					block := TaosResultBlock(res)
+					block := TaosGetRawBlock(res)
 					assert.NotNil(t, block)
-					lengths := FetchLengths(res, count)
-					values := ReadBlock(res, block, r.n, lengths, rowsHeader.ColTypes)
+					values := ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
 					_ = values
+					t.Log(values)
 				}
 			}
 		})
 	}
 }
 
-// @author: xftan
-// @date: 2022/1/27 17:31
-// @description: test taos_load_table_info
-func TestTaosLoadTableInfo(t *testing.T) {
-	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer TaosClose(conn)
-	type args struct {
-		taosConnect   unsafe.Pointer
-		tableNameList []string
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "log",
-			args: args{
-				taosConnect:   conn,
-				tableNameList: []string{"log"},
-			},
-			want: 0,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := TaosLoadTableInfo(tt.args.taosConnect, tt.args.tableNameList); got != tt.want {
-				t.Errorf("TaosLoadTableInfo() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func TestTaosGetClientInfo(t *testing.T) {
+	s := TaosGetClientInfo()
+	assert.NotEmpty(t, s)
 }

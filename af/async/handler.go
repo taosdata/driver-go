@@ -18,9 +18,9 @@ func SetHandlerSize(size int) {
 }
 
 func GetHandler() *handler.Handler {
-	if HandlerPool == nil {
-		SetHandlerSize(defaultPoolSize)
-	}
+	//if HandlerPool == nil {
+	//	SetHandlerSize(defaultPoolSize)
+	//}
 	return HandlerPool.Get()
 }
 
@@ -29,4 +29,8 @@ func PutHandler(h *handler.Handler) {
 		return
 	}
 	HandlerPool.Put(h)
+}
+
+func init() {
+	HandlerPool = handler.NewHandlerPool(defaultPoolSize)
 }

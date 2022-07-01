@@ -3,14 +3,13 @@ package af
 import "C"
 import (
 	"database/sql/driver"
-	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v2/af/async"
 	"github.com/taosdata/driver-go/v2/af/insertstmt"
 	"github.com/taosdata/driver-go/v2/af/locker"
-	"github.com/taosdata/driver-go/v2/af/param"
 	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/common/param"
 	"github.com/taosdata/driver-go/v2/errors"
 	taosError "github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
@@ -87,7 +86,7 @@ func (conn *Connector) StmtQuery(sql string, params *param.Param) (rows driver.R
 		return
 	}
 
-	defer stmt.Close()
+	//defer stmt.Close()
 	err = stmt.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -171,11 +170,6 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 
 }
 
-func (conn *Connector) Subscribe(restart bool, topic string, sql string, interval time.Duration) (Subscriber, error) {
-	sub := wrapper.TaosSubscribe(conn.taos, topic, sql, restart, interval)
-	return &taosSubscriber{sub: sub}, nil
-}
-
 func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler) *handler.AsyncResult {
 	locker.Lock()
 	wrapper.TaosQueryA(conn.taos, sqlStr, handler.Handler)
@@ -188,23 +182,12 @@ func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmt(conn.taos)
 }
 
-func (conn *Connector) LoadTableInfo(tableNameList []string) error {
-	locker.Lock()
-	code := wrapper.TaosLoadTableInfo(conn.taos, tableNameList)
-	locker.Unlock()
-	err := taosError.GetError(code)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (conn *Connector) SelectDB(db string) error {
 	locker.Lock()
 	code := wrapper.TaosSelectDB(conn.taos, db)
 	locker.Unlock()
-	err := taosError.GetError(code)
-	if err != nil {
+	if code != 0 {
+		err := taosError.NewError(code, wrapper.TaosErrorStr(nil))
 		return err
 	}
 	return nil

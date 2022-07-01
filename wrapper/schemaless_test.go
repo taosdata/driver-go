@@ -9,14 +9,11 @@ import (
 	"github.com/taosdata/driver-go/v2/wrapper"
 )
 
-var conn unsafe.Pointer
-
-func TestMain(m *testing.M) {
-	var err error
-	conn, err = wrapper.TaosConnect("", "root", "taosdata", "", 0)
+func prepareEnv() unsafe.Pointer {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		panic(err)
-		return
+		return nil
 	}
 	res := wrapper.TaosQuery(conn, "create database if not exists test_schemaless_common")
 	if wrapper.TaosError(res) != 0 {
@@ -29,11 +26,12 @@ func TestMain(m *testing.M) {
 	if code != 0 {
 		panic("use db test_schemaless_common fail")
 	}
-	m.Run()
-	wrapper.TaosClose(conn)
+	return conn
 }
 
 func BenchmarkTelnetSchemaless(b *testing.B) {
+	conn := prepareEnv()
+	defer wrapper.TaosClose(conn)
 	for i := 0; i < b.N; i++ {
 		result := wrapper.TaosSchemalessInsert(conn, []string{
 			"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
@@ -53,6 +51,8 @@ func BenchmarkTelnetSchemaless(b *testing.B) {
 // @date: 2022/1/27 17:26
 // @description: test schemaless opentsdb telnet
 func TestSchemalessTelnet(t *testing.T) {
+	conn := prepareEnv()
+	defer wrapper.TaosClose(conn)
 	result := wrapper.TaosSchemalessInsert(conn, []string{
 		"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
 	}, wrapper.OpenTSDBTelnetLineProtocol, "")
@@ -83,6 +83,8 @@ func TestSchemalessTelnet(t *testing.T) {
 // @date: 2022/1/27 17:26
 // @description: test schemaless influxDB
 func TestSchemalessInfluxDB(t *testing.T) {
+	conn := prepareEnv()
+	defer wrapper.TaosClose(conn)
 	{
 		result := wrapper.TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",

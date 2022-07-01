@@ -5,6 +5,10 @@ on: [ push ]
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.14', '1.17' ]
+    name: Go ${{ matrix.go }}
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -15,17 +19,23 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: '3.0'
           submodules: 'recursive'
 
       - name: install TDengine
         run: cd TDengine && git submodule update --init --recursive && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false && make && sudo make install
 
-      - name: start taosd
-        run: nohup sudo taosd &
+      - name: shell
+        run: |
+          cat >start.sh<<EOF 
+          ulimit -n 65535 && taosd 
+          EOF
+
+      - name: taosd
+        run: nohup sudo sh ./start.sh &
 
       - name: start taosadapter
-        run: nohup sudo taosadapter &
+        run: sudo taosadapter &
 
       - name: Set up Go
         uses: actions/setup-go@v2
