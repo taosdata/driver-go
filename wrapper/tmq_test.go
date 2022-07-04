@@ -363,7 +363,6 @@ func TestTMQDB(t *testing.T) {
 			topic := TMQGetTopicName(message)
 			assert.Equal(t, "test_tmq_db_topic", topic)
 			for {
-
 				blockSize, errCode, block := TaosFetchRawBlock(message)
 				if errCode != int(errors.SUCCESS) {
 					errStr := TaosErrorStr(message)
@@ -394,6 +393,7 @@ func TestTMQDB(t *testing.T) {
 			timer := time.NewTimer(time.Minute)
 			select {
 			case d := <-c2:
+				assert.Nil(t, d.GetError())
 				assert.Equal(t, int32(0), d.ErrCode)
 				PutTMQCommitCallbackResult(d)
 				timer.Stop()
@@ -614,7 +614,12 @@ func TestTMQDBMultiTable(t *testing.T) {
 			}
 		}
 	}
-
+	errCode = TMQUnsubscribe(tmq)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Error(errors.NewError(int(errCode), errStr))
+		return
+	}
 	errCode = TMQConsumerClose(tmq)
 	if errCode != 0 {
 		errStr := TMQErr2Str(errCode)

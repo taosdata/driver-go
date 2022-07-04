@@ -27,7 +27,6 @@ void taos_fetch_raw_block_a_wrapper(TAOS_RES *res, void *param){
 */
 import "C"
 import (
-	"strings"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v2/errors"
@@ -126,14 +125,6 @@ func TaosFetchRow(result unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_fetch_row(result))
 }
 
-// TaosLoadTableInfo taos_load_table_info(TAOS *taos, const char* tableNameList);
-func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
-	s := strings.Join(tableNameList, ",")
-	buf := C.CString(s)
-	defer C.free(unsafe.Pointer(buf))
-	return int(C.taos_load_table_info(taosConnect, buf))
-}
-
 // TaosSelectDB int taos_select_db(TAOS *taos, const char *db);
 func TaosSelectDB(taosConnect unsafe.Pointer, db string) int {
 	cDB := C.CString(db)
@@ -180,31 +171,6 @@ func TaosIsUpdateQuery(res unsafe.Pointer) bool {
 // TaosFetchLengths int* taos_fetch_lengths(TAOS_RES *res);
 func TaosFetchLengths(res unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_fetch_lengths(res))
-}
-
-// TaosResultBlock TAOS_ROW *taos_result_block(TAOS_RES *res);
-func TaosResultBlock(result unsafe.Pointer) unsafe.Pointer {
-	return unsafe.Pointer(C.taos_result_block(result))
-}
-
-// TaosFetchBlockS int taos_fetch_block_s(TAOS_RES *res, int* numOfRows, TAOS_ROW *rows)
-func TaosFetchBlockS(result unsafe.Pointer) (unsafe.Pointer, int, int) {
-	var block C.TAOS_ROW
-	b := unsafe.Pointer(&block)
-	var size int
-	cSize := unsafe.Pointer(&size)
-	errCode := int(C.taos_fetch_block_s(result, (*C.int)(cSize), (*C.TAOS_ROW)(b)))
-	return b, size, errCode
-}
-
-// TaosIsNull bool        taos_is_null(TAOS_RES *res, int32_t row, int32_t col);
-func TaosIsNull(result unsafe.Pointer, row int, col int) bool {
-	return bool(C.taos_is_null(result, (C.int32_t)(row), (C.int32_t)(col)))
-}
-
-// TaosGetColumnDataOffset int        *taos_get_column_data_offset(TAOS_RES *res, int columnIndex);
-func TaosGetColumnDataOffset(result unsafe.Pointer, columnIndex int) unsafe.Pointer {
-	return unsafe.Pointer(C.taos_get_column_data_offset(result, (C.int)(columnIndex)))
 }
 
 // TaosFetchRawBlockA void        taos_fetch_raw_block_a(TAOS_RES* res, __taos_async_fn_t fp, void* param);

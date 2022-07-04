@@ -113,9 +113,11 @@ func (s *Stmt) GetResultRows() (driver.Rows, error) {
 	}
 	result := wrapper.TaosStmtUseResult(s.stmt)
 	numFields := wrapper.TaosFieldCount(result)
+	precision := wrapper.TaosResultPrecision(result)
 	rs := &rows{
-		handler: async.GetHandler(),
-		result:  result,
+		handler:   async.GetHandler(),
+		result:    result,
+		precision: precision,
 	}
 	var err error
 	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)

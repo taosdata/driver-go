@@ -161,10 +161,12 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 	if err != nil {
 		return nil, err
 	}
+	precision := wrapper.TaosResultPrecision(res)
 	rs := &rows{
 		handler:    handler,
 		rowsHeader: rowsHeader,
 		result:     res,
+		precision:  precision,
 	}
 	return rs, nil
 
