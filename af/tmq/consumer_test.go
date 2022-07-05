@@ -114,8 +114,21 @@ func TestTmq(t *testing.T) {
 
 	config := NewConfig()
 	defer config.Destroy()
-	config.SetGroupID("test")
-	config.EnableAutoCommit(func(result *wrapper.TMQCommitCallbackResult) {
+	err = config.SetGroupID("test")
+	assert.NoError(t, err)
+	err = config.SetAutoOffsetReset("earliest")
+	assert.NoError(t, err)
+	err = config.SetConnectIP("127.0.0.1")
+	assert.NoError(t, err)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetConnectPort("6030")
+	assert.NoError(t, err)
+	err = config.SetMsgWithTableName(true)
+	assert.NoError(t, err)
+	err = config.EnableAutoCommit(func(result *wrapper.TMQCommitCallbackResult) {
 		if result.ErrCode != 0 {
 			errStr := wrapper.TMQErr2Str(result.ErrCode)
 			err := errors.NewError(int(result.ErrCode), errStr)
@@ -123,6 +136,7 @@ func TestTmq(t *testing.T) {
 			return
 		}
 	})
+	assert.NoError(t, err)
 	consumer, err := NewConsumer(config)
 	if err != nil {
 		t.Error(err)
@@ -133,7 +147,7 @@ func TestTmq(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	message, err := consumer.Poll(50 * time.Millisecond)
+	message, err := consumer.Poll(500 * time.Millisecond)
 	if err != nil {
 		t.Error(err)
 		return
@@ -156,6 +170,8 @@ func TestTmq(t *testing.T) {
 	assert.Equal(t, "1", row1[12].(string))
 	assert.Equal(t, "2", row1[13].(string))
 	err = consumer.Commit(context.Background(), nil)
+	assert.NoError(t, err)
+	err = consumer.Unsubscribe()
 	assert.NoError(t, err)
 	err = consumer.Close()
 	assert.NoError(t, err)

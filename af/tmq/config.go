@@ -25,8 +25,8 @@ func (c *Config) SetGroupID(groupID string) error {
 	return c.SetConfig("group.id", groupID)
 }
 
-func (c *Config) SetAutoOffsetReset(auto bool) error {
-	return c.SetConfig("auto.offset.reset", strconv.FormatBool(auto))
+func (c *Config) SetAutoOffsetReset(auto string) error {
+	return c.SetConfig("auto.offset.reset", auto)
 }
 
 func (c *Config) SetConnectIP(ip string) error {

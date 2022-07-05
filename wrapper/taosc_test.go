@@ -193,7 +193,6 @@ func TestAffectedRows(t *testing.T) {
 	assert.Equal(t, 1, affected)
 }
 
-// todo
 // @author: xftan
 // @date: 2022/1/27 17:29
 // @description: test taos_reset_current_db
@@ -402,4 +401,19 @@ func TestTaosResultBlock(t *testing.T) {
 func TestTaosGetClientInfo(t *testing.T) {
 	s := TaosGetClientInfo()
 	assert.NotEmpty(t, s)
+}
+
+func TestConnectWithDB(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "test_read_block_tf", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	data, err := query(conn, "show tables")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(data)
+	TaosClose(conn)
 }
