@@ -91,7 +91,7 @@ func TestFetchRowJSON(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, `insert into test_json.tjr_2 using test_json.tjsonr tags('{"a":1,"c":"c"}')values (now,1)`)
+	res = TaosQuery(conn, `insert into test_json.tjr_2 using test_json.tjsonr tags('{"a":1,"c":"c"}')values (now+1s,1)`)
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -103,7 +103,7 @@ func TestFetchRowJSON(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	res = TaosQuery(conn, `insert into test_json.tjr_3 using test_json.tjsonr tags('null')values (now,1)`)
+	res = TaosQuery(conn, `insert into test_json.tjr_3 using test_json.tjsonr tags('null')values (now+2s,1)`)
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
