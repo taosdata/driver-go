@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper/cgo"
 )
 
@@ -149,7 +150,59 @@ func TestTaosQueryA(t *testing.T) {
 	}
 }
 
-// todo
+func TestError(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	res := TaosQuery(conn, "asd")
+	code := TaosError(res)
+	assert.NotEqual(t, code, 0)
+	errStr := TaosErrorStr(res)
+	assert.NotEmpty(t, errStr)
+}
+
+func TestAffectedRows(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists affected_rows_test")
+		code := TaosError(res)
+		if code != 0 {
+			t.Error(errors.NewError(code, TaosErrorStr(res)))
+			return
+		}
+		TaosFreeResult(res)
+	}()
+	res := TaosQuery(conn, "create database if not exists affected_rows_test")
+	code := TaosError(res)
+	if code != 0 {
+		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, "create table if not exists affected_rows_test.t0(ts timestamp,v int)")
+	code = TaosError(res)
+	if code != 0 {
+		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		return
+	}
+	TaosFreeResult(res)
+	res = TaosQuery(conn, "insert into affected_rows_test.t0 values(now,1)")
+	code = TaosError(res)
+	if code != 0 {
+		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		return
+	}
+	affected := TaosAffectedRows(res)
+	assert.Equal(t, 1, affected)
+}
+
 // @author: xftan
 // @date: 2022/1/27 17:29
 // @description: test taos_reset_current_db
@@ -208,51 +261,50 @@ func TestTaosQueryA(t *testing.T) {
 //	}
 //}
 
-// todo
 // @author: xftan
 // @date: 2022/1/27 17:30
 // @description: test taos_validate_sql
-//func TestTaosValidateSql(t *testing.T) {
-//	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-//	if err != nil {
-//		t.Error(err)
-//		return
-//	}
-//	defer TaosClose(conn)
-//	type args struct {
-//		taosConnect unsafe.Pointer
-//		sql         string
-//	}
-//	tests := []struct {
-//		name string
-//		args args
-//		want int
-//	}{
-//		{
-//			name: "valid",
-//			args: args{
-//				taosConnect: conn,
-//				sql:         "show grants",
-//			},
-//			want: 0,
-//		},
-//		{
-//			name: "TSC_SQL_SYNTAX_ERROR",
-//			args: args{
-//				taosConnect: conn,
-//				sql:         "slect 1",
-//			},
-//			want: int(errors.TSC_SQL_SYNTAX_ERROR),
-//		},
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			if got := TaosValidateSql(tt.args.taosConnect, tt.args.sql); got&0xffff != tt.want {
-//				t.Errorf("TaosValidateSql() = %v, want %v", got&0xffff, tt.want)
-//			}
-//		})
-//	}
-//}
+func TestTaosValidateSql(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	type args struct {
+		taosConnect unsafe.Pointer
+		sql         string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "valid",
+			args: args{
+				taosConnect: conn,
+				sql:         "show grants",
+			},
+			want: 0,
+		},
+		{
+			name: "TSC_SQL_SYNTAX_ERROR",
+			args: args{
+				taosConnect: conn,
+				sql:         "slect 1",
+			},
+			want: 9728,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TaosValidateSql(tt.args.taosConnect, tt.args.sql); got&0xffff != tt.want {
+				t.Errorf("TaosValidateSql() = %v, want %v", got&0xffff, tt.want)
+			}
+		})
+	}
+}
 
 // @author: xftan
 // @date: 2022/1/27 17:30
@@ -270,6 +322,10 @@ func TestTaosIsUpdateQuery(t *testing.T) {
 	}{
 		{
 			name: "create database if not exists is_update",
+			want: true,
+		},
+		{
+			name: "drop database if exists is_update",
 			want: true,
 		},
 		{

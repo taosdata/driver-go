@@ -19,7 +19,17 @@ func TestFetchLengths(t *testing.T) {
 		return
 	}
 	defer TaosClose(conn)
-
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists test_fetch_lengths")
+		code := TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists test_fetch_lengths")
 	code := TaosError(res)
 	if code != 0 {
@@ -29,7 +39,17 @@ func TestFetchLengths(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists test_fetch_lengths")
+		code := TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "drop table if exists test_fetch_lengths.test")
 	code = TaosError(res)
 	if code != 0 {

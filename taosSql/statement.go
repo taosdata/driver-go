@@ -99,10 +99,12 @@ func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	if err != nil {
 		return nil, err
 	}
+	precision := wrapper.TaosResultPrecision(res)
 	rs := &rows{
 		handler:    handler,
 		rowsHeader: rowsHeader,
 		result:     res,
+		precision:  precision,
 	}
 	return rs, nil
 }
@@ -144,7 +146,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 				if err != nil {
 					return err
 				}
-				v.Value = vv
+				v.Value = types.TaosBool(vv)
 			default:
 				return fmt.Errorf("CheckNamedValue:%v can not convert to bool", v)
 			}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -13,6 +14,17 @@ import (
 )
 
 // Ensure that all the driver interfaces are implemented
+func TestMain(m *testing.M) {
+	m.Run()
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		log.Fatalf("error on:  sql.open %s", err.Error())
+	}
+	defer db.Close()
+	defer func() {
+		db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+	}()
+}
 
 var (
 	driverName     = "taosSql"
@@ -297,6 +309,13 @@ func TestJson(t *testing.T) {
 		return
 	}
 	defer db.Close()
+	defer func() {
+		_, err = db.Exec("drop database if exists test_json")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database if not exists test_json")
 	if err != nil {
 		t.Error(err)
@@ -366,6 +385,13 @@ func TestJsonSearch(t *testing.T) {
 		return
 	}
 	defer db.Close()
+	defer func() {
+		_, err = db.Exec("drop database if exists test_json")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database if not exists test_json")
 	if err != nil {
 		t.Error(err)
@@ -425,6 +451,13 @@ func TestJsonMatch(t *testing.T) {
 		return
 	}
 	defer db.Close()
+	defer func() {
+		_, err = db.Exec("drop database if exists test_json")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database if not exists test_json")
 	if err != nil {
 		t.Error(err)
@@ -483,6 +516,13 @@ func TestChinese(t *testing.T) {
 		return
 	}
 	defer db.Close()
+	defer func() {
+		_, err = db.Exec("drop database if exists test_chinese")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database if not exists test_chinese")
 	if err != nil {
 		t.Error(err)

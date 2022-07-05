@@ -15,7 +15,18 @@ func TestTMQ(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	defer TaosClose(conn)
+	defer func() {
+		result := TaosQuery(conn, "drop database if exists abc1")
+		code := TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	result := TaosQuery(conn, "create database if not exists abc1 vgroups 2")
 	code := TaosError(result)
 	if code != 0 {
@@ -77,6 +88,17 @@ func TestTMQ(t *testing.T) {
 	TaosFreeResult(result)
 
 	//create topic
+	defer func() {
+		result = TaosQuery(conn, "drop topic if exists topic_ctb_column")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	result = TaosQuery(conn, "create topic if not exists topic_ctb_column as select ts, c1 from ct1")
 	code = TaosError(result)
 	if code != 0 {
@@ -86,6 +108,17 @@ func TestTMQ(t *testing.T) {
 		return
 	}
 	TaosFreeResult(result)
+	defer func() {
+		result = TaosQuery(conn, "drop topic if exists topic_ctb_column")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	go func() {
 		for i := 0; i < 5; i++ {
 			result = TaosQuery(conn, "insert into ct1 values(now,1,2,'1')")
@@ -225,7 +258,18 @@ func TestTMQDB(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	defer TaosClose(conn)
+	defer func() {
+		result := TaosQuery(conn, "drop database if exists tmq_test_db")
+		code := TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	result := TaosQuery(conn, "create database if not exists tmq_test_db vgroups 2")
 	code := TaosError(result)
 	if code != 0 {
@@ -296,6 +340,17 @@ func TestTMQDB(t *testing.T) {
 		return
 	}
 	TaosFreeResult(result)
+	defer func() {
+		result = TaosQuery(conn, "drop topic if exists test_tmq_db_topic")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	go func() {
 		for i := 0; i < 5; i++ {
 			result = TaosQuery(conn, "insert into ct1 values(now,1,2,'1')")
@@ -363,7 +418,6 @@ func TestTMQDB(t *testing.T) {
 			topic := TMQGetTopicName(message)
 			assert.Equal(t, "test_tmq_db_topic", topic)
 			for {
-
 				blockSize, errCode, block := TaosFetchRawBlock(message)
 				if errCode != int(errors.SUCCESS) {
 					errStr := TaosErrorStr(message)
@@ -394,6 +448,7 @@ func TestTMQDB(t *testing.T) {
 			timer := time.NewTimer(time.Minute)
 			select {
 			case d := <-c2:
+				assert.Nil(t, d.GetError())
 				assert.Equal(t, int32(0), d.ErrCode)
 				PutTMQCommitCallbackResult(d)
 				timer.Stop()
@@ -421,7 +476,18 @@ func TestTMQDBMultiTable(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	defer TaosClose(conn)
+	defer func() {
+		result := TaosQuery(conn, "drop database if exists tmq_test_db_multi")
+		code := TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi vgroups 2")
 	code := TaosError(result)
 	if code != 0 {
@@ -482,6 +548,17 @@ func TestTMQDBMultiTable(t *testing.T) {
 		return
 	}
 	TaosFreeResult(result)
+	defer func() {
+		result = TaosQuery(conn, "drop topic if exists test_tmq_db_multi_topic")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	{
 		result = TaosQuery(conn, "insert into ct0 values(now,1)")
 		code = TaosError(result)
@@ -614,7 +691,12 @@ func TestTMQDBMultiTable(t *testing.T) {
 			}
 		}
 	}
-
+	errCode = TMQUnsubscribe(tmq)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Error(errors.NewError(int(errCode), errStr))
+		return
+	}
 	errCode = TMQConsumerClose(tmq)
 	if errCode != 0 {
 		errStr := TMQErr2Str(errCode)
@@ -631,7 +713,18 @@ func TestTMQDBMultiInsert(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	defer TaosClose(conn)
+	defer func() {
+		result := TaosQuery(conn, "drop database if exists tmq_test_db_multi_insert")
+		code := TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2")
 	code := TaosError(result)
 	if code != 0 {
@@ -692,6 +785,17 @@ func TestTMQDBMultiInsert(t *testing.T) {
 		return
 	}
 	TaosFreeResult(result)
+	defer func() {
+		result = TaosQuery(conn, "drop topic if exists tmq_test_db_multi_insert_topic")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
 	{
 		result = TaosQuery(conn, "insert into ct0 values(now,1) ct1 values(now,1,2) ct2 values(now,1,2,'3')")
 		code = TaosError(result)

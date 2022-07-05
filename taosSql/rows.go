@@ -20,6 +20,7 @@ type rows struct {
 	blockSize   int
 	lengthList  []int
 	result      unsafe.Pointer
+	precision   int
 }
 
 func (rs *rows) Columns() []string {
@@ -74,7 +75,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.block = nil
 		return io.EOF
 	}
-	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes)
+	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision)
 	rs.blockOffset++
 	return nil
 }

@@ -46,6 +46,7 @@ func NewConsumer(conf *Config) (*Consumer, error) {
 		wrapper.TMQConfSetAutoCommitCB(conf.cConfig, autoHandle)
 		consumer.autoCommitChan = autoChan
 		consumer.autoCommitHandle = autoHandle
+		consumer.handlerCommitCallback()
 	}
 	return consumer, nil
 }
@@ -106,7 +107,7 @@ type Data struct {
 func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	message := wrapper.TMQConsumerPoll(c.cConsumer, timeout.Milliseconds())
 	if message == nil {
-		return nil, &errors.TaosError{Code: 0xffff, ErrStr: "invalid result"}
+		return nil, nil
 	}
 	defer wrapper.TaosFreeResult(message)
 	topic := wrapper.TMQGetTopicName(message)

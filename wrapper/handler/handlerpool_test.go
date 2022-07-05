@@ -58,3 +58,13 @@ func TestHandlerPool_Get(t *testing.T) {
 	h2 := pool.Get()
 	pool.Put(h2)
 }
+
+func TestCaller_QueryCall(t *testing.T) {
+	caller := NewCaller()
+	caller.QueryCall(nil, 0)
+}
+
+func TestCaller_FetchCall(t *testing.T) {
+	caller := NewCaller()
+	caller.FetchCall(nil, 0)
+}

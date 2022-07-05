@@ -225,8 +225,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 	return r
 }
 
-func ReadRow(dest []driver.Value, result, block unsafe.Pointer, blockSize int, row int, colTypes []uint8) {
-	precision := TaosResultPrecision(result)
+func ReadRow(dest []driver.Value, result, block unsafe.Pointer, blockSize int, row int, colTypes []uint8, precision int) {
 	colCount := len(colTypes)
 	payloadOffset := uintptr(4 * colCount)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))

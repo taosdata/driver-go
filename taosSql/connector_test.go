@@ -20,6 +20,9 @@ func TestSetConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists test_set_config")
+	}()
 	_, err = db.Exec("create database if not exists test_set_config")
 	assert.NoError(t, err)
 }
