@@ -206,60 +206,65 @@ func TestAffectedRows(t *testing.T) {
 // @author: xftan
 // @date: 2022/1/27 17:29
 // @description: test taos_reset_current_db
-//func TestTaosResetCurrentDB(t *testing.T) {
-//	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-//	if err != nil {
-//		t.Error(err)
-//		return
-//	}
-//	defer TaosClose(conn)
-//	type args struct {
-//		taosConnect unsafe.Pointer
-//	}
-//	tests := []struct {
-//		name string
-//		args args
-//	}{
-//		{
-//			name: "test",
-//			args: args{
-//				taosConnect: conn,
-//			},
-//		},
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			TaosSelectDB(tt.args.taosConnect, "log")
-//			result := TaosQuery(tt.args.taosConnect, "select database()")
-//			code := TaosError(result)
-//			if code != 0 {
-//				errStr := TaosErrorStr(result)
-//				TaosFreeResult(result)
-//				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-//				return
-//			}
-//			row := TaosFetchRow(result)
-//			lengths := FetchLengths(result, 1)
-//			currentDB := FetchRow(row, 0, 10, lengths[0])
-//			assert.Equal(t, "log", currentDB)
-//			TaosFreeResult(result)
-//			TaosResetCurrentDB(tt.args.taosConnect)
-//			result = TaosQuery(tt.args.taosConnect, "select database()")
-//			code = TaosError(result)
-//			if code != 0 {
-//				errStr := TaosErrorStr(result)
-//				TaosFreeResult(result)
-//				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-//				return
-//			}
-//			row = TaosFetchRow(result)
-//			lengths = FetchLengths(result, 1)
-//			currentDB = FetchRow(row, 0, 10, lengths[0])
-//			assert.Nil(t, currentDB)
-//			TaosFreeResult(result)
-//		})
-//	}
-//}
+func TestTaosResetCurrentDB(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	type args struct {
+		taosConnect unsafe.Pointer
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test",
+			args: args{
+				taosConnect: conn,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err = exec(tt.args.taosConnect, "create database if not exists log")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			TaosSelectDB(tt.args.taosConnect, "log")
+			result := TaosQuery(tt.args.taosConnect, "select database()")
+			code := TaosError(result)
+			if code != 0 {
+				errStr := TaosErrorStr(result)
+				TaosFreeResult(result)
+				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+				return
+			}
+			row := TaosFetchRow(result)
+			lengths := FetchLengths(result, 1)
+			currentDB := FetchRow(row, 0, 10, lengths[0])
+			assert.Equal(t, "log", currentDB)
+			TaosFreeResult(result)
+			TaosResetCurrentDB(tt.args.taosConnect)
+			result = TaosQuery(tt.args.taosConnect, "select database()")
+			code = TaosError(result)
+			if code != 0 {
+				errStr := TaosErrorStr(result)
+				TaosFreeResult(result)
+				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+				return
+			}
+			row = TaosFetchRow(result)
+			lengths = FetchLengths(result, 1)
+			currentDB = FetchRow(row, 0, 10, lengths[0])
+			assert.Nil(t, currentDB)
+			TaosFreeResult(result)
+		})
+	}
+}
 
 // @author: xftan
 // @date: 2022/1/27 17:30
