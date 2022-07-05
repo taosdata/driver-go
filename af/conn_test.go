@@ -11,6 +11,14 @@ import (
 	param2 "github.com/taosdata/driver-go/v2/common/param"
 )
 
+func TestMain(m *testing.M) {
+	db, err := Open("", "", "", "", 0)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	db.Exec("drop database if exists test_af")
+}
 func testDatabase(t *testing.T) *Connector {
 	db, err := Open("", "", "", "", 0)
 	if err != nil {
@@ -37,7 +45,7 @@ func TestOpen(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
 	// select database
-	_, err := db.Exec("create database if not exists test_open")
+	_, err := db.Exec("create database if not exists test_af")
 	if err != nil {
 		t.Error(err)
 		return

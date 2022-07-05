@@ -25,6 +25,12 @@ func TestAllTypeQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists restful_test")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	_, err = db.Exec("create database if not exists restful_test")
 	if err != nil {
 		t.Fatal(err)
@@ -152,6 +158,12 @@ func TestAllTypeQueryNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists restful_test_null")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	_, err = db.Exec("create database if not exists restful_test_null")
 	if err != nil {
 		t.Fatal(err)
@@ -265,6 +277,12 @@ func TestAllTypeQueryCompression(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists restful_test")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	_, err = db.Exec("create database if not exists restful_test")
 	if err != nil {
 		t.Fatal(err)
@@ -391,6 +409,12 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists restful_test_without_json")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	_, err = db.Exec("create database if not exists restful_test_without_json")
 	if err != nil {
 		t.Fatal(err)
@@ -514,6 +538,12 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists restful_test_without_json_null")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	_, err = db.Exec("create database if not exists restful_test_without_json_null")
 	if err != nil {
 		t.Fatal(err)

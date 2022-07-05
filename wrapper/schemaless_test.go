@@ -29,9 +29,20 @@ func prepareEnv() unsafe.Pointer {
 	return conn
 }
 
+func cleanEnv(conn unsafe.Pointer) {
+	res := wrapper.TaosQuery(conn, "drop database if exists test_schemaless_common")
+	if wrapper.TaosError(res) != 0 {
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		panic(errStr)
+	}
+	wrapper.TaosFreeResult(res)
+}
+
 func BenchmarkTelnetSchemaless(b *testing.B) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
+	defer cleanEnv(conn)
 	for i := 0; i < b.N; i++ {
 		result := wrapper.TaosSchemalessInsert(conn, []string{
 			"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
@@ -53,6 +64,7 @@ func BenchmarkTelnetSchemaless(b *testing.B) {
 func TestSchemalessTelnet(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
+	defer cleanEnv(conn)
 	result := wrapper.TaosSchemalessInsert(conn, []string{
 		"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
 	}, wrapper.OpenTSDBTelnetLineProtocol, "")
@@ -85,6 +97,7 @@ func TestSchemalessTelnet(t *testing.T) {
 func TestSchemalessInfluxDB(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
+	defer cleanEnv(conn)
 	{
 		result := wrapper.TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",

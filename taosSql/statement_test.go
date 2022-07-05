@@ -18,6 +18,13 @@ func TestStmtExec(t *testing.T) {
 		return
 	}
 	defer db.Close()
+	defer func() {
+		_, err = db.Exec("drop database if exists test_stmt_driver")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database if not exists test_stmt_driver")
 	if err != nil {
 		t.Error(err)
@@ -65,6 +72,9 @@ func TestStmtQuery(t *testing.T) {
 		return
 	}
 	defer db.Close()
+	defer func() {
+		db.Exec("drop database if exists test_stmt_driver")
+	}()
 	_, err = db.Exec("create database if not exists test_stmt_driver")
 	if err != nil {
 		t.Error(err)
@@ -187,6 +197,13 @@ func TestStmtConvertExec(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists test_stmt_driver_convert")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database test_stmt_driver_convert")
 	if err != nil {
 		t.Error(err)
@@ -1079,6 +1096,13 @@ func TestStmtConvertQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer func() {
+		_, err = db.Exec("drop database if exists test_stmt_driver_convert_q")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	_, err = db.Exec("create database test_stmt_driver_convert_q")
 	if err != nil {
 		t.Error(err)

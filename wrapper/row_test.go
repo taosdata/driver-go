@@ -21,18 +21,40 @@ func TestFetchRowJSON(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists test_json")
+		code := TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists test_json")
 	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
+		t.Error(errors.NewError(code, errStr))
 		return
 	}
 	TaosFreeResult(res)
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists test_json")
+		code := TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(&errors.TaosError{
+				Code:   int32(code) & 0xffff,
+				ErrStr: errStr,
+			})
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "drop table if exists test_json.tjsonr")
 	code = TaosError(res)
 	if code != 0 {
@@ -136,12 +158,25 @@ func TestFetchRow(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
 	db := "test_ts_781"
 	//create stable stb1 (ts timestamp, name binary(10)) tags(n int);
 	//insert into tb1 using stb1 tags(1) values(now, 'log');
 	//insert into tb2 using stb1 tags(2) values(now, 'test');
 	//insert into tb3 using stb1 tags(3) values(now, 'db02');
 	//insert into tb4 using stb1 tags(4) values(now, 'db3');
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists "+db)
+		code := TaosError(res)
+		if code != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(code, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists "+db)
 	code := TaosError(res)
 	if code != int(errors.SUCCESS) {
@@ -275,7 +310,7 @@ func TestFetchRow(t *testing.T) {
 		delete(names, d.(string))
 	}
 	TaosFreeResult(res)
-	TaosClose(conn)
+
 	assert.Empty(t, names)
 }
 
@@ -288,12 +323,25 @@ func TestFetchRowNchar(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
 	db := "test_ts_781_nchar"
 	//create stable stb1 (ts timestamp, name nchar(10)) tags(n int);
 	//insert into tb1 using stb1 tags(1) values(now, 'log');
 	//insert into tb2 using stb1 tags(2) values(now, 'test');
 	//insert into tb3 using stb1 tags(3) values(now, 'db02');
 	//insert into tb4 using stb1 tags(4) values(now, 'db3');
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists "+db)
+		code := TaosError(res)
+		if code != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(code, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists "+db)
 	code := TaosError(res)
 	if code != int(errors.SUCCESS) {
@@ -431,7 +479,6 @@ func TestFetchRowNchar(t *testing.T) {
 		delete(names, d.(string))
 	}
 	TaosFreeResult(res)
-	TaosClose(conn)
 	assert.Empty(t, names)
 }
 
@@ -453,6 +500,18 @@ func TestFetchRowAllType(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists "+db)
+		code := TaosError(res)
+		if code != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(code, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "create database if not exists "+db)
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {

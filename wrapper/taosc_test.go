@@ -169,6 +169,16 @@ func TestAffectedRows(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists affected_rows_test")
+		code := TaosError(res)
+		if code != 0 {
+			t.Error(errors.NewError(code, TaosErrorStr(res)))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists affected_rows_test")
 	code := TaosError(res)
 	if code != 0 {
@@ -315,6 +325,10 @@ func TestTaosIsUpdateQuery(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "drop database if exists is_update",
+			want: true,
+		},
+		{
 			name: "show log.stables",
 			want: false,
 		},
@@ -401,19 +415,4 @@ func TestTaosResultBlock(t *testing.T) {
 func TestTaosGetClientInfo(t *testing.T) {
 	s := TaosGetClientInfo()
 	assert.NotEmpty(t, s)
-}
-
-func TestConnectWithDB(t *testing.T) {
-	conn, err := TaosConnect("", "root", "taosdata", "test_read_block_tf", 0)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	data, err := query(conn, "show tables")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	t.Log(data)
-	TaosClose(conn)
 }

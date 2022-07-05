@@ -18,6 +18,18 @@ func TestTmq(t *testing.T) {
 		return
 	}
 
+	defer func() {
+		result := wrapper.TaosQuery(conn, "drop database if exists af_test_tmq")
+		code := wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}()
+
 	result := wrapper.TaosQuery(conn, "create database if not exists af_test_tmq vgroups 2")
 	code := wrapper.TaosError(result)
 	if code != 0 {
@@ -101,6 +113,17 @@ func TestTmq(t *testing.T) {
 		return
 	}
 	wrapper.TaosFreeResult(result)
+	defer func() {
+		result = wrapper.TaosQuery(conn, "drop topic if exists test_tmq_common")
+		code = wrapper.TaosError(result)
+		if code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}()
 	now := time.Now()
 	result = wrapper.TaosQuery(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2')", now.Format(time.RFC3339Nano)))
 	code = wrapper.TaosError(result)

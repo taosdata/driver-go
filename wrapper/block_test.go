@@ -32,7 +32,17 @@ func TestReadBlock(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	defer func() {
+		res = TaosQuery(conn, "drop database if exists test_block_raw")
+		code = TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "create database test_block_raw")
 	code = TaosError(res)
 	if code != 0 {
@@ -145,7 +155,17 @@ func TestReadBlock2(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists test_block_raw")
+		code := TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists test_block_raw")
 	code := TaosError(res)
 	if code != 0 {
@@ -155,7 +175,6 @@ func TestReadBlock2(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	time.Sleep(time.Second)
 	res = TaosQuery(conn, "drop table if exists test_block_raw.all_type2")
 	code = TaosError(res)
 	if code != 0 {
@@ -292,7 +311,17 @@ func TestBlockTag(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-
+	defer func() {
+		res := TaosQuery(conn, "drop database if exists test_block_abc1")
+		code := TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res := TaosQuery(conn, "create database if not exists test_block_abc1")
 	code := TaosError(res)
 	if code != 0 {
@@ -414,7 +443,17 @@ func TestReadRow(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	defer func() {
+		res = TaosQuery(conn, "drop database if exists test_read_row")
+		code = TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "create database test_read_row")
 	code = TaosError(res)
 	if code != 0 {
@@ -539,7 +578,17 @@ func TestReadBlockWithTimeFormat(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	defer func() {
+		res = TaosQuery(conn, "drop database if exists test_read_block_tf")
+		code = TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "create database test_read_block_tf")
 	code = TaosError(res)
 	if code != 0 {

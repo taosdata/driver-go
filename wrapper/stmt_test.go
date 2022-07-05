@@ -24,6 +24,13 @@ func TestStmt(t *testing.T) {
 		return
 	}
 	defer TaosClose(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_wrapper")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	err = exec(conn, "create database if not exists test_wrapper precision 'us' keep 36500")
 	if err != nil {
 		t.Error(err)
@@ -231,6 +238,13 @@ func TestStmtExec(t *testing.T) {
 		return
 	}
 	defer TaosClose(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_wrapper")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	err = exec(conn, "create database if not exists test_wrapper precision 'us' keep 36500")
 	if err != nil {
 		t.Error(err)
@@ -679,6 +693,13 @@ func TestGetFields(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	stmt := TaosStmtInit(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt_field")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	err = exec(conn, "create database if not exists test_stmt_field")
 	if err != nil {
 		t.Error(err)
@@ -790,6 +811,13 @@ func TestGetFieldsCommonTable(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	stmt := TaosStmtInit(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt_field")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	err = exec(conn, "create database if not exists test_stmt_field")
 	if err != nil {
 		t.Error(err)
