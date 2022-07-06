@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/taosdata/driver-go/v2/wrapper/thread"
+	"github.com/taosdata/driver-go/v3/wrapper/thread"
 )
 
 var locker *thread.Locker

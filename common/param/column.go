@@ -3,7 +3,7 @@ package param
 import (
 	"fmt"
 
-	"github.com/taosdata/driver-go/v2/types"
+	"github.com/taosdata/driver-go/v3/types"
 )
 
 type ColumnType struct {

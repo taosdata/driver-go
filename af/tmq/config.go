@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 type Config struct {

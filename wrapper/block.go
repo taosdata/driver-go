@@ -11,7 +11,7 @@ import (
 	"database/sql/driver"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v2/common"
+	"github.com/taosdata/driver-go/v3/common"
 )
 
 // TaosFetchRawBlock  int         taos_fetch_raw_block(TAOS_RES *res, int* numOfRows, void** pData);

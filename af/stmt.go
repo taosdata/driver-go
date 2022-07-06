@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v2/af/async"
-	"github.com/taosdata/driver-go/v2/af/locker"
-	"github.com/taosdata/driver-go/v2/common/param"
-	taosError "github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/af/async"
+	"github.com/taosdata/driver-go/v3/af/locker"
+	"github.com/taosdata/driver-go/v3/common/param"
+	taosError "github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 type Stmt struct {

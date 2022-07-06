@@ -23,7 +23,7 @@ go mod init taos-demo
 ```go
 import (
     "database/sql"
-    _ "github.com/taosdata/driver-go/v2/taosSql"
+    _ "github.com/taosdata/driver-go/v3/taosSql"
 )
 ```
 
@@ -36,7 +36,7 @@ go mod tidy
 或通过`go get`直接下载安装：
 
 ```sh
-go get github.com/taosdata/driver-go/v2/taosSql
+go get github.com/taosdata/driver-go/v3/taosSql
 ```
 
 ## 用法
@@ -53,7 +53,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v2/taosSql"
+    _ "github.com/taosdata/driver-go/v3/taosSql"
 )
 
 func main() {
@@ -154,7 +154,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v2/taosRestful"
+    _ "github.com/taosdata/driver-go/v3/taosRestful"
 )
 
 func main() {
@@ -201,7 +201,7 @@ func main() {
 ```go
 import (
     "database/sql"
-    _ "github.com/taosdata/driver-go/v2/taosRestful"
+    _ "github.com/taosdata/driver-go/v3/taosRestful"
 )
 ```
 
@@ -234,7 +234,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v2/taosRestful"
+    _ "github.com/taosdata/driver-go/v3/taosRestful"
 )
 
 func main() {

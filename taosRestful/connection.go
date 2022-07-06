@@ -16,8 +16,8 @@ import (
 	"time"
 
 	jsonitor "github.com/json-iterator/go"
-	"github.com/taosdata/driver-go/v2/common"
-	taosErrors "github.com/taosdata/driver-go/v2/errors"
+	"github.com/taosdata/driver-go/v3/common"
+	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
 var jsonI = jsonitor.ConfigCompatibleWithStandardLibrary

@@ -8,10 +8,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v2/common"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/types"
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/types"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 //Client can't get stmt structure even by reflection.

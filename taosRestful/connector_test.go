@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v2/types"
+	"github.com/taosdata/driver-go/v3/types"
 )
 
 // @author: xftan

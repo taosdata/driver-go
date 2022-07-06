@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v2/af/async"
-	"github.com/taosdata/driver-go/v2/af/locker"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
-	"github.com/taosdata/driver-go/v2/wrapper/handler"
+	"github.com/taosdata/driver-go/v3/af/async"
+	"github.com/taosdata/driver-go/v3/af/locker"
+	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper/handler"
 )
 
 type rows struct {
