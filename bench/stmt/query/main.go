@@ -8,9 +8,9 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/taosdata/driver-go/v2/common/param"
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/common/param"
+	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 func main() {

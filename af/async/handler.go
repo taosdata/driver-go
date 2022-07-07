@@ -3,7 +3,7 @@ package async
 import (
 	"sync"
 
-	"github.com/taosdata/driver-go/v2/wrapper/handler"
+	"github.com/taosdata/driver-go/v3/wrapper/handler"
 )
 
 const defaultPoolSize = 10000

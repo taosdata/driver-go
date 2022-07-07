@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/taosdata/driver-go/v2/errors"
-	"github.com/taosdata/driver-go/v2/wrapper"
-	"github.com/taosdata/driver-go/v2/wrapper/cgo"
+	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/taosdata/driver-go/v3/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
 
 func main() {

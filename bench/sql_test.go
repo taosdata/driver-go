@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/taosdata/driver-go/v2/taosSql"
+	_ "github.com/taosdata/driver-go/v3/taosSql"
 )
 
 var (

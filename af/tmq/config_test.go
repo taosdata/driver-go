@@ -3,7 +3,7 @@ package tmq
 import (
 	"testing"
 
-	"github.com/taosdata/driver-go/v2/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 func TestConfig(t *testing.T) {

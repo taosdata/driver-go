@@ -10,9 +10,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/taosdata/driver-go/v2/types"
 	"os"
 	"time"
+
+	"github.com/taosdata/driver-go/v3/types"
 )
 
 const (

@@ -8,10 +8,10 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v2/common"
-	"github.com/taosdata/driver-go/v2/common/param"
-	taosError "github.com/taosdata/driver-go/v2/errors"
-	taosTypes "github.com/taosdata/driver-go/v2/types"
+	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/param"
+	taosError "github.com/taosdata/driver-go/v3/errors"
+	taosTypes "github.com/taosdata/driver-go/v3/types"
 )
 
 // @author: xftan
