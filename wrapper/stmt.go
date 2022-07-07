@@ -261,6 +261,18 @@ func generateTaosBindList(params []driver.Value) ([]C.TAOS_MULTI_BIND, []unsafe.
 				*(*C.int64_t)(p) = C.int64_t(ts)
 				bind.buffer = p
 				bind.buffer_length = C.uintptr_t(8)
+			case taosTypes.TaosJson:
+				bind.buffer_type = C.TSDB_DATA_TYPE_JSON
+				buf := param.(taosTypes.TaosJson)
+				cbuf := C.CString(string(buf))
+				needFreePointer = append(needFreePointer, unsafe.Pointer(cbuf))
+				bind.buffer = unsafe.Pointer(cbuf)
+				clen := int32(len(buf))
+				p := C.malloc(C.size_t(unsafe.Sizeof(clen)))
+				bind.length = (*C.int32_t)(p)
+				*(bind.length) = C.int32_t(clen)
+				needFreePointer = append(needFreePointer, p)
+				bind.buffer_length = C.uintptr_t(clen)
 			default:
 				return nil, nil, errors.New("unsupported type")
 			}

@@ -129,6 +129,13 @@ func (p *Param) SetTimestamp(column int, value time.Time, precision int) {
 	}
 }
 
+func (p *Param) SetJson(column int, value []byte) {
+	if column >= p.size {
+		return
+	}
+	p.value[column] = taosTypes.TaosJson(value)
+}
+
 func (p *Param) AddBool(value bool) *Param {
 	if p.column >= p.size {
 		return p
@@ -263,6 +270,15 @@ func (p *Param) AddTimestamp(value time.Time, precision int) *Param {
 		T:         value,
 		Precision: precision,
 	}
+	p.column += 1
+	return p
+}
+
+func (p *Param) AddJson(value []byte) *Param {
+	if p.column >= p.size {
+		return p
+	}
+	p.value[p.column] = taosTypes.TaosJson(value)
 	p.column += 1
 	return p
 }
