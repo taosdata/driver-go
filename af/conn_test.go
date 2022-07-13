@@ -796,25 +796,3 @@ func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 		return
 	}
 }
-
-func TestInfluxDBInsertLines2(t *testing.T) {
-	db := testDatabase(t)
-	daa := `st123456,t1=3i64,t2=4f64,t3="t3" c1=3i64,c3=L"passit",c2=false,c4=4f64 1626006833639000000
-st123456,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin",c2=true,c4=5f64,c5=5f64 1626006833640000000
-test_stb,t2=5f64,t3=L"ste" c1=true,c2=4i64,c3="iam" 1626056811823316532
-stf567890,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin",c2=true,c4=5f64,c5=5f64,c6=7u64 1626006933640000000
-st123456,t1=4i64,t2=5f64,t3="t4" c1=3i64,c3=L"passitagain",c2=true,c4=5f64 1626006833642000000
-test_stb,t2=5f64,t3=L"ste2" c3="iamszhou",c4=false 1626056811843316532
-test_stb,t2=5f64,t3=L"ste2" c3="iamszhou",c4=false,c5=32i8,c6=64i16,c7=32i32,c8=88.88f32 1626056812843316532
-st123456,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin",c2=true,c4=5f64,c5=5f64,c6=7u64 1626006933640000000
-st123456,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin_stf",c2=false,c5=5f64,c6=7u64 1626006933641000000`
-	defer db.Close()
-	db.Exec("create stable if not exists test_stb(ts timestamp, f int) tags(t1 bigint)")
-	data := strings.Split(daa, "\n")
-
-	err := db.InfluxDBInsertLines(data, "ns")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-}
