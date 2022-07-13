@@ -103,6 +103,7 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	res := result.Res
 	code := wrapper.TaosError(res)
 	if code != int(errors.SUCCESS) {
+		asyncHandlerPool.Put(handler)
 		errStr := wrapper.TaosErrorStr(res)
 		locker.Lock()
 		wrapper.TaosFreeResult(result.Res)

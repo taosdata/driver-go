@@ -151,6 +151,7 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 	res := result.Res
 	code := wrapper.TaosError(res)
 	if code != int(errors.SUCCESS) {
+		async.PutHandler(handler)
 		errStr := wrapper.TaosErrorStr(res)
 		locker.Lock()
 		wrapper.TaosFreeResult(result.Res)
