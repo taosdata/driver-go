@@ -12,12 +12,16 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	m.Run()
 	db, err := Open("", "", "", "", 0)
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
-	db.Exec("drop database if exists test_af")
+	_, err = db.Exec("drop database if exists test_af")
+	if err != nil {
+		panic(err)
+	}
 }
 func testDatabase(t *testing.T) *Connector {
 	db, err := Open("", "", "", "", 0)
@@ -728,10 +732,9 @@ jvm_gc_pause_seconds_max,action=end\ of\ minor\ GC,cause=Allocation\ Failure,hos
 // @date: 2022/1/27 16:08
 // @description: test influxDB insert with line protocol
 func TestInfluxDBInsertLines(t *testing.T) {
-	a := `measurement,host=host1 field1=252112078i,field2=2.0,fieldKey="Launch 🚀" 1655195094707974091`
 	db := testDatabase(t)
 	defer db.Close()
-	data := strings.Split(a, "\n")
+	data := strings.Split(raw, "\n")
 	err := db.InfluxDBInsertLines(data, "ns")
 	if err != nil {
 		t.Error(err)
@@ -790,6 +793,28 @@ func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 }`)
 	if err == nil {
 		t.Error("expect error")
+		return
+	}
+}
+
+func TestInfluxDBInsertLines2(t *testing.T) {
+	db := testDatabase(t)
+	daa := `st123456,t1=3i64,t2=4f64,t3="t3" c1=3i64,c3=L"passit",c2=false,c4=4f64 1626006833639000000
+st123456,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin",c2=true,c4=5f64,c5=5f64 1626006833640000000
+test_stb,t2=5f64,t3=L"ste" c1=true,c2=4i64,c3="iam" 1626056811823316532
+stf567890,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin",c2=true,c4=5f64,c5=5f64,c6=7u64 1626006933640000000
+st123456,t1=4i64,t2=5f64,t3="t4" c1=3i64,c3=L"passitagain",c2=true,c4=5f64 1626006833642000000
+test_stb,t2=5f64,t3=L"ste2" c3="iamszhou",c4=false 1626056811843316532
+test_stb,t2=5f64,t3=L"ste2" c3="iamszhou",c4=false,c5=32i8,c6=64i16,c7=32i32,c8=88.88f32 1626056812843316532
+st123456,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin",c2=true,c4=5f64,c5=5f64,c6=7u64 1626006933640000000
+st123456,t1=4i64,t3="t4",t2=5f64,t4=5f64 c1=3i64,c3=L"passitagin_stf",c2=false,c5=5f64,c6=7u64 1626006933641000000`
+	defer db.Close()
+	db.Exec("create stable if not exists test_stb(ts timestamp, f int) tags(t1 bigint)")
+	data := strings.Split(daa, "\n")
+
+	err := db.InfluxDBInsertLines(data, "ns")
+	if err != nil {
+		t.Error(err)
 		return
 	}
 }
