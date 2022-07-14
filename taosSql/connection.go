@@ -13,8 +13,9 @@ import (
 )
 
 type taosConn struct {
-	taos unsafe.Pointer
-	cfg  *config
+	taos    unsafe.Pointer
+	cfg     *config
+	invaild bool
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {
@@ -48,6 +49,22 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	return tc.execContext(context.Background(), query, args)
+}
+
+func (tc *taosConn) ExecContext(ctx context.Context, query string, nvargs []driver.NamedValue) (driver.Result, error) {
+	var args []driver.Value
+	var err error
+	if len(nvargs) != 0 {
+		args, err = namedValueToValue(nvargs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tc.execContext(ctx, query, args)
+}
+
+func (tc *taosConn) execContext(ctx context.Context, query string, args []driver.Value) (driver.Result, error) {
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -62,9 +79,19 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	handler := asyncHandlerPool.Get()
-	defer asyncHandlerPool.Put(handler)
-	result := tc.taosQuery(query, handler)
+
+	h, err := asyncHandlerPool.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := tc.taosQueryContext(ctx, query, h)
+	if err != nil {
+		handlerRecycle.Put(h)
+		return nil, err
+	}
+	defer asyncHandlerPool.Put(h)
+
 	defer func() {
 		if result != nil && result.Res != nil {
 			locker.Lock()
@@ -84,6 +111,23 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 }
 
 func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	return tc.queryContext(context.Background(), query, args)
+}
+
+func (tc *taosConn) QueryContext(ctx context.Context, query string, nvargs []driver.NamedValue) (driver.Rows, error) {
+	var args []driver.Value
+	var err error
+	if len(nvargs) != 0 {
+		args, err = namedValueToValue(nvargs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tc.queryContext(ctx, query, args)
+}
+
+func (tc *taosConn) queryContext(ctx context.Context, query string, args []driver.Value) (driver.Rows, error) {
+
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -98,12 +142,21 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		}
 		query = prepared
 	}
-	handler := asyncHandlerPool.Get()
-	result := tc.taosQuery(query, handler)
+
+	h, err := asyncHandlerPool.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tc.taosQueryContext(ctx, query, h)
+	if err != nil {
+		handlerRecycle.Put(h)
+		return nil, err
+	}
+
 	res := result.Res
 	code := wrapper.TaosError(res)
 	if code != int(errors.SUCCESS) {
-		asyncHandlerPool.Put(handler)
+		asyncHandlerPool.Put(h)
 		errStr := wrapper.TaosErrorStr(res)
 		locker.Lock()
 		wrapper.TaosFreeResult(result.Res)
@@ -113,14 +166,10 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
+		asyncHandlerPool.Put(h)
 		return nil, err
 	}
-	rs := &rows{
-		handler:    handler,
-		rowsHeader: rowsHeader,
-		result:     res,
-	}
-	return rs, nil
+	return newRowsWithContext(ctx, h, rowsHeader, res), nil
 }
 
 // Ping implements driver.Pinger interface
@@ -147,4 +196,21 @@ func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler) *handler.
 	locker.Unlock()
 	r := <-handler.Caller.QueryResult
 	return r
+}
+
+func (tc *taosConn) taosQueryContext(ctx context.Context, sqlStr string, handler *handler.Handler) (*handler.AsyncResult, error) {
+	locker.Lock()
+	wrapper.TaosQueryA(tc.taos, sqlStr, handler.Handler)
+	locker.Unlock()
+	select {
+	case <-ctx.Done():
+		tc.invaild = true
+		return nil, ctx.Err()
+	case r := <-handler.Caller.QueryResult:
+		return r, nil
+	}
+}
+
+func (tc *taosConn) IsValid() bool {
+	return !tc.invaild
 }

@@ -1,6 +1,7 @@
 package taosSql
 
 import (
+	"context"
 	"database/sql/driver"
 	"io"
 	"reflect"
@@ -20,6 +21,24 @@ type rows struct {
 	blockSize   int
 	lengthList  []int
 	result      unsafe.Pointer
+
+	ctx context.Context
+}
+
+func newRowsWithContext(ctx context.Context, h *handler.Handler, rowsHeader *wrapper.RowsHeader, result unsafe.Pointer) *rows {
+	return &rows{
+		handler:    h,
+		rowsHeader: rowsHeader,
+		result:     result,
+		ctx:        ctx,
+	}
+}
+
+func (rs *rows) Context() context.Context {
+	if rs.ctx != nil {
+		return rs.ctx
+	}
+	return context.Background()
 }
 
 func (rs *rows) Columns() []string {
@@ -81,6 +100,9 @@ func (rs *rows) Next(dest []driver.Value) error {
 
 func (rs *rows) taosFetchBlock() error {
 	result := rs.asyncFetchRows()
+	if result == nil {
+		return rs.Context().Err()
+	}
 	if result.N == 0 {
 		rs.blockSize = 0
 		return nil
@@ -102,12 +124,21 @@ func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 	locker.Lock()
 	wrapper.TaosFetchRowsA(rs.result, rs.handler.Handler)
 	locker.Unlock()
-	r := <-rs.handler.Caller.FetchResult
-	return r
+	select {
+	case <-rs.Context().Done():
+		return nil
+	case r := <-rs.handler.Caller.FetchResult:
+		return r
+	}
 }
 
 func (rs *rows) freeResult() {
-	asyncHandlerPool.Put(rs.handler)
+	select {
+	case <-rs.Context().Done():
+		handlerRecycle.Put(rs.handler)
+	default:
+		asyncHandlerPool.Put(rs.handler)
+	}
 	if rs.result != nil {
 		locker.Lock()
 		wrapper.TaosFreeResult(rs.result)

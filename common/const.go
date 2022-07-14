@@ -1,5 +1,7 @@
 package common
 
+import "time"
+
 const (
 	MaxTaosSqlLen   = 1048576
 	DefaultUser     = "root"
@@ -10,6 +12,11 @@ const (
 	PrecisionMilliSecond = 0
 	PrecisionMicroSecond = 1
 	PrecisionNanoSecond  = 2
+)
+
+const (
+	DefaultHandlerRecycleCheckInterval   = 3 * time.Second
+	DefaultHandlerRecycleElemMaxLifeTime = 1 * time.Minute
 )
 
 const (

@@ -161,6 +161,7 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
+		async.PutHandler(handler)
 		return nil, err
 	}
 	rs := &rows{

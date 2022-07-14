@@ -2,6 +2,7 @@ package handler
 
 import (
 	"container/list"
+	"context"
 	"sync"
 	"unsafe"
 
@@ -54,6 +55,14 @@ type Handler struct {
 	Caller  *Caller
 }
 
+func NewHandler() *Handler {
+	caller := NewCaller()
+	return &Handler{
+		Handler: cgo.NewHandle(caller),
+		Caller:  caller,
+	}
+}
+
 func NewHandlerPool(count int) *HandlerPool {
 	c := &HandlerPool{
 		count:    count,
@@ -61,11 +70,7 @@ func NewHandlerPool(count int) *HandlerPool {
 		reqList:  list.New(),
 	}
 	for i := 0; i < count; i++ {
-		caller := NewCaller()
-		c.handlers <- &Handler{
-			Handler: cgo.NewHandle(caller),
-			Caller:  caller,
-		}
+		c.handlers <- NewHandler()
 	}
 	return c
 }
@@ -102,4 +107,24 @@ func (c *HandlerPool) Put(handler *Handler) {
 		c.mu.Unlock()
 		return
 	}
+}
+
+func (c *HandlerPool) GetContext(ctx context.Context) (*Handler, error) {
+	select {
+	case wrapConn := <-c.handlers:
+		return wrapConn, nil
+	default:
+		c.mu.Lock()
+		req := make(chan poolReq, 1)
+		c.reqList.PushBack(req)
+		c.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			c.Put(NewHandler()) // make handler balance
+			return nil, ctx.Err()
+		case ret := <-req:
+			return ret.idleHandler, nil
+		}
+	}
+
 }

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/taosdata/driver-go/v2/common"
 	"github.com/taosdata/driver-go/v2/wrapper/handler"
 	"github.com/taosdata/driver-go/v2/wrapper/thread"
 )
@@ -15,6 +16,8 @@ var locker *thread.Locker
 var onceInitLock = sync.Once{}
 var asyncHandlerPool *handler.HandlerPool
 var onceInitHandlerPool = sync.Once{}
+var handlerRecycle *HandlerRecycle
+var onceInitHandlerRecycle = sync.Once{}
 
 // tdengineDriver is exported to make the driver directly accessible.
 // In general the driver is used via the database/sql package.
@@ -43,6 +46,9 @@ func (d tdengineDriver) Open(dsn string) (driver.Conn, error) {
 			poolSize = 10000
 		}
 		asyncHandlerPool = handler.NewHandlerPool(poolSize)
+	})
+	onceInitHandlerRecycle.Do(func() {
+		handlerRecycle = NewHandlerRecycle(asyncHandlerPool, common.DefaultHandlerRecycleCheckInterval, common.DefaultHandlerRecycleElemMaxLifeTime)
 	})
 	return c.Connect(context.Background())
 }
