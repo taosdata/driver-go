@@ -1,10 +1,14 @@
 package wrapper
 
 import (
+	"database/sql/driver"
 	"testing"
 	"time"
+	"unsafe"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
@@ -913,4 +917,287 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, totalCount, 3)
 	t.Log(tables)
+}
+
+func TestTMQModify(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	defer func() {
+		result := TaosQuery(conn, "drop database if exists tmq_test_db_modify")
+		code := TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+		result = TaosQuery(conn, "drop database if exists tmq_test_db_modify_target")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
+
+	result := TaosQuery(conn, "drop database if exists tmq_test_db_modify_target")
+	code := TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+
+	result = TaosQuery(conn, "drop database if exists tmq_test_db_modify")
+	code = TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+
+	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify_target vgroups 2")
+	code = TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+
+	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify vgroups 5")
+	code = TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+
+	result = TaosQuery(conn, "use tmq_test_db_modify")
+	code = TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+
+	//create topic
+	result = TaosQuery(conn, "create topic if not exists tmq_test_db_modify_topic with meta as DATABASE tmq_test_db_modify")
+	code = TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+	defer func() {
+		result = TaosQuery(conn, "drop topic if exists tmq_test_db_modify_topic")
+		code = TaosError(result)
+		if code != 0 {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+			return
+		}
+		TaosFreeResult(result)
+	}()
+	//build consumer
+	conf := TMQConfNew()
+	// auto commit default is true then the commitCallback function will be called after 5 seconds
+	TMQConfSet(conf, "enable.auto.commit", "true")
+	TMQConfSet(conf, "group.id", "tg2")
+	TMQConfSet(conf, "msg.with.table.name", "true")
+	c := make(chan *TMQCommitCallbackResult, 1)
+	h := cgo.NewHandle(c)
+	TMQConfSetAutoCommitCB(conf, h)
+	go func() {
+		for {
+			select {
+			case r := <-c:
+				t.Log("auto commit", r)
+				PutTMQCommitCallbackResult(r)
+			}
+		}
+	}()
+	tmq, err := TMQConsumerNew(conf)
+	if err != nil {
+		t.Error(err)
+	}
+	TMQConfDestroy(conf)
+	//build_topic_list
+	topicList := TMQListNew()
+	TMQListAppend(topicList, "tmq_test_db_modify_topic")
+
+	//sync_consume_loop
+	errCode := TMQSubscribe(tmq, topicList)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Error(errors.NewError(int(errCode), errStr))
+		return
+	}
+	errCode, list := TMQSubscription(tmq)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Error(errors.NewError(int(errCode), errStr))
+		return
+	}
+	size := TMQListGetSize(list)
+	r := TMQListToCArray(list, int(size))
+	assert.Equal(t, []string{"tmq_test_db_modify_topic"}, r)
+	c2 := make(chan *TMQCommitCallbackResult, 1)
+	h2 := cgo.NewHandle(c2)
+	targetConn, err := TaosConnect("", "root", "taosdata", "tmq_test_db_modify_target", 0)
+	assert.NoError(t, err)
+	defer TaosFreeResult(targetConn)
+	result = TaosQuery(conn, "create table stb (ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
+		")"+
+		"tags(tts timestamp,"+
+		"tc1 bool,"+
+		"tc2 tinyint,"+
+		"tc3 smallint,"+
+		"tc4 int,"+
+		"tc5 bigint,"+
+		"tc6 tinyint unsigned,"+
+		"tc7 smallint unsigned,"+
+		"tc8 int unsigned,"+
+		"tc9 bigint unsigned,"+
+		"tc10 float,"+
+		"tc11 double,"+
+		"tc12 binary(20),"+
+		"tc13 nchar(20)"+
+		")")
+	code = TaosError(result)
+	if code != 0 {
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
+		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
+		return
+	}
+	TaosFreeResult(result)
+
+	pool := func(cb func(*common.Meta, unsafe.Pointer)) {
+		message := TMQConsumerPoll(tmq, 500)
+		assert.NotNil(t, message)
+		topic := TMQGetTopicName(message)
+		assert.Equal(t, "tmq_test_db_modify_topic", topic)
+		messageType := TMQGetResType(message)
+		assert.Equal(t, int32(common.TMQ_RES_TABLE_META), messageType)
+		pointer := TMQGetJsonMeta(message)
+		assert.NotNil(t, pointer)
+		data := ParseJsonMeta(pointer)
+		var meta common.Meta
+		err = jsoniter.Unmarshal(data, &meta)
+		assert.NoError(t, err)
+
+		defer TaosFreeResult(message)
+
+		TMQCommitAsync(tmq, nil, h2)
+		timer := time.NewTimer(time.Minute)
+		select {
+		case d := <-c2:
+			assert.Equal(t, int32(0), d.ErrCode)
+			PutTMQCommitCallbackResult(d)
+			timer.Stop()
+			break
+		case <-timer.C:
+			timer.Stop()
+			t.Error("wait tmq commit callback timeout")
+			cb(nil, nil)
+			return
+		}
+		errCode, rawMeta := TMQGetRawMeta(message)
+		if errCode != errors.SUCCESS {
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
+			t.Error(errors.NewError(int(errCode), errStr))
+			return
+		}
+		cb(&meta, rawMeta)
+		return
+	}
+
+	pool(func(meta *common.Meta, rawMeta unsafe.Pointer) {
+		assert.Equal(t, "create", meta.Type)
+		assert.Equal(t, "stb", meta.TableName)
+		assert.Equal(t, "super", meta.TableType)
+		assert.NoError(t, err)
+		length, metaType, data := ParseRawMeta(rawMeta)
+		r2 := BuildRawMeta(length, metaType, data)
+		errCode = TaosWriteRawMeta(targetConn, r2)
+		if errCode != 0 {
+			errStr := TMQErr2Str(errCode)
+			t.Error(errors.NewError(int(errCode), errStr))
+			return
+		}
+		d, err := query(targetConn, "describe stb")
+		assert.NoError(t, err)
+		assert.Equal(t, [][]driver.Value{
+			{"ts", "TIMESTAMP", int32(8), ""},
+			{"c1", "BOOL", int32(1), ""},
+			{"c2", "TINYINT", int32(1), ""},
+			{"c3", "SMALLINT", int32(2), ""},
+			{"c4", "INT", int32(4), ""},
+			{"c5", "BIGINT", int32(8), ""},
+			{"c6", "TINYINT UNSIGNED", int32(1), ""},
+			{"c7", "SMALLINT UNSIGNED", int32(2), ""},
+			{"c8", "INT UNSIGNED", int32(4), ""},
+			{"c9", "BIGINT UNSIGNED", int32(8), ""},
+			{"c10", "FLOAT", int32(4), ""},
+			{"c11", "DOUBLE", int32(8), ""},
+			{"c12", "VARCHAR", int32(20), ""},
+			{"c13", "NCHAR", int32(20), ""},
+			{"tts", "TIMESTAMP", int32(8), "TAG"},
+			{"tc1", "BOOL", int32(1), "TAG"},
+			{"tc2", "TINYINT", int32(1), "TAG"},
+			{"tc3", "SMALLINT", int32(2), "TAG"},
+			{"tc4", "INT", int32(4), "TAG"},
+			{"tc5", "BIGINT", int32(8), "TAG"},
+			{"tc6", "TINYINT UNSIGNED", int32(1), "TAG"},
+			{"tc7", "SMALLINT UNSIGNED", int32(2), "TAG"},
+			{"tc8", "INT UNSIGNED", int32(4), "TAG"},
+			{"tc9", "BIGINT UNSIGNED", int32(8), "TAG"},
+			{"tc10", "FLOAT", int32(4), "TAG"},
+			{"tc11", "DOUBLE", int32(8), "TAG"},
+			{"tc12", "VARCHAR", int32(20), "TAG"},
+			{"tc13", "NCHAR", int32(20), "TAG"},
+		}, d)
+	})
+
+	TMQUnsubscribe(tmq)
+	errCode = TMQConsumerClose(tmq)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Error(errors.NewError(int(errCode), errStr))
+		return
+	}
 }

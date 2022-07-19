@@ -181,3 +181,66 @@ func TMQGetTableName(message unsafe.Pointer) string {
 func TMQGetDBName(message unsafe.Pointer) string {
 	return C.GoString(C.tmq_get_db_name(message))
 }
+
+// TMQGetResType DLL_EXPORT tmq_res_t     tmq_get_res_type(TAOS_RES *res);
+func TMQGetResType(message unsafe.Pointer) int32 {
+	return int32(C.tmq_get_res_type(message))
+}
+
+// TMQGetRawMeta DLL_EXPORT int32_t       tmq_get_raw_meta(TAOS_RES *res, tmq_raw_data *raw_meta);
+func TMQGetRawMeta(message unsafe.Pointer) (int32, unsafe.Pointer) {
+	var cRawMeta C.TAOS_FIELD_E
+	m := unsafe.Pointer(&cRawMeta)
+	code := int32(C.tmq_get_raw_meta(message, (*C.tmq_raw_data)(m)))
+	return code, m
+}
+
+// TaosWriteRawMeta DLL_EXPORT int32_t       taos_write_raw_meta(TAOS *taos, tmq_raw_data raw_meta);
+func TaosWriteRawMeta(conn unsafe.Pointer, rawMeta unsafe.Pointer) int32 {
+	return int32(C.taos_write_raw_meta(conn, (C.struct_tmq_raw_data)(*(*C.struct_tmq_raw_data)(rawMeta))))
+}
+
+// TMQGetJsonMeta DLL_EXPORT char         *tmq_get_json_meta(TAOS_RES *res);   // Returning null means error. Returned result need to be freed by tmq_free_json_meta
+func TMQGetJsonMeta(message unsafe.Pointer) unsafe.Pointer {
+	p := unsafe.Pointer(C.tmq_get_json_meta(message))
+	return p
+}
+
+// TMQFreeJsonMeta DLL_EXPORT void          tmq_free_json_meta(char* jsonMeta);
+func TMQFreeJsonMeta(jsonMeta unsafe.Pointer) {
+	C.tmq_free_json_meta((*C.char)(jsonMeta))
+}
+
+func ParseRawMeta(rawMeta unsafe.Pointer) (length uint32, metaType uint16, data unsafe.Pointer) {
+	meta := *(*C.tmq_raw_data)(rawMeta)
+	length = uint32(meta.raw_meta_len)
+	metaType = uint16(meta.raw_meta_type)
+	data = meta.raw_meta
+	return
+}
+
+func ParseJsonMeta(jsonMeta unsafe.Pointer) []byte {
+	var binaryVal []byte
+	if jsonMeta != nil {
+		i := 0
+		c := byte(0)
+		for {
+			c = *((*byte)(unsafe.Pointer(uintptr(jsonMeta) + uintptr(i))))
+			if c != 0 {
+				binaryVal = append(binaryVal, c)
+				i += 1
+			} else {
+				break
+			}
+		}
+	}
+	return binaryVal
+}
+
+func BuildRawMeta(length uint32, metaType uint16, data unsafe.Pointer) unsafe.Pointer {
+	meta := C.struct_tmq_raw_data{}
+	meta.raw_meta = data
+	meta.raw_meta_len = (C.uint32_t)(length)
+	meta.raw_meta_type = (C.uint16_t)(metaType)
+	return unsafe.Pointer(&meta)
+}

@@ -79,6 +79,10 @@ func (c *Config) DisableAutoCommit() error {
 	return nil
 }
 
+func (c *Config) EnableHeartBeat() error {
+	return c.SetConfig("enable.heartbeat.background", "true")
+}
+
 func (c *Config) Destroy() {
 	wrapper.TMQConfDestroy(c.cConfig)
 }
