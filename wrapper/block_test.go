@@ -362,7 +362,7 @@ func TestBlockTag(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql := "select tbname,location from meters;"
+	sql := "select distinct tbname,location from meters;"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
