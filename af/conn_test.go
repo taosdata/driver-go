@@ -12,12 +12,16 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	m.Run()
 	db, err := Open("", "", "", "", 0)
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
-	db.Exec("drop database if exists test_af")
+	_, err = db.Exec("drop database if exists test_af")
+	if err != nil {
+		panic(err)
+	}
 }
 func testDatabase(t *testing.T) *Connector {
 	db, err := Open("", "", "", "", 0)
@@ -728,10 +732,9 @@ jvm_gc_pause_seconds_max,action=end\ of\ minor\ GC,cause=Allocation\ Failure,hos
 // @date: 2022/1/27 16:08
 // @description: test influxDB insert with line protocol
 func TestInfluxDBInsertLines(t *testing.T) {
-	a := `measurement,host=host1 field1=252112078i,field2=2.0,fieldKey="Launch 🚀" 1655195094707974091`
 	db := testDatabase(t)
 	defer db.Close()
-	data := strings.Split(a, "\n")
+	data := strings.Split(raw, "\n")
 	err := db.InfluxDBInsertLines(data, "ns")
 	if err != nil {
 		t.Error(err)
