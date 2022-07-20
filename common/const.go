@@ -101,3 +101,9 @@ var NameTypeMap = map[string]int{
 	TSDB_DATA_TYPE_UBIGINT_Str:   TSDB_DATA_TYPE_UBIGINT,
 	TSDB_DATA_TYPE_JSON_Str:      TSDB_DATA_TYPE_JSON,
 }
+
+const (
+	TMQ_RES_INVALID    = -1
+	TMQ_RES_DATA       = 1
+	TMQ_RES_TABLE_META = 2
+)

@@ -6,6 +6,8 @@ import (
 	"time"
 	"unsafe"
 
+	jsoniter "github.com/json-iterator/go"
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
@@ -95,8 +97,10 @@ func (c *Consumer) Unsubscribe() error {
 }
 
 type Result struct {
+	Type   int32
 	DBName string
 	Topic  string
+	Meta   *common.Meta
 	Data   []*Data
 }
 type Data struct {
@@ -112,34 +116,55 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	defer wrapper.TaosFreeResult(message)
 	topic := wrapper.TMQGetTopicName(message)
 	db := wrapper.TMQGetDBName(message)
+	resultType := wrapper.TMQGetResType(message)
 	result := &Result{
+		Type:   resultType,
 		DBName: db,
 		Topic:  topic,
 	}
-	for {
-		blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
-		if errCode != int(errors.SUCCESS) {
-			errStr := wrapper.TaosErrorStr(message)
-			err := errors.NewError(errCode, errStr)
-			return nil, err
+	switch resultType {
+	case common.TMQ_RES_TABLE_META:
+		var meta common.Meta
+		p := wrapper.TMQGetJsonMeta(message)
+		if p != nil {
+			data := wrapper.ParseJsonMeta(p)
+			wrapper.TMQFreeJsonMeta(p)
+			err := jsoniter.Unmarshal(data, &meta)
+			if err != nil {
+				return nil, err
+			}
+			result.Meta = &meta
 		}
-		if blockSize == 0 {
-			break
+		return result, nil
+	case common.TMQ_RES_DATA:
+		for {
+			blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
+			if errCode != int(errors.SUCCESS) {
+				errStr := wrapper.TaosErrorStr(message)
+				err := errors.NewError(errCode, errStr)
+				return nil, err
+			}
+			if blockSize == 0 {
+				break
+			}
+			r := &Data{}
+			if c.conf.needGetTableName {
+				r.TableName = wrapper.TMQGetTableName(message)
+			}
+			fileCount := wrapper.TaosNumFields(message)
+			rh, err := wrapper.ReadColumn(message, fileCount)
+			if err != nil {
+				return nil, err
+			}
+			precision := wrapper.TaosResultPrecision(message)
+			r.Data = append(r.Data, wrapper.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
+			result.Data = append(result.Data, r)
 		}
-		r := &Data{}
-		if c.conf.needGetTableName {
-			r.TableName = wrapper.TMQGetTableName(message)
-		}
-		fileCount := wrapper.TaosNumFields(message)
-		rh, err := wrapper.ReadColumn(message, fileCount)
-		if err != nil {
-			return nil, err
-		}
-		precision := wrapper.TaosResultPrecision(message)
-		r.Data = append(r.Data, wrapper.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
-		result.Data = append(result.Data, r)
+		return result, nil
+	default:
+		return nil, errors.NewError(0xfffff, "invalid tmq message type")
 	}
-	return result, nil
+
 }
 
 func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) error {
