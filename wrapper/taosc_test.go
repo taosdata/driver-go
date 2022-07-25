@@ -421,3 +421,41 @@ func TestTaosGetClientInfo(t *testing.T) {
 	s := TaosGetClientInfo()
 	assert.NotEmpty(t, s)
 }
+
+func TestTaosLoadTableInfo(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	err = exec(conn, "drop database if exists info1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = exec(conn, "drop database if exists info1")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	err = exec(conn, "create database info1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "create table info1.t(ts timestamp,v int)")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	code := TaosLoadTableInfo(conn, []string{"info1.t"})
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+
+}

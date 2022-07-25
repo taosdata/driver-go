@@ -27,6 +27,7 @@ void taos_fetch_raw_block_a_wrapper(TAOS_RES *res, void *param){
 */
 import "C"
 import (
+	"strings"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/errors"
@@ -186,4 +187,12 @@ func TaosGetRawBlock(result unsafe.Pointer) unsafe.Pointer {
 // TaosGetClientInfo const char *taos_get_client_info();
 func TaosGetClientInfo() string {
 	return C.GoString(C.taos_get_client_info())
+}
+
+// TaosLoadTableInfo taos_load_table_info(TAOS *taos, const char* tableNameList);
+func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
+	s := strings.Join(tableNameList, ",")
+	buf := C.CString(s)
+	defer C.free(unsafe.Pointer(buf))
+	return int(C.taos_load_table_info(taosConnect, buf))
 }

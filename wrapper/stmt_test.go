@@ -850,7 +850,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		return
 	}
 	code, _, _ = TaosStmtGetTagFields(stmt)
-	assert.Equal(t, 0x225, code&0xffff)
+	assert.Equal(t, 0x22A, code&0xffff)
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
@@ -934,7 +934,7 @@ func TestTaosStmtSetTags(t *testing.T) {
 		err = taosError.NewError(0xffff, "failed to init stmt")
 		return
 	}
-	defer TaosStmtClose(stmt)
+	//defer TaosStmtClose(stmt)
 	code := TaosStmtPrepare(stmt, "insert into ? using test_wrapper.tgs tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?) values (?,?)")
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
