@@ -2,6 +2,7 @@ package taosSql
 
 import (
 	"database/sql/driver"
+	errors2 "errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -72,41 +73,42 @@ func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	if stmt.tc == nil || stmt.tc.taos == nil {
-		return nil, errors.ErrTscInvalidConnection
-	}
-	locker.Lock()
-	defer locker.Unlock()
-	code := wrapper.TaosStmtBindParam(stmt.stmt, args)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	code = wrapper.TaosStmtAddBatch(stmt.stmt)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	code = wrapper.TaosStmtExecute(stmt.stmt)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	res := wrapper.TaosStmtUseResult(stmt.stmt)
-	handler := asyncHandlerPool.Get()
-	numFields := wrapper.TaosNumFields(res)
-	rowsHeader, err := wrapper.ReadColumn(res, numFields)
-	if err != nil {
-		return nil, err
-	}
-	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    handler,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-	}
-	return rs, nil
+	return nil, errors2.New("unsupported")
+	//if stmt.tc == nil || stmt.tc.taos == nil {
+	//	return nil, errors.ErrTscInvalidConnection
+	//}
+	//locker.Lock()
+	//defer locker.Unlock()
+	//code := wrapper.TaosStmtBindParam(stmt.stmt, args)
+	//if code != 0 {
+	//	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+	//	return nil, errors.NewError(code, errStr)
+	//}
+	//code = wrapper.TaosStmtAddBatch(stmt.stmt)
+	//if code != 0 {
+	//	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+	//	return nil, errors.NewError(code, errStr)
+	//}
+	//code = wrapper.TaosStmtExecute(stmt.stmt)
+	//if code != 0 {
+	//	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+	//	return nil, errors.NewError(code, errStr)
+	//}
+	//res := wrapper.TaosStmtUseResult(stmt.stmt)
+	//handler := asyncHandlerPool.Get()
+	//numFields := wrapper.TaosNumFields(res)
+	//rowsHeader, err := wrapper.ReadColumn(res, numFields)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//precision := wrapper.TaosResultPrecision(res)
+	//rs := &rows{
+	//	handler:    handler,
+	//	rowsHeader: rowsHeader,
+	//	result:     res,
+	//	precision:  precision,
+	//}
+	//return rs, nil
 }
 
 func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {

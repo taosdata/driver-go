@@ -2,12 +2,9 @@ package af
 
 import "C"
 import (
-	"database/sql/driver"
-	"errors"
 	"fmt"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/af/async"
 	"github.com/taosdata/driver-go/v3/af/locker"
 	"github.com/taosdata/driver-go/v3/common/param"
 	taosError "github.com/taosdata/driver-go/v3/errors"
@@ -105,23 +102,6 @@ func (s *Stmt) GetAffectedRows() int {
 		return 0
 	}
 	return wrapper.TaosStmtAffectedRowsOnce(s.stmt)
-}
-
-func (s *Stmt) GetResultRows() (driver.Rows, error) {
-	if s.isInsert {
-		return nil, errors.New("not support on insert")
-	}
-	result := wrapper.TaosStmtUseResult(s.stmt)
-	numFields := wrapper.TaosFieldCount(result)
-	precision := wrapper.TaosResultPrecision(result)
-	rs := &rows{
-		handler:   async.GetHandler(),
-		result:    result,
-		precision: precision,
-	}
-	var err error
-	rs.rowsHeader, err = wrapper.ReadColumn(result, numFields)
-	return rs, err
 }
 
 func (s *Stmt) AddBatch() error {

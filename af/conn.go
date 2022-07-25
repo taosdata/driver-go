@@ -79,29 +79,6 @@ func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.
 	return driver.RowsAffected(result), nil
 }
 
-func (conn *Connector) StmtQuery(sql string, params *param.Param) (rows driver.Rows, err error) {
-	stmt := NewStmt(conn.taos)
-	if stmt == nil {
-		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
-		return
-	}
-
-	//defer stmt.Close()
-	err = stmt.Prepare(sql)
-	if err != nil {
-		return nil, err
-	}
-	err = stmt.BindRow(params)
-	if err != nil {
-		return nil, err
-	}
-	err = stmt.Execute()
-	if err != nil {
-		return nil, err
-	}
-	return stmt.GetResultRows()
-}
-
 func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, error) {
 	if conn.taos == nil {
 		return nil, driver.ErrBadConn
