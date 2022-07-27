@@ -1135,7 +1135,7 @@ func TestTMQModify(t *testing.T) {
 			cb(nil, nil)
 			return
 		}
-		errCode, rawMeta := TMQGetRawMeta(message)
+		errCode, rawMeta := TMQGetRaw(message)
 		if errCode != errors.SUCCESS {
 			errStr := TaosErrorStr(result)
 			TaosFreeResult(result)
@@ -1143,6 +1143,7 @@ func TestTMQModify(t *testing.T) {
 			return
 		}
 		cb(&meta, rawMeta)
+		TMQFreeRaw(rawMeta)
 		return
 	}
 
@@ -1153,7 +1154,7 @@ func TestTMQModify(t *testing.T) {
 		assert.NoError(t, err)
 		length, metaType, data := ParseRawMeta(rawMeta)
 		r2 := BuildRawMeta(length, metaType, data)
-		errCode = TaosWriteRawMeta(targetConn, r2)
+		errCode = TMQWriteRaw(targetConn, r2)
 		if errCode != 0 {
 			errStr := TMQErr2Str(errCode)
 			t.Error(errors.NewError(int(errCode), errStr))

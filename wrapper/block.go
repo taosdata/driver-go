@@ -23,6 +23,13 @@ func TaosFetchRawBlock(result unsafe.Pointer) (int, int, unsafe.Pointer) {
 	return cSize, errCode, block
 }
 
+// TaosWriteRawBlock DLL_EXPORT int           taos_write_raw_block(TAOS *taos, int numOfRows, char *pData, const char* tbname);
+func TaosWriteRawBlock(conn unsafe.Pointer, numOfRows int, pData unsafe.Pointer, tableName string) int {
+	cStr := C.CString(tableName)
+	defer C.free(unsafe.Pointer(cStr))
+	return int(C.taos_write_raw_block(conn, (C.int)(numOfRows), (*C.char)(pData), cStr))
+}
+
 func IsVarDataType(colType uint8) bool {
 	return colType == common.TSDB_DATA_TYPE_BINARY || colType == common.TSDB_DATA_TYPE_NCHAR || colType == common.TSDB_DATA_TYPE_JSON
 }
