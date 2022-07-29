@@ -17,34 +17,42 @@ type Config struct {
 
 type CommitHandleFunc func(*wrapper.TMQCommitCallbackResult)
 
+// NewConfig New TMQ config
 func NewConfig() *Config {
 	return &Config{cConfig: wrapper.TMQConfNew()}
 }
 
+// SetGroupID TMQ set `group.id`
 func (c *Config) SetGroupID(groupID string) error {
 	return c.SetConfig("group.id", groupID)
 }
 
+// SetAutoOffsetReset TMQ set `auto.offset.reset`
 func (c *Config) SetAutoOffsetReset(auto string) error {
 	return c.SetConfig("auto.offset.reset", auto)
 }
 
+// SetConnectIP TMQ set `td.connect.ip`
 func (c *Config) SetConnectIP(ip string) error {
 	return c.SetConfig("td.connect.ip", ip)
 }
 
+// SetConnectUser TMQ set `td.connect.user`
 func (c *Config) SetConnectUser(user string) error {
 	return c.SetConfig("td.connect.user", user)
 }
 
+// SetConnectPass TMQ set `td.connect.pass`
 func (c *Config) SetConnectPass(pass string) error {
 	return c.SetConfig("td.connect.pass", pass)
 }
 
+// SetConnectPort TMQ set `td.connect.port`
 func (c *Config) SetConnectPort(port string) error {
 	return c.SetConfig("td.connect.port", port)
 }
 
+// SetMsgWithTableName TMQ set `msg.with.table.name`
 func (c *Config) SetMsgWithTableName(b bool) error {
 	c.needGetTableName = b
 	return c.SetConfig("msg.with.table.name", strconv.FormatBool(b))
@@ -59,6 +67,7 @@ func (c *Config) SetConfig(key string, value string) error {
 	return nil
 }
 
+// EnableAutoCommit TMQ set `enable.auto.commit` to `true` and set auto commit callback
 func (c *Config) EnableAutoCommit(f CommitHandleFunc) error {
 	err := c.SetConfig("enable.auto.commit", "true")
 	if err != nil {
@@ -69,6 +78,7 @@ func (c *Config) EnableAutoCommit(f CommitHandleFunc) error {
 	return nil
 }
 
+// DisableAutoCommit TMQ set `enable.auto.commit` to `false`
 func (c *Config) DisableAutoCommit() error {
 	err := c.SetConfig("enable.auto.commit", "false")
 	if err != nil {
@@ -79,10 +89,12 @@ func (c *Config) DisableAutoCommit() error {
 	return nil
 }
 
+// EnableHeartBeat TMQ set `enable.heartbeat.background` to `true`
 func (c *Config) EnableHeartBeat() error {
 	return c.SetConfig("enable.heartbeat.background", "true")
 }
 
+// Destroy Release TMQ config
 func (c *Config) Destroy() {
 	wrapper.TMQConfDestroy(c.cConfig)
 }

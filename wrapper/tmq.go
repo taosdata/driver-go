@@ -65,17 +65,17 @@ func TMQConfDestroy(conf unsafe.Pointer) {
 	C.tmq_conf_destroy((*C.struct_tmq_conf_t)(conf))
 }
 
-//DLL_EXPORT void           tmq_conf_set_auto_commit_cb(tmq_conf_t *conf, tmq_commit_cb *cb, void *param);
+// TMQConfSetAutoCommitCB DLL_EXPORT void           tmq_conf_set_auto_commit_cb(tmq_conf_t *conf, tmq_commit_cb *cb, void *param);
 func TMQConfSetAutoCommitCB(conf unsafe.Pointer, h cgo.Handle) {
 	C.tmq_conf_set_auto_commit_cb((*C.struct_tmq_conf_t)(conf), (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
 }
 
-//DLL_EXPORT void    tmq_commit_async(tmq_t *tmq, const TAOS_RES *msg, tmq_commit_cb *cb, void *param);
+// TMQCommitAsync DLL_EXPORT void    tmq_commit_async(tmq_t *tmq, const TAOS_RES *msg, tmq_commit_cb *cb, void *param);
 func TMQCommitAsync(consumer unsafe.Pointer, message unsafe.Pointer, h cgo.Handle) {
 	C.tmq_commit_async((*C.tmq_t)(consumer), message, (*C.tmq_commit_cb)(C.TMQCommitCB), unsafe.Pointer(h))
 }
 
-//DLL_EXPORT int32_t tmq_commit_sync(tmq_t *tmq, const TAOS_RES *msg);
+// TMQCommitSync DLL_EXPORT int32_t tmq_commit_sync(tmq_t *tmq, const TAOS_RES *msg);
 func TMQCommitSync(consumer unsafe.Pointer, message unsafe.Pointer) int32 {
 	return int32(C.tmq_commit_sync((*C.tmq_t)(consumer), message))
 }
@@ -200,7 +200,7 @@ func TMQWriteRaw(conn unsafe.Pointer, raw unsafe.Pointer) int32 {
 	return int32(C.tmq_write_raw(conn, (C.struct_tmq_raw_data)(*(*C.struct_tmq_raw_data)(raw))))
 }
 
-//DLL_EXPORT void          tmq_free_raw(tmq_raw_data raw);
+// TMQFreeRaw DLL_EXPORT void          tmq_free_raw(tmq_raw_data raw);
 func TMQFreeRaw(raw unsafe.Pointer) {
 	C.tmq_free_raw((C.struct_tmq_raw_data)(*(*C.struct_tmq_raw_data)(raw)))
 }

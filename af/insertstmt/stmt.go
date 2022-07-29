@@ -6,7 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/af/locker"
-	param2 "github.com/taosdata/driver-go/v3/common/param"
+	"github.com/taosdata/driver-go/v3/common/param"
 	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
@@ -63,7 +63,7 @@ func (stmt *InsertStmt) SetSubTableName(name string) error {
 	return nil
 }
 
-func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param2.Param) error {
+func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param.Param) error {
 	locker.Lock()
 	code := wrapper.TaosStmtSetTBNameTags(stmt.stmt, tableName, tags.GetValues())
 	locker.Unlock()
@@ -74,7 +74,7 @@ func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param2.Para
 	return nil
 }
 
-func (stmt *InsertStmt) BindParam(params []*param2.Param, bindType *param2.ColumnType) error {
+func (stmt *InsertStmt) BindParam(params []*param.Param, bindType *param.ColumnType) error {
 	data := make([][]driver.Value, len(params))
 	for columnIndex, columnData := range params {
 		value := columnData.GetValues()

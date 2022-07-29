@@ -10,7 +10,7 @@ import (
 type Param struct {
 	size   int
 	value  []driver.Value
-	column int
+	offset int
 }
 
 func NewParam(size int) *Param {
@@ -20,266 +20,266 @@ func NewParam(size int) *Param {
 	}
 }
 
-func (p *Param) SetBool(column int, value bool) {
-	if column >= p.size {
+func (p *Param) SetBool(offset int, value bool) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosBool(value)
+	p.value[offset] = taosTypes.TaosBool(value)
 }
 
-func (p *Param) SetNull(column int) {
-	if column >= p.size {
+func (p *Param) SetNull(offset int) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = nil
+	p.value[offset] = nil
 	return
 }
 
-func (p *Param) SetTinyint(column int, value int) {
-	if column >= p.size {
+func (p *Param) SetTinyint(offset int, value int) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosTinyint(value)
+	p.value[offset] = taosTypes.TaosTinyint(value)
 }
 
-func (p *Param) SetSmallint(column int, value int) {
-	if column >= p.size {
+func (p *Param) SetSmallint(offset int, value int) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosSmallint(value)
+	p.value[offset] = taosTypes.TaosSmallint(value)
 }
 
-func (p *Param) SetInt(column int, value int) {
-	if column >= p.size {
+func (p *Param) SetInt(offset int, value int) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosInt(value)
+	p.value[offset] = taosTypes.TaosInt(value)
 }
 
-func (p *Param) SetBigint(column int, value int) {
-	if column >= p.size {
+func (p *Param) SetBigint(offset int, value int) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosBigint(value)
+	p.value[offset] = taosTypes.TaosBigint(value)
 }
 
-func (p *Param) SetUTinyint(column int, value uint) {
-	if column >= p.size {
+func (p *Param) SetUTinyint(offset int, value uint) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosUTinyint(value)
+	p.value[offset] = taosTypes.TaosUTinyint(value)
 }
 
-func (p *Param) SetUSmallint(column int, value uint) {
-	if column >= p.size {
+func (p *Param) SetUSmallint(offset int, value uint) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosUSmallint(value)
+	p.value[offset] = taosTypes.TaosUSmallint(value)
 }
 
-func (p *Param) SetUInt(column int, value uint) {
-	if column >= p.size {
+func (p *Param) SetUInt(offset int, value uint) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosUInt(value)
+	p.value[offset] = taosTypes.TaosUInt(value)
 }
 
-func (p *Param) SetUBigint(column int, value uint) {
-	if column >= p.size {
+func (p *Param) SetUBigint(offset int, value uint) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosUBigint(value)
+	p.value[offset] = taosTypes.TaosUBigint(value)
 }
 
-func (p *Param) SetFloat(column int, value float32) {
-	if column >= p.size {
+func (p *Param) SetFloat(offset int, value float32) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosFloat(value)
+	p.value[offset] = taosTypes.TaosFloat(value)
 }
 
-func (p *Param) SetDouble(column int, value float64) {
-	if column >= p.size {
+func (p *Param) SetDouble(offset int, value float64) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosDouble(value)
+	p.value[offset] = taosTypes.TaosDouble(value)
 }
 
-func (p *Param) SetBinary(column int, value []byte) {
-	if column >= p.size {
+func (p *Param) SetBinary(offset int, value []byte) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosBinary(value)
+	p.value[offset] = taosTypes.TaosBinary(value)
 }
 
-func (p *Param) SetNchar(column int, value string) {
-	if column >= p.size {
+func (p *Param) SetNchar(offset int, value string) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosNchar(value)
+	p.value[offset] = taosTypes.TaosNchar(value)
 }
 
-func (p *Param) SetTimestamp(column int, value time.Time, precision int) {
-	if column >= p.size {
+func (p *Param) SetTimestamp(offset int, value time.Time, precision int) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosTimestamp{
+	p.value[offset] = taosTypes.TaosTimestamp{
 		T:         value,
 		Precision: precision,
 	}
 }
 
-func (p *Param) SetJson(column int, value []byte) {
-	if column >= p.size {
+func (p *Param) SetJson(offset int, value []byte) {
+	if offset >= p.size {
 		return
 	}
-	p.value[column] = taosTypes.TaosJson(value)
+	p.value[offset] = taosTypes.TaosJson(value)
 }
 
 func (p *Param) AddBool(value bool) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosBool(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosBool(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddNull() *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = nil
-	p.column += 1
+	p.value[p.offset] = nil
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddTinyint(value int) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosTinyint(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosTinyint(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddSmallint(value int) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosSmallint(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosSmallint(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddInt(value int) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosInt(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosInt(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddBigint(value int) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosBigint(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosBigint(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddUTinyint(value uint) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosUTinyint(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosUTinyint(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddUSmallint(value uint) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosUSmallint(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosUSmallint(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddUInt(value uint) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosUInt(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosUInt(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddUBigint(value uint) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosUBigint(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosUBigint(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddFloat(value float32) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosFloat(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosFloat(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddDouble(value float64) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosDouble(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosDouble(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddBinary(value []byte) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosBinary(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosBinary(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddNchar(value string) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosNchar(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosNchar(value)
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddTimestamp(value time.Time, precision int) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosTimestamp{
+	p.value[p.offset] = taosTypes.TaosTimestamp{
 		T:         value,
 		Precision: precision,
 	}
-	p.column += 1
+	p.offset += 1
 	return p
 }
 
 func (p *Param) AddJson(value []byte) *Param {
-	if p.column >= p.size {
+	if p.offset >= p.size {
 		return p
 	}
-	p.value[p.column] = taosTypes.TaosJson(value)
-	p.column += 1
+	p.value[p.offset] = taosTypes.TaosJson(value)
+	p.offset += 1
 	return p
 }
 

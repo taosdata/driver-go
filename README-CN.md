@@ -8,7 +8,11 @@
 
 ## 提示
 
-`github.com/taosdata/driver-go/v2` 对 v1 版本进行重构,分离出内置数据库操作接口 `database/sql/driver` 到目录 `taosSql`；订阅、stmt等其他功能放到目录 `af`。
+v2 与 v3 版本不兼容，与 TDengine 版本对应如下：
+
+| **driver-go 版本** | **TDengine 版本** |
+|------------------|-----------------|
+| v3.0.0           | 3.0.0.0+        |
 
 ## 安装
 
@@ -57,7 +61,7 @@ import (
 )
 
 func main() {
-    var taosUri = "root:taosdata/tcp(localhost:6030)/"
+    var taosUri = "root:taosdata@tcp(localhost:6030)/"
     taos, err := sql.Open("taosSql", taosUri)
     if err != nil {
         fmt.Println("failed to connect TDengine, err:", err)
@@ -99,7 +103,7 @@ func main() {
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
   该API用来创建`database/sql` DB对象，类型为`*DB`，DRIVER_NAME设置为字符串`taosSql`,
-  dataSourceName设置为字符串`user:password@/tcp(host:port)/dbname`，对应于TDengine的高可用机制，可以使用 `user:password@/cfg/dbname`
+  dataSourceName设置为字符串`user:password@tcp(host:port)/dbname`，对应于TDengine的高可用机制，可以使用 `user:password@cfg(/etc/taos)/dbname`
   来使用`/etc/taos/taos.cfg`中的多EP配置。
 
   **注意**： 该API成功创建的时候，并没有做权限等检查，只有在真正执行Query或者Exec的时候才能真正的去创建连接，并同时检查user/password/host/port是不是合法。
@@ -117,30 +121,135 @@ func main() {
 
   sql.Open内置的方法，关闭DB对象。
 
-### 订阅接口
+### 订阅
 
-Open DB:
-
-```go
-func Open(host, user, pass, db string, port int) (*Connector, error)
-```
-
-Subscribe:
+创建消费：
 
 ```go
-func (conn *Connector) Subscribe(restart bool, topic string, sql string, interval time.Duration) (Subscriber, error)
+func NewConsumer(conf *Config) (*Consumer, error)
 ```
 
-Topic:
+订阅：
 
 ```go
-type Subscriber interface {
-    Consume() (driver.Rows, error)
-    Unsubscribe(keepProgress bool)
-}
+func (c *Consumer) Subscribe(topics []string) error
 ```
 
-详情参见示例代码：[`examples/taoslogtail.go`](examples/taoslogtail/taoslogtail.go)。
+轮询消息：
+
+```go
+func (c *Consumer) Poll(timeout time.Duration) (*Result, error)
+```
+
+提交消息：
+
+```go
+func (c *Consumer) Commit(ctx context.Context, message unsafe.Pointer) error
+```
+
+释放消息：
+
+```go
+func (c *Consumer) FreeMessage(message unsafe.Pointer)
+```
+
+取消订阅：
+
+```go
+func (c *Consumer) Unsubscribe() error
+```
+
+关闭消费：
+
+```go
+func (c *Consumer) Close() error
+```
+
+示例代码：[`examples/tmq/main.go`](examples/tmq/main.go)。
+
+### schemaless
+
+InfluxDB 格式：
+
+```go
+func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error
+```
+
+示例代码：[`examples/schemaless/influx/main.go`](examples/schemaless/influx/main.go)。
+
+OpenTSDB telnet 格式：
+
+```go
+func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error
+```
+
+示例代码：[`examples/schemaless/telnet/main.go`](examples/schemaless/telnet/main.go)。
+
+OpenTSDB json 格式：
+
+```go
+func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error
+```
+
+示例代码：[`examples/schemaless/json/main.go`](examples/schemaless/json/main.go)。
+
+### stmt 插入
+
+prepare sql：
+
+```go
+func (stmt *InsertStmt) Prepare(sql string) error
+```
+
+设置子表名：
+
+```go
+func (stmt *InsertStmt) SetSubTableName(name string) error
+```
+
+设置表名：
+
+```go
+func (stmt *InsertStmt) SetTableName(name string) error
+```
+
+设置子表名和标签：
+
+```go
+func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param.Param) error
+```
+
+绑定参数：
+
+```go
+func (stmt *InsertStmt) BindParam(params []*param.Param, bindType *param.ColumnType) error
+```
+
+添加批次：
+
+```go
+func (stmt *InsertStmt) AddBatch() error
+```
+
+执行：
+
+```go
+func (stmt *InsertStmt) Execute() error
+```
+
+获取影响行数：
+
+```go
+func (stmt *InsertStmt) GetAffectedRows() int
+```
+
+关闭 stmt：
+
+```go
+func (stmt *InsertStmt) Close() error
+```
+
+示例代码：[`examples/stmtinsert/main.go`](examples/stmtinsert/main.go)。
 
 ## restful 实现 `database/sql` 标准接口
 
@@ -224,7 +333,7 @@ DSN 格式为：
 
 由于 restful 接口无状态所以 `use db` 语法不会生效，需要将 db 名称放到 sql 语句中，如：`create table if not exists tb1 (ts timestamp, a int)` 改为 `create table if not exists test.tb1 (ts timestamp, a int)` 否则将报错 `[0x217] Database not specified or available`
 
-也可以将 db 名称放到 DSN 中，将 `root:taosdata@http(localhost:6041)/` 改为 `root:taosdata@http(localhost:6041)/test`，此方法在 TDengine 2.4.0.5 版本的 taosadapter 开始支持。当指定的 db 不存在时执行 `create database` 语句不会报报错，而执行针对该 db 的其他查询或写入操作会报错。完整示例如下：
+也可以将 db 名称放到 DSN 中，将 `root:taosdata@http(localhost:6041)/` 改为 `root:taosdata@http(localhost:6041)/test`。当指定的 db 不存在时执行 `create database` 语句不会报报错，而执行针对该 db 的其他查询或写入操作会报错。完整示例如下：
 
 ```go
 package main
@@ -282,10 +391,6 @@ driver-go
 ├── common //通用方法以及常量
 ├── errors //错误类型
 ├── examples //样例
-├── go.mod
-├── go.sum
-├── README-CN.md
-├── README.md
 ├── taosRestful // 数据库操作标准接口(restful)
 ├── taosSql // 数据库操作标准接口
 ├── types // 内置类型

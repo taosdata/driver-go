@@ -8,7 +8,11 @@ English | [简体中文](README-CN.md)
 
 ## Remind
 
-`github.com/taosdata/driver-go/v2`  is completely refactoring based on the v1 version. It also separates the built-in database operation interface `database/sql/driver` into the directory `taosSql` and put other advanced functions such as subscription and stmt in the directory `af`.
+v2 is not compatible with v3 version and corresponds to the TDengine version as follows:
+
+| **driver-go version** | **TDengine version** | 
+|-----------------------|----------------------|
+| v3.0.0                | 3.0.0.0+             |
 
 ## Install
 
@@ -57,7 +61,7 @@ import (
 )
 
 func main() {
-    var taosUri = "root:taosdata/tcp(localhost:6030)/"
+    var taosUri = "root:taosdata@tcp(localhost:6030)/"
     taos, err := sql.Open("taosSql", taosUri)
     if err != nil {
         fmt.Println("failed to connect TDengine, err:", err)
@@ -99,8 +103,8 @@ APIs that are worthy to have a check:
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
   This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be set as `taosSql`,
-  and `dataSourceName` should be a URI like `user:password@/tcp(host:port)/dbname`. For HA use case,
-  use `user:password@/cfg/dbname` to apply configs in `/etc/taos/taos.cfg`。
+  and `dataSourceName` should be a URI like `user:password@tcp(host:port)/dbname`. For HA use case,
+  use `user:password@cfg(/etc/taos)/dbname` to apply configs in `/etc/taos/taos.cfg`。
 
 - `func (db *DB) Exec(query string, args ...interface{}) (Result, error)`
 
@@ -116,29 +120,133 @@ APIs that are worthy to have a check:
 
 ### Subscription
 
-Open DB:
+Create consumer:
 
-```go
-func Open(host, user, pass, db string, port int) (*Connector, error)
-```
+````go
+func NewConsumer(conf *Config) (*Consumer, error)
+````
 
 Subscribe:
 
-```go
-func (conn *Connector) Subscribe(restart bool, topic string, sql string, interval time.Duration) (Subscriber, error)
-```
+````go
+func (c *Consumer) Subscribe(topics []string) error
+````
 
-Subscriber:
+Poll message:
 
-```go
-type Subscriber interface {
-    Consume() (driver.Rows, error)
-    Unsubscribe(keepProgress bool)
-}
-```
+````go
+func (c *Consumer) Poll(timeout time.Duration) (*Result, error)
+````
 
-Check sample code for subscription
-at [`examples/taoslogtail.go`](https://github.com/taosdata/driver-go/blob/master/examples/taoslogtail/taoslogtail.go).
+Commit message:
+
+````go
+func (c *Consumer) Commit(ctx context.Context, message unsafe.Pointer) error
+````
+
+Free message:
+
+````go
+func (c *Consumer) FreeMessage(message unsafe.Pointer)
+````
+
+Unsubscribe:
+
+````go
+func (c *Consumer) Unsubscribe() error
+````
+
+Close consumer:
+
+````go
+func (c *Consumer) Close() error
+````
+
+Example code: [`examples/tmq/main.go`](examples/tmq/main.go).
+
+### schemaless
+
+InfluxDB format:
+
+````go
+func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error
+````
+
+Example code: [`examples/schemaless/influx/main.go`](examples/schemaless/influx/main.go).
+
+OpenTSDB telnet format:
+
+````go
+func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error
+````
+
+Example code: [`examples/schemaless/telnet/main.go`](examples/schemaless/telnet/main.go).
+
+OpenTSDB json format:
+
+````go
+func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error
+````
+
+Example code: [`examples/schemaless/json/main.go`](examples/schemaless/json/main.go).
+
+### stmt insert
+
+Prepare sql:
+
+````go
+func (stmt *InsertStmt) Prepare(sql string) error
+````
+
+Set the child table name:
+
+````go
+func (stmt *InsertStmt) SetSubTableName(name string) error
+````
+
+Set the table name:
+
+````go
+func (stmt *InsertStmt) SetTableName(name string) error
+````
+
+Set the subtable name and tags:
+
+````go
+func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param.Param) error
+````
+
+Bind parameters:
+
+````go
+func (stmt *InsertStmt) BindParam(params []*param.Param, bindType *param.ColumnType) error
+````
+
+Add batch:
+
+````go
+func (stmt *InsertStmt) AddBatch() error
+````
+
+implement:
+
+````go
+func (stmt *InsertStmt) Execute() error
+````
+
+Get the number of affected rows:
+
+````go
+func (stmt *InsertStmt) GetAffectedRows() int
+````
+
+Close stmt:
+
+````go
+func (stmt *InsertStmt) Close() error
+````
+
+Example code: [`examples/stmtinsert/main.go`](examples/stmtinsert/main.go).
 
 ## restful implementation of the `database/sql` standard interface
 
@@ -235,7 +343,7 @@ Parameters:
 
 Since the restful interface is stateless, the `use db` syntax will not work, you need to put the db name into the sql statement, e.g. `create table if not exists tb1 (ts timestamp, a int)` to `create table if not exists test.tb1 (ts timestamp, a int)` otherwise it will report an error `[0x217] Database not specified or available`.
 
-You can also put the db name in the DSN by changing `root:taosdata@http(localhost:6041)/` to `root:taosdata@http(localhost:6041)/test`. This method is supported by taosadapter since TDengine 2.4.0.5. Executing the `create database` statement when the specified db does not exist will not report an error, while executing other queries or inserts will report an error. The example is as follows:
+You can also put the db name in the DSN by changing `root:taosdata@http(localhost:6041)/` to `root:taosdata@http(localhost:6041)/test`. Executing the `create database` statement when the specified db does not exist will not report an error, while executing other queries or inserts will report an error. The example is as follows:
 
 ```go
 package main
@@ -293,10 +401,6 @@ driver-go
 ├── common //common function and constants
 ├── errors // error type
 ├── examples //examples
-├── go.mod
-├── go.sum
-├── README-CN.md
-├── README.md
 ├── taosRestful // database operation standard interface (restful)
 ├── taosSql // database operation standard interface
 ├── types // inner type

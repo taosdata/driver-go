@@ -193,6 +193,7 @@ func TestTmq(t *testing.T) {
 	assert.Equal(t, "1", row1[12].(string))
 	assert.Equal(t, "2", row1[13].(string))
 	err = consumer.Commit(context.Background(), nil)
+	consumer.FreeMessage(message.Message)
 	assert.NoError(t, err)
 	err = consumer.Unsubscribe()
 	assert.NoError(t, err)
