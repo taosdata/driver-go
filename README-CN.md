@@ -4,7 +4,7 @@
 
 [English](README.md) | 简体中文
 
-[TDengine]提供了GO驱动程序 [`taosSql`][driver-go]，实现了GO语言的内置数据库操作接口 `database/sql/driver`。
+[TDengine]提供了 GO 驱动程序 [`taosSql`][driver-go]，实现了 GO 语言的内置数据库操作接口 `database/sql/driver`。
 
 ## 提示
 
@@ -16,13 +16,13 @@ v2 与 v3 版本不兼容，与 TDengine 版本对应如下：
 
 ## 安装
 
-对新建项目，建议使用Go 1.14+，并使用 GO Modules 方式进行管理。
+对新建项目，建议使用 Go 1.14+，并使用 GO Modules 方式进行管理。
 
 ```sh
 go mod init taos-demo
 ```
 
-引入taosSql：
+引入 taosSql：
 
 ```go
 import (
@@ -31,13 +31,13 @@ import (
 )
 ```
 
-使用`go mod`方式管理依赖包：
+使用 `go mod` 方式管理依赖包：
 
 ```sh
 go mod tidy
 ```
 
-或通过`go get`直接下载安装：
+或通过 `go get` 直接下载安装：
 
 ```sh
 go get github.com/taosdata/driver-go/v3/taosSql
@@ -98,28 +98,28 @@ func main() {
 }
 ```
 
-常用API列表：
+常用 API 列表：
 
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
-  该API用来创建`database/sql` DB对象，类型为`*DB`，DRIVER_NAME设置为字符串`taosSql`,
-  dataSourceName设置为字符串`user:password@tcp(host:port)/dbname`，对应于TDengine的高可用机制，可以使用 `user:password@cfg(/etc/taos)/dbname`
-  来使用`/etc/taos/taos.cfg`中的多EP配置。
+  该 API 用来创建`database/sql` DB 对象，类型为 `*DB` ，DRIVER_NAME 设置为字符串 `taosSql`,
+  dataSourceName 设置为字符串`user:password@tcp(host:port)/dbname`，对应于 TDengine 的高可用机制，可以使用 `user:password@cfg(/etc/taos)/dbname`
+  来使用`/etc/taos/taos.cfg`中的多 EP 配置。
 
-  **注意**： 该API成功创建的时候，并没有做权限等检查，只有在真正执行Query或者Exec的时候才能真正的去创建连接，并同时检查user/password/host/port是不是合法。
-  另外，由于整个驱动程序大部分实现都下沉到taosSql所依赖的libtaos中。所以，sql.Open本身特别轻量。
+  **注意**： 该 API 成功创建的时候，并没有做权限等检查，只有在真正执行 Query 或者 Exec 的时候才能真正的去创建连接，并同时检查 user/password/host/port 是不是合法。
+  另外，由于整个驱动程序大部分实现都下沉到 taosSql 所依赖的 libtaos 中。所以，sql.Open 本身特别轻量。
 
 - `func (db *DB) Exec(query string, args ...interface{}) (Result, error)`
 
-  sql.Open内置的方法，用来执行非查询相关SQL，如`create`, `alter`等。
+  sql.Open 内置的方法，用来执行非查询相关 SQL，如`create`, `alter`等。
 
 - `func (db *DB) Query(query string, args ...interface{}) (*Rows, error)`
 
-  sql.Open内置的方法，用来执行查询语句。
+  sql.Open 内置的方法，用来执行查询语句。
 
 - `func (db *DB) Close() error`
 
-  sql.Open内置的方法，关闭DB对象。
+  sql.Open 内置的方法，关闭 DB 对象。
 
 ### 订阅
 
