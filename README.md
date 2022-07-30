@@ -57,7 +57,7 @@ import (
 )
 
 func main() {
-    var taosUri = "root:taosdata/tcp(localhost:6030)/"
+    var taosUri = "root:taosdata@tcp(localhost:6030)/"
     taos, err := sql.Open("taosSql", taosUri)
     if err != nil {
         fmt.Println("failed to connect TDengine, err:", err)
@@ -100,7 +100,7 @@ APIs that are worthy to have a check:
 
   This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be set as `taosSql`,
   and `dataSourceName` should be a URI like `user:password@/tcp(host:port)/dbname`. For HA use case,
-  use `user:password@/cfg/dbname` to apply configs in `/etc/taos/taos.cfg`。
+  use `user:password@cfg(/etc/taos)/dbname` to apply configs in `/etc/taos/taos.cfg`.
 
 - `func (db *DB) Exec(query string, args ...interface{}) (Result, error)`
 
