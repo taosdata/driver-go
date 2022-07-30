@@ -57,7 +57,7 @@ import (
 )
 
 func main() {
-    var taosUri = "root:taosdata/tcp(localhost:6030)/"
+    var taosUri = "root:taosdata@tcp(localhost:6030)/"
     taos, err := sql.Open("taosSql", taosUri)
     if err != nil {
         fmt.Println("failed to connect TDengine, err:", err)
@@ -99,7 +99,7 @@ func main() {
 - `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
 
   该API用来创建`database/sql` DB对象，类型为`*DB`，DRIVER_NAME设置为字符串`taosSql`,
-  dataSourceName设置为字符串`user:password@/tcp(host:port)/dbname`，对应于TDengine的高可用机制，可以使用 `user:password@/cfg/dbname`
+  dataSourceName设置为字符串`user:password@/tcp(host:port)/dbname`，对应于TDengine的高可用机制，可以使用 `user:password@cfg(/etc/taos)/dbname`
   来使用`/etc/taos/taos.cfg`中的多EP配置。
 
   **注意**： 该API成功创建的时候，并没有做权限等检查，只有在真正执行Query或者Exec的时候才能真正的去创建连接，并同时检查user/password/host/port是不是合法。
