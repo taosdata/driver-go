@@ -9,8 +9,9 @@ type Meta struct {
 		Type   int    `json:"type"`
 		Length int    `json:"length"`
 	} `json:"columns"`
-	Using string `json:"using"`
-	Tags  []struct {
+	Using  string `json:"using"`
+	TagNum int    `json:"tagNum"`
+	Tags   []struct {
 		Name  string      `json:"name"`
 		Type  int         `json:"type"`
 		Value interface{} `json:"value"`

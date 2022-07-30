@@ -20,6 +20,7 @@ type Connector struct {
 	taos unsafe.Pointer
 }
 
+// NewConnector New connector with TDengine connection
 func NewConnector(taos unsafe.Pointer) (*Connector, error) {
 	if taos == nil {
 		return nil, errors.ErrTscInvalidConnection
@@ -27,6 +28,7 @@ func NewConnector(taos unsafe.Pointer) (*Connector, error) {
 	return &Connector{taos: taos}, nil
 }
 
+// Open New connector with TDengine connection information
 func Open(host, user, pass, db string, port int) (*Connector, error) {
 	if len(user) == 0 {
 		user = common.DefaultUser
@@ -43,6 +45,7 @@ func Open(host, user, pass, db string, port int) (*Connector, error) {
 	return &Connector{taos: tc}, nil
 }
 
+// Close Release TDengine connection
 func (conn *Connector) Close() error {
 	locker.Lock()
 	wrapper.TaosClose(conn.taos)
@@ -51,6 +54,7 @@ func (conn *Connector) Close() error {
 	return nil
 }
 
+// StmtExecute Execute sql through stmt
 func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.Result, err error) {
 	stmt := NewStmt(conn.taos)
 	if stmt == nil {
@@ -79,6 +83,7 @@ func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.
 	return driver.RowsAffected(result), nil
 }
 
+// Exec Execute sql
 func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, error) {
 	if conn.taos == nil {
 		return nil, driver.ErrBadConn
@@ -110,6 +115,7 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 	return driver.RowsAffected(affectRows), nil
 }
 
+// Query Execute query sql
 func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, error) {
 	if conn.taos == nil {
 		return nil, driver.ErrBadConn
@@ -158,10 +164,12 @@ func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler) *handl
 	return r
 }
 
+// InsertStmt Prepare batch insert stmt
 func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmt(conn.taos)
 }
 
+// SelectDB Execute `use db`
 func (conn *Connector) SelectDB(db string) error {
 	locker.Lock()
 	code := wrapper.TaosSelectDB(conn.taos, db)
@@ -173,6 +181,7 @@ func (conn *Connector) SelectDB(db string) error {
 	return nil
 }
 
+// InfluxDBInsertLines Insert data using influxdb line format
 func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
 	locker.Lock()
 	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
@@ -191,6 +200,7 @@ func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) err
 	return nil
 }
 
+// OpenTSDBInsertTelnetLines Insert data using opentsdb telnet format
 func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
 	locker.Lock()
 	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
@@ -207,6 +217,7 @@ func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
 	return nil
 }
 
+// OpenTSDBInsertJsonPayload Insert data using opentsdb json format
 func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 	result := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
 	code := wrapper.TaosError(result)

@@ -28,6 +28,7 @@ type Consumer struct {
 	exit                 chan struct{}
 }
 
+// NewConsumer Create new TMQ consumer with TMQ config
 func NewConsumer(conf *Config) (*Consumer, error) {
 	cConsumer, err := wrapper.TMQConsumerNew(conf.cConfig)
 	if err != nil {
@@ -69,6 +70,7 @@ func (c *Consumer) handlerCommitCallback() {
 	}()
 }
 
+// Subscribe TMQ consumer subscribe topics
 func (c *Consumer) Subscribe(topics []string) error {
 	topicList := wrapper.TMQListNew()
 	defer wrapper.TMQListDestroy(topicList)
@@ -87,6 +89,7 @@ func (c *Consumer) Subscribe(topics []string) error {
 	return nil
 }
 
+// Unsubscribe TMQ unsubscribe
 func (c *Consumer) Unsubscribe() error {
 	errCode := wrapper.TMQUnsubscribe(c.cConsumer)
 	if errCode != errors.SUCCESS {
@@ -97,30 +100,32 @@ func (c *Consumer) Unsubscribe() error {
 }
 
 type Result struct {
-	Type   int32
-	DBName string
-	Topic  string
-	Meta   *common.Meta
-	Data   []*Data
+	Type    int32
+	DBName  string
+	Topic   string
+	Message unsafe.Pointer
+	Meta    *common.Meta
+	Data    []*Data
 }
 type Data struct {
 	TableName string
 	Data      [][]driver.Value
 }
 
+//Poll consumer poll message with timeout
 func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	message := wrapper.TMQConsumerPoll(c.cConsumer, timeout.Milliseconds())
 	if message == nil {
 		return nil, nil
 	}
-	defer wrapper.TaosFreeResult(message)
 	topic := wrapper.TMQGetTopicName(message)
 	db := wrapper.TMQGetDBName(message)
 	resultType := wrapper.TMQGetResType(message)
 	result := &Result{
-		Type:   resultType,
-		DBName: db,
-		Topic:  topic,
+		Type:    resultType,
+		DBName:  db,
+		Topic:   topic,
+		Message: message,
 	}
 	switch resultType {
 	case common.TMQ_RES_TABLE_META:
@@ -164,11 +169,16 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	default:
 		return nil, errors.NewError(0xfffff, "invalid tmq message type")
 	}
-
 }
 
-func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) error {
-	wrapper.TMQCommitAsync(c.cConsumer, offset, c.asyncCommitHandle)
+// FreeMessage Release message after commit
+func (c *Consumer) FreeMessage(message unsafe.Pointer) {
+	wrapper.TaosFreeResult(message)
+}
+
+//Commit commit message
+func (c *Consumer) Commit(ctx context.Context, message unsafe.Pointer) error {
+	wrapper.TMQCommitAsync(c.cConsumer, message, c.asyncCommitHandle)
 	for {
 		select {
 		case <-c.exit:
@@ -183,6 +193,7 @@ func (c *Consumer) Commit(ctx context.Context, offset unsafe.Pointer) error {
 	}
 }
 
+// Close release consumer
 func (c *Consumer) Close() error {
 	defer c.autoCommitHandle.Delete()
 	errCode := wrapper.TMQConsumerClose(c.cConsumer)
