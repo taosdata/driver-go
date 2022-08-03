@@ -338,9 +338,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosBool)
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					if value {
@@ -358,9 +358,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosTinyint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					*(*C.int8_t)(current) = C.int8_t(value)
@@ -374,9 +374,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosSmallint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
 					*(*C.int16_t)(current) = C.int16_t(value)
@@ -390,9 +390,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosInt)
 					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
 					*(*C.int32_t)(current) = C.int32_t(value)
@@ -406,9 +406,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosBigint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.int64_t)(current) = C.int64_t(value)
@@ -422,9 +422,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosUTinyint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					*(*C.uint8_t)(current) = C.uint8_t(value)
@@ -438,9 +438,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosUSmallint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
 					*(*C.uint16_t)(current) = C.uint16_t(value)
@@ -454,9 +454,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosUInt)
 					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
 					*(*C.uint32_t)(current) = C.uint32_t(value)
@@ -470,9 +470,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosUBigint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.uint64_t)(current) = C.uint64_t(value)
@@ -486,9 +486,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosFloat)
 					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
 					*(*C.float)(current) = C.float(value)
@@ -502,9 +502,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosDouble)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.double)(current) = C.double(value)
@@ -517,9 +517,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosBinary)
 					for j := 0; j < len(value); j++ {
 						*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(columnType.MaxLen*i+j))) = (C.char)(value[j])
@@ -535,9 +535,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosNchar)
 					for j := 0; j < len(value); j++ {
 						*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(columnType.MaxLen*i+j))) = (C.char)(value[j])
@@ -554,9 +554,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
-					*(*C.int)(currentNull) = C.int(1)
+					*(*C.char)(currentNull) = C.char(1)
 				} else {
-					*(*C.int)(currentNull) = C.int(0)
+					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosTimestamp)
 					ts := common.TimeToTimestamp(value.T, value.Precision)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
