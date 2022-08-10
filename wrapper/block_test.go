@@ -879,3 +879,215 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		assert.Nil(t, row2[i])
 	}
 }
+
+func TestParseBlock(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	defer TaosClose(conn)
+	res := TaosQuery(conn, "drop database if exists parse_block")
+	code := TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+	defer func() {
+		res = TaosQuery(conn, "drop database if exists parse_block")
+		code = TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
+	res = TaosQuery(conn, "create database parse_block vgroups 1")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	res = TaosQuery(conn, "create table if not exists parse_block.all_type (ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
+		") tags (info json)")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+	now := time.Now()
+	after1s := now.Add(time.Second)
+	sql := fmt.Sprintf("insert into parse_block.t0 using parse_block.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	sql = "select * from parse_block.all_type"
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	fileCount := TaosNumFields(res)
+	rh, err := ReadColumn(res, fileCount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	precision := TaosResultPrecision(res)
+	var data [][]driver.Value
+	for {
+		blockSize, errCode, block := TaosFetchRawBlock(res)
+		if errCode != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(code, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		if blockSize == 0 {
+			break
+		}
+		version := RawBlockGetVersion(block)
+		assert.Equal(t, int32(1), version)
+		length := RawBlockGetLength(block)
+		assert.Equal(t, int32(374), length)
+		rows := RawBlockGetNumOfRows(block)
+		assert.Equal(t, int32(2), rows)
+		columns := RawBlockGetNumOfCols(block)
+		assert.Equal(t, int32(15), columns)
+		hasColumnSegment := RawBlockGetHasColumnSegment(block)
+		assert.Equal(t, int32(-2147483648), hasColumnSegment)
+		groupId := RawBlockGetGroupID(block)
+		assert.Equal(t, uint64(0), groupId)
+		infos := make([]RawBlockColInfo, columns)
+		RawBlockGetColInfo(block, infos)
+		assert.Equal(
+			t,
+			[]RawBlockColInfo{
+				{
+					ColType: 9,
+					Bytes:   8,
+				},
+				{
+					ColType: 1,
+					Bytes:   1,
+				},
+				{
+					ColType: 2,
+					Bytes:   1,
+				},
+				{
+					ColType: 3,
+					Bytes:   2,
+				},
+				{
+					ColType: 4,
+					Bytes:   4,
+				},
+				{
+					ColType: 5,
+					Bytes:   8,
+				},
+				{
+					ColType: 11,
+					Bytes:   1,
+				},
+				{
+					ColType: 12,
+					Bytes:   2,
+				},
+				{
+					ColType: 13,
+					Bytes:   4,
+				},
+				{
+					ColType: 14,
+					Bytes:   8,
+				},
+				{
+					ColType: 6,
+					Bytes:   4,
+				},
+				{
+					ColType: 7,
+					Bytes:   8,
+				},
+				{
+					ColType: 8,
+					Bytes:   22,
+				},
+				{
+					ColType: 10,
+					Bytes:   82,
+				},
+				{
+					ColType: 15,
+					Bytes:   16384,
+				},
+			},
+			infos,
+		)
+		d := ReadBlock(block, blockSize, rh.ColTypes, precision)
+		data = append(data, d...)
+	}
+	TaosFreeResult(res)
+	assert.Equal(t, 2, len(data))
+	row1 := data[0]
+	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
+	assert.Equal(t, true, row1[1].(bool))
+	assert.Equal(t, int8(1), row1[2].(int8))
+	assert.Equal(t, int16(1), row1[3].(int16))
+	assert.Equal(t, int32(1), row1[4].(int32))
+	assert.Equal(t, int64(1), row1[5].(int64))
+	assert.Equal(t, uint8(1), row1[6].(uint8))
+	assert.Equal(t, uint16(1), row1[7].(uint16))
+	assert.Equal(t, uint32(1), row1[8].(uint32))
+	assert.Equal(t, uint64(1), row1[9].(uint64))
+	assert.Equal(t, float32(1), row1[10].(float32))
+	assert.Equal(t, float64(1), row1[11].(float64))
+	assert.Equal(t, "test_binary", row1[12].(string))
+	assert.Equal(t, "test_nchar", row1[13].(string))
+	assert.Equal(t, []byte(`{"a":1}`), row1[14].([]byte))
+	row2 := data[1]
+	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
+	for i := 1; i < 14; i++ {
+		assert.Nil(t, row2[i])
+	}
+	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
+}

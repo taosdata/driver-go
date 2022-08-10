@@ -71,7 +71,7 @@ func RawBlockGetColInfo(rawBlock unsafe.Pointer, infos []RawBlockColInfo) {
 	for i := 0; i < len(infos); i++ {
 		offset := uintptr(rawBlock) + ColInfoOffset + ColInfoSize*uintptr(i)
 		infos[i].ColType = *((*int8)(unsafe.Pointer(offset)))
-		infos[i].Bytes = *((*int32)(unsafe.Pointer(offset + Int16Size)))
+		infos[i].Bytes = *((*int32)(unsafe.Pointer(offset + Int8Size)))
 	}
 }
 
