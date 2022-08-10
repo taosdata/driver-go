@@ -27,7 +27,7 @@ jobs:
       - name: shell
         run: |
           cat >start.sh<<EOF 
-          ulimit -n 65535 && taosd 
+          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
           EOF
 
       - name: taosd
