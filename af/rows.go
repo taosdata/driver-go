@@ -72,7 +72,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.freeResult()
 		return io.EOF
 	}
-	wrapper.ReadRow(dest, rs.result, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision)
+	wrapper.ReadRow(dest, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision)
 	rs.blockOffset++
 	return nil
 }

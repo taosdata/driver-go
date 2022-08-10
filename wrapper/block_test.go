@@ -236,7 +236,6 @@ func TestReadBlock2(t *testing.T) {
 		return
 	}
 	precision := TaosResultPrecision(res)
-	payloadOffset := uintptr(4 * fileCount)
 	pHeaderList := make([]uintptr, fileCount)
 	pStartList := make([]uintptr, fileCount)
 	var data [][]driver.Value
@@ -253,13 +252,14 @@ func TestReadBlock2(t *testing.T) {
 			break
 		}
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
-		tmpPHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*fileCount) // length i32, group u64
+		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
+		tmpPHeader := uintptr(block) + RawBlockGetColDataOffset(fileCount)
 		tmpPStart := tmpPHeader
 		for column := 0; column < fileCount; column++ {
-			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*fileCount) + uintptr(column)*4)))
+			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 			if IsVarDataType(rh.ColTypes[column]) {
 				pHeaderList[column] = tmpPHeader
-				tmpPStart = tmpPHeader + uintptr(4*blockSize)
+				tmpPStart = tmpPHeader + Int32Size*uintptr(blockSize)
 				pStartList[column] = tmpPStart
 			} else {
 				pHeaderList[column] = tmpPHeader
@@ -378,7 +378,6 @@ func TestBlockTag(t *testing.T) {
 		return
 	}
 	precision := TaosResultPrecision(res)
-	payloadOffset := uintptr(4 * fileCount)
 	pHeaderList := make([]uintptr, fileCount)
 	pStartList := make([]uintptr, fileCount)
 	var data [][]driver.Value
@@ -395,13 +394,14 @@ func TestBlockTag(t *testing.T) {
 			break
 		}
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
-		tmpPHeader := uintptr(block) + payloadOffset + 12 + uintptr(6*fileCount) // length i32, group u64
+		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
+		tmpPHeader := uintptr(block) + RawBlockGetColDataOffset(fileCount) // length i32, group u64
 		tmpPStart := tmpPHeader
 		for column := 0; column < fileCount; column++ {
-			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + 12 + uintptr(6*fileCount) + uintptr(column)*4)))
+			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 			if IsVarDataType(rh.ColTypes[column]) {
 				pHeaderList[column] = tmpPHeader
-				tmpPStart = tmpPHeader + uintptr(4*blockSize)
+				tmpPStart = tmpPHeader + Int32Size*uintptr(blockSize)
 				pStartList[column] = tmpPStart
 			} else {
 				pHeaderList[column] = tmpPHeader
@@ -531,7 +531,7 @@ func TestReadRow(t *testing.T) {
 		}
 		for i := 0; i < blockSize; i++ {
 			tmp := make([]driver.Value, fileCount)
-			ReadRow(tmp, res, block, blockSize, i, rh.ColTypes, precision)
+			ReadRow(tmp, block, blockSize, i, rh.ColTypes, precision)
 			data = append(data, tmp)
 		}
 	}
