@@ -132,19 +132,29 @@ func convertUBigint(colPointer uintptr, row int, length int, arg ...interface{})
 
 func convertFloat(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
-	if math.IsNaN(float64(*((*float32)(currentRow)))) {
+	tmp := make([]byte, 4)
+	for i := 0; i < 4; i++ {
+		tmp[i] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(i))))
+	}
+	p0 := unsafe.Pointer(*(*uintptr)(unsafe.Pointer(&tmp)))
+	if math.IsNaN(float64(*((*float32)(p0)))) {
 		return nil
 	} else {
-		return *((*float32)(currentRow))
+		return *((*float32)(p0))
 	}
 }
 
 func convertDouble(colPointer uintptr, row int, length int, arg ...interface{}) driver.Value {
 	currentRow := unsafe.Pointer(colPointer + uintptr(row)*uintptr(length))
-	if math.IsNaN(*((*float64)(currentRow))) {
+	tmp := make([]byte, 8)
+	for i := 0; i < 8; i++ {
+		tmp[i] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(i))))
+	}
+	p0 := unsafe.Pointer(*(*uintptr)(unsafe.Pointer(&tmp)))
+	if math.IsNaN(*((*float64)(p0))) {
 		return nil
 	} else {
-		return *((*float64)(currentRow))
+		return *((*float64)(p0))
 	}
 }
 

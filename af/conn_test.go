@@ -337,7 +337,7 @@ func TestStmtQuery(t *testing.T) {
 		{"ts timestamp, value binary(8)", "now, 'yes'", "value = ?", param.NewParam(1).AddBinary([]byte("yes")), false},
 		{"ts timestamp, value nchar(8)", "now, 'OK'", "value = ?", param.NewParam(1).AddNchar("OK"), false},
 		{"ts timestamp, value nchar(8)", "1622282105000000, 'NOW'", "ts = ? and value = ?", param.NewParam(2).AddTimestamp(time.Unix(1622282105, 0), common.PrecisionMicroSecond).AddBinary([]byte("NOW")), false},
-		{"ts timestamp, value nchar(8)", "1622282105000000, 'NOW'", "ts = ? and value = ?", param.NewParam(2).AddBigint(1622282105000000).AddBinary([]byte("NOW")), false},
+		{"ts timestamp, value nchar(8)", "1, 'NOW'", "ts = ? and value = ?", param.NewParam(2).AddBigint(1).AddBinary([]byte("NOW")), false},
 	} {
 		tbName := fmt.Sprintf("test_stmt_query%02d", i)
 		tbType := tc.tbType
