@@ -3,6 +3,7 @@ package wrapper
 import (
 	"database/sql/driver"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 	"unsafe"
@@ -78,7 +79,25 @@ func TestReadBlock(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_block_raw.t0 using test_block_raw.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	after2s := now.Add(2 * time.Second)
+	sql := fmt.Sprintf("insert into test_block_raw.t0 using test_block_raw.all_type tags('{\"a\":1}') values"+
+		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)"+
+		"('%s',true,%d,%d,%d,%d,%d,%d,%d,%v,%f,%f,'b','n')",
+		now.Format(time.RFC3339Nano),
+		after1s.Format(time.RFC3339Nano),
+		after2s.Format(time.RFC3339Nano),
+		math.MaxInt8,
+		math.MaxInt16,
+		math.MaxInt32,
+		math.MaxInt64,
+		math.MaxUint8,
+		math.MaxUint16,
+		math.MaxUint32,
+		uint64(math.MaxUint64),
+		math.MaxFloat32,
+		math.MaxFloat64,
+	)
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -122,7 +141,7 @@ func TestReadBlock(t *testing.T) {
 		data = append(data, d...)
 	}
 	TaosFreeResult(res)
-	assert.Equal(t, 2, len(data))
+	assert.Equal(t, 3, len(data))
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
@@ -145,6 +164,22 @@ func TestReadBlock(t *testing.T) {
 		assert.Nil(t, row2[i])
 	}
 	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
+	row3 := data[2]
+	assert.Equal(t, after2s.UnixNano()/1e6, row3[0].(time.Time).UnixNano()/1e6)
+	assert.Equal(t, true, row3[1].(bool))
+	assert.Equal(t, int8(math.MaxInt8), row3[2].(int8))
+	assert.Equal(t, int16(math.MaxInt16), row3[3].(int16))
+	assert.Equal(t, int32(math.MaxInt32), row3[4].(int32))
+	assert.Equal(t, int64(math.MaxInt64), row3[5].(int64))
+	assert.Equal(t, uint8(math.MaxUint8), row3[6].(uint8))
+	assert.Equal(t, uint16(math.MaxUint16), row3[7].(uint16))
+	assert.Equal(t, uint32(math.MaxUint32), row3[8].(uint32))
+	assert.Equal(t, uint64(math.MaxUint64), row3[9].(uint64))
+	assert.Equal(t, float32(math.MaxFloat32), row3[10].(float32))
+	assert.Equal(t, float64(math.MaxFloat64), row3[11].(float64))
+	assert.Equal(t, "b", row3[12].(string))
+	assert.Equal(t, "n", row3[13].(string))
+	assert.Equal(t, []byte(`{"a":1}`), row3[14].([]byte))
 }
 
 func TestReadBlock2(t *testing.T) {
