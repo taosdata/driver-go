@@ -9,6 +9,7 @@ package wrapper
 import "C"
 import (
 	"database/sql/driver"
+	"math"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -194,11 +195,11 @@ func rawConvertUBigint(pStart uintptr, row int, _ ...interface{}) driver.Value {
 }
 
 func rawConvertFloat(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*float32)(unsafe.Pointer(pStart + uintptr(row)*Float32Size)))
+	return math.Float32frombits(*((*uint32)(unsafe.Pointer(pStart + uintptr(row)*Float32Size))))
 }
 
 func rawConvertDouble(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*float64)(unsafe.Pointer(pStart + uintptr(row)*Float64Size)))
+	return math.Float64frombits(*((*uint64)(unsafe.Pointer(pStart + uintptr(row)*Float64Size))))
 }
 
 func rawConvertTime(pStart uintptr, row int, arg ...interface{}) driver.Value {
