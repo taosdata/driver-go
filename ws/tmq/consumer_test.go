@@ -185,7 +185,7 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, "create", result.Meta.Type)
 				assert.Equal(t, "t_all", result.Meta.TableName)
 				assert.Equal(t, "normal", result.Meta.TableType)
-				assert.Equal(t, []common.Column{
+				assert.Equal(t, []*common.Column{
 					{
 						Name:   "ts",
 						Type:   9,
