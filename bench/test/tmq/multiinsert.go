@@ -7,6 +7,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
@@ -156,7 +157,7 @@ func main() {
 				}
 				precision := wrapper.TaosResultPrecision(message)
 				totalCount += blockSize
-				data := wrapper.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
 				fmt.Println(data)
 			}
 			wrapper.TaosFreeResult(message)

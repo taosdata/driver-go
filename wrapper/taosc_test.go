@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
@@ -408,7 +409,7 @@ func TestTaosResultBlock(t *testing.T) {
 					res = r.res
 					block := TaosGetRawBlock(res)
 					assert.NotNil(t, block)
-					values := ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
+					values := parser.ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
 					_ = values
 					t.Log(values)
 				}

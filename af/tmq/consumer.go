@@ -8,6 +8,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
@@ -112,7 +113,7 @@ type Data struct {
 	Data      [][]driver.Value
 }
 
-//Poll consumer poll message with timeout
+// Poll consumer poll message with timeout
 func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	message := wrapper.TMQConsumerPoll(c.cConsumer, timeout.Milliseconds())
 	if message == nil {
@@ -162,7 +163,7 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 				return nil, err
 			}
 			precision := wrapper.TaosResultPrecision(message)
-			r.Data = append(r.Data, wrapper.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
+			r.Data = append(r.Data, parser.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
 			result.Data = append(result.Data, r)
 		}
 		return result, nil
@@ -176,7 +177,7 @@ func (c *Consumer) FreeMessage(message unsafe.Pointer) {
 	wrapper.TaosFreeResult(message)
 }
 
-//Commit commit message
+// Commit commit message
 func (c *Consumer) Commit(ctx context.Context, message unsafe.Pointer) error {
 	wrapper.TMQCommitAsync(c.cConsumer, message, c.asyncCommitHandle)
 	for {

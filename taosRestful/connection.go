@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	jsonitor "github.com/json-iterator/go"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
-var jsonI = jsonitor.ConfigCompatibleWithStandardLibrary
+var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type taosConn struct {
 	cfg            *config
@@ -197,16 +197,16 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 	defer jsonI.ReturnIterator(iter)
 	iter.Reset(body)
 	timeFormat := time.RFC3339Nano
-	iter.ReadObjectCB(func(iter *jsonitor.Iterator, s string) bool {
+	iter.ReadObjectCB(func(iter *jsoniter.Iterator, s string) bool {
 		switch s {
 		case "code":
 			result.Code = iter.ReadInt()
 		case "desc":
 			result.Desc = iter.ReadString()
 		case "column_meta":
-			iter.ReadArrayCB(func(iter *jsonitor.Iterator) bool {
+			iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 				index := 0
-				iter.ReadArrayCB(func(iter *jsonitor.Iterator) bool {
+				iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 					switch index {
 					case 0:
 						result.ColNames = append(result.ColNames, iter.ReadString())
@@ -231,10 +231,10 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 		case "data":
 			columnCount := len(result.ColTypes)
 			column := 0
-			iter.ReadArrayCB(func(iter *jsonitor.Iterator) bool {
+			iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 				column = 0
 				var row = make([]driver.Value, columnCount)
-				iter.ReadArrayCB(func(iter *jsonitor.Iterator) bool {
+				iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 					defer func() {
 						column += 1
 					}()

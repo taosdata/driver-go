@@ -28,8 +28,8 @@ func (c *Config) SetGroupID(groupID string) error {
 }
 
 // SetAutoOffsetReset TMQ set `auto.offset.reset`
-func (c *Config) SetAutoOffsetReset(auto string) error {
-	return c.SetConfig("auto.offset.reset", auto)
+func (c *Config) SetAutoOffsetReset(offsetReset string) error {
+	return c.SetConfig("auto.offset.reset", offsetReset)
 }
 
 // SetConnectIP TMQ set `td.connect.ip`
@@ -56,6 +56,11 @@ func (c *Config) SetConnectPort(port string) error {
 func (c *Config) SetMsgWithTableName(b bool) error {
 	c.needGetTableName = b
 	return c.SetConfig("msg.with.table.name", strconv.FormatBool(b))
+}
+
+// SetClientID TMQ set `client.id`
+func (c *Config) SetClientID(clientID string) error {
+	return c.SetConfig("client.id", clientID)
 }
 
 func (c *Config) SetConfig(key string, value string) error {
