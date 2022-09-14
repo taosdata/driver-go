@@ -44,6 +44,7 @@ type IndexedChan struct {
 	channel chan []byte
 }
 
+// NewConsumer create a tmq consumer
 func NewConsumer(config *Config) (*Consumer, error) {
 	ws, _, err := client.DefaultDialer.Dial(config.Url, nil)
 	if err != nil {
@@ -126,6 +127,7 @@ func (c *Consumer) generateReqID() uint64 {
 	return atomic.AddUint64(&c.requestID, 1)
 }
 
+// Close consumer. This function can be called multiple times
 func (c *Consumer) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.closeChan)
@@ -197,6 +199,7 @@ func (c *Consumer) sendText(reqID uint64, envelop *client.Envelope) ([]byte, err
 	}
 }
 
+// Subscribe with topic list
 func (c *Consumer) Subscribe(topic []string) error {
 	reqID := c.generateReqID()
 	req := &SubscribeReq{
@@ -251,6 +254,7 @@ type Data struct {
 	Data      [][]driver.Value
 }
 
+// Poll messages
 func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	reqID := c.generateReqID()
 	req := &PollReq{
@@ -423,6 +427,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 	return nil
 }
 
+// Commit message with messageID
 func (c *Consumer) Commit(messageID uint64) error {
 	reqID := c.generateReqID()
 	req := &CommitReq{

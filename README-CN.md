@@ -4,7 +4,7 @@
 
 [English](README.md) | 简体中文
 
-[TDengine]提供了 GO 驱动程序 [`taosSql`][driver-go]，实现了 GO 语言的内置数据库操作接口 `database/sql/driver`。
+[TDengine] 提供了 GO 驱动程序 [`taosSql`][driver-go]，实现了 GO 语言的内置数据库操作接口 `database/sql/driver`。
 
 ## 提示
 
@@ -318,7 +318,7 @@ import (
 
 DSN 格式为：
 
-```数据库用户名:数据库密码@连接方式(域名或ip:端口)/[数据库][?参数]```
+```数据库用户名：数据库密码@连接方式（域名或 ip: 端口）/[数据库][? 参数]```
 
 样例：
 
@@ -383,6 +383,72 @@ func main() {
 }
 ```
 
+## 通过 websocket 使用 tmq
+
+通过 websocket 方式使用 tmq。服务端需要启动 taoAdapter。
+
+### 配置相关 API
+
+- `func NewConfig(url string, chanLength uint) *Config`
+
+ 创建配置项，传入 websocket 地址和发送管道长度。
+
+- `func (c *Config) SetConnectUser(user string) error`
+
+ 设置用户名。
+
+- `func (c *Config) SetConnectPass(pass string) error`
+
+ 设置密码。
+
+- `func (c *Config) SetClientID(clientID string) error`
+
+ 设置客户端标识。
+
+- `func (c *Config) SetGroupID(groupID string) error`
+
+ 设置订阅组 ID。
+
+- `func (c *Config) SetWriteWait(writeWait time.Duration) error`
+
+ 设置发送消息等待时间。
+
+- `func (c *Config) SetMessageTimeout(timeout time.Duration) error`
+
+ 设置消息超时时间。
+
+- `func (c *Config) SetErrorHandler(f func(consumer *Consumer, err error))`
+
+ 设置错误处理方法。
+
+- `func (c *Config) SetCloseHandler(f func())`
+
+ 设置关闭处理方法。
+
+### 订阅相关 API
+
+- `func NewConsumer(config *Config) (*Consumer, error)`
+
+ 创建消费者。
+
+- `func (c *Consumer) Subscribe(topic []string) error`
+
+ 订阅主题。
+
+- `func (c *Consumer) Poll(timeout time.Duration) (*Result, error)`
+
+ 轮询消息。
+
+- `func (c *Consumer) Commit(messageID uint64) error`
+
+ 提交消息。
+
+- `func (c *Consumer) Close() error`
+
+ 关闭连接。
+
+示例代码：[`examples/tmqoverws/main.go`](examples/tmqoverws/main.go)。
+
 ## 目录结构
 
 ```text
@@ -391,10 +457,11 @@ driver-go
 ├── common //通用方法以及常量
 ├── errors //错误类型
 ├── examples //样例
-├── taosRestful // 数据库操作标准接口(restful)
+├── taosRestful // 数据库操作标准接口 (restful)
 ├── taosSql // 数据库操作标准接口
 ├── types // 内置类型
-└── wrapper // cgo 包装器
+├── wrapper // cgo 包装器
+└── ws // websocket
 ```
 
 ## 导航
