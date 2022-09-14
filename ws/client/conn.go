@@ -141,6 +141,7 @@ func (c *Client) WritePump() {
 			}
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
 			if err != nil {
+				c.ErrorHandler(err)
 				return
 			}
 			c.SendMessageHandler(message)
