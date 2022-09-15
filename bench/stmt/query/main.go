@@ -9,6 +9,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/taosdata/driver-go/v3/common/param"
+	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
@@ -110,7 +111,7 @@ func StmtQuery(conn unsafe.Pointer, sql string, params *param.Param) (rows [][]d
 		if blockSize == 0 {
 			break
 		}
-		d := wrapper.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
+		d := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
 		data = append(data, d...)
 	}
 	wrapper.TaosFreeResult(res)

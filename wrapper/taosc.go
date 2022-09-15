@@ -4,7 +4,7 @@ package wrapper
 #cgo CFLAGS: -IC:/TDengine/include -I/usr/include
 #cgo linux LDFLAGS: -L/usr/lib -ltaos
 #cgo windows LDFLAGS: -LC:/TDengine/driver -ltaos
-#cgo darwin LDFLAGS: -L/usr/local/taos/driver -ltaos
+#cgo darwin LDFLAGS: -L/usr/local/lib -ltaos
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

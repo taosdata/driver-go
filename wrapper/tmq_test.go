@@ -9,6 +9,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
@@ -217,7 +218,7 @@ func TestTMQ(t *testing.T) {
 				assert.Equal(t, "ct1", tableName)
 				dbName := TMQGetDBName(message)
 				assert.Equal(t, "abc1", dbName)
-				data := ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -443,7 +444,7 @@ func TestTMQDB(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -675,7 +676,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -887,7 +888,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
 				t.Log(data)
 			}
 			TaosFreeResult(message)

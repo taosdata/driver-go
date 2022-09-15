@@ -393,6 +393,72 @@ func main() {
 }
 ```
 
+## Using tmq over websocket
+
+Use tmq over websocket. The server needs to start taoAdapter.
+
+### Configure related API
+
+- `func NewConfig(url string, chanLength uint) *Config`
+
+ Create a configuration, pass in the websocket address and the length of the sending channel.
+
+- `func (c *Config) SetConnectUser(user string) error`
+
+ Set username.
+
+- `func (c *Config) SetConnectPass(pass string) error`
+
+ Set password.
+
+- `func (c *Config) SetClientID(clientID string) error`
+
+ Set the client ID.
+
+- `func (c *Config) SetGroupID(groupID string) error`
+
+ Set the subscription group ID.
+
+- `func (c *Config) SetWriteWait(writeWait time.Duration) error`
+
+ Set the waiting time for sending messages.
+
+- `func (c *Config) SetMessageTimeout(timeout time.Duration) error`
+
+ Set the message timeout.
+
+- `func (c *Config) SetErrorHandler(f func(consumer *Consumer, err error))`
+
+ Set the error handler.
+
+- `func (c *Config) SetCloseHandler(f func())`
+
+ Set the close handler.
+
+### Subscription related API
+
+- `func NewConsumer(config *Config) (*Consumer, error)`
+
+ Create a consumer.
+
+- `func (c *Consumer) Subscribe(topic []string) error`
+
+ Subscribe to topics.
+
+- `func (c *Consumer) Poll(timeout time.Duration) (*Result, error)`
+
+ Poll messages.
+
+- `func (c *Consumer) Commit(messageID uint64) error`
+
+ Commit message.
+
+- `func (c *Consumer) Close() error`
+
+ Close the connection.
+
+Example code: [`examples/tmqoverws/main.go`](examples/tmqoverws/main.go).
+
 ## Directory structure
 
 ```text
@@ -404,7 +470,8 @@ driver-go
 ├── taosRestful // database operation standard interface (restful)
 ├── taosSql // database operation standard interface
 ├── types // inner type
-└── wrapper // cgo wrapper
+├── wrapper // cgo wrapper
+└── ws // websocket
 ```
 
 ## Link
