@@ -6,13 +6,13 @@ import (
 	"database/sql/driver"
 )
 
-// tdengineDriver is exported to make the driver directly accessible.
+// TdengineDriver is exported to make the driver directly accessible.
 // In general the driver is used via the database/sql package.
-type tdengineDriver struct{}
+type TdengineDriver struct{}
 
 // Open new Connection.
 // the DSN string is formatted
-func (d tdengineDriver) Open(dsn string) (driver.Conn, error) {
+func (d TdengineDriver) Open(dsn string) (driver.Conn, error) {
 	cfg, err := parseDSN(dsn)
 	if err != nil {
 		return nil, err
@@ -24,5 +24,5 @@ func (d tdengineDriver) Open(dsn string) (driver.Conn, error) {
 }
 
 func init() {
-	sql.Register("taosRestful", &tdengineDriver{})
+	sql.Register("taosRestful", &TdengineDriver{})
 }
