@@ -35,7 +35,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 }
 
 // Driver implements driver.Connector interface.
-// Driver returns &tdengineDriver{}.
+// Driver returns &TDengineDriver{}.
 func (c *connector) Driver() driver.Driver {
-	return &tdengineDriver{}
+	return &TDengineDriver{}
 }
