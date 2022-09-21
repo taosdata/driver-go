@@ -130,46 +130,72 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	}
 	switch resultType {
 	case common.TMQ_RES_TABLE_META:
-		var meta common.Meta
-		p := wrapper.TMQGetJsonMeta(message)
-		if p != nil {
-			data := wrapper.ParseJsonMeta(p)
-			wrapper.TMQFreeJsonMeta(p)
-			err := jsoniter.Unmarshal(data, &meta)
-			if err != nil {
-				return nil, err
-			}
-			result.Meta = &meta
+		err := c.getMeta(message, result)
+		if err != nil {
+			return nil, err
 		}
 		return result, nil
 	case common.TMQ_RES_DATA:
-		for {
-			blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
-			if errCode != int(errors.SUCCESS) {
-				errStr := wrapper.TaosErrorStr(message)
-				err := errors.NewError(errCode, errStr)
-				return nil, err
-			}
-			if blockSize == 0 {
-				break
-			}
-			r := &Data{}
-			if c.conf.needGetTableName {
-				r.TableName = wrapper.TMQGetTableName(message)
-			}
-			fileCount := wrapper.TaosNumFields(message)
-			rh, err := wrapper.ReadColumn(message, fileCount)
-			if err != nil {
-				return nil, err
-			}
-			precision := wrapper.TaosResultPrecision(message)
-			r.Data = append(r.Data, parser.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
-			result.Data = append(result.Data, r)
+		err := c.getData(message, result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	case common.TMQ_RES_METADATA:
+		err := c.getMeta(message, result)
+		if err != nil {
+			return nil, err
+		}
+		err = c.getData(message, result)
+		if err != nil {
+			return nil, err
 		}
 		return result, nil
 	default:
 		return nil, errors.NewError(0xfffff, "invalid tmq message type")
 	}
+}
+
+func (c *Consumer) getMeta(message unsafe.Pointer, result *Result) error {
+	var meta common.Meta
+	p := wrapper.TMQGetJsonMeta(message)
+	if p != nil {
+		data := wrapper.ParseJsonMeta(p)
+		wrapper.TMQFreeJsonMeta(p)
+		err := jsoniter.Unmarshal(data, &meta)
+		if err != nil {
+			return err
+		}
+		result.Meta = &meta
+	}
+	return nil
+}
+
+func (c *Consumer) getData(message unsafe.Pointer, result *Result) error {
+	for {
+		blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
+		if errCode != int(errors.SUCCESS) {
+			errStr := wrapper.TaosErrorStr(message)
+			err := errors.NewError(errCode, errStr)
+			return err
+		}
+		if blockSize == 0 {
+			break
+		}
+		r := &Data{}
+		if c.conf.needGetTableName {
+			r.TableName = wrapper.TMQGetTableName(message)
+		}
+		fileCount := wrapper.TaosNumFields(message)
+		rh, err := wrapper.ReadColumn(message, fileCount)
+		if err != nil {
+			return err
+		}
+		precision := wrapper.TaosResultPrecision(message)
+		r.Data = append(r.Data, parser.ReadBlock(block, blockSize, rh.ColTypes, precision)...)
+		result.Data = append(result.Data, r)
+	}
+	return nil
 }
 
 // FreeMessage Release message after commit
