@@ -308,6 +308,17 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 			}
 			result.Meta = meta
 			return result, nil
+		case common.TMQ_RES_METADATA:
+			meta, err := c.fetchJsonMeta(resp.MessageID)
+			if err != nil {
+				return nil, err
+			}
+			result.Meta = meta
+			err = c.fetch(resp.MessageID, result)
+			if err != nil {
+				return nil, err
+			}
+			return result, nil
 		default:
 			return nil, errors.New("unknown message type:" + strconv.FormatUint(resp.MessageID, 10))
 		}
