@@ -46,6 +46,21 @@ func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol i
 	}
 }
 
+// TaosSchemalessInsertRaw DLL_EXPORT TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision);
+func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, lines string, protocol int, precision string) (int32, unsafe.Pointer) {
+	cLine := C.CString(lines)
+	defer C.free(unsafe.Pointer(cLine))
+	var totalRows int32
+	pTotalRows := unsafe.Pointer(&totalRows)
+	var res unsafe.Pointer
+	if len(precision) == 0 {
+		res = C.taos_schemaless_insert_raw(taosConnect, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows), (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))
+	} else {
+		res = C.taos_schemaless_insert_raw(taosConnect, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows), (C.int)(protocol), (C.int)(exchange(precision)))
+	}
+	return totalRows, res
+}
+
 func exchange(ts string) int {
 	switch ts {
 	case "":

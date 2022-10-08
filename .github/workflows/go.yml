@@ -15,7 +15,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: '2.6'
           submodules: 'recursive'
 
       - name: install TDengine
