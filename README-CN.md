@@ -13,6 +13,7 @@ v2 与 v3 版本不兼容，与 TDengine 版本对应如下：
 | **driver-go 版本** | **TDengine 版本** |
 |------------------|-----------------|
 | v3.0.0           | 3.0.0.0+        |
+| v3.0.1           | 3.0.0.0+        |
 
 ## 安装
 
@@ -384,6 +385,86 @@ func main() {
     }
 }
 ```
+
+## websocket 实现 `database/sql` 标准接口
+
+通过 websocket 方式实现 `database/sql` 接口，使用方法简单示例如下：
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    "time"
+
+    _ "github.com/taosdata/driver-go/v3/taosWS"
+)
+
+func main() {
+    var taosDSN = "root:taosdata@ws(localhost:6041)/"
+    taos, err := sql.Open("taosWS", taosDSN)
+    if err != nil {
+        fmt.Println("failed to connect TDengine, err:", err)
+        return
+    }
+    defer taos.Close()
+    taos.Exec("create database if not exists test")
+    taos.Exec("create table if not exists test.tb1 (ts timestamp, a int)")
+    _, err = taos.Exec("insert into test.tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
+    if err != nil {
+        fmt.Println("failed to insert, err:", err)
+        return
+    }
+    rows, err := taos.Query("select * from test.tb1")
+    if err != nil {
+        fmt.Println("failed to select from table, err:", err)
+        return
+    }
+
+    defer rows.Close()
+    for rows.Next() {
+        var r struct {
+            ts time.Time
+            a  int
+        }
+        err := rows.Scan(&r.ts, &r.a)
+        if err != nil {
+            fmt.Println("scan error:\n", err)
+            return
+        }
+        fmt.Println(r.ts, r.a)
+    }
+}
+```
+
+### 使用
+
+引入
+
+```go
+import (
+    "database/sql"
+    _ "github.com/taosdata/driver-go/v3/taosWS"
+)
+```
+
+`sql.Open` 的 driverName 为 `taosWS`
+
+DSN 格式为：
+
+```text
+数据库用户名:数据库密码@连接方式(域名或 ip:端口)/[数据库][?参数]
+```
+
+样例：
+
+```root:taosdata@ws(localhost:6041)/test?writeTimeout=10s&readTimeout=10m```
+
+参数：
+
+- `writeTimeout` 通过 websocket 发送数据的超时时间。
+- `readTimeout` 通过 websocket 接收响应数据的超时时间。
 
 ## 通过 websocket 使用 tmq
 

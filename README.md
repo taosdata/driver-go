@@ -13,6 +13,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 | **driver-go version** | **TDengine version** | 
 |-----------------------|----------------------|
 | v3.0.0                | 3.0.0.0+             |
+| v3.0.1                | 3.0.0.0+             |
 
 ## Install
 
@@ -311,15 +312,6 @@ import (
 )
 ```
 
-Introduce
-
-```go
-import (
-    "database/sql"
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
-)
-```
-
 The driverName of `sql.Open` is `taosRestful`
 
 The DSN format is:
@@ -392,6 +384,88 @@ func main() {
     }
 }
 ```
+
+## websocket implementation of the `database/sql` standard interface
+
+A simple use case：
+
+```go
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    "time"
+
+    _ "github.com/taosdata/driver-go/v3/taosWS"
+)
+
+func main() {
+    var taosDSN = "root:taosdata@ws(localhost:6041)/"
+    taos, err := sql.Open("taosWS", taosDSN)
+    if err != nil {
+        fmt.Println("failed to connect TDengine, err:", err)
+        return
+    }
+    defer taos.Close()
+    taos.Exec("create database if not exists test")
+    taos.Exec("create table if not exists test.tb1 (ts timestamp, a int)")
+    _, err = taos.Exec("insert into test.tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
+    if err != nil {
+        fmt.Println("failed to insert, err:", err)
+        return
+    }
+    rows, err := taos.Query("select * from test.tb1")
+    if err != nil {
+        fmt.Println("failed to select from table, err:", err)
+        return
+    }
+
+    defer rows.Close()
+    for rows.Next() {
+        var r struct {
+            ts time.Time
+            a  int
+        }
+        err := rows.Scan(&r.ts, &r.a)
+        if err != nil {
+            fmt.Println("scan error:\n", err)
+            return
+        }
+        fmt.Println(r.ts, r.a)
+    }
+}
+```
+
+### Usage of websocket
+
+import
+
+```go
+import (
+    "database/sql"
+    _ "github.com/taosdata/driver-go/v3/taosWS"
+)
+```
+
+The driverName of `sql.Open` is `taosWS`
+
+The DSN format is:
+
+```text
+database username:database password@connection-method(domain or ip:port)/[database][? parameter]
+```
+
+Example:
+
+```text
+root:taosdata@ws(localhost:6041)/test?writeTimeout=10s&readTimeout=10m
+```
+
+Parameters:
+
+- `writeTimeout` The timeout to send data via websocket.
+- `readTimeout` The timeout to receive response data via websocket.
 
 ## Using tmq over websocket
 

@@ -125,8 +125,8 @@ func TestConsumer(t *testing.T) {
 	config.SetGroupID("test")
 	config.SetClientID("test_consumer")
 	config.SetAutoOffsetReset("earliest")
-	config.SetMessageTimeout(client.DefaultMessageTimeout)
-	config.SetWriteWait(client.DefaultWriteWait)
+	config.SetMessageTimeout(common.DefaultMessageTimeout)
+	config.SetWriteWait(common.DefaultWriteWait)
 	config.SetErrorHandler(func(consumer *Consumer, err error) {
 		t.Log(err)
 	})
