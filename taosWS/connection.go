@@ -257,7 +257,7 @@ func (tc *taosConn) readTo(to interface{}) error {
 	done := make(chan struct{})
 	go func() {
 		defer func() {
-			done <- struct{}{}
+			close(done)
 		}()
 		mt, respBytes, err := tc.client.ReadMessage()
 		if err != nil {
@@ -290,7 +290,7 @@ func (tc *taosConn) readBytes() ([]byte, error) {
 	done := make(chan struct{})
 	go func() {
 		defer func() {
-			done <- struct{}{}
+			close(done)
 		}()
 		mt, message, err := tc.client.ReadMessage()
 		if err != nil {
