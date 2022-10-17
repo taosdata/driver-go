@@ -39,7 +39,6 @@ type taosConn struct {
 	client       *websocket.Conn
 	requestID    uint64
 	readTimeout  time.Duration
-	readTicker   *time.Ticker
 	writeTimeout time.Duration
 	cfg          *config
 	endpoint     string
@@ -75,7 +74,6 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		client:       ws,
 		requestID:    0,
 		readTimeout:  cfg.readTimeout,
-		readTicker:   time.NewTicker(cfg.readTimeout),
 		writeTimeout: cfg.writeTimeout,
 		cfg:          cfg,
 		endpoint:     endpoint,
@@ -276,12 +274,12 @@ func (tc *taosConn) readTo(to interface{}) error {
 			return
 		}
 	}()
-	tc.readTicker.Reset(tc.readTimeout)
-	defer tc.readTicker.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), tc.readTimeout)
+	defer cancel()
 	select {
 	case <-done:
 		return outErr
-	case <-tc.readTicker.C:
+	case <-ctx.Done():
 		return NewBadConnError(ReadTimeoutError)
 	}
 }
@@ -305,12 +303,12 @@ func (tc *taosConn) readBytes() ([]byte, error) {
 		}
 		respBytes = message
 	}()
-	tc.readTicker.Reset(tc.readTimeout)
-	defer tc.readTicker.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), tc.readTimeout)
+	defer cancel()
 	select {
 	case <-done:
 		return respBytes, outErr
-	case <-tc.readTicker.C:
+	case <-ctx.Done():
 		return nil, NewBadConnError(ReadTimeoutError)
 	}
 }
