@@ -27,23 +27,40 @@ const (
 // TaosSchemalessInsert TAOS_RES *taos_schemaless_insert(TAOS* taos, char* lines[], int numLines, int protocol, int precision);
 func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol int, precision string) unsafe.Pointer {
 	numLines := len(lines)
-	var cLines = make([]*C.char, numLines)
-	needFreeList := make([]unsafe.Pointer, numLines)
-	defer func() {
-		for _, p := range needFreeList {
-			C.free(p)
-		}
-	}()
-	for i, line := range lines {
-		cLine := C.CString(line)
-		needFreeList[i] = unsafe.Pointer(cLine)
-		cLines[i] = cLine
-	}
+	cLines := taosSchemalessParam(lines)
 	if len(precision) == 0 {
 		return C.taos_schemaless_insert(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))
 	} else {
 		return C.taos_schemaless_insert(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(exchange(precision)))
 	}
+}
+
+// TaosSchemalessInsertRaw TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision)
+func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, lines []string, protocol int, precision string) unsafe.Pointer {
+	numLines := len(lines)
+	cLines := taosSchemalessParam(lines)
+	if len(precision) == 0 {
+		return C.taos_schemaless_insert_raw(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))
+	} else {
+		return C.taos_schemaless_insert_raw(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(exchange(precision)))
+	}
+}
+
+func taosSchemalessParam(lines []string) []*C.char {
+	cLines := make([]*C.char, len(lines))
+	needFree := make([]unsafe.Pointer, len(lines))
+	defer func() {
+		for _, p := range needFree {
+			C.free(p)
+		}
+	}()
+
+	for i, line := range lines {
+		cLine := C.CString(line)
+		needFree[i] = unsafe.Pointer(cLine)
+		cLines[i] = cLine
+	}
+	return cLines
 }
 
 func exchange(ts string) int {

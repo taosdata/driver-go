@@ -203,3 +203,33 @@ func TestSchemalessInfluxDB(t *testing.T) {
 		wrapper.TaosFreeResult(result)
 	}
 }
+
+func TestTaosSchemalessInsertRaw(t *testing.T) {
+	conn := prepareEnv()
+	defer wrapper.TaosClose(conn)
+	defer cleanEnv(conn)
+	{
+		result := wrapper.TaosSchemalessInsertRaw(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 26297280",
+		}, wrapper.InfluxDBLineProtocol, "m")
+		if code := wrapper.TaosError(result); code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+	{
+		result := wrapper.TaosSchemalessInsertRaw(conn, []string{
+			"measurement,host=host1 field1=2i,field2=2.0 438288",
+		}, wrapper.InfluxDBLineProtocol, "h")
+		if code := wrapper.TaosError(result); code != 0 {
+			errStr := wrapper.TaosErrorStr(result)
+			wrapper.TaosFreeResult(result)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		wrapper.TaosFreeResult(result)
+	}
+}
