@@ -21,7 +21,7 @@ func TMQCommitCB(consumer unsafe.Pointer, resp C.int32_t, param unsafe.Pointer) 
 	r := GetTMQCommitCallbackResult(int32(resp), consumer)
 	defer func() {
 		// Avoid panic due to channel closed
-		_ = recover()
+		recover()
 	}()
 	c <- r
 }

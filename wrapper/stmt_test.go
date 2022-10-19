@@ -906,7 +906,7 @@ func TestTaosStmtSetTags(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer func() { _ = exec(conn, "drop database if exists test_wrapper") }()
+	defer exec(conn, "drop database if exists test_wrapper")
 	err = exec(conn, "create table if not exists test_wrapper.tgs(ts timestamp,v int) tags (tts timestamp,"+
 		"t1 bool,"+
 		"t2 tinyint,"+

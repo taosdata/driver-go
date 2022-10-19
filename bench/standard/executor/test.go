@@ -438,7 +438,7 @@ func (t *TDTest) BenchmarkRead(sqlStr string) {
 	s = time.Now()
 	for rows.Next() {
 		count += 1
-		_ = rows.Scan(values...)
+		rows.Scan(values...)
 	}
 	cost := time.Since(s)
 	fmt.Printf("%s : result count: %d, execute cost: %d ns, average count cost: %f ns\n",

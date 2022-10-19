@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"testing"
 	"time"
 
@@ -15,15 +14,14 @@ import (
 
 // Ensure that all the driver interfaces are implemented
 func TestMain(m *testing.M) {
-	code := m.Run()
-	defer os.Exit(code)
+	m.Run()
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		log.Fatalf("error on:  sql.open %s", err.Error())
 	}
-	defer func() { _ = db.Close() }()
+	defer db.Close()
 	defer func() {
-		_, _ = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+		db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
 	}()
 }
 
@@ -81,7 +79,7 @@ func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
 	now := time.Now()
 	t := now.Add(-100 * time.Minute)
 	for i := 0; i < numOfItems; i++ {
-		_, _ = dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+		dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
 	}
 }
 
@@ -93,14 +91,14 @@ type TestResult struct {
 func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 	dbt := NewDBTest(t)
 	// prepare data
-	_, _ = dbt.Exec("DROP TABLE IF EXISTS test_taos_restful.test")
+	dbt.Exec("DROP TABLE IF EXISTS test_taos_restful.test")
 	var numOfSubTables = 10
 	var numOfItems = 200
 	dbt.CreateTables(numOfSubTables)
 	dbt.InsertInto(numOfSubTables, numOfItems)
 	for _, test := range tests {
 		test(dbt)
-		_, _ = dbt.Exec("DROP TABLE IF EXISTS test_taos_restful.test")
+		dbt.Exec("DROP TABLE IF EXISTS test_taos_restful.test")
 	}
 }
 

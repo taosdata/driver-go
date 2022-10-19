@@ -88,9 +88,9 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 
 func (c *Client) ReadPump() {
 	c.conn.SetReadLimit(common.BufferSize4M)
-	_ = c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
+	c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
 	c.conn.SetPongHandler(func(string) error {
-		_ = c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
+		c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
 		return nil
 	})
 	c.conn.SetCloseHandler(nil)
@@ -120,7 +120,7 @@ func (c *Client) WritePump() {
 	for {
 		select {
 		case message, ok := <-c.sendChan:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
+			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if !ok {
 				return
 			}
@@ -131,7 +131,7 @@ func (c *Client) WritePump() {
 			}
 			c.SendMessageHandler(message)
 		case <-ticker.C:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
+			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.ErrorHandler(err)
 				return

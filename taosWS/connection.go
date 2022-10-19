@@ -63,9 +63,9 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		return nil, err
 	}
 	ws.SetReadLimit(common.BufferSize4M)
-	_ = ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+	ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 	ws.SetPongHandler(func(string) error {
-		_ = ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+		ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 		return nil
 	})
 	tc := &taosConn{
@@ -246,7 +246,7 @@ func (tc *taosConn) connect() error {
 }
 
 func (tc *taosConn) writeText(data []byte) error {
-	_ = tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
+	tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
 	err := tc.client.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
 		return NewBadConnErrorWithCtx(err, string(data))

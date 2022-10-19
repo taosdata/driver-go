@@ -91,7 +91,7 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer func() { _ = cleanEnv() }()
+	defer cleanEnv()
 	now := time.Now()
 	go func() {
 		err = doRequest("create table test_ws_tmq.t_all(ts timestamp," +
@@ -120,13 +120,13 @@ func TestConsumer(t *testing.T) {
 		}
 	}()
 	config := NewConfig("ws://127.0.0.1:6041/rest/tmq", 0)
-	_ = config.SetConnectUser("root")
-	_ = config.SetConnectPass("taosdata")
-	_ = config.SetGroupID("test")
-	_ = config.SetClientID("test_consumer")
-	_ = config.SetAutoOffsetReset("earliest")
-	_ = config.SetMessageTimeout(common.DefaultMessageTimeout)
-	_ = config.SetWriteWait(common.DefaultWriteWait)
+	config.SetConnectUser("root")
+	config.SetConnectPass("taosdata")
+	config.SetGroupID("test")
+	config.SetClientID("test_consumer")
+	config.SetAutoOffsetReset("earliest")
+	config.SetMessageTimeout(common.DefaultMessageTimeout)
+	config.SetWriteWait(common.DefaultWriteWait)
 	config.SetErrorHandler(func(consumer *Consumer, err error) {
 		t.Log(err)
 	})

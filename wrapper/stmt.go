@@ -573,13 +573,14 @@ func TaosStmtAffectedRowsOnce(stmt unsafe.Pointer) int {
 	return int(C.taos_stmt_affected_rows_once(stmt))
 }
 
-// typedef struct TAOS_FIELD_E {
-// char    name[65];
-// int8_t  type;
-// uint8_t precision;
-// uint8_t scale;
-// int32_t bytes;
-// } TAOS_FIELD_E;
+//typedef struct TAOS_FIELD_E {
+//char    name[65];
+//int8_t  type;
+//uint8_t precision;
+//uint8_t scale;
+//int32_t bytes;
+//} TAOS_FIELD_E;
+
 type StmtField struct {
 	Name      string
 	FieldType int8

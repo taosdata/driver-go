@@ -3,7 +3,6 @@ package af
 import (
 	"database/sql/driver"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	code := m.Run()
+	m.Run()
 	db, err := Open("", "", "", "", 0)
 	if err != nil {
 		panic(err)
@@ -23,7 +22,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	os.Exit(code)
 }
 func testDatabase(t *testing.T) *Connector {
 	db, err := Open("", "", "", "", 0)
