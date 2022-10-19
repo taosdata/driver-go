@@ -1047,6 +1047,10 @@ func TestStmtConvertExec(t *testing.T) {
 			}
 			var data []driver.Value
 			tts, err := rows.ColumnTypes()
+			if err != nil {
+				t.Error(err)
+				return
+			}
 			typesL := make([]reflect.Type, 1)
 			for i, tp := range tts {
 				st := tp.ScanType()

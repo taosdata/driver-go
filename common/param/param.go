@@ -32,7 +32,6 @@ func (p *Param) SetNull(offset int) {
 		return
 	}
 	p.value[offset] = nil
-	return
 }
 
 func (p *Param) SetTinyint(offset int, value int) {

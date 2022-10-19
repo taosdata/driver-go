@@ -42,7 +42,6 @@ type taosConn struct {
 	writeTimeout time.Duration
 	cfg          *config
 	endpoint     string
-	closeChan    chan struct{}
 }
 
 func (tc *taosConn) generateReqID() uint64 {
@@ -64,9 +63,9 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		return nil, err
 	}
 	ws.SetReadLimit(common.BufferSize4M)
-	ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+	_ = ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+		_ = ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 		return nil
 	})
 	tc := &taosConn{
@@ -176,6 +175,9 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	}
 	tc.buf.Reset()
 	err = jsonI.NewEncoder(tc.buf).Encode(action)
+	if err != nil {
+		return nil, err
+	}
 	err = tc.writeText(tc.buf.Bytes())
 	if err != nil {
 		return nil, err
@@ -244,7 +246,7 @@ func (tc *taosConn) connect() error {
 }
 
 func (tc *taosConn) writeText(data []byte) error {
-	tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
+	_ = tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
 	err := tc.client.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
 		return NewBadConnErrorWithCtx(err, string(data))

@@ -57,7 +57,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 	}
 
 	if rs.block == nil {
-		rs.taosFetchBlock()
+		_ = rs.taosFetchBlock()
 	}
 	if rs.blockSize == 0 {
 		rs.block = nil
@@ -66,7 +66,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 	}
 
 	if rs.blockOffset >= rs.blockSize {
-		rs.taosFetchBlock()
+		_ = rs.taosFetchBlock()
 	}
 	if rs.blockSize == 0 {
 		rs.block = nil

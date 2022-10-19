@@ -15,7 +15,11 @@ import (
 )
 
 func main() {
-	go http.ListenAndServe(":6060", nil)
+	go func() {
+		if err := http.ListenAndServe(":6060", nil); err != nil {
+			panic(err)
+		}
+	}()
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		panic(err)

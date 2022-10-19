@@ -13,7 +13,6 @@ func prepareEnv() unsafe.Pointer {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		panic(err)
-		return nil
 	}
 	res := wrapper.TaosQuery(conn, "create database if not exists test_schemaless_common")
 	if wrapper.TaosError(res) != 0 {
@@ -88,7 +87,7 @@ func TestSchemalessTelnet(t *testing.T) {
 		return
 	}
 	wrapper.TaosFreeResult(result)
-	t.Log("finish ", time.Now().Sub(s))
+	t.Log("finish ", time.Since(s))
 }
 
 // @author: xftan

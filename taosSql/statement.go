@@ -24,7 +24,7 @@ type Stmt struct {
 	pSql     string
 	isInsert bool
 	cols     []*wrapper.StmtField
-	tags     []*wrapper.StmtField
+	//tags     []*wrapper.StmtField
 }
 
 func (stmt *Stmt) Close() error {
@@ -156,7 +156,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosTinyint(1)
 				} else {
 					v.Value = types.TaosTinyint(0)
@@ -180,7 +180,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosSmallint(1)
 				} else {
 					v.Value = types.TaosSmallint(0)
@@ -204,7 +204,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosInt(1)
 				} else {
 					v.Value = types.TaosInt(0)
@@ -228,7 +228,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosBigint(1)
 				} else {
 					v.Value = types.TaosBigint(0)
@@ -252,7 +252,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosFloat(1)
 				} else {
 					v.Value = types.TaosFloat(0)
@@ -276,7 +276,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosDouble(1)
 				} else {
 					v.Value = types.TaosDouble(0)
@@ -359,7 +359,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosUTinyint(1)
 				} else {
 					v.Value = types.TaosUTinyint(0)
@@ -383,7 +383,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosUSmallint(1)
 				} else {
 					v.Value = types.TaosUSmallint(0)
@@ -407,7 +407,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosUInt(1)
 				} else {
 					v.Value = types.TaosUInt(0)
@@ -431,7 +431,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			rv := reflect.ValueOf(v.Value)
 			switch rv.Kind() {
 			case reflect.Bool:
-				if rv.Bool() == true {
+				if rv.Bool() {
 					v.Value = types.TaosUBigint(1)
 				} else {
 					v.Value = types.TaosUBigint(0)
