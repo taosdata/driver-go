@@ -17,7 +17,7 @@
     {
       "dbinfo": {
         "name": "benchmark",
-        "drop": "yes",
+        "drop": "no",
         "replica": 1,
         "precision": "ms",
         "keep": 3650,

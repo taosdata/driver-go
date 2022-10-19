@@ -12,14 +12,22 @@ if [ ! -d ${RESULT_FOLDER} ]
 then
     mkdir ${RESULT_FOLDER}
 fi
-rm -f benchmark
-go build -o benchmark benchmark.go
 echo "BENCHMARK_TIMES:${BENCHMARK_TIMES}"
 
 clear remaining result report
 rm ./${RESULT_FOLDER}/*.md
 
+echo "====== preparing ..."
+echo "=== build benchmark code "
+rm -f benchmark
+go build -o benchmark benchmark.go
+
+echo "=== create database for benchmark "
+taos -s 'create database if not exists benchmark'
+
 echo "===== step 1 create tables ..."
+taos -s 'drop stable if exists benchmark.stb'
+taos -s 'drop stable if exists benchmark.jtb'
 taosBenchmark -f ./data/only_create_table_with_normal_tag.json
 taosBenchmark -f ./data/only_create_table_with_json_tag.json
 
@@ -32,6 +40,8 @@ hyperfine -r ${BENCHMARK_TIMES} -L types normal,json -L tables ${INSERT_TABLE_NU
  --command-name insert_{types}_${INSERT_TABLE_NUM}_tables_${BENCHMARK_TIMES}_times
 
 echo "===== step 3 clean data and create tables ..."
+taos -s 'drop stable if exists benchmark.stb'
+taos -s 'drop stable if exists benchmark.jtb'
 taosBenchmark -f ./data/only_create_table_with_normal_tag.json
 taosBenchmark -f ./data/only_create_table_with_json_tag.json
 
@@ -69,7 +79,7 @@ do
     sed -n '3,4p' ${filename}>>${RESULT_FOLDER}/${REPORT_NAME}.md
 done
 
-echo "=== clean database binary file ... "
+echo "=== clean database and binary file ... "
 rm -f benchmark
 taos -s 'drop database benchmark'
 

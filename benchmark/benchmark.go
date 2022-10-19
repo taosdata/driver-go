@@ -6,10 +6,11 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	_ "github.com/taosdata/driver-go/v3/taosSql"
 	"log"
 	"math/rand"
 	"time"
+
+	_ "github.com/taosdata/driver-go/v3/taosSql"
 )
 
 const (
@@ -27,6 +28,7 @@ const (
 	queryJtb       = "select ts, bl, i8, i16, i32, i64, u8, u16, u32, u64, f32, d64, bnr, nchr, jtag->\"k0\", jtag->\"k1\", jtag->\"k2\", jtag->\"k3\" from jtb;"
 	avgStbSql      = "select avg(d64) from stb"
 	avgJtbSql      = "select avg(d64) from jtb"
+	maxTableCnt    = 10000
 )
 
 func main() {
@@ -44,6 +46,11 @@ func main() {
 			*cmd, *types, *tableCount, *numOfRow, *times)
 	}
 
+	tableCnt := *tableCount
+	if tableCnt > maxTableCnt {
+		tableCnt = maxTableCnt
+	}
+
 	b, err := newBench(taosDb)
 	panicIf("init connection ", err)
 	defer b.close()
@@ -54,9 +61,9 @@ func main() {
 
 	switch *cmd {
 	case insertCmd:
-		b.insert(ctx, *types, *tableCount)
+		b.insert(ctx, *types, tableCnt)
 	case batchInsertCmd:
-		b.batchInsert(ctx, *types, *tableCount, *numOfRow)
+		b.batchInsert(ctx, *types, tableCnt, *numOfRow)
 	case queryCmd:
 		b.query(ctx, *types, *times)
 	case avgCmd:
@@ -82,7 +89,7 @@ func (b *bench) insert(ctx context.Context, types string, tableCnt int) {
 	if types == jsonType {
 		table = jtb
 	}
-	begin := time.Now().UnixMilli()
+	begin := time.Now().UnixNano() / int64(time.Millisecond)
 
 	for i := 0; i < tableCnt; i++ {
 		_, err := b.taos.ExecContext(ctx,
@@ -100,10 +107,11 @@ func (b *bench) batchInsert(ctx context.Context, types string, tableCnt, numOfRo
 	if types == jsonType {
 		table = jtb
 	}
-	begin := time.Now().UnixMilli()
+	begin := time.Now().UnixNano() / int64(time.Millisecond)
 
 	for i := 0; i < tableCnt; i++ {
-		batchSql := batchInsertSql(begin, fmt.Sprintf("%s_%d", table, i), numOfRows)
+		tableName := fmt.Sprintf("%s_%d", table, i)
+		batchSql := batchInsertSql(begin, tableName, numOfRows)
 		_, err := b.taos.ExecContext(ctx, batchSql)
 		panicIf("batch insert", err)
 	}
@@ -216,7 +224,6 @@ func readJtbRow(rs *sql.Rows) {
 
 func batchInsertSql(begin int64, table string, numOfRows int) string {
 	var buffer bytes.Buffer
-
 	buffer.WriteString(fmt.Sprintf("insert into %s values ", table))
 
 	for i := 0; i < numOfRows; i++ {
