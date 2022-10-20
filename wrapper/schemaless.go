@@ -8,7 +8,6 @@ package wrapper
 */
 import "C"
 import (
-	"unicode/utf8"
 	"unsafe"
 )
 
@@ -50,13 +49,14 @@ func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol i
 }
 
 // TaosSchemalessInsertRaw TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision);
+// insert schemaless data. return result and total inserted rows.
 func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, line string, protocol int, precision string) (res unsafe.Pointer, totalRows int) {
-	length := utf8.RuneCountInString(line)
+	var rows C.int
+	length := len(line)
 	cLine := C.CString(line)
 	defer func() {
 		C.free(unsafe.Pointer(cLine))
 	}()
-	var rows C.int
 
 	if len(precision) == 0 {
 		res = C.taos_schemaless_insert_raw(taosConnect, cLine, (C.int)(length), &rows, (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))

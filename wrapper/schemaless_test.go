@@ -207,7 +207,7 @@ func TestSchemalessInfluxDB(t *testing.T) {
 func TestTaosSchemalessInsertRaw(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
-	//defer cleanEnv(conn)
+	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
 		data      string
@@ -217,7 +217,7 @@ func TestTaosSchemalessInsertRaw(t *testing.T) {
 		precision string
 	}{
 		{
-			name:      "schemaless_h",
+			name:      "schemaless_1",
 			data:      "measurement,host=host1 field1=2i,field2=2.0 26297280",
 			rows:      1,
 			code:      0,
@@ -225,17 +225,31 @@ func TestTaosSchemalessInsertRaw(t *testing.T) {
 			precision: "m",
 		},
 		{
-			name:      "schemaless_h",
-			data:      "measurement,host=host1 field1=2i,field2=2.0 438288",
+			name: "schemaless_2",
+			data: "measurement,host=host1 field1=2i,field2=2.0 438288\n" +
+				"measurement,host=host1 field1=2i,field2=2.0 438289\n" +
+				"measurement,host=host1 field1=2i,field2=2.0 438290\n" +
+				"measurement,host=host1 field1=2i,field2=2.0 438291\n",
+			rows:      4,
+			code:      0,
+			protocol:  wrapper.InfluxDBLineProtocol,
+			precision: "h",
+		},
+		{
+			name:      "schemaless_3",
+			data:      "measurement,host=host2\\0 field1=2i,field2=2.0 438292",
 			rows:      1,
 			code:      0,
 			protocol:  wrapper.InfluxDBLineProtocol,
 			precision: "h",
 		},
 		{
-			name:      "schemaless_h\\0",
-			data:      "measurement,host=host2\\0 field1=2i,field2=2.0 438288",
-			rows:      1,
+			name: "schemaless_4",
+			data: "measurement,host=host2\\0 field1=2i,field2=2.0 438293\n" +
+				"measurement,host=host2\\0 field1=2i,field2=2.0 438294\n" +
+				"measurement,host=host2\\0 field1=2i,field2=2.0,field3=\"test\\0\" 438295\n" +
+				"measurement,host=host2\\0 field1=2i,field2=2.0,field3=\"测试\\0\" 438296\n",
+			rows:      4,
 			code:      0,
 			protocol:  wrapper.InfluxDBLineProtocol,
 			precision: "h",
