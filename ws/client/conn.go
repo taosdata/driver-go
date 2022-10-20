@@ -65,6 +65,7 @@ type Client struct {
 	ErrorHandler         func(err error)
 	SendMessageHandler   func(envelope *Envelope)
 	once                 sync.Once
+	errHandlerOnce       sync.Once
 }
 
 func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
@@ -82,7 +83,6 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 		SendMessageHandler: func(envelope *Envelope) {
 			GlobalEnvelopePool.Put(envelope)
 		},
-		once: sync.Once{},
 	}
 }
 
@@ -175,8 +175,6 @@ func (c *Client) Close() {
 	})
 }
 
-var handlerOnce sync.Once
-
 func (c *Client) handleError(err error) {
-	handlerOnce.Do(func() { c.ErrorHandler(err) })
+	c.errHandlerOnce.Do(func() { c.ErrorHandler(err) })
 }
