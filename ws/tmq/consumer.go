@@ -46,12 +46,12 @@ type IndexedChan struct {
 
 // NewConsumer create a tmq consumer
 func NewConsumer(config *Config) (*Consumer, error) {
-	ws, _, err := client.DefaultDialer.Dial(config.Url, nil)
+	ws, _, err := common.DefaultDialer.Dial(config.Url, nil)
 	if err != nil {
 		return nil, err
 	}
 	if config.MessageTimeout <= 0 {
-		config.MessageTimeout = client.DefaultMessageTimeout
+		config.MessageTimeout = common.DefaultMessageTimeout
 	}
 	wsClient := client.NewClient(ws, config.ChanLength)
 	tmq := &Consumer{

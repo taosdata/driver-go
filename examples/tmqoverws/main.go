@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/taosdata/driver-go/v3/common"
 	_ "github.com/taosdata/driver-go/v3/taosRestful"
-	"github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/tmq"
 )
 
@@ -25,8 +25,8 @@ func main() {
 	config.SetGroupID("example")
 	config.SetClientID("example_consumer")
 	config.SetAutoOffsetReset("earliest")
-	config.SetMessageTimeout(client.DefaultMessageTimeout)
-	config.SetWriteWait(client.DefaultWriteWait)
+	config.SetMessageTimeout(common.DefaultMessageTimeout)
+	config.SetWriteWait(common.DefaultWriteWait)
 	config.SetErrorHandler(func(consumer *tmq.Consumer, err error) {
 		panic(err)
 	})

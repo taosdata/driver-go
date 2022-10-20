@@ -3,20 +3,14 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/taosdata/driver-go/v3/common"
 )
-
-const BufferSize4M = 4 * 1024 * 1024
-const DefaultMessageTimeout = time.Minute * 5
-const DefaultPongWait = 60 * time.Second
-const DefaultPingPeriod = (60 * time.Second * 9) / 10
-const DefaultWriteWait = 10 * time.Second
 
 const (
 	StatusNormal = uint32(1)
@@ -24,14 +18,6 @@ const (
 )
 
 var JsonI = jsoniter.ConfigCompatibleWithStandardLibrary
-
-var DefaultDialer = websocket.Dialer{
-	Proxy:            http.ProxyFromEnvironment,
-	HandshakeTimeout: 45 * time.Second,
-	ReadBufferSize:   BufferSize4M,
-	WriteBufferSize:  BufferSize4M,
-	WriteBufferPool:  &sync.Pool{},
-}
 
 type WSAction struct {
 	Action string          `json:"action"`
@@ -85,11 +71,11 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 	return &Client{
 		conn:                 conn,
 		status:               StatusNormal,
-		BufferSize:           BufferSize4M,
+		BufferSize:           common.BufferSize4M,
 		sendChan:             make(chan *Envelope, sendChanLength),
-		WriteWait:            DefaultWriteWait,
-		PingPeriod:           DefaultPingPeriod,
-		PongWait:             DefaultPongWait,
+		WriteWait:            common.DefaultWriteWait,
+		PingPeriod:           common.DefaultPingPeriod,
+		PongWait:             common.DefaultPongWait,
 		TextMessageHandler:   func(message []byte) {},
 		BinaryMessageHandler: func(message []byte) {},
 		ErrorHandler:         func(err error) {},
@@ -101,7 +87,7 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 }
 
 func (c *Client) ReadPump() {
-	c.conn.SetReadLimit(BufferSize4M)
+	c.conn.SetReadLimit(common.BufferSize4M)
 	c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
@@ -136,7 +122,6 @@ func (c *Client) WritePump() {
 		case message, ok := <-c.sendChan:
 			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
@@ -183,5 +168,8 @@ func (c *Client) Close() {
 	c.once.Do(func() {
 		close(c.sendChan)
 		atomic.StoreUint32(&c.status, StatusStop)
+		if c.conn != nil {
+			c.conn.Close()
+		}
 	})
 }
