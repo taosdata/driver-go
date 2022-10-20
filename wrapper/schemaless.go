@@ -7,9 +7,7 @@ package wrapper
 #include <taos.h>
 */
 import "C"
-import (
-	"unsafe"
-)
+import "unsafe"
 
 const (
 	InfluxDBLineProtocol       = 1
