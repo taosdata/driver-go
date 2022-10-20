@@ -100,7 +100,7 @@ func (c *Client) ReadPump() {
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
 				break
 			}
-			c.ErrorHandler(err)
+			c.handleError(err)
 			break
 		}
 		switch messageType {
@@ -126,14 +126,14 @@ func (c *Client) WritePump() {
 			}
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
 			if err != nil {
-				c.ErrorHandler(err)
+				c.handleError(err)
 				return
 			}
 			c.SendMessageHandler(message)
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				c.ErrorHandler(err)
+				c.handleError(err)
 				return
 			}
 		}
@@ -173,4 +173,10 @@ func (c *Client) Close() {
 			c.conn.Close()
 		}
 	})
+}
+
+var handlerOnce sync.Once
+
+func (c *Client) handleError(err error) {
+	handlerOnce.Do(func() { c.ErrorHandler(err) })
 }
