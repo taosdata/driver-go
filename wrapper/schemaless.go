@@ -7,7 +7,10 @@ package wrapper
 #include <taos.h>
 */
 import "C"
-import "unsafe"
+import (
+	"unicode/utf8"
+	"unsafe"
+)
 
 const (
 	InfluxDBLineProtocol       = 1
@@ -27,7 +30,18 @@ const (
 // TaosSchemalessInsert TAOS_RES *taos_schemaless_insert(TAOS* taos, char* lines[], int numLines, int protocol, int precision);
 func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol int, precision string) unsafe.Pointer {
 	numLines := len(lines)
-	cLines := taosSchemalessParam(lines)
+	var cLines = make([]*C.char, numLines)
+	needFreeList := make([]unsafe.Pointer, numLines)
+	defer func() {
+		for _, p := range needFreeList {
+			C.free(p)
+		}
+	}()
+	for i, line := range lines {
+		cLine := C.CString(line)
+		needFreeList[i] = unsafe.Pointer(cLine)
+		cLines[i] = cLine
+	}
 	if len(precision) == 0 {
 		return C.taos_schemaless_insert(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))
 	} else {
@@ -35,32 +49,22 @@ func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol i
 	}
 }
 
-// TaosSchemalessInsertRaw TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision)
-func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, lines []string, protocol int, precision string) unsafe.Pointer {
-	numLines := len(lines)
-	cLines := taosSchemalessParam(lines)
-	if len(precision) == 0 {
-		return C.taos_schemaless_insert_raw(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))
-	} else {
-		return C.taos_schemaless_insert_raw(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol), (C.int)(exchange(precision)))
-	}
-}
-
-func taosSchemalessParam(lines []string) []*C.char {
-	cLines := make([]*C.char, len(lines))
-	needFree := make([]unsafe.Pointer, len(lines))
+// TaosSchemalessInsertRaw TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision);
+func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, line string, protocol int, precision string) (res unsafe.Pointer, totalRows int) {
+	length := utf8.RuneCountInString(line)
+	cLine := C.CString(line)
 	defer func() {
-		for _, p := range needFree {
-			C.free(p)
-		}
+		C.free(unsafe.Pointer(cLine))
 	}()
+	var rows C.int
 
-	for i, line := range lines {
-		cLine := C.CString(line)
-		needFree[i] = unsafe.Pointer(cLine)
-		cLines[i] = cLine
+	if len(precision) == 0 {
+		res = C.taos_schemaless_insert_raw(taosConnect, cLine, (C.int)(length), &rows, (C.int)(protocol), (C.int)(TSDB_SML_TIMESTAMP_NOT_CONFIGURED))
+	} else {
+		res = C.taos_schemaless_insert_raw(taosConnect, cLine, (C.int)(length), &rows, (C.int)(protocol), (C.int)(exchange(precision)))
 	}
-	return cLines
+	totalRows = int(rows)
+	return
 }
 
 func exchange(ts string) int {

@@ -207,29 +207,48 @@ func TestSchemalessInfluxDB(t *testing.T) {
 func TestTaosSchemalessInsertRaw(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
-	defer cleanEnv(conn)
-	{
-		result := wrapper.TaosSchemalessInsertRaw(conn, []string{
-			"measurement,host=host1 field1=2i,field2=2.0 26297280",
-		}, wrapper.InfluxDBLineProtocol, "m")
-		if code := wrapper.TaosError(result); code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		wrapper.TaosFreeResult(result)
+	//defer cleanEnv(conn)
+	cases := []struct {
+		name      string
+		data      string
+		rows      int
+		code      int
+		protocol  int
+		precision string
+	}{
+		{
+			name:      "schemaless_h",
+			data:      "measurement,host=host1 field1=2i,field2=2.0 26297280",
+			rows:      1,
+			code:      0,
+			protocol:  wrapper.InfluxDBLineProtocol,
+			precision: "m",
+		},
+		{
+			name:      "schemaless_h",
+			data:      "measurement,host=host1 field1=2i,field2=2.0 438288",
+			rows:      1,
+			code:      0,
+			protocol:  wrapper.InfluxDBLineProtocol,
+			precision: "h",
+		},
+		{
+			name:      "schemaless_h\\0",
+			data:      "measurement,host=host2\\0 field1=2i,field2=2.0 438288",
+			rows:      1,
+			code:      0,
+			protocol:  wrapper.InfluxDBLineProtocol,
+			precision: "h",
+		},
 	}
-	{
-		result := wrapper.TaosSchemalessInsertRaw(conn, []string{
-			"measurement,host=host1 field1=2i,field2=2.0 438288",
-		}, wrapper.InfluxDBLineProtocol, "h")
-		if code := wrapper.TaosError(result); code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
+
+	for _, c := range cases {
+		t.Run(c.name, func(tt *testing.T) {
+			result, rows := wrapper.TaosSchemalessInsertRaw(conn, c.data, c.protocol, c.precision)
+			if code := wrapper.TaosError(result); code != c.code || rows != c.rows {
+				tt.Fatal(errors.NewError(code, wrapper.TaosErrorStr(result)))
+			}
 			wrapper.TaosFreeResult(result)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		wrapper.TaosFreeResult(result)
+		})
 	}
 }
