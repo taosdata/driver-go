@@ -252,7 +252,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = fmt.Sprintf("create table test_write_block_raw.t1 using test_write_block_raw.all_type tags('{\"a\":2}')")
+	sql = "create table test_write_block_raw.t1 using test_write_block_raw.all_type tags('{\"a\":2}')"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {

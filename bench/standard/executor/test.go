@@ -182,13 +182,13 @@ func (t *TDTest) BenchmarkWriteSingleCommon(count int) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	sqls := make([]string, count)
 	for i := 0; i < count; i++ {
 		sqls[i] = fmt.Sprintf("insert into wsc values(%d,true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now+int64(i))
 	}
-	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	for i := 0; i < count; i++ {
 		_, err = db.Exec(sqls[i])
@@ -196,7 +196,7 @@ func (t *TDTest) BenchmarkWriteSingleCommon(count int) {
 			panic(err)
 		}
 	}
-	cost := time.Now().Sub(s)
+	cost := time.Since(s)
 	fmt.Printf("%s :execute count: %d, execute cost: %d ns, average cost: %f ns\n", prefix, count, cost.Nanoseconds(), float64(cost.Nanoseconds())/float64(count))
 }
 
@@ -214,13 +214,13 @@ func (t *TDTest) BenchmarkWriteSingleJson(count int) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	sqls := make([]string, count)
 	for i := 0; i < count; i++ {
 		sqls[i] = fmt.Sprintf("insert into wsj values(%d,true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now+int64(i))
 	}
-	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	for i := 0; i < count; i++ {
 		_, err = db.Exec(sqls[i])
@@ -228,7 +228,7 @@ func (t *TDTest) BenchmarkWriteSingleJson(count int) {
 			panic(err)
 		}
 	}
-	cost := time.Now().Sub(s)
+	cost := time.Since(s)
 	fmt.Printf("%s :execute count: %d, execute cost: %d ns, average cost: %f ns\n", prefix, count, cost.Nanoseconds(), float64(cost.Nanoseconds())/float64(count))
 }
 
@@ -246,7 +246,7 @@ func (t *TDTest) BenchmarkWriteBatchCommon(count, batch int) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	sqls := make([]string, count)
 	b := &bytes.Buffer{}
@@ -260,7 +260,7 @@ func (t *TDTest) BenchmarkWriteBatchCommon(count, batch int) {
 		sqls[i] = b.String()
 		b.Reset()
 	}
-	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	for i := 0; i < count; i++ {
 		_, err = db.Exec(sqls[i])
@@ -268,7 +268,7 @@ func (t *TDTest) BenchmarkWriteBatchCommon(count, batch int) {
 			panic(err)
 		}
 	}
-	cost := time.Now().Sub(s)
+	cost := time.Since(s)
 	fmt.Printf("%s :execute count: %d, batch: %d, total record: %d, execute cost: %d ns, average count cost: %f ns,average record cost %f\n",
 		prefix,
 		count,
@@ -293,7 +293,7 @@ func (t *TDTest) BenchmarkWriteBatchJson(count, batch int) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	sqls := make([]string, count)
 	b := &bytes.Buffer{}
@@ -307,7 +307,7 @@ func (t *TDTest) BenchmarkWriteBatchJson(count, batch int) {
 		sqls[i] = b.String()
 		b.Reset()
 	}
-	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	for i := 0; i < count; i++ {
 		_, err = db.Exec(sqls[i])
@@ -315,7 +315,7 @@ func (t *TDTest) BenchmarkWriteBatchJson(count, batch int) {
 			panic(err)
 		}
 	}
-	cost := time.Now().Sub(s)
+	cost := time.Since(s)
 	fmt.Printf("%s :execute count: %d, batch: %d, total record: %d, execute cost: %d ns, average count cost: %f ns,average record cost %f\n",
 		prefix,
 		count,
@@ -360,6 +360,9 @@ func (t *TDTest) PrepareRead(count, batch int) (tableName string) {
 		"c12 binary(20)," +
 		"c13 nchar(20)" +
 		")tags(info json)")
+	if err != nil {
+		panic(err)
+	}
 
 	prefix := t.DriverName + ": PrepareRead"
 	s := time.Now()
@@ -369,7 +372,7 @@ func (t *TDTest) PrepareRead(count, batch int) (tableName string) {
 		panic(err)
 	}
 
-	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : create table cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	sqls := make([]string, count)
 	b := &bytes.Buffer{}
@@ -383,7 +386,7 @@ func (t *TDTest) PrepareRead(count, batch int) (tableName string) {
 		sqls[i] = b.String()
 		b.Reset()
 	}
-	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Now().Sub(s).Nanoseconds())
+	fmt.Printf("%s : prepare sql cost: %d ns\n", prefix, time.Since(s).Nanoseconds())
 	s = time.Now()
 	for i := 0; i < count; i++ {
 		_, err = db.Exec(sqls[i])
@@ -391,7 +394,7 @@ func (t *TDTest) PrepareRead(count, batch int) (tableName string) {
 			panic(err)
 		}
 	}
-	cost := time.Now().Sub(s)
+	cost := time.Since(s)
 	fmt.Printf("%s :execute count: %d, batch: %d, total record: %d, execute cost: %d ns, average count cost: %f ns,average record cost %f\n",
 		prefix,
 		count,
@@ -414,7 +417,7 @@ func (t *TDTest) BenchmarkRead(sqlStr string) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s : query: %d ns\n", prefix, time.Now().Sub(s))
+	fmt.Printf("%s : query: %d ns\n", prefix, time.Since(s))
 	tt, err := rows.ColumnTypes()
 	if err != nil {
 		log.Fatalf("ColumnTypes: %v", err)
@@ -437,7 +440,7 @@ func (t *TDTest) BenchmarkRead(sqlStr string) {
 		count += 1
 		rows.Scan(values...)
 	}
-	cost := time.Now().Sub(s)
+	cost := time.Since(s)
 	fmt.Printf("%s : result count: %d, execute cost: %d ns, average count cost: %f ns\n",
 		prefix,
 		count,

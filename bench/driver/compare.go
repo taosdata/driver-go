@@ -72,7 +72,6 @@ func testQueryC() {
 		result, err := cdb.Query(`select * from benchmark_driver.alltype_query limit 3000`)
 		if err != nil {
 			panic(err)
-			return
 		}
 		for result.Next() {
 			var (
@@ -109,11 +108,10 @@ func testQueryC() {
 			)
 			if err != nil {
 				panic(err)
-				return
 			}
 		}
 	}
-	delta := time.Now().Sub(s).Nanoseconds()
+	delta := time.Since(s).Nanoseconds()
 	fmt.Println("cgo query", float64(delta)/1000)
 }
 
@@ -139,7 +137,6 @@ func testQueryRestful() {
 		result, err := restfulDB.Query(`select * from benchmark_driver.alltype_query limit 3000`)
 		if err != nil {
 			panic(err)
-			return
 		}
 		for result.Next() {
 			err := result.Scan(
@@ -160,11 +157,10 @@ func testQueryRestful() {
 			)
 			if err != nil {
 				panic(err)
-				return
 			}
 		}
 	}
-	delta := time.Now().Sub(s).Nanoseconds()
+	delta := time.Since(s).Nanoseconds()
 	fmt.Println("restful query", float64(delta)/1000)
 }
 
@@ -220,10 +216,9 @@ func testCGO() {
 		_, err := cdb.Exec(dataC[i])
 		if err != nil {
 			panic(err)
-			return
 		}
 	}
-	delta := time.Now().Sub(s).Nanoseconds()
+	delta := time.Since(s).Nanoseconds()
 	fmt.Println("cgo", float64(delta)/50000)
 }
 
@@ -233,9 +228,8 @@ func testRestful() {
 		_, err := restfulDB.Exec(dataRestful[i])
 		if err != nil {
 			panic(err)
-			return
 		}
 	}
-	delta := time.Now().Sub(s).Nanoseconds()
+	delta := time.Since(s).Nanoseconds()
 	fmt.Println("restful", float64(delta)/50000)
 }

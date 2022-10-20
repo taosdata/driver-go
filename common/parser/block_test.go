@@ -120,7 +120,7 @@ func TestReadBlock(t *testing.T) {
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
 		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
 		tmpPHeader := uintptr(block) + RawBlockGetColDataOffset(fileCount)
-		tmpPStart := tmpPHeader
+		var tmpPStart uintptr
 		for column := 0; column < fileCount; column++ {
 			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 			if IsVarDataType(rh.ColTypes[column]) {
@@ -262,7 +262,7 @@ func TestBlockTag(t *testing.T) {
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
 		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
 		tmpPHeader := uintptr(block) + RawBlockGetColDataOffset(fileCount) // length i32, group u64
-		tmpPStart := tmpPHeader
+		var tmpPStart uintptr
 		for column := 0; column < fileCount; column++ {
 			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 			if IsVarDataType(rh.ColTypes[column]) {

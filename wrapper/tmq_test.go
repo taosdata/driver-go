@@ -148,12 +148,9 @@ func TestTMQ(t *testing.T) {
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
 	go func() {
-		for {
-			select {
-			case r := <-c:
-				t.Log("auto commit", r)
-				PutTMQCommitCallbackResult(r)
-			}
+		for r := range c {
+			t.Log("auto commit", r)
+			PutTMQCommitCallbackResult(r)
 		}
 	}()
 	tmq, err := TMQConsumerNew(conf)
@@ -173,7 +170,7 @@ func TestTMQ(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
-	t.Log("sub", time.Now().Sub(s))
+	t.Log("sub", time.Since(s))
 	errCode, list := TMQSubscription(tmq)
 	if errCode != 0 {
 		errStr := TMQErr2Str(errCode)
@@ -380,12 +377,9 @@ func TestTMQDB(t *testing.T) {
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
 	go func() {
-		for {
-			select {
-			case r := <-c:
-				t.Log("auto commit", r)
-				PutTMQCommitCallbackResult(r)
-			}
+		for r := range c {
+			t.Log("auto commit", r)
+			PutTMQCommitCallbackResult(r)
 		}
 	}()
 	tmq, err := TMQConsumerNew(conf)
@@ -607,12 +601,9 @@ func TestTMQDBMultiTable(t *testing.T) {
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
 	go func() {
-		for {
-			select {
-			case r := <-c:
-				t.Log("auto commit", r)
-				PutTMQCommitCallbackResult(r)
-			}
+		for r := range c {
+			t.Log("auto commit", r)
+			PutTMQCommitCallbackResult(r)
 		}
 	}()
 	tmq, err := TMQConsumerNew(conf)
@@ -822,12 +813,9 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
 	go func() {
-		for {
-			select {
-			case r := <-c:
-				t.Log("auto commit", r)
-				PutTMQCommitCallbackResult(r)
-			}
+		for r := range c {
+			t.Log("auto commit", r)
+			PutTMQCommitCallbackResult(r)
 		}
 	}()
 	tmq, err := TMQConsumerNew(conf)
@@ -1029,12 +1017,9 @@ func TestTMQModify(t *testing.T) {
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
 	go func() {
-		for {
-			select {
-			case r := <-c:
-				t.Log("auto commit", r)
-				PutTMQCommitCallbackResult(r)
-			}
+		for r := range c {
+			t.Log("auto commit", r)
+			PutTMQCommitCallbackResult(r)
 		}
 	}()
 	tmq, err := TMQConsumerNew(conf)
@@ -1145,7 +1130,6 @@ func TestTMQModify(t *testing.T) {
 		}
 		cb(&meta, rawMeta)
 		TMQFreeRaw(rawMeta)
-		return
 	}
 
 	pool(func(meta *common.Meta, rawMeta unsafe.Pointer) {
@@ -1292,12 +1276,9 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
 	go func() {
-		for {
-			select {
-			case r := <-c:
-				t.Log("auto commit", r)
-				PutTMQCommitCallbackResult(r)
-			}
+		for r := range c {
+			t.Log("auto commit", r)
+			PutTMQCommitCallbackResult(r)
 		}
 	}()
 	tmq, err := TMQConsumerNew(conf)

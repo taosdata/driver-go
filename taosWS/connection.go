@@ -42,7 +42,6 @@ type taosConn struct {
 	writeTimeout time.Duration
 	cfg          *config
 	endpoint     string
-	closeChan    chan struct{}
 }
 
 func (tc *taosConn) generateReqID() uint64 {
@@ -176,6 +175,9 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	}
 	tc.buf.Reset()
 	err = jsonI.NewEncoder(tc.buf).Encode(action)
+	if err != nil {
+		return nil, err
+	}
 	err = tc.writeText(tc.buf.Bytes())
 	if err != nil {
 		return nil, err

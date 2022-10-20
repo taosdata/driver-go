@@ -127,10 +127,7 @@ var rawConvertVarDataMap = map[uint8]rawConvertVarDataFunc{
 func ItemIsNull(pHeader uintptr, row int) bool {
 	offset := CharOffset(row)
 	c := *((*byte)(unsafe.Pointer(pHeader + uintptr(offset))))
-	if BMIsNull(c, row) {
-		return true
-	}
-	return false
+	return BMIsNull(c, row)
 }
 
 func rawConvertBool(pStart uintptr, row int, _ ...interface{}) driver.Value {
@@ -250,7 +247,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
 	pHeader := uintptr(block) + RawBlockGetColDataOffset(colCount)
-	pStart := pHeader
+	var pStart uintptr
 	for column := 0; column < colCount; column++ {
 		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
@@ -286,7 +283,7 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
 	pHeader := uintptr(block) + RawBlockGetColDataOffset(colCount)
-	pStart := pHeader
+	var pStart uintptr
 	for column := 0; column < colCount; column++ {
 		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
@@ -312,7 +309,7 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
 	pHeader := uintptr(block) + RawBlockGetColDataOffset(colCount)
-	pStart := pHeader
+	var pStart uintptr
 	for column := 0; column < colCount; column++ {
 		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {

@@ -69,9 +69,8 @@ func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
 }
 
 type TestResult struct {
-	ts      string
-	value   bool
-	degress int
+	ts    string
+	value bool
 }
 
 func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
@@ -152,6 +151,7 @@ var (
 			if eErr == userErr && err != nil {
 				return ret
 			}
+			defer rows.Close()
 			if err != nil {
 				dbt.Errorf("%s is not expected, err: %s", query, err.Error())
 				return ret
@@ -165,7 +165,6 @@ var (
 					}
 					count = count + 1
 				}
-				rows.Close()
 				ret = count
 				if expected != -1 && count != expected {
 					dbt.Errorf("%s is not expected, err: %s", query, errors.New("result is not expected"))
@@ -206,7 +205,7 @@ func TestAny(t *testing.T) {
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
-			&Obj{fmt.Sprintf("select error"), userErr, false, fp, int64(1)})
+			&Obj{"select error", userErr, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select * from %s.t%d", dbName, 0), nil, false, fp, int64(-1)})
 		tests = append(tests,
@@ -292,10 +291,10 @@ func TestStmt(t *testing.T) {
 		if err != nil {
 			dbt.fail("prepare", "prepare", err)
 		}
+		defer stmt.Close()
 		now := time.Now()
 		stmt.Exec(now.UnixNano()/int64(time.Millisecond), false)
 		stmt.Exec(now.UnixNano()/int64(time.Millisecond)+int64(1), false)
-		stmt.Close()
 	})
 }
 

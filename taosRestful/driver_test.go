@@ -84,9 +84,8 @@ func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
 }
 
 type TestResult struct {
-	ts      string
-	value   bool
-	degress int
+	ts    string
+	value bool
 }
 
 func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
