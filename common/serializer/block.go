@@ -2,7 +2,6 @@ package serializer
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"math"
 
@@ -52,19 +51,18 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		return nil, ColumnNumerNotMatch
 	}
 	var block []byte
-	order := binary.LittleEndian
 	//version int32
-	block = order.AppendUint32(block, uint32(1))
+	block = appendUint32(block, uint32(1))
 	//length int32
-	block = order.AppendUint32(block, uint32(0))
+	block = appendUint32(block, uint32(0))
 	//rows int32
-	block = order.AppendUint32(block, uint32(rows))
+	block = appendUint32(block, uint32(rows))
 	//columns int32
-	block = order.AppendUint32(block, uint32(columns))
+	block = appendUint32(block, uint32(columns))
 	//flagSegment int32
-	block = order.AppendUint32(block, uint32(0))
+	block = appendUint32(block, uint32(0))
 	//groupID uint64
-	block = order.AppendUint64(block, uint64(0))
+	block = appendUint64(block, uint64(0))
 	colInfoData := make([]byte, 0, 5*columns)
 	lengthData := make([]byte, 0, 4*columns)
 	bitMapLen := BitmapLen(rows)
@@ -76,8 +74,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosBoolType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_BOOL)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_BOOL]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -98,8 +96,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosTinyintType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_TINYINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_TINYINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -118,8 +116,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosSmallintType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_SMALLINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_SMALLINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*Int16Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -140,8 +138,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosIntType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_INT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_INT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*Int32Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -164,8 +162,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosBigintType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_BIGINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_BIGINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*Int64Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -192,8 +190,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosUTinyintType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_UTINYINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_UTINYINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -212,8 +210,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosUSmallintType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_USMALLINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_USMALLINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*UInt16Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -234,8 +232,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosUIntType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_UINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_UINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*UInt32Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -259,8 +257,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosUBigintType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_UBIGINT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_UBIGINT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*UInt64Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -288,8 +286,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosFloatType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_FLOAT)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_FLOAT]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*Float32Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -314,8 +312,8 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		case taosTypes.TaosDoubleType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_DOUBLE)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_DOUBLE]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*Float64Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -342,7 +340,7 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 			data = append(data, dataTmp...)
 		case taosTypes.TaosBinaryType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_BINARY)
-			colInfoData = order.AppendUint32(colInfoData, uint32(0))
+			colInfoData = appendUint32(colInfoData, uint32(0))
 			length := 0
 			dataTmp := make([]byte, Int32Size*rows)
 			rowData := params[colIndex].GetValues()
@@ -361,16 +359,16 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 					for i := 0; i < Int32Size; i++ {
 						dataTmp[offset+i] = byte(length >> (8 * i))
 					}
-					dataTmp = order.AppendUint16(dataTmp, uint16(len(v)))
+					dataTmp = appendUint16(dataTmp, uint16(len(v)))
 					dataTmp = append(dataTmp, v...)
 					length += len(v) + Int16Size
 				}
 			}
-			lengthData = order.AppendUint32(lengthData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length))
 			data = append(data, dataTmp...)
 		case taosTypes.TaosNcharType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_NCHAR)
-			colInfoData = order.AppendUint32(colInfoData, uint32(0))
+			colInfoData = appendUint32(colInfoData, uint32(0))
 			length := 0
 			dataTmp := make([]byte, Int32Size*rows)
 			rowData := params[colIndex].GetValues()
@@ -390,20 +388,20 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 						dataTmp[offset+i] = byte(length >> (8 * i))
 					}
 					rs := []rune(v)
-					dataTmp = order.AppendUint16(dataTmp, uint16(len(rs)*4))
+					dataTmp = appendUint16(dataTmp, uint16(len(rs)*4))
 					for _, r := range rs {
-						dataTmp = order.AppendUint32(dataTmp, uint32(r))
+						dataTmp = appendUint32(dataTmp, uint32(r))
 					}
 					length += len(rs)*4 + Int16Size
 				}
 			}
-			lengthData = order.AppendUint32(lengthData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length))
 			data = append(data, dataTmp...)
 		case taosTypes.TaosTimestampType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_TIMESTAMP)
 			length := common.TypeLengthMap[common.TSDB_DATA_TYPE_TIMESTAMP]
-			colInfoData = order.AppendUint32(colInfoData, uint32(length))
-			lengthData = order.AppendUint32(lengthData, uint32(length*rows))
+			colInfoData = appendUint32(colInfoData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length*rows))
 			dataTmp := make([]byte, bitMapLen+rows*Int64Size)
 			rowData := params[colIndex].GetValues()
 			for rowIndex := 0; rowIndex < rows; rowIndex++ {
@@ -430,7 +428,7 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 			data = append(data, dataTmp...)
 		case taosTypes.TaosJsonType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_JSON)
-			colInfoData = order.AppendUint32(colInfoData, uint32(0))
+			colInfoData = appendUint32(colInfoData, uint32(0))
 			length := 0
 			dataTmp := make([]byte, Int32Size*rows)
 			rowData := params[colIndex].GetValues()
@@ -449,12 +447,12 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 					for i := 0; i < Int32Size; i++ {
 						dataTmp[offset+i] = byte(length >> (8 * i))
 					}
-					dataTmp = order.AppendUint16(dataTmp, uint16(len(v)))
+					dataTmp = appendUint16(dataTmp, uint16(len(v)))
 					dataTmp = append(dataTmp, v...)
 					length += len(v) + Int16Size
 				}
 			}
-			lengthData = order.AppendUint32(lengthData, uint32(length))
+			lengthData = appendUint32(lengthData, uint32(length))
 			data = append(data, dataTmp...)
 		}
 	}
@@ -466,4 +464,33 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 		block[4+i] = byte(len(block) >> (8 * i))
 	}
 	return block, nil
+}
+
+func appendUint16(b []byte, v uint16) []byte {
+	return append(b,
+		byte(v),
+		byte(v>>8),
+	)
+}
+
+func appendUint32(b []byte, v uint32) []byte {
+	return append(b,
+		byte(v),
+		byte(v>>8),
+		byte(v>>16),
+		byte(v>>24),
+	)
+}
+
+func appendUint64(b []byte, v uint64) []byte {
+	return append(b,
+		byte(v),
+		byte(v>>8),
+		byte(v>>16),
+		byte(v>>24),
+		byte(v>>32),
+		byte(v>>40),
+		byte(v>>48),
+		byte(v>>56),
+	)
 }
