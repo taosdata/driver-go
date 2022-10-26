@@ -91,7 +91,7 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer cleanEnv()
+	//defer cleanEnv()
 	now := time.Now()
 	go func() {
 		err = doRequest("create table test_ws_tmq.t_all(ts timestamp," +

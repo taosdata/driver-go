@@ -2,9 +2,9 @@ package tmq
 
 import (
 	"container/list"
+	"context"
 	"database/sql/driver"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -176,26 +176,26 @@ const (
 	TMQCommit        = "commit"
 )
 
-func (c *Consumer) sendText(reqID uint64, envelop *client.Envelope) ([]byte, error) {
+func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	channel := &IndexedChan{
 		index:   reqID,
 		channel: make(chan []byte, 1),
 	}
 	element := c.addMessageOutChan(channel)
-	envelop.Type = websocket.TextMessage
-	c.client.Send(envelop)
-	ticker := time.NewTicker(c.messageTimeout)
-	defer ticker.Stop()
+	envelope.Type = websocket.TextMessage
+	c.client.Send(envelope)
+	ctx, cancel := context.WithTimeout(context.Background(), c.messageTimeout)
+	defer cancel()
 	select {
 	case <-c.closeChan:
 		return nil, errors.New("connection closed")
 	case resp := <-channel.channel:
 		return resp, nil
-	case <-ticker.C:
+	case <-ctx.Done():
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
-		return nil, fmt.Errorf("message timeout :%s", envelop.Msg.String())
+		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }
 
@@ -211,7 +211,7 @@ func (c *Consumer) Subscribe(topic []string) error {
 		OffsetRest: c.offsetRest,
 		Topics:     topic,
 	}
-	args, err := json.Marshal(req)
+	args, err := client.JsonI.Marshal(req)
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (c *Consumer) Subscribe(topic []string) error {
 		Args:   args,
 	}
 	envelope := c.client.GetEnvelope()
-	err = json.NewEncoder(envelope.Msg).Encode(action)
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
 		c.client.PutEnvelope(envelope)
 		return err
@@ -261,7 +261,7 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 		ReqID:        reqID,
 		BlockingTime: timeout.Milliseconds(),
 	}
-	args, err := json.Marshal(req)
+	args, err := client.JsonI.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 		Args:   args,
 	}
 	envelope := c.client.GetEnvelope()
-	err = json.NewEncoder(envelope.Msg).Encode(action)
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
 		c.client.PutEnvelope(envelope)
 		return nil, err
@@ -333,7 +333,7 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*common.Meta, error) {
 		ReqID:     reqID,
 		MessageID: messageID,
 	}
-	args, err := json.Marshal(req)
+	args, err := client.JsonI.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*common.Meta, error) {
 		Args:   args,
 	}
 	envelope := c.client.GetEnvelope()
-	err = json.NewEncoder(envelope.Msg).Encode(action)
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
 		c.client.PutEnvelope(envelope)
 		return nil, err
@@ -374,7 +374,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 			ReqID:     reqID,
 			MessageID: messageID,
 		}
-		args, err := json.Marshal(req)
+		args, err := client.JsonI.Marshal(req)
 		if err != nil {
 			return err
 		}
@@ -383,7 +383,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 			Args:   args,
 		}
 		envelope := c.client.GetEnvelope()
-		err = json.NewEncoder(envelope.Msg).Encode(action)
+		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 		if err != nil {
 			c.client.PutEnvelope(envelope)
 			return err
@@ -409,7 +409,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 				ReqID:     reqID,
 				MessageID: messageID,
 			}
-			args, err := json.Marshal(req)
+			args, err := client.JsonI.Marshal(req)
 			if err != nil {
 				return err
 			}
@@ -418,7 +418,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 				Args:   args,
 			}
 			envelope := c.client.GetEnvelope()
-			err = json.NewEncoder(envelope.Msg).Encode(action)
+			err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 			if err != nil {
 				c.client.PutEnvelope(envelope)
 				return err
@@ -445,7 +445,7 @@ func (c *Consumer) Commit(messageID uint64) error {
 		ReqID:     reqID,
 		MessageID: messageID,
 	}
-	args, err := json.Marshal(req)
+	args, err := client.JsonI.Marshal(req)
 	if err != nil {
 		return err
 	}
@@ -454,7 +454,7 @@ func (c *Consumer) Commit(messageID uint64) error {
 		Args:   args,
 	}
 	envelope := c.client.GetEnvelope()
-	err = json.NewEncoder(envelope.Msg).Encode(action)
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
 		c.client.PutEnvelope(envelope)
 		return err

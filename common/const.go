@@ -1,5 +1,7 @@
 package common
 
+import "unsafe"
+
 const (
 	MaxTaosSqlLen   = 1048576
 	DefaultUser     = "root"
@@ -107,4 +109,33 @@ const (
 	TMQ_RES_DATA       = 1
 	TMQ_RES_TABLE_META = 2
 	TMQ_RES_METADATA   = 3
+)
+
+var TypeLengthMap = map[int]int{
+	TSDB_DATA_TYPE_NULL:      1,
+	TSDB_DATA_TYPE_BOOL:      1,
+	TSDB_DATA_TYPE_TINYINT:   1,
+	TSDB_DATA_TYPE_SMALLINT:  2,
+	TSDB_DATA_TYPE_INT:       4,
+	TSDB_DATA_TYPE_BIGINT:    8,
+	TSDB_DATA_TYPE_FLOAT:     4,
+	TSDB_DATA_TYPE_DOUBLE:    8,
+	TSDB_DATA_TYPE_TIMESTAMP: 8,
+	TSDB_DATA_TYPE_UTINYINT:  1,
+	TSDB_DATA_TYPE_USMALLINT: 2,
+	TSDB_DATA_TYPE_UINT:      4,
+	TSDB_DATA_TYPE_UBIGINT:   8,
+}
+
+const (
+	Int8Size    = unsafe.Sizeof(int8(0))
+	Int16Size   = unsafe.Sizeof(int16(0))
+	Int32Size   = unsafe.Sizeof(int32(0))
+	Int64Size   = unsafe.Sizeof(int64(0))
+	UInt8Size   = unsafe.Sizeof(uint8(0))
+	UInt16Size  = unsafe.Sizeof(uint16(0))
+	UInt32Size  = unsafe.Sizeof(uint32(0))
+	UInt64Size  = unsafe.Sizeof(uint64(0))
+	Float32Size = unsafe.Sizeof(float32(0))
+	Float64Size = unsafe.Sizeof(float64(0))
 )

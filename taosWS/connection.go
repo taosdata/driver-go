@@ -16,7 +16,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
 var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -124,7 +123,7 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 	if err != nil {
 		return nil, err
 	}
-	action := &client.WSAction{
+	action := &WSAction{
 		Action: WSQuery,
 		Args:   reqArgs,
 	}
@@ -169,7 +168,7 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	if err != nil {
 		return nil, err
 	}
-	action := &client.WSAction{
+	action := &WSAction{
 		Action: WSQuery,
 		Args:   reqArgs,
 	}
@@ -221,7 +220,7 @@ func (tc *taosConn) connect() error {
 	if err != nil {
 		return err
 	}
-	action := &client.WSAction{
+	action := &WSAction{
 		Action: WSConnect,
 		Args:   args,
 	}

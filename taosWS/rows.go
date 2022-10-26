@@ -11,7 +11,6 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
 type rows struct {
@@ -168,7 +167,7 @@ func (rs *rows) freeResult() error {
 	if err != nil {
 		return err
 	}
-	action := &client.WSAction{
+	action := &WSAction{
 		Action: WSFreeResult,
 		Args:   args,
 	}

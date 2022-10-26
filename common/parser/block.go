@@ -9,16 +9,16 @@ import (
 )
 
 const (
-	Int8Size    = unsafe.Sizeof(int8(0))
-	Int16Size   = unsafe.Sizeof(int16(0))
-	Int32Size   = unsafe.Sizeof(int32(0))
-	Int64Size   = unsafe.Sizeof(int64(0))
-	UInt8Size   = unsafe.Sizeof(uint8(0))
-	UInt16Size  = unsafe.Sizeof(uint16(0))
-	UInt32Size  = unsafe.Sizeof(uint32(0))
-	UInt64Size  = unsafe.Sizeof(uint64(0))
-	Float32Size = unsafe.Sizeof(float32(0))
-	Float64Size = unsafe.Sizeof(float64(0))
+	Int8Size    = common.Int8Size
+	Int16Size   = common.Int16Size
+	Int32Size   = common.Int32Size
+	Int64Size   = common.Int64Size
+	UInt8Size   = common.UInt8Size
+	UInt16Size  = common.UInt16Size
+	UInt32Size  = common.UInt32Size
+	UInt64Size  = common.UInt64Size
+	Float32Size = common.Float32Size
+	Float64Size = common.Float64Size
 )
 
 const (
@@ -222,7 +222,6 @@ func rawConvertNchar(pHeader, pStart uintptr, row int) driver.Value {
 	return string(binaryVal)
 }
 
-// just like nchar
 func rawConvertJson(pHeader, pStart uintptr, row int) driver.Value {
 	offset := *((*int32)(unsafe.Pointer(pHeader + uintptr(row*4))))
 	if offset == -1 {

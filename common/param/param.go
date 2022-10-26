@@ -285,3 +285,12 @@ func (p *Param) AddJson(value []byte) *Param {
 func (p *Param) GetValues() []driver.Value {
 	return p.value
 }
+
+func (p *Param) AddValue(value interface{}) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = value
+	p.offset += 1
+	return p
+}
