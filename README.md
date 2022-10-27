@@ -14,6 +14,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 |-----------------------|----------------------|
 | v3.0.0                | 3.0.0.0+             |
 | v3.0.1                | 3.0.0.0+             |
+| v3.0.3                | 3.0.1.5+             |
 
 ## Install
 
@@ -532,6 +533,92 @@ Use tmq over websocket. The server needs to start taoAdapter.
  Close the connection.
 
 Example code: [`examples/tmqoverws/main.go`](examples/tmqoverws/main.go).
+
+## Parameter binding via WebSocket
+
+Use stmt via websocket. The server needs to start taoAdapter.
+
+### Configure related API
+
+- `func NewConfig(url string, chanLength uint) *Config`
+
+  Create a configuration item, pass in the websocket address and the length of the sending pipe.
+
+- `func (c *Config) SetCloseHandler(f func())`
+
+  Set close handler.
+
+- `func (c *Config) SetConnectDB(db string) error`
+
+  Set connect DB.
+
+- `func (c *Config) SetConnectPass(pass string) error`
+
+  Set password.
+
+- `func (c *Config) SetConnectUser(user string) error`
+
+  Set username.
+
+- `func (c *Config) SetErrorHandler(f func(connector *Connector, err error))`
+
+  Set error handler.
+
+- `func (c *Config) SetMessageTimeout(timeout time.Duration) error`
+
+  Set the message timeout.
+
+- `func (c *Config) SetWriteWait(writeWait time.Duration) error`
+
+  Set the waiting time for sending messages.
+
+### Parameter binding related API
+
+* `func NewConnector(config *Config) (*Connector, error)`
+
+  Create a connection.
+
+* `func (c *Connector) Init() (*Stmt, error)`
+
+  Initialize the parameters.
+
+* `func (c *Connector) Close() error`
+
+  Close the connection.
+
+* `func (s *Stmt) Prepare(sql string) error`
+
+  Parameter binding preprocessing SQL statement.
+
+* `func (s *Stmt) SetTableName(name string) error`
+
+  Bind the table name parameter.
+
+* `func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error`
+
+  Bind tags.
+
+* `func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) error`
+
+  Parameter bind multiple rows of data.
+
+* `func (s *Stmt) AddBatch() error`
+
+  Add to a parameter-bound batch.
+
+* `func (s *Stmt) Exec() error`
+
+  Execute a parameter binding.
+
+* `func (s *Stmt) GetAffectedRows() int`
+
+  Gets the number of affected rows inserted by the parameter binding.
+
+* `func (s *Stmt) Close() error`
+
+  Closes the parameter binding.
+
+For a complete example of parameter binding, see [GitHub example file](examples/stmtoverws/main.go)
 
 ## Directory structure
 
