@@ -120,10 +120,10 @@ func (c *Client) WritePump() {
 	for {
 		select {
 		case message, ok := <-c.sendChan:
-			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if !ok {
 				return
 			}
+			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
 			if err != nil {
 				c.handleError(err)
@@ -147,6 +147,7 @@ func (c *Client) Send(envelope *Envelope) {
 	defer func() {
 		// maybe closed
 		if recover() != nil {
+
 			return
 		}
 	}()
