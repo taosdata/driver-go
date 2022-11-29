@@ -63,6 +63,22 @@ func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.
 	}
 
 	defer stmt.Close()
+	return conn.stmtExecute(stmt, sql, params)
+}
+
+// StmtExecuteWithReqId Execute sql through stmt with reqId
+func (conn *Connector) StmtExecuteWithReqId(sql string, params *param.Param, reqId int64) (res driver.Result, err error) {
+	stmt := NewStmtWithReqId(conn.taos, reqId)
+	if stmt == nil {
+		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
+		return
+	}
+
+	defer stmt.Close()
+	return conn.stmtExecute(stmt, sql, params)
+}
+
+func (conn *Connector) stmtExecute(stmt *Stmt, sql string, params *param.Param) (res driver.Result, err error) {
 	err = stmt.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -97,7 +113,29 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 	}
 	asyncHandler := async.GetHandler()
 	defer async.PutHandler(asyncHandler)
-	result := conn.taosQuery(query, asyncHandler)
+	result := conn.taosQuery(query, asyncHandler, nil)
+	return conn.processExecResult(result)
+}
+
+// ExecWithReqId Execute sql with reqId
+func (conn *Connector) ExecWithReqId(query string, reqId int64, args ...driver.Value) (driver.Result, error) {
+	if conn.taos == nil {
+		return nil, driver.ErrBadConn
+	}
+	if len(args) != 0 {
+		prepared, err := common.InterpolateParams(query, args)
+		if err != nil {
+			return nil, err
+		}
+		query = prepared
+	}
+	asyncHandler := async.GetHandler()
+	defer async.PutHandler(asyncHandler)
+	result := conn.taosQuery(query, asyncHandler, &reqId)
+	return conn.processExecResult(result)
+}
+
+func (conn *Connector) processExecResult(result *handler.AsyncResult) (driver.Result, error) {
 	defer func() {
 		if result != nil && result.Res != nil {
 			locker.Lock()
@@ -106,8 +144,7 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 		}
 	}()
 	res := result.Res
-	code := wrapper.TaosError(res)
-	if code != int(errors.SUCCESS) {
+	if code := wrapper.TaosError(res); code != int(errors.SUCCESS) {
 		errStr := wrapper.TaosErrorStr(res)
 		return nil, errors.NewError(code, errStr)
 	}
@@ -127,13 +164,32 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 		}
 		query = prepared
 	}
+	h := async.GetHandler()
+	result := conn.taosQuery(query, h, nil)
+	return conn.processQueryResult(result, h)
+}
 
-	handler := async.GetHandler()
-	result := conn.taosQuery(query, handler)
+// QueryWithReqId Execute query sql with reqId
+func (conn *Connector) QueryWithReqId(query string, reqId int64, args ...driver.Value) (driver.Rows, error) {
+	if conn.taos == nil {
+		return nil, driver.ErrBadConn
+	}
+	if len(args) != 0 {
+		prepared, err := common.InterpolateParams(query, args)
+		if err != nil {
+			return nil, err
+		}
+		query = prepared
+	}
+	h := async.GetHandler()
+	result := conn.taosQuery(query, h, &reqId)
+	return conn.processQueryResult(result, h)
+}
+
+func (conn *Connector) processQueryResult(result *handler.AsyncResult, h *handler.Handler) (driver.Rows, error) {
 	res := result.Res
-	code := wrapper.TaosError(res)
-	if code != int(errors.SUCCESS) {
-		async.PutHandler(handler)
+	if code := wrapper.TaosError(res); code != int(errors.SUCCESS) {
+		async.PutHandler(h)
 		errStr := wrapper.TaosErrorStr(res)
 		locker.Lock()
 		wrapper.TaosFreeResult(result.Res)
@@ -147,18 +203,21 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 	}
 	precision := wrapper.TaosResultPrecision(res)
 	rs := &rows{
-		handler:    handler,
+		handler:    h,
 		rowsHeader: rowsHeader,
 		result:     res,
 		precision:  precision,
 	}
 	return rs, nil
-
 }
 
-func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler) *handler.AsyncResult {
+func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler, reqId *int64) *handler.AsyncResult {
 	locker.Lock()
-	wrapper.TaosQueryA(conn.taos, sqlStr, handler.Handler)
+	if reqId == nil {
+		wrapper.TaosQueryA(conn.taos, sqlStr, handler.Handler)
+	} else {
+		wrapper.TaosQueryAWithReqId(conn.taos, sqlStr, handler.Handler, *reqId)
+	}
 	locker.Unlock()
 	r := <-handler.Caller.QueryResult
 	return r
@@ -167,6 +226,11 @@ func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler) *handl
 // InsertStmt Prepare batch insert stmt
 func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmt(conn.taos)
+}
+
+// InsertStmtWithReqId Prepare batch insert stmt with reqId
+func (conn *Connector) InsertStmtWithReqId(reqId int64) *insertstmt.InsertStmt {
+	return insertstmt.NewInsertStmtWithReqId(conn.taos, reqId)
 }
 
 // SelectDB Execute `use db`
@@ -182,6 +246,7 @@ func (conn *Connector) SelectDB(db string) error {
 }
 
 // InfluxDBInsertLines Insert data using influxdb line format
+// Deprecated
 func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error {
 	locker.Lock()
 	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision)
@@ -201,6 +266,7 @@ func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) err
 }
 
 // OpenTSDBInsertTelnetLines Insert data using opentsdb telnet format
+// Deprecated
 func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
 	locker.Lock()
 	result := wrapper.TaosSchemalessInsert(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "")
@@ -218,6 +284,7 @@ func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error {
 }
 
 // OpenTSDBInsertJsonPayload Insert data using opentsdb json format
+// Deprecated
 func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 	result := wrapper.TaosSchemalessInsert(conn.taos, []string{payload}, wrapper.OpenTSDBJsonFormatProtocol, "")
 	code := wrapper.TaosError(result)

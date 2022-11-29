@@ -312,3 +312,68 @@ func TestSchemalessRawInfluxDB(t *testing.T) {
 		wrapper.TaosFreeResult(result)
 	}
 }
+
+func TestTaosSchemalessInsertRawWithReqId(t *testing.T) {
+	conn := prepareEnv()
+	defer wrapper.TaosClose(conn)
+	//defer cleanEnv(conn)
+	cases := []struct {
+		name      string
+		row       string
+		rows      int32
+		precision string
+		reqId     int64
+	}{
+		{
+			name:      "1",
+			row:       "measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
+			rows:      1,
+			precision: "",
+			reqId:     1,
+		},
+		{
+			name:      "2",
+			row:       "measurement,host=host1 field1=2i,field2=2.0 1577836900000000000",
+			rows:      1,
+			precision: "ns",
+			reqId:     2,
+		},
+		{
+			name:      "3",
+			row:       "measurement,host=host1 field1=2i,field2=2.0 1577837000000000",
+			rows:      1,
+			precision: "u",
+			reqId:     3,
+		},
+		{
+			name:      "4",
+			row:       "measurement,host=host1 field1=2i,field2=2.0 1577837100000000",
+			rows:      1,
+			precision: "μ",
+			reqId:     4,
+		},
+		{
+			name: "5",
+			row: "measurement,host=host1 field1=2i,field2=2.0 1577837200000\n" +
+				"measurement,host=host1 field1=2i,field2=2.0 1577837300000",
+			rows:      2,
+			precision: "ms",
+			reqId:     5,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rows, result := wrapper.TaosSchemalessInsertRawWithReqId(conn, c.row, wrapper.InfluxDBLineProtocol, c.precision, c.reqId)
+			if rows != c.rows {
+				t.Fatal("rows miss")
+			}
+			code := wrapper.TaosError(result)
+			if code != 0 {
+				errStr := wrapper.TaosErrorStr(result)
+				t.Fatal(errors.NewError(code, errStr))
+			}
+			wrapper.TaosFreeResult(result)
+		})
+	}
+}

@@ -24,6 +24,13 @@ func NewStmt(taosConn unsafe.Pointer) *Stmt {
 	return &Stmt{stmt: stmt}
 }
 
+func NewStmtWithReqId(taosConn unsafe.Pointer, reqId int64) *Stmt {
+	locker.Lock()
+	stmt := wrapper.TaosStmtInitWithReqId(taosConn, reqId)
+	locker.Unlock()
+	return &Stmt{stmt: stmt}
+}
+
 func (s *Stmt) Prepare(sql string) error {
 	locker.Lock()
 	code := wrapper.TaosStmtPrepare(s.stmt, sql)
