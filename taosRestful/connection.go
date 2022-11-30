@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -219,7 +220,7 @@ func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.
 }
 
 func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (*common.TDEngineRestfulResp, error) {
-	body := io.NopCloser(strings.NewReader(sql))
+	body := ioutil.NopCloser(strings.NewReader(sql))
 	req := &http.Request{
 		Method:     http.MethodPost,
 		URL:        tc.url,
@@ -239,7 +240,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
+		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
