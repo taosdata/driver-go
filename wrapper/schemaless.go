@@ -37,9 +37,9 @@ func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol i
 		(C.int)(exchange(precision)))
 }
 
-// TaosSchemalessInsertWithReqId TAOS_RES *taos_schemaless_insert_with_reqid(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int64_t reqid);
+// TaosSchemalessInsertWithReqID TAOS_RES *taos_schemaless_insert_with_reqid(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int64_t reqid);
 // Deprecated
-func TaosSchemalessInsertWithReqId(taosConn unsafe.Pointer, lines []string, protocol int, precision string, reqId int64) unsafe.Pointer {
+func TaosSchemalessInsertWithReqID(taosConn unsafe.Pointer, lines []string, protocol int, precision string, reqID int64) unsafe.Pointer {
 	numLines, cLines, needFree := taosSchemalessInsertParams(lines)
 	defer func() {
 		for _, p := range needFree {
@@ -48,7 +48,7 @@ func TaosSchemalessInsertWithReqId(taosConn unsafe.Pointer, lines []string, prot
 	}()
 
 	return C.taos_schemaless_insert_with_reqid(taosConn, (**C.char)(&cLines[0]), (C.int)(numLines),
-		(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(reqId))
+		(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(reqID))
 }
 
 func taosSchemalessInsertParams(lines []string) (numLines int, cLines []*C.char, needFree []unsafe.Pointer) {
@@ -74,15 +74,15 @@ func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, lines string, protocol 
 	return totalRows, res
 }
 
-// TaosSchemalessInsertRawWithReqId TAOS_RES *taos_schemaless_insert_raw_with_reqid(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int64_t reqid);
-func TaosSchemalessInsertRawWithReqId(taosConn unsafe.Pointer, lines string, protocol int, precision string, reqId int64) (int32, unsafe.Pointer) {
+// TaosSchemalessInsertRawWithReqID TAOS_RES *taos_schemaless_insert_raw_with_reqid(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int64_t reqid);
+func TaosSchemalessInsertRawWithReqID(taosConn unsafe.Pointer, lines string, protocol int, precision string, reqID int64) (int32, unsafe.Pointer) {
 	cLine := C.CString(lines)
 	defer C.free(unsafe.Pointer(cLine))
 	var totalRows int32
 	pTotalRows := unsafe.Pointer(&totalRows)
 
 	res := C.taos_schemaless_insert_raw_with_reqid(taosConn, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows),
-		(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(reqId))
+		(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(reqID))
 	return totalRows, res
 }
 

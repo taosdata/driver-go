@@ -797,41 +797,41 @@ func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 	}
 }
 
-func TestConnector_StmtExecuteWithReqId(t *testing.T) {
+func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
-	_, err := db.ExecWithReqId("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
-		common.GetReqId())
+	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	params := param2.NewParam(4)
 	params.AddTimestamp(time.Now(), 0).
 		AddFloat(10.2).AddInt(219).AddFloat(0.32)
-	_, err = db.StmtExecuteWithReqId("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) "+
+	_, err = db.StmtExecuteWithReqID("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) "+
 		"VALUES (?, ?, ?, ?)",
 		params,
-		common.GetReqId())
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.ExecWithReqId("drop stable if exists meters",
-		common.GetReqId())
+	_, err = db.ExecWithReqID("drop stable if exists meters",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestConnector_InsertStmtWithReqId(t *testing.T) {
+func TestConnector_InsertStmtWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
-	_, err := db.ExecWithReqId("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
-		common.GetReqId())
+	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = db.ExecWithReqId("drop stable if exists meters", common.GetReqId())
+		_, _ = db.ExecWithReqID("drop stable if exists meters", common.GetReqID())
 	}()
 	params := []*param2.Param{
 		param2.NewParam(1).AddTimestamp(time.Now(), common.PrecisionMilliSecond),
@@ -841,7 +841,7 @@ func TestConnector_InsertStmtWithReqId(t *testing.T) {
 	}
 	bindType := param2.NewColumnType(4).AddTimestamp().AddFloat().AddInt().AddFloat()
 
-	stmt := db.InsertStmtWithReqId(common.GetReqId())
+	stmt := db.InsertStmtWithReqID(common.GetReqID())
 	defer stmt.Close()
 	stmt.Prepare("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES (?, ?, ?, ?)")
 	stmt.BindParam(params, bindType)
@@ -856,42 +856,42 @@ func TestConnector_InsertStmtWithReqId(t *testing.T) {
 
 }
 
-func TestConnector_ExecWithReqId_and_QueryWithReqId(t *testing.T) {
+func TestConnector_ExecWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
-	_, err := db.ExecWithReqId("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
-		common.GetReqId())
+	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = db.ExecWithReqId("drop stable if exists meters", common.GetReqId())
+		_, _ = db.ExecWithReqID("drop stable if exists meters", common.GetReqID())
 	}()
-	_, err = db.ExecWithReqId("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
-		common.GetReqId())
+	_, err = db.ExecWithReqID("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestConnector_QueryWithReqId(t *testing.T) {
+func TestConnector_QueryWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
-	_, err := db.ExecWithReqId("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
-		common.GetReqId())
+	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = db.ExecWithReqId("drop stable if exists meters", common.GetReqId())
+		_, _ = db.ExecWithReqID("drop stable if exists meters", common.GetReqID())
 	}()
 
-	_, err = db.ExecWithReqId("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
-		common.GetReqId())
+	_, err = db.ExecWithReqID("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
+		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := db.QueryWithReqId("select count(*) from meters", common.GetReqId())
+	res, err := db.QueryWithReqID("select count(*) from meters", common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}

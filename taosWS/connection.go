@@ -103,6 +103,32 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	return tc.execCtx(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
+}
+
+var ctxDoneError = taosErrors.NewError(0xffff, "context is done")
+
+func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (result driver.Result, err error) {
+	rc := make(chan driver.Result, 1)
+	ec := make(chan error, 1)
+	go func() {
+		if rs, err := tc.execCtx(ctx, query, args); err == nil {
+			rc <- rs
+		} else {
+			ec <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctxDoneError
+	case result = <-rc:
+	case err = <-ec:
+	}
+	return
+}
+
+func (tc *taosConn) execCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
@@ -148,6 +174,30 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 }
 
 func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
+}
+
+func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
+	rc := make(chan driver.Rows, 1)
+	ec := make(chan error, 1)
+	go func() {
+		if rs, err := tc.queryCtx(ctx, query, args); err == nil {
+			rc <- rs
+		} else {
+			ec <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctxDoneError
+	case rows = <-rc:
+	case err = <-ec:
+	}
+	return
+}
+
+func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip

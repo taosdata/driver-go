@@ -74,9 +74,42 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	return tc.ExecContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
+}
+
+func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Result, err error) {
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
 	}
+
+	rc := make(chan driver.Result, 1)
+	ec := make(chan error, 1)
+
+	go func() {
+		if rs, err := tc.execCtx(ctx, query, args); err == nil {
+			rc <- rs
+		} else {
+			ec <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctxDoneError
+	case rows = <-rc:
+	case err = <-ec:
+	}
+
+	return
+}
+
+func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	var reqIdValue int64
+	reqId := ctx.Value(common.ReqIDKey)
+	if reqId == nil {
+		reqIdValue, _ = reqId.(int64)
+	}
+
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
@@ -90,7 +123,11 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 	}
 	h := asyncHandlerPool.Get()
 	defer asyncHandlerPool.Put(h)
-	result := tc.taosQuery(query, h, nil)
+	result := tc.taosQuery(query, h, reqIdValue)
+	return tc.processExecResult(result)
+}
+
+func (tc *taosConn) processExecResult(result *handler.AsyncResult) (driver.Result, error) {
 	defer func() {
 		if result != nil && result.Res != nil {
 			locker.Lock()
@@ -109,8 +146,39 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 }
 
 func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
+}
+
+var ctxDoneError = errors.NewError(0xffff, "context is done")
+
+func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
+	}
+	rc := make(chan driver.Rows, 1)
+	ec := make(chan error, 1)
+	go func() {
+		if rs, err := tc.queryCtx(ctx, query, args); err == nil {
+			rc <- rs
+		} else {
+			ec <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctxDoneError
+	case rows = <-rc:
+	case err = <-ec:
+	}
+	return
+}
+
+func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	var reqIdValue int64
+	reqId := ctx.Value(common.ReqIDKey)
+	if reqId == nil {
+		reqIdValue, _ = reqId.(int64)
 	}
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
@@ -124,7 +192,11 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		query = prepared
 	}
 	h := asyncHandlerPool.Get()
-	result := tc.taosQuery(query, h, nil)
+	result := tc.taosQuery(query, h, reqIdValue)
+	return tc.processRows(result, h)
+}
+
+func (tc *taosConn) processRows(result *handler.AsyncResult, h *handler.Handler) (driver.Rows, error) {
 	res := result.Res
 	code := wrapper.TaosError(res)
 	if code != int(errors.SUCCESS) {
@@ -163,12 +235,12 @@ func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.
 	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
-func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler, reqId *int64) *handler.AsyncResult {
+func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler, reqID int64) *handler.AsyncResult {
 	locker.Lock()
-	if reqId == nil {
+	if reqID == 0 {
 		wrapper.TaosQueryA(tc.taos, sqlStr, handler.Handler)
 	} else {
-		wrapper.TaosQueryAWithReqId(tc.taos, sqlStr, handler.Handler, *reqId)
+		wrapper.TaosQueryAWithReqID(tc.taos, sqlStr, handler.Handler, reqID)
 	}
 	locker.Unlock()
 	r := <-handler.Caller.QueryResult

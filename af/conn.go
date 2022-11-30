@@ -66,9 +66,9 @@ func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.
 	return conn.stmtExecute(stmt, sql, params)
 }
 
-// StmtExecuteWithReqId Execute sql through stmt with reqId
-func (conn *Connector) StmtExecuteWithReqId(sql string, params *param.Param, reqId int64) (res driver.Result, err error) {
-	stmt := NewStmtWithReqId(conn.taos, reqId)
+// StmtExecuteWithReqID Execute sql through stmt with reqID
+func (conn *Connector) StmtExecuteWithReqID(sql string, params *param.Param, reqID int64) (res driver.Result, err error) {
+	stmt := NewStmtWithReqID(conn.taos, reqID)
 	if stmt == nil {
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 		return
@@ -105,7 +105,7 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
-		prepared, err := common.InterpolateParams(query, args)
+		prepared, err := common.InterpolateParams(query, common.ValueArgsToNamedValueArgs(args))
 		if err != nil {
 			return nil, err
 		}
@@ -117,13 +117,13 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 	return conn.processExecResult(result)
 }
 
-// ExecWithReqId Execute sql with reqId
-func (conn *Connector) ExecWithReqId(query string, reqId int64, args ...driver.Value) (driver.Result, error) {
+// ExecWithReqID Execute sql with reqID
+func (conn *Connector) ExecWithReqID(query string, reqID int64, args ...driver.Value) (driver.Result, error) {
 	if conn.taos == nil {
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
-		prepared, err := common.InterpolateParams(query, args)
+		prepared, err := common.InterpolateParams(query, common.ValueArgsToNamedValueArgs(args))
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func (conn *Connector) ExecWithReqId(query string, reqId int64, args ...driver.V
 	}
 	asyncHandler := async.GetHandler()
 	defer async.PutHandler(asyncHandler)
-	result := conn.taosQuery(query, asyncHandler, &reqId)
+	result := conn.taosQuery(query, asyncHandler, &reqID)
 	return conn.processExecResult(result)
 }
 
@@ -158,7 +158,7 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
-		prepared, err := common.InterpolateParams(query, args)
+		prepared, err := common.InterpolateParams(query, common.ValueArgsToNamedValueArgs(args))
 		if err != nil {
 			return nil, err
 		}
@@ -169,20 +169,20 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 	return conn.processQueryResult(result, h)
 }
 
-// QueryWithReqId Execute query sql with reqId
-func (conn *Connector) QueryWithReqId(query string, reqId int64, args ...driver.Value) (driver.Rows, error) {
+// QueryWithReqID Execute query sql with reqID
+func (conn *Connector) QueryWithReqID(query string, reqID int64, args ...driver.Value) (driver.Rows, error) {
 	if conn.taos == nil {
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
-		prepared, err := common.InterpolateParams(query, args)
+		prepared, err := common.InterpolateParams(query, common.ValueArgsToNamedValueArgs(args))
 		if err != nil {
 			return nil, err
 		}
 		query = prepared
 	}
 	h := async.GetHandler()
-	result := conn.taosQuery(query, h, &reqId)
+	result := conn.taosQuery(query, h, &reqID)
 	return conn.processQueryResult(result, h)
 }
 
@@ -211,12 +211,12 @@ func (conn *Connector) processQueryResult(result *handler.AsyncResult, h *handle
 	return rs, nil
 }
 
-func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler, reqId *int64) *handler.AsyncResult {
+func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler, reqID *int64) *handler.AsyncResult {
 	locker.Lock()
-	if reqId == nil {
+	if reqID == nil {
 		wrapper.TaosQueryA(conn.taos, sqlStr, handler.Handler)
 	} else {
-		wrapper.TaosQueryAWithReqId(conn.taos, sqlStr, handler.Handler, *reqId)
+		wrapper.TaosQueryAWithReqID(conn.taos, sqlStr, handler.Handler, *reqID)
 	}
 	locker.Unlock()
 	r := <-handler.Caller.QueryResult
@@ -228,9 +228,9 @@ func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmt(conn.taos)
 }
 
-// InsertStmtWithReqId Prepare batch insert stmt with reqId
-func (conn *Connector) InsertStmtWithReqId(reqId int64) *insertstmt.InsertStmt {
-	return insertstmt.NewInsertStmtWithReqId(conn.taos, reqId)
+// InsertStmtWithReqID Prepare batch insert stmt with reqID
+func (conn *Connector) InsertStmtWithReqID(reqID int64) *insertstmt.InsertStmt {
+	return insertstmt.NewInsertStmtWithReqID(conn.taos, reqID)
 }
 
 // SelectDB Execute `use db`

@@ -21,8 +21,8 @@ void taos_fetch_rows_a_wrapper(TAOS_RES *res, void *param){
 void taos_query_a_wrapper(TAOS *taos,const char *sql, void *param){
 	return taos_query_a(taos,sql,QueryCallback,param);
 };
-void taos_query_a_with_req_id_wrapper(TAOS *taos,const char *sql, void *param, int64_t reqId){
-	return taos_query_a_with_reqid(taos, sql, QueryCallback, param, reqId);
+void taos_query_a_with_req_id_wrapper(TAOS *taos,const char *sql, void *param, int64_t reqID){
+	return taos_query_a_with_reqid(taos, sql, QueryCallback, param, reqID);
 };
 void taos_fetch_raw_block_a_wrapper(TAOS_RES *res, void *param){
 	return taos_fetch_raw_block_a(res,FetchRawBlockCallback,param);
@@ -81,11 +81,11 @@ func TaosQuery(taosConnect unsafe.Pointer, sql string) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_query(taosConnect, cSql))
 }
 
-// TasoQueryWithReqId TAOS_RES *taos_query_with_reqid(TAOS *taos, const char *sql, int64_t reqId);
-func TasoQueryWithReqId(taosConn unsafe.Pointer, sql string, reqId int64) unsafe.Pointer {
+// TasoQueryWithReqID TAOS_RES *taos_query_with_reqid(TAOS *taos, const char *sql, int64_t reqID);
+func TasoQueryWithReqID(taosConn unsafe.Pointer, sql string, reqID int64) unsafe.Pointer {
 	cSql := C.CString(sql)
 	defer C.free(unsafe.Pointer(cSql))
-	return unsafe.Pointer(C.taos_query_with_reqid(taosConn, cSql, (C.int64_t)(reqId)))
+	return unsafe.Pointer(C.taos_query_with_reqid(taosConn, cSql, (C.int64_t)(reqID)))
 }
 
 // TaosError int taos_errno(TAOS_RES *tres);
@@ -157,11 +157,11 @@ func TaosQueryA(taosConnect unsafe.Pointer, sql string, caller cgo.Handle) {
 	C.taos_query_a_wrapper(taosConnect, cSql, unsafe.Pointer(caller))
 }
 
-// TaosQueryAWithReqId void taos_query_a_with_reqid(TAOS *taos, const char *sql, __taos_async_fn_t fp, void *param, int64_t reqid);
-func TaosQueryAWithReqId(taosConn unsafe.Pointer, sql string, caller cgo.Handle, reqId int64) {
+// TaosQueryAWithReqID void taos_query_a_with_reqid(TAOS *taos, const char *sql, __taos_async_fn_t fp, void *param, int64_t reqid);
+func TaosQueryAWithReqID(taosConn unsafe.Pointer, sql string, caller cgo.Handle, reqID int64) {
 	cSql := C.CString(sql)
 	defer C.free(unsafe.Pointer(cSql))
-	C.taos_query_a_with_req_id_wrapper(taosConn, cSql, unsafe.Pointer(caller), (C.int64_t)(reqId))
+	C.taos_query_a_with_req_id_wrapper(taosConn, cSql, unsafe.Pointer(caller), (C.int64_t)(reqID))
 }
 
 // TaosFetchRowsA void taos_fetch_rows_a(TAOS_RES *res, void (*fp)(void *param, TAOS_RES *, int numOfRows), void *param);

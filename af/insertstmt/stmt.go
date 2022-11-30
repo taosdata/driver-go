@@ -22,9 +22,9 @@ func NewInsertStmt(taosConn unsafe.Pointer) *InsertStmt {
 	return &InsertStmt{stmt: stmt}
 }
 
-func NewInsertStmtWithReqId(taosConn unsafe.Pointer, reqId int64) *InsertStmt {
+func NewInsertStmtWithReqID(taosConn unsafe.Pointer, reqID int64) *InsertStmt {
 	locker.Lock()
-	stmt := wrapper.TaosStmtInitWithReqId(taosConn, reqId)
+	stmt := wrapper.TaosStmtInitWithReqID(taosConn, reqID)
 	locker.Unlock()
 	return &InsertStmt{stmt: stmt}
 }

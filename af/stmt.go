@@ -24,9 +24,9 @@ func NewStmt(taosConn unsafe.Pointer) *Stmt {
 	return &Stmt{stmt: stmt}
 }
 
-func NewStmtWithReqId(taosConn unsafe.Pointer, reqId int64) *Stmt {
+func NewStmtWithReqID(taosConn unsafe.Pointer, reqID int64) *Stmt {
 	locker.Lock()
-	stmt := wrapper.TaosStmtInitWithReqId(taosConn, reqId)
+	stmt := wrapper.TaosStmtInitWithReqID(taosConn, reqID)
 	locker.Unlock()
 	return &Stmt{stmt: stmt}
 }

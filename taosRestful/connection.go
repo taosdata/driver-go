@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -90,6 +89,33 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	return tc.ExecContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
+}
+
+var ctxDoneError = taosErrors.NewError(0xffff, "context is done")
+
+func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (result driver.Result, err error) {
+	rc := make(chan driver.Result, 1)
+	ec := make(chan error, 1)
+
+	go func() {
+		if res, err := tc.execCtx(ctx, query, args); err == nil {
+			rc <- res
+		} else {
+			ec <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctxDoneError
+	case result = <-rc:
+	case err = <-ec:
+	}
+	return
+}
+
+func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
@@ -101,7 +127,7 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	result, err := tc.taosQuery(context.TODO(), query, 512)
+	result, err := tc.taosQuery(ctx, query, 512)
 	if err != nil {
 		return nil, err
 	}
@@ -117,13 +143,60 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 			return nil, driver.ErrSkip
 		}
 		// try client-side prepare to reduce round trip
-		prepared, err := common.InterpolateParams(query, args)
+		prepared, err := common.InterpolateParams(query, common.ValueArgsToNamedValueArgs(args))
 		if err != nil {
 			return nil, err
 		}
 		query = prepared
 	}
 	result, err := tc.taosQuery(context.TODO(), query, tc.readBufferSize)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, errors.New("wrong result")
+	}
+	// Read Result
+	rs := &rows{
+		result: result,
+	}
+	return rs, err
+}
+
+func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
+	rc := make(chan driver.Rows, 1)
+	ec := make(chan error, 1)
+
+	go func() {
+		if r, err := tc.queryCtx(ctx, query, args); err == nil {
+			rc <- r
+		} else {
+			ec <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctxDoneError
+	case rows = <-rc:
+	case err = <-ec:
+	}
+	return
+}
+
+func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if len(args) != 0 {
+		if !tc.cfg.interpolateParams {
+			return nil, driver.ErrSkip
+		}
+		// try client-side prepare to reduce round trip
+		prepared, err := common.InterpolateParams(query, args)
+		if err != nil {
+			return nil, err
+		}
+		query = prepared
+	}
+	result, err := tc.taosQuery(ctx, query, tc.readBufferSize)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +219,7 @@ func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.
 }
 
 func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (*common.TDEngineRestfulResp, error) {
-	body := ioutil.NopCloser(strings.NewReader(sql))
+	body := io.NopCloser(strings.NewReader(sql))
 	req := &http.Request{
 		Method:     http.MethodPost,
 		URL:        tc.url,
@@ -166,7 +239,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -188,8 +261,6 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	}
 	return data, nil
 }
-
-const HTTPDTimeFormat = "2006-01-02T15:04:05.999999999-0700"
 
 func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, error) {
 	var result common.TDEngineRestfulResp
