@@ -363,3 +363,182 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		assert.Nil(t, row2[i])
 	}
 }
+
+func TestTaosWriteRawBlockWithFields(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	defer TaosClose(conn)
+	res := TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
+	code := TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+	//defer func() {
+	//	res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
+	//	code = TaosError(res)
+	//	if code != 0 {
+	//		errStr := TaosErrorStr(res)
+	//		TaosFreeResult(res)
+	//		t.Error(errors.NewError(code, errStr))
+	//		return
+	//	}
+	//	TaosFreeResult(res)
+	//}()
+	res = TaosQuery(conn, "create database test_write_block_raw_fields")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields.all_type (ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
+		") tags (info json)")
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+	now := time.Now()
+	after1s := now.Add(time.Second)
+	sql := fmt.Sprintf("insert into test_write_block_raw_fields.t0 using test_write_block_raw_fields.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	sql = "create table test_write_block_raw_fields.t1 using test_write_block_raw_fields.all_type tags('{\"a\":2}')"
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	sql = "use test_write_block_raw_fields"
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	TaosFreeResult(res)
+
+	sql = "select ts,c1 from test_write_block_raw_fields.t0"
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	for {
+		blockSize, errCode, block := TaosFetchRawBlock(res)
+		if errCode != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(errCode, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		if blockSize == 0 {
+			break
+		}
+		fieldsCount := TaosNumFields(res)
+		fields := TaosFetchFields(res)
+
+		errCode = TaosWriteRawBlockWithFields(conn, blockSize, block, "t1", fields, fieldsCount)
+		if errCode != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(nil)
+			err := errors.NewError(errCode, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+	}
+	TaosFreeResult(res)
+
+	sql = "select * from test_write_block_raw_fields.t1"
+	res = TaosQuery(conn, sql)
+	code = TaosError(res)
+	if code != 0 {
+		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	fileCount := TaosNumFields(res)
+	rh, err := ReadColumn(res, fileCount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	precision := TaosResultPrecision(res)
+	var data [][]driver.Value
+	for {
+		blockSize, errCode, block := TaosFetchRawBlock(res)
+		if errCode != int(errors.SUCCESS) {
+			errStr := TaosErrorStr(res)
+			err := errors.NewError(code, errStr)
+			t.Error(err)
+			TaosFreeResult(res)
+			return
+		}
+		if blockSize == 0 {
+			break
+		}
+		d := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		data = append(data, d...)
+	}
+	TaosFreeResult(res)
+
+	assert.Equal(t, 2, len(data))
+	row1 := data[0]
+	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
+	assert.Equal(t, true, row1[1].(bool))
+	for i := 2; i < 14; i++ {
+		assert.Nil(t, row1[i])
+	}
+	row2 := data[1]
+	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
+	for i := 1; i < 14; i++ {
+		assert.Nil(t, row2[i])
+	}
+}

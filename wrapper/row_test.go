@@ -587,6 +587,7 @@ func TestFetchRowAllType(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	precision := TaosResultPrecision(res)
 	count := 0
 	result := make([]driver.Value, numFields)
 	for {
@@ -596,7 +597,7 @@ func TestFetchRowAllType(t *testing.T) {
 		}
 		count += 1
 		lengths := FetchLengths(res, numFields)
-		precision := TaosResultPrecision(rr)
+
 		for i := range header.ColTypes {
 			result[i] = FetchRow(rr, i, header.ColTypes[i], lengths[i], precision)
 		}
