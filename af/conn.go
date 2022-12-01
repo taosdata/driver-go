@@ -113,7 +113,7 @@ func (conn *Connector) Exec(query string, args ...driver.Value) (driver.Result, 
 	}
 	asyncHandler := async.GetHandler()
 	defer async.PutHandler(asyncHandler)
-	result := conn.taosQuery(query, asyncHandler, nil)
+	result := conn.taosQuery(query, asyncHandler, 0)
 	return conn.processExecResult(result)
 }
 
@@ -131,7 +131,7 @@ func (conn *Connector) ExecWithReqID(query string, reqID int64, args ...driver.V
 	}
 	asyncHandler := async.GetHandler()
 	defer async.PutHandler(asyncHandler)
-	result := conn.taosQuery(query, asyncHandler, &reqID)
+	result := conn.taosQuery(query, asyncHandler, reqID)
 	return conn.processExecResult(result)
 }
 
@@ -165,7 +165,7 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 		query = prepared
 	}
 	h := async.GetHandler()
-	result := conn.taosQuery(query, h, nil)
+	result := conn.taosQuery(query, h, 0)
 	return conn.processQueryResult(result, h)
 }
 
@@ -182,7 +182,7 @@ func (conn *Connector) QueryWithReqID(query string, reqID int64, args ...driver.
 		query = prepared
 	}
 	h := async.GetHandler()
-	result := conn.taosQuery(query, h, &reqID)
+	result := conn.taosQuery(query, h, reqID)
 	return conn.processQueryResult(result, h)
 }
 
@@ -211,12 +211,12 @@ func (conn *Connector) processQueryResult(result *handler.AsyncResult, h *handle
 	return rs, nil
 }
 
-func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler, reqID *int64) *handler.AsyncResult {
+func (conn *Connector) taosQuery(sqlStr string, handler *handler.Handler, reqID int64) *handler.AsyncResult {
 	locker.Lock()
-	if reqID == nil {
+	if reqID == 0 {
 		wrapper.TaosQueryA(conn.taos, sqlStr, handler.Handler)
 	} else {
-		wrapper.TaosQueryAWithReqID(conn.taos, sqlStr, handler.Handler, *reqID)
+		wrapper.TaosQueryAWithReqID(conn.taos, sqlStr, handler.Handler, reqID)
 	}
 	locker.Unlock()
 	r := <-handler.Caller.QueryResult

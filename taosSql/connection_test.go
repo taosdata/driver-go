@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+
+	"github.com/taosdata/driver-go/v3/common"
 )
 
 func TestTaosConn_ExecContext(t *testing.T) {
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), common.ReqIDKey, common.GetReqID())
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
 		t.Fatal(err)

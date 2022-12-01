@@ -93,27 +93,8 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 	return tc.ExecContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
 }
 
-var ctxDoneError = taosErrors.NewError(0xffff, "context is done")
-
 func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (result driver.Result, err error) {
-	rc := make(chan driver.Result, 1)
-	ec := make(chan error, 1)
-
-	go func() {
-		if res, err := tc.execCtx(ctx, query, args); err == nil {
-			rc <- res
-		} else {
-			ec <- err
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		err = ctxDoneError
-	case result = <-rc:
-	case err = <-ec:
-	}
-	return
+	return tc.execCtx(ctx, query, args)
 }
 
 func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
@@ -165,24 +146,7 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 }
 
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
-	rc := make(chan driver.Rows, 1)
-	ec := make(chan error, 1)
-
-	go func() {
-		if r, err := tc.queryCtx(ctx, query, args); err == nil {
-			rc <- r
-		} else {
-			ec <- err
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		err = ctxDoneError
-	case rows = <-rc:
-	case err = <-ec:
-	}
-	return
+	return tc.queryCtx(ctx, query, args)
 }
 
 func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {

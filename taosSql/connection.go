@@ -82,32 +82,14 @@ func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 		return nil, driver.ErrBadConn
 	}
 
-	rc := make(chan driver.Result, 1)
-	ec := make(chan error, 1)
-
-	go func() {
-		if rs, err := tc.execCtx(ctx, query, args); err == nil {
-			rc <- rs
-		} else {
-			ec <- err
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		err = ctxDoneError
-	case rows = <-rc:
-	case err = <-ec:
-	}
-
-	return
+	return tc.execCtx(ctx, query, args)
 }
 
 func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	var reqIdValue int64
-	reqId := ctx.Value(common.ReqIDKey)
-	if reqId == nil {
-		reqIdValue, _ = reqId.(int64)
+	var reqIDValue int64
+	reqID := ctx.Value(common.ReqIDKey)
+	if reqID != nil {
+		reqIDValue, _ = reqID.(int64)
 	}
 
 	if len(args) != 0 {
@@ -123,7 +105,7 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 	}
 	h := asyncHandlerPool.Get()
 	defer asyncHandlerPool.Put(h)
-	result := tc.taosQuery(query, h, reqIdValue)
+	result := tc.taosQuery(query, h, reqIDValue)
 	return tc.processExecResult(result)
 }
 
@@ -149,36 +131,18 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
 }
 
-var ctxDoneError = errors.NewError(0xffff, "context is done")
-
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
 	}
-	rc := make(chan driver.Rows, 1)
-	ec := make(chan error, 1)
-	go func() {
-		if rs, err := tc.queryCtx(ctx, query, args); err == nil {
-			rc <- rs
-		} else {
-			ec <- err
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		err = ctxDoneError
-	case rows = <-rc:
-	case err = <-ec:
-	}
-	return
+	return tc.queryCtx(ctx, query, args)
 }
 
 func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	var reqIdValue int64
-	reqId := ctx.Value(common.ReqIDKey)
-	if reqId == nil {
-		reqIdValue, _ = reqId.(int64)
+	var reqIDValue int64
+	reqID := ctx.Value(common.ReqIDKey)
+	if reqID != nil {
+		reqIDValue, _ = reqID.(int64)
 	}
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
@@ -192,7 +156,7 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		query = prepared
 	}
 	h := asyncHandlerPool.Get()
-	result := tc.taosQuery(query, h, reqIdValue)
+	result := tc.taosQuery(query, h, reqIDValue)
 	return tc.processRows(result, h)
 }
 
