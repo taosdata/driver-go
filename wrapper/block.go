@@ -26,3 +26,10 @@ func TaosWriteRawBlock(conn unsafe.Pointer, numOfRows int, pData unsafe.Pointer,
 	defer C.free(unsafe.Pointer(cStr))
 	return int(C.taos_write_raw_block(conn, (C.int)(numOfRows), (*C.char)(pData), cStr))
 }
+
+// TaosWriteRawBlockWithFields DLL_EXPORT int         taos_write_raw_block_with_fields(TAOS* taos, int rows, char* pData, const char* tbname, TAOS_FIELD *fields, int numFields);
+func TaosWriteRawBlockWithFields(conn unsafe.Pointer, numOfRows int, pData unsafe.Pointer, tableName string, fields unsafe.Pointer, numFields int) int {
+	cStr := C.CString(tableName)
+	defer C.free(unsafe.Pointer(cStr))
+	return int(C.taos_write_raw_block_with_fields(conn, (C.int)(numOfRows), (*C.char)(pData), cStr, (*C.struct_taosField)(fields), (C.int)(numFields)))
+}
