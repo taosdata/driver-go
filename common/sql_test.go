@@ -12,7 +12,7 @@ import (
 func TestInterpolateParams(t *testing.T) {
 	type args struct {
 		query string
-		args  []driver.Value
+		args  []driver.NamedValue
 	}
 	tests := []struct {
 		name    string
@@ -41,24 +41,24 @@ func TestInterpolateParams(t *testing.T) {
 					"bs = ? and " +
 					"str = ? and " +
 					"nil is ?",
-				args: []driver.Value{
-					time.Unix(1643068800, 0).UTC(),
-					int8(1),
-					int16(2),
-					int32(3),
-					int64(4),
-					uint8(1),
-					uint16(2),
-					uint32(3),
-					uint64(4),
-					float32(5.2),
-					float64(5.2),
-					int(6),
-					uint(6),
-					bool(true),
-					[]byte("'bytes'"),
-					[]byte("'str'"),
-					nil,
+				args: []driver.NamedValue{
+					{Ordinal: 1, Value: time.Unix(1643068800, 0).UTC()},
+					{Ordinal: 2, Value: int8(1)},
+					{Ordinal: 3, Value: int16(2)},
+					{Ordinal: 4, Value: int32(3)},
+					{Ordinal: 5, Value: int64(4)},
+					{Ordinal: 6, Value: uint8(1)},
+					{Ordinal: 7, Value: uint16(2)},
+					{Ordinal: 8, Value: uint32(3)},
+					{Ordinal: 9, Value: uint64(4)},
+					{Ordinal: 10, Value: float32(5.2)},
+					{Ordinal: 11, Value: float64(5.2)},
+					{Ordinal: 12, Value: 6},
+					{Ordinal: 13, Value: uint(6)},
+					{Ordinal: 14, Value: true},
+					{Ordinal: 15, Value: []byte("'bytes'")},
+					{Ordinal: 16, Value: []byte("'str'")},
+					{Ordinal: 17, Value: nil},
 				},
 			},
 			want: "select * from t1 where " +

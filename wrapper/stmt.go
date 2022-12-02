@@ -23,6 +23,11 @@ func TaosStmtInit(taosConnect unsafe.Pointer) unsafe.Pointer {
 	return C.taos_stmt_init(taosConnect)
 }
 
+// TaosStmtInitWithReqID TAOS_STMT *taos_stmt_init_with_reqid(TAOS *taos, int64_t reqid);
+func TaosStmtInitWithReqID(taosConn unsafe.Pointer, reqID int64) unsafe.Pointer {
+	return C.taos_stmt_init_with_reqid(taosConn, (C.int64_t)(reqID))
+}
+
 // TaosStmtPrepare int        taos_stmt_prepare(TAOS_STMT *stmt, const char *sql, unsigned long length);
 func TaosStmtPrepare(stmt unsafe.Pointer, sql string) int {
 	cSql := C.CString(sql)

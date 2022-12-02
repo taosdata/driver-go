@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func InterpolateParams(query string, args []driver.Value) (string, error) {
+func InterpolateParams(query string, args []driver.NamedValue) (string, error) {
 	// Number of ? should be same to len(args)
 	if strings.Count(query, "?") != len(args) {
 		return "", driver.ErrSkip
@@ -26,7 +26,7 @@ func InterpolateParams(query string, args []driver.Value) (string, error) {
 		buf.WriteString(query[i : i+q])
 		i += q
 
-		arg := args[argPos]
+		arg := args[argPos].Value
 		argPos++
 
 		if arg == nil {
@@ -84,4 +84,15 @@ func InterpolateParams(query string, args []driver.Value) (string, error) {
 		return "", driver.ErrSkip
 	}
 	return buf.String(), nil
+}
+
+func ValueArgsToNamedValueArgs(args []driver.Value) (values []driver.NamedValue) {
+	values = make([]driver.NamedValue, len(args))
+	for i, arg := range args {
+		values[i] = driver.NamedValue{
+			Ordinal: i + 1,
+			Value:   arg,
+		}
+	}
+	return
 }

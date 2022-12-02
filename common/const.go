@@ -139,3 +139,5 @@ const (
 	Float32Size = unsafe.Sizeof(float32(0))
 	Float64Size = unsafe.Sizeof(float64(0))
 )
+
+const ReqIDKey = "taos_req_id"
