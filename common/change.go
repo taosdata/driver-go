@@ -1,6 +1,9 @@
 package common
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 func TimestampConvertToTime(timestamp int64, precision int) time.Time {
 	switch precision {
@@ -11,7 +14,8 @@ func TimestampConvertToTime(timestamp int64, precision int) time.Time {
 	case PrecisionNanoSecond: // nano-second
 		return time.Unix(0, timestamp)
 	default:
-		panic("unknown precision")
+		s := fmt.Sprintln("unknown precision", precision, "timestamp", timestamp)
+		panic(s)
 	}
 }
 
@@ -24,6 +28,7 @@ func TimeToTimestamp(t time.Time, precision int) (timestamp int64) {
 	case PrecisionNanoSecond:
 		return t.UnixNano()
 	default:
-		panic("unknown precision")
+		s := fmt.Sprintln("unknown precision", precision, "time", t)
+		panic(s)
 	}
 }
