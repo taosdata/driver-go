@@ -27,19 +27,28 @@ const (
 // TaosSchemalessInsert TAOS_RES *taos_schemaless_insert(TAOS* taos, char* lines[], int numLines, int protocol, int precision);
 // Deprecated
 func TaosSchemalessInsert(taosConnect unsafe.Pointer, lines []string, protocol int, precision string) unsafe.Pointer {
-	numLines, cLines, needFree := taosSchemalessInsertParams(lines)
-	defer func() {
-		for _, p := range needFree {
-			C.free(p)
-		}
-	}()
-	return C.taos_schemaless_insert(taosConnect, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol),
-		(C.int)(exchange(precision)))
+	return taosSchemalessInsert(taosConnect, lines, protocol, precision, nil, nil)
+}
+
+// TaosSchemalessInsertTTL TAOS_RES *taos_schemaless_insert_ttl(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int32_t ttl)
+// Deprecated
+func TaosSchemalessInsertTTL(taosConnect unsafe.Pointer, lines []string, protocol int, precision string, ttl int) unsafe.Pointer {
+	return taosSchemalessInsert(taosConnect, lines, protocol, precision, &ttl, nil)
 }
 
 // TaosSchemalessInsertWithReqID TAOS_RES *taos_schemaless_insert_with_reqid(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int64_t reqid);
 // Deprecated
 func TaosSchemalessInsertWithReqID(taosConn unsafe.Pointer, lines []string, protocol int, precision string, reqID int64) unsafe.Pointer {
+	return taosSchemalessInsert(taosConn, lines, protocol, precision, nil, &reqID)
+}
+
+// TaosSchemalessInsertTTLWithReqID TAOS_RES *taos_schemaless_insert_ttl_with_reqid(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int32_t ttl, int64_t reqid)
+// Deprecated
+func TaosSchemalessInsertTTLWithReqID(taosConn unsafe.Pointer, lines []string, protocol int, precision string, ttl int, reqID int64) unsafe.Pointer {
+	return taosSchemalessInsert(taosConn, lines, protocol, precision, &ttl, &reqID)
+}
+
+func taosSchemalessInsert(conn unsafe.Pointer, lines []string, protocol int, precision string, ttl *int, reqID *int64) (result unsafe.Pointer) {
 	numLines, cLines, needFree := taosSchemalessInsertParams(lines)
 	defer func() {
 		for _, p := range needFree {
@@ -47,8 +56,29 @@ func TaosSchemalessInsertWithReqID(taosConn unsafe.Pointer, lines []string, prot
 		}
 	}()
 
-	return C.taos_schemaless_insert_with_reqid(taosConn, (**C.char)(&cLines[0]), (C.int)(numLines),
-		(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(reqID))
+	if ttl == nil && reqID == nil {
+		// TAOS_RES *taos_schemaless_insert(TAOS* taos, char* lines[], int numLines, int protocol, int precision)
+		result = C.taos_schemaless_insert(conn, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol),
+			(C.int)(exchange(precision)))
+		return
+	}
+	if ttl == nil && reqID != nil {
+		// TAOS_RES *taos_schemaless_insert_with_reqid(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int64_t reqid)
+		result = C.taos_schemaless_insert_with_reqid(conn, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol),
+			(C.int)(exchange(precision)), (C.int64_t)(*reqID))
+		return
+	}
+	if ttl != nil && reqID == nil {
+		// TAOS_RES *taos_schemaless_insert_ttl(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int32_t ttl)
+		result = C.taos_schemaless_insert_ttl(conn, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol),
+			(C.int)(exchange(precision)), (C.int32_t)(*ttl))
+		return
+	}
+
+	// TAOS_RES *taos_schemaless_insert_ttl_with_reqid(TAOS *taos, char *lines[], int numLines, int protocol, int precision, int32_t ttl, int64_t reqid)
+	result = C.taos_schemaless_insert_ttl_with_reqid(conn, (**C.char)(&cLines[0]), (C.int)(numLines), (C.int)(protocol),
+		(C.int)(exchange(precision)), (C.int32_t)(*ttl), (C.int64_t)(*reqID))
+	return
 }
 
 func taosSchemalessInsertParams(lines []string) (numLines int, cLines []*C.char, needFree []unsafe.Pointer) {
@@ -63,27 +93,54 @@ func taosSchemalessInsertParams(lines []string) (numLines int, cLines []*C.char,
 	return
 }
 
-// TaosSchemalessInsertRaw DLL_EXPORT TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision);
+// TaosSchemalessInsertRaw TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision);
 func TaosSchemalessInsertRaw(taosConnect unsafe.Pointer, lines string, protocol int, precision string) (int32, unsafe.Pointer) {
-	cLine := C.CString(lines)
-	defer C.free(unsafe.Pointer(cLine))
-	var totalRows int32
-	pTotalRows := unsafe.Pointer(&totalRows)
+	return taosSchemalessInsertRaw(taosConnect, lines, protocol, precision, nil, nil)
+}
 
-	res := C.taos_schemaless_insert_raw(taosConnect, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows), (C.int)(protocol), (C.int)(exchange(precision)))
-	return totalRows, res
+// TaosSchemalessInsertRawTTL TAOS_RES *taos_schemaless_insert_raw_ttl(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int32_t ttl);
+func TaosSchemalessInsertRawTTL(taosConnect unsafe.Pointer, lines string, protocol int, precision string, ttl int) (int32, unsafe.Pointer) {
+	return taosSchemalessInsertRaw(taosConnect, lines, protocol, precision, &ttl, nil)
 }
 
 // TaosSchemalessInsertRawWithReqID TAOS_RES *taos_schemaless_insert_raw_with_reqid(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int64_t reqid);
 func TaosSchemalessInsertRawWithReqID(taosConn unsafe.Pointer, lines string, protocol int, precision string, reqID int64) (int32, unsafe.Pointer) {
+	return taosSchemalessInsertRaw(taosConn, lines, protocol, precision, nil, &reqID)
+}
+
+// TaosSchemalessInsertRawTTLWithReqID TAOS_RES *taos_schemaless_insert_raw_ttl_with_reqid(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int32_t ttl, int64_t reqid)
+func TaosSchemalessInsertRawTTLWithReqID(taosConn unsafe.Pointer, lines string, protocol int, precision string, ttl int, reqID int64) (int32, unsafe.Pointer) {
+	return taosSchemalessInsertRaw(taosConn, lines, protocol, precision, &ttl, &reqID)
+}
+
+func taosSchemalessInsertRaw(conn unsafe.Pointer, lines string, protocol int, precision string, ttl *int, reqID *int64) (rows int32, result unsafe.Pointer) {
 	cLine := C.CString(lines)
 	defer C.free(unsafe.Pointer(cLine))
-	var totalRows int32
-	pTotalRows := unsafe.Pointer(&totalRows)
+	pTotalRows := unsafe.Pointer(&rows)
 
-	res := C.taos_schemaless_insert_raw_with_reqid(taosConn, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows),
-		(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(reqID))
-	return totalRows, res
+	if ttl == nil && reqID == nil {
+		// TAOS_RES *taos_schemaless_insert_raw(TAOS* taos, char* lines, int len, int32_t *totalRows, int protocol, int precision)
+		result = C.taos_schemaless_insert_raw(conn, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows),
+			(C.int)(protocol), (C.int)(exchange(precision)))
+		return
+	}
+	if ttl == nil && reqID != nil {
+		// TAOS_RES *taos_schemaless_insert_raw_with_reqid(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int64_t reqid)
+		result = C.taos_schemaless_insert_raw_with_reqid(conn, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows),
+			(C.int)(protocol), (C.int)(exchange(precision)), (C.int64_t)(*reqID))
+		return
+	}
+	if ttl != nil && reqID == nil {
+		// TAOS_RES *taos_schemaless_insert_raw_ttl(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int32_t ttl)
+		result = C.taos_schemaless_insert_raw_ttl(conn, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows),
+			(C.int)(protocol), (C.int)(exchange(precision)), (C.int32_t)(*ttl))
+		return
+	}
+	// TAOS_RES *taos_schemaless_insert_raw_ttl_with_reqid(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int32_t ttl, int64_t reqid)
+	result = C.taos_schemaless_insert_raw_ttl_with_reqid(conn, cLine, (C.int)(len(lines)), (*C.int32_t)(pTotalRows),
+		(C.int)(protocol), (C.int)(exchange(precision)), (C.int32_t)(*ttl), (C.int64_t)(*reqID))
+
+	return
 }
 
 func exchange(ts string) int {
