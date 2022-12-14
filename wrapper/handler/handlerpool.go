@@ -98,12 +98,7 @@ func (c *HandlerPool) Put(handler *Handler) {
 		c.mu.Unlock()
 		return
 	} else {
-		select {
-		case c.handlers <- handler:
-		default:
-			// channel is full, skip it
-		}
-
+		c.handlers <- handler
 		c.mu.Unlock()
 		return
 	}

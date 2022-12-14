@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"io"
 	"reflect"
+	"sync"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/af/async"
@@ -23,6 +24,7 @@ type rows struct {
 	blockSize   int
 	result      unsafe.Pointer
 	precision   int
+	once        sync.Once
 }
 
 func (rs *rows) Columns() []string {
@@ -110,13 +112,16 @@ func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 }
 
 func (rs *rows) freeResult() {
-	if rs.result != nil {
-		locker.Lock()
-		wrapper.TaosFreeResult(rs.result)
-		locker.Unlock()
-		rs.result = nil
-	}
-	if rs.handler != nil {
-		async.PutHandler(rs.handler)
-	}
+	rs.once.Do(func() {
+		if rs.result != nil {
+			locker.Lock()
+			wrapper.TaosFreeResult(rs.result)
+			locker.Unlock()
+			rs.result = nil
+		}
+
+		if rs.handler != nil {
+			async.PutHandler(rs.handler)
+		}
+	})
 }
