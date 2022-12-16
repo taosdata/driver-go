@@ -214,14 +214,19 @@ func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
 	return int(C.taos_load_table_info(taosConnect, buf))
 }
 
+var getTableVgIDError = errors.NewError(0xffff, "get table vgroup id fail")
+
 // TaosGetTableVgID
 // DLL_EXPORT int taos_get_table_vgId(TAOS *taos, const char *db, const char *table, int *vgId)
-func TaosGetTableVgID(conn unsafe.Pointer, db, table string) (vgID int) {
+func TaosGetTableVgID(conn unsafe.Pointer, db, table string) (vgID int, err error) {
 	cDB := C.CString(db)
 	cTable := C.CString(table)
 	defer C.free(unsafe.Pointer(cDB))
 	defer C.free(unsafe.Pointer(cTable))
 
-	C.taos_get_table_vgId(conn, cDB, cTable, (*C.int)(unsafe.Pointer(&vgID)))
+	code := C.taos_get_table_vgId(conn, cDB, cTable, (*C.int)(unsafe.Pointer(&vgID)))
+	if code != 0 {
+		err = getTableVgIDError
+	}
 	return
 }

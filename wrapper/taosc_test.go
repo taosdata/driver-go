@@ -488,7 +488,16 @@ func TestTaosGetTableVgID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(TaosGetTableVgID(conn, dbName, "d0"))
-	t.Log(TaosGetTableVgID(conn, dbName, "d1"))
-	t.Log(TaosGetTableVgID(conn, dbName, "d2"))
+	_, err = TaosGetTableVgID(conn, dbName, "d0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = TaosGetTableVgID(conn, dbName, "d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = TaosGetTableVgID(conn, dbName, "d2")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
