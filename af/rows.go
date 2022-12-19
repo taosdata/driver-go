@@ -116,7 +116,9 @@ func (rs *rows) freeResult() {
 		locker.Unlock()
 		rs.result = nil
 	}
+
 	if rs.handler != nil {
 		async.PutHandler(rs.handler)
+		rs.handler = nil
 	}
 }
