@@ -305,7 +305,7 @@ func (conn *Connector) GetTableVGroupID(db, table string) (vgID int, err error) 
 	var code int
 	vgID, code = wrapper.TaosGetTableVgID(conn.taos, db, table)
 	if code != 0 {
-		err = errors.NewError(wrapper.TaosError(nil), wrapper.TaosErrorStr(nil))
+		err = errors.NewError(code, wrapper.TaosErrorStr(nil))
 	}
 	return
 }
