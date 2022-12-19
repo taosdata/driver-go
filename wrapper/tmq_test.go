@@ -987,7 +987,7 @@ func TestTMQModify(t *testing.T) {
 	TaosFreeResult(result)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists tmq_test_db_modify_topic with meta as DATABASE tmq_test_db_modify")
+	result = TaosQuery(conn, "create topic if not exists tmq_test_db_modify_topic as DATABASE tmq_test_db_modify")
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -1237,7 +1237,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	TaosFreeResult(result)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists test_tmq_auto_topic with meta as DATABASE tmq_test_auto_create")
+	result = TaosQuery(conn, "create topic if not exists test_tmq_auto_topic as DATABASE tmq_test_auto_create")
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)

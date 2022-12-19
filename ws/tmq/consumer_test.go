@@ -21,7 +21,7 @@ func prepareEnv() error {
 		"drop topic if exists test_ws_tmq_topic",
 		"drop database if exists test_ws_tmq",
 		"create database test_ws_tmq",
-		"create topic test_ws_tmq_topic with meta as database test_ws_tmq",
+		"create topic test_ws_tmq_topic as database test_ws_tmq",
 	}
 	for _, step := range steps {
 		err = doRequest(step)

@@ -88,7 +88,7 @@ func prepareEnv(db *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec("create topic example_ws_tmq_topic with meta as database example_ws_tmq")
+	_, err = db.Exec("create topic example_ws_tmq_topic as database example_ws_tmq")
 	if err != nil {
 		panic(err)
 	}
