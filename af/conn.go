@@ -300,3 +300,12 @@ func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 	locker.Unlock()
 	return nil
 }
+
+func (conn *Connector) GetTableVGroupID(db, table string) (vgID int, err error) {
+	var code int
+	vgID, code = wrapper.TaosGetTableVgID(conn.taos, db, table)
+	if code != 0 {
+		err = errors.NewError(code, wrapper.TaosErrorStr(nil))
+	}
+	return
+}

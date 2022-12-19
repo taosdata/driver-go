@@ -213,3 +213,15 @@ func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
 	defer C.free(unsafe.Pointer(buf))
 	return int(C.taos_load_table_info(taosConnect, buf))
 }
+
+// TaosGetTableVgID
+// DLL_EXPORT int taos_get_table_vgId(TAOS *taos, const char *db, const char *table, int *vgId)
+func TaosGetTableVgID(conn unsafe.Pointer, db, table string) (vgID int, code int) {
+	cDB := C.CString(db)
+	cTable := C.CString(table)
+	defer C.free(unsafe.Pointer(cDB))
+	defer C.free(unsafe.Pointer(cTable))
+
+	code = int(C.taos_get_table_vgId(conn, cDB, cTable, (*C.int)(unsafe.Pointer(&vgID))))
+	return
+}

@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"io"
 	"testing"
 	"unsafe"
@@ -459,4 +460,51 @@ func TestTaosLoadTableInfo(t *testing.T) {
 		return
 	}
 
+}
+
+func TestTaosGetTableVgID(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer TaosClose(conn)
+	dbName := "table_vg_id_test"
+
+	_ = exec(conn, fmt.Sprintf("drop database if exists %s", dbName))
+	defer func() {
+		_ = exec(conn, fmt.Sprintf("drop database if exists %s", dbName))
+	}()
+	if err = exec(conn, fmt.Sprintf("create database %s", dbName)); err != nil {
+		t.Fatal(err)
+	}
+	if err = exec(conn, fmt.Sprintf("create stable %s.meters (ts timestamp, current float, voltage int, phase float) "+
+		"tags (location binary(64), groupId int)", dbName)); err != nil {
+		t.Fatal(err)
+	}
+	if err = exec(conn, fmt.Sprintf("create table %s.d0 using table_vg_id_test.meters tags ('California.SanFrancisco', 1)", dbName)); err != nil {
+		t.Fatal(err)
+	}
+	if err = exec(conn, fmt.Sprintf("create table %s.d1 using table_vg_id_test.meters tags ('California.LosAngles', 2)", dbName)); err != nil {
+		t.Fatal(err)
+	}
+
+	vg1, code := TaosGetTableVgID(conn, dbName, "d0")
+	if code != 0 {
+		t.Fatal("fail")
+	}
+	vg2, code := TaosGetTableVgID(conn, dbName, "d0")
+	if code != 0 {
+		t.Fatal("fail")
+	}
+	if vg1 != vg2 {
+		t.Fatal("fail")
+	}
+	_, code = TaosGetTableVgID(conn, dbName, "d1")
+	if code != 0 {
+		t.Fatal("fail")
+	}
+	_, code = TaosGetTableVgID(conn, dbName, "d2")
+	if code != 0 {
+		t.Fatal("fail")
+	}
 }
