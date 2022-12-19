@@ -301,13 +301,11 @@ func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error {
 	return nil
 }
 
-var getVgIDFail = errors.NewError(0xffff, "get table vgroup id fail")
-
 func (conn *Connector) GetTableVGroupID(db, table string) (vgID int, err error) {
 	var code int
 	vgID, code = wrapper.TaosGetTableVgID(conn.taos, db, table)
 	if code != 0 {
-		err = getVgIDFail
+		err = errors.NewError(wrapper.TaosError(nil), wrapper.TaosErrorStr(nil))
 	}
 	return
 }
