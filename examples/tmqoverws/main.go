@@ -28,7 +28,7 @@ func main() {
 	config.SetMessageTimeout(common.DefaultMessageTimeout)
 	config.SetWriteWait(common.DefaultWriteWait)
 	config.SetErrorHandler(func(consumer *tmq.Consumer, err error) {
-		panic(err)
+		fmt.Println(err)
 	})
 	config.SetCloseHandler(func() {
 		fmt.Println("consumer closed")
