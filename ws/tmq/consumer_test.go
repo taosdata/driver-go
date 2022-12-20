@@ -21,7 +21,7 @@ func prepareEnv() error {
 		"drop topic if exists test_ws_tmq_topic",
 		"drop database if exists test_ws_tmq",
 		"create database test_ws_tmq",
-		"create topic test_ws_tmq_topic as database test_ws_tmq",
+		"create topic test_ws_tmq_topic with meta as database test_ws_tmq",
 	}
 	for _, step := range steps {
 		err = doRequest(step)
@@ -145,10 +145,10 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	gotMeta := false
 	gotData := false
 	for i := 0; i < 5; i++ {
-		if gotData {
+		if gotData && gotMeta {
 			return
 		}
 		result, err := consumer.Poll(0)
@@ -180,6 +180,7 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, "binary", v[12].(string))
 				assert.Equal(t, "nchar", v[13].(string))
 			case common.TMQ_RES_TABLE_META:
+				gotMeta = true
 				assert.Equal(t, "test_ws_tmq", result.DBName)
 				assert.Equal(t, "create", result.Meta.Type)
 				assert.Equal(t, "t_all", result.Meta.TableName)
@@ -257,6 +258,9 @@ func TestConsumer(t *testing.T) {
 					}}, result.Meta.Columns)
 			}
 		}
+	}
+	if !gotMeta {
+		t.Error("no meta got")
 	}
 	if !gotData {
 		t.Error("no data got")
