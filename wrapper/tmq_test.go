@@ -1093,7 +1093,10 @@ func TestTMQModify(t *testing.T) {
 
 	pool := func(cb func(*common.Meta, unsafe.Pointer)) {
 		message := TMQConsumerPoll(tmq, 500)
-		assert.NotNil(t, message)
+		if message == nil {
+			return
+		}
+		assert.NotNil(t, message) // NotNil is fail for unsafe.Pointer
 		topic := TMQGetTopicName(message)
 		assert.Equal(t, "tmq_test_db_modify_topic", topic)
 		messageType := TMQGetResType(message)
