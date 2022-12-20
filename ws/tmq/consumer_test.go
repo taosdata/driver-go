@@ -145,10 +145,10 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	gotMeta := false
+
 	gotData := false
 	for i := 0; i < 5; i++ {
-		if gotData && gotMeta {
+		if gotData {
 			return
 		}
 		result, err := consumer.Poll(0)
@@ -180,7 +180,6 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, "binary", v[12].(string))
 				assert.Equal(t, "nchar", v[13].(string))
 			case common.TMQ_RES_TABLE_META:
-				gotMeta = true
 				assert.Equal(t, "test_ws_tmq", result.DBName)
 				assert.Equal(t, "create", result.Meta.Type)
 				assert.Equal(t, "t_all", result.Meta.TableName)
@@ -258,9 +257,6 @@ func TestConsumer(t *testing.T) {
 					}}, result.Meta.Columns)
 			}
 		}
-	}
-	if !gotMeta {
-		t.Error("no meta got")
 	}
 	if !gotData {
 		t.Error("no data got")
