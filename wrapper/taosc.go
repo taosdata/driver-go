@@ -154,19 +154,19 @@ func TaosOptions(option int, value string) int {
 func TaosQueryA(taosConnect unsafe.Pointer, sql string, caller cgo.Handle) {
 	cSql := C.CString(sql)
 	defer C.free(unsafe.Pointer(cSql))
-	C.taos_query_a_wrapper(taosConnect, cSql, unsafe.Pointer(caller))
+	C.taos_query_a_wrapper(taosConnect, cSql, caller.Pointer())
 }
 
 // TaosQueryAWithReqID void taos_query_a_with_reqid(TAOS *taos, const char *sql, __taos_async_fn_t fp, void *param, int64_t reqid);
 func TaosQueryAWithReqID(taosConn unsafe.Pointer, sql string, caller cgo.Handle, reqID int64) {
 	cSql := C.CString(sql)
 	defer C.free(unsafe.Pointer(cSql))
-	C.taos_query_a_with_req_id_wrapper(taosConn, cSql, unsafe.Pointer(caller), (C.int64_t)(reqID))
+	C.taos_query_a_with_req_id_wrapper(taosConn, cSql, caller.Pointer(), (C.int64_t)(reqID))
 }
 
 // TaosFetchRowsA void taos_fetch_rows_a(TAOS_RES *res, void (*fp)(void *param, TAOS_RES *, int numOfRows), void *param);
 func TaosFetchRowsA(res unsafe.Pointer, caller cgo.Handle) {
-	C.taos_fetch_rows_a_wrapper(res, unsafe.Pointer(caller))
+	C.taos_fetch_rows_a_wrapper(res, caller.Pointer())
 }
 
 // TaosResetCurrentDB void taos_reset_current_db(TAOS *taos);
@@ -193,7 +193,7 @@ func TaosFetchLengths(res unsafe.Pointer) unsafe.Pointer {
 
 // TaosFetchRawBlockA void        taos_fetch_raw_block_a(TAOS_RES* res, __taos_async_fn_t fp, void* param);
 func TaosFetchRawBlockA(res unsafe.Pointer, caller cgo.Handle) {
-	C.taos_fetch_raw_block_a_wrapper(res, unsafe.Pointer(caller))
+	C.taos_fetch_raw_block_a_wrapper(res, caller.Pointer())
 }
 
 // TaosGetRawBlock const void *taos_get_raw_block(TAOS_RES* res);
