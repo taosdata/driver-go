@@ -109,7 +109,10 @@ func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 }
 
 func (rs *rows) freeResult() {
-	asyncHandlerPool.Put(rs.handler)
+	if rs.handler != nil {
+		asyncHandlerPool.Put(rs.handler)
+		rs.handler = nil
+	}
 	if rs.result != nil {
 		locker.Lock()
 		wrapper.TaosFreeResult(rs.result)

@@ -22,7 +22,7 @@ func TestReadBlock(t *testing.T) {
 
 	defer wrapper.TaosClose(conn)
 	defer func() {
-		res := wrapper.TaosQuery(conn, "drop database if exists test_block_raw")
+		res := wrapper.TaosQuery(conn, "drop database if exists test_block_raw_parser")
 		code := wrapper.TaosError(res)
 		if code != 0 {
 			errStr := wrapper.TaosErrorStr(res)
@@ -32,7 +32,7 @@ func TestReadBlock(t *testing.T) {
 		}
 		wrapper.TaosFreeResult(res)
 	}()
-	res := wrapper.TaosQuery(conn, "create database if not exists test_block_raw")
+	res := wrapper.TaosQuery(conn, "create database if not exists test_block_raw_parser")
 	code := wrapper.TaosError(res)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(res)
@@ -41,7 +41,7 @@ func TestReadBlock(t *testing.T) {
 		return
 	}
 	wrapper.TaosFreeResult(res)
-	res = wrapper.TaosQuery(conn, "drop table if exists test_block_raw.all_type2")
+	res = wrapper.TaosQuery(conn, "drop table if exists test_block_raw_parser.all_type2")
 	code = wrapper.TaosError(res)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(res)
@@ -50,7 +50,7 @@ func TestReadBlock(t *testing.T) {
 		return
 	}
 	wrapper.TaosFreeResult(res)
-	res = wrapper.TaosQuery(conn, "create table if not exists test_block_raw.all_type2 (ts timestamp,"+
+	res = wrapper.TaosQuery(conn, "create table if not exists test_block_raw_parser.all_type2 (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -75,7 +75,7 @@ func TestReadBlock(t *testing.T) {
 	wrapper.TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_block_raw.all_type2 values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into test_block_raw_parser.all_type2 values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = wrapper.TaosQuery(conn, sql)
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -86,7 +86,7 @@ func TestReadBlock(t *testing.T) {
 	}
 	wrapper.TaosFreeResult(res)
 
-	sql = "select * from test_block_raw.all_type2"
+	sql = "select * from test_block_raw_parser.all_type2"
 	res = wrapper.TaosQuery(conn, sql)
 	code = wrapper.TaosError(res)
 	if code != 0 {

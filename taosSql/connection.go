@@ -174,6 +174,7 @@ func (tc *taosConn) processRows(result *handler.AsyncResult, h *handler.Handler)
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
+		asyncHandlerPool.Put(h)
 		return nil, err
 	}
 	precision := wrapper.TaosResultPrecision(res)

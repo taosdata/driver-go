@@ -199,6 +199,7 @@ func (conn *Connector) processQueryResult(result *handler.AsyncResult, h *handle
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
+		async.PutHandler(h)
 		return nil, err
 	}
 	precision := wrapper.TaosResultPrecision(res)
