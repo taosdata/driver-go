@@ -7,6 +7,7 @@ package cgo
 import (
 	"sync"
 	"sync/atomic"
+	"unsafe"
 )
 
 // Handle provides a way to pass values that contain Go pointers
@@ -20,45 +21,7 @@ import (
 // that is large enough to hold the bit pattern of any pointer. The zero
 // value of a Handle is not valid, and thus is safe to use as a sentinel
 // in C APIs.
-//
-// For instance, on the Go side:
-//
-//	package main
-//
-//	/*
-//	#include <stdint.h> // for uintptr_t
-//
-//	extern void MyGoPrint(uintptr_t handle);
-//	void myprint(uintptr_t handle);
-//	*/
-//	import "C"
-//	import "runtime/cgo"
-//
-//	//export MyGoPrint
-//	func MyGoPrint(handle C.uintptr_t) {
-//		h := cgo.Handle(handle)
-//		val := h.Value().(string)
-//		println(val)
-//		h.Delete()
-//	}
-//
-//	func main() {
-//		val := "hello Go"
-//		C.myprint(C.uintptr_t(cgo.NewHandle(val)))
-//		// Output: hello Go
-//	}
-//
-// and on the C side:
-//
-//	#include <stdint.h> // for uintptr_t
-//
-//	// A Go function
-//	extern void MyGoPrint(uintptr_t handle);
-//
-//	// A C function
-//	void myprint(uintptr_t handle) {
-//	    MyGoPrint(handle);
-//	}
+
 type Handle uintptr
 
 // NewHandle returns a handle for a given value.
@@ -77,7 +40,9 @@ func NewHandle(v interface{}) Handle {
 	}
 
 	handles.Store(h, v)
-	return Handle(h)
+	handle := Handle(h)
+	handlePointers.Store(h, &handle)
+	return handle
 }
 
 // Value returns the associated Go value for a valid handle.
@@ -91,6 +56,14 @@ func (h Handle) Value() interface{} {
 	return v
 }
 
+func (h Handle) Pointer() unsafe.Pointer {
+	p, ok := handlePointers.Load(uintptr(h))
+	if !ok {
+		panic("runtime/cgo: misuse of an invalid Handle")
+	}
+	return unsafe.Pointer(p.(*Handle))
+}
+
 // Delete invalidates a handle. This method should only be called once
 // the program no longer needs to pass the handle to C and the C code
 // no longer has a copy of the handle value.
@@ -98,9 +71,11 @@ func (h Handle) Value() interface{} {
 // The method panics if the handle is invalid.
 func (h Handle) Delete() {
 	handles.Delete(uintptr(h))
+	handlePointers.Delete(uintptr(h))
 }
 
 var (
-	handles   = sync.Map{} // map[Handle]interface{}
-	handleIdx uintptr      // atomic
+	handles        = sync.Map{} // map[Handle]interface{}
+	handlePointers = sync.Map{} // map[Handle]*Handle
+	handleIdx      uintptr      // atomic
 )

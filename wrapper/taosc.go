@@ -152,12 +152,12 @@ func TaosOptions(option int, value string) int {
 func TaosQueryA(taosConnect unsafe.Pointer, sql string, caller cgo.Handle) {
 	cSql := C.CString(sql)
 	defer C.free(unsafe.Pointer(cSql))
-	C.taos_query_a_wrapper(taosConnect, cSql, unsafe.Pointer(caller))
+	C.taos_query_a_wrapper(taosConnect, cSql, caller.Pointer())
 }
 
 // TaosFetchRowsA void taos_fetch_rows_a(TAOS_RES *res, void (*fp)(void *param, TAOS_RES *, int numOfRows), void *param);
 func TaosFetchRowsA(res unsafe.Pointer, caller cgo.Handle) {
-	C.taos_fetch_rows_a_wrapper(res, unsafe.Pointer(caller))
+	C.taos_fetch_rows_a_wrapper(res, caller.Pointer())
 }
 
 // TaosResetCurrentDB void taos_reset_current_db(TAOS *taos);
