@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v2/af/async"
 	"github.com/taosdata/driver-go/v2/af/locker"
 	"github.com/taosdata/driver-go/v2/errors"
 	"github.com/taosdata/driver-go/v2/wrapper"
@@ -109,5 +110,9 @@ func (rs *rows) freeResult() {
 		wrapper.TaosFreeResult(rs.result)
 		locker.Unlock()
 		rs.result = nil
+	}
+	if rs.handler != nil {
+		async.PutHandler(rs.handler)
+		rs.handler = nil
 	}
 }

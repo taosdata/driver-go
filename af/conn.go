@@ -146,12 +146,12 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 		query = prepared
 	}
 
-	handler := async.GetHandler()
-	result := conn.taosQuery(query, handler)
+	h := async.GetHandler()
+	result := conn.taosQuery(query, h)
 	res := result.Res
 	code := wrapper.TaosError(res)
 	if code != int(errors.SUCCESS) {
-		async.PutHandler(handler)
+		async.PutHandler(h)
 		errStr := wrapper.TaosErrorStr(res)
 		locker.Lock()
 		wrapper.TaosFreeResult(result.Res)
@@ -161,10 +161,11 @@ func (conn *Connector) Query(query string, args ...driver.Value) (driver.Rows, e
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
+		async.PutHandler(h)
 		return nil, err
 	}
 	rs := &rows{
-		handler:    handler,
+		handler:    h,
 		rowsHeader: rowsHeader,
 		result:     res,
 	}

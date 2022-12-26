@@ -62,9 +62,9 @@ func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, erro
 		}
 		query = prepared
 	}
-	handler := asyncHandlerPool.Get()
-	defer asyncHandlerPool.Put(handler)
-	result := tc.taosQuery(query, handler)
+	h := asyncHandlerPool.Get()
+	defer asyncHandlerPool.Put(h)
+	result := tc.taosQuery(query, h)
 	defer func() {
 		if result != nil && result.Res != nil {
 			locker.Lock()
@@ -98,12 +98,12 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 		}
 		query = prepared
 	}
-	handler := asyncHandlerPool.Get()
-	result := tc.taosQuery(query, handler)
+	h := asyncHandlerPool.Get()
+	result := tc.taosQuery(query, h)
 	res := result.Res
 	code := wrapper.TaosError(res)
 	if code != int(errors.SUCCESS) {
-		asyncHandlerPool.Put(handler)
+		asyncHandlerPool.Put(h)
 		errStr := wrapper.TaosErrorStr(res)
 		locker.Lock()
 		wrapper.TaosFreeResult(result.Res)
@@ -113,10 +113,11 @@ func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
 	if err != nil {
+		asyncHandlerPool.Put(h)
 		return nil, err
 	}
 	rs := &rows{
-		handler:    handler,
+		handler:    h,
 		rowsHeader: rowsHeader,
 		result:     res,
 	}
