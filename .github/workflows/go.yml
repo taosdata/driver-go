@@ -19,7 +19,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'main'
 
       - name: install TDengine
         run: |
