@@ -218,10 +218,40 @@ func TaosLoadTableInfo(taosConnect unsafe.Pointer, tableNameList []string) int {
 // DLL_EXPORT int taos_get_table_vgId(TAOS *taos, const char *db, const char *table, int *vgId)
 func TaosGetTableVgID(conn unsafe.Pointer, db, table string) (vgID int, code int) {
 	cDB := C.CString(db)
-	cTable := C.CString(table)
 	defer C.free(unsafe.Pointer(cDB))
+	cTable := C.CString(table)
 	defer C.free(unsafe.Pointer(cTable))
 
 	code = int(C.taos_get_table_vgId(conn, cDB, cTable, (*C.int)(unsafe.Pointer(&vgID))))
+	return
+}
+
+// TaosGetTablesVgID DLL_EXPORT int taos_get_tables_vgId(TAOS *taos, const char *db, const char *table[], int tableNum, int *vgId)
+func TaosGetTablesVgID(conn unsafe.Pointer, db string, tables []string) (vgIDs []int, code int) {
+	cDB := C.CString(db)
+	defer C.free(unsafe.Pointer(cDB))
+	numTables := len(tables)
+	cTables := make([]*C.char, numTables)
+	needFree := make([]unsafe.Pointer, numTables)
+	defer func() {
+		for _, p := range needFree {
+			C.free(p)
+		}
+	}()
+	for i, table := range tables {
+		cTable := C.CString(table)
+		needFree[i] = unsafe.Pointer(cTable)
+		cTables[i] = cTable
+	}
+	p := C.malloc(C.sizeof_int * C.size_t(numTables))
+	defer C.free(p)
+	code = int(C.taos_get_tables_vgId(conn, cDB, (**C.char)(&cTables[0]), (C.int)(numTables), (*C.int)(p)))
+	if code != 0 {
+		return nil, code
+	}
+	vgIDs = make([]int, numTables)
+	for i := 0; i < numTables; i++ {
+		vgIDs[i] = int(*(*C.int)(unsafe.Pointer(uintptr(p) + uintptr(C.sizeof_int*C.int(i)))))
+	}
 	return
 }
