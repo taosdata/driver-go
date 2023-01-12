@@ -1,12 +1,12 @@
 package tmq
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/taosdata/driver-go/v3/common/tmq"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
@@ -135,68 +135,62 @@ func TestTmq(t *testing.T) {
 	}
 	wrapper.TaosFreeResult(result)
 
-	config := NewConfig()
-	defer config.Destroy()
-	err = config.SetGroupID("test")
 	assert.NoError(t, err)
-	err = config.SetAutoOffsetReset("earliest")
-	assert.NoError(t, err)
-	err = config.SetConnectIP("127.0.0.1")
-	assert.NoError(t, err)
-	err = config.SetConnectUser("root")
-	assert.NoError(t, err)
-	err = config.SetConnectPass("taosdata")
-	assert.NoError(t, err)
-	err = config.SetConnectPort("6030")
-	assert.NoError(t, err)
-	err = config.SetMsgWithTableName(true)
-	assert.NoError(t, err)
-	err = config.EnableAutoCommit(func(result *wrapper.TMQCommitCallbackResult) {
-		if result.ErrCode != 0 {
-			errStr := wrapper.TMQErr2Str(result.ErrCode)
-			err := errors.NewError(int(result.ErrCode), errStr)
-			t.Error(err)
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"group.id":                     "test",
+		"auto.offset.reset":            "earliest",
+		"td.connect.ip":                "127.0.0.1",
+		"td.connect.user":              "root",
+		"td.connect.pass":              "taosdata",
+		"td.connect.port":              "6030",
+		"client.id":                    "test_tmq_c",
+		"enable.auto.commit":           "false",
+		"enable.heartbeat.background":  "true",
+		"experimental.snapshot.enable": "true",
+		"msg.with.table.name":          "true",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = consumer.Subscribe("test_tmq_common", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for i := 0; i < 5; i++ {
+		ev := consumer.Poll(500)
+		switch e := ev.(type) {
+		case *tmq.DataMessage:
+			row1 := e.Value().([]*tmq.Data)[0].Data[0]
+			assert.Equal(t, "af_test_tmq", e.DBName())
+			assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
+			assert.Equal(t, true, row1[1].(bool))
+			assert.Equal(t, int8(2), row1[2].(int8))
+			assert.Equal(t, int16(3), row1[3].(int16))
+			assert.Equal(t, int32(4), row1[4].(int32))
+			assert.Equal(t, int64(5), row1[5].(int64))
+			assert.Equal(t, uint8(6), row1[6].(uint8))
+			assert.Equal(t, uint16(7), row1[7].(uint16))
+			assert.Equal(t, uint32(8), row1[8].(uint32))
+			assert.Equal(t, uint64(9), row1[9].(uint64))
+			assert.Equal(t, float32(10), row1[10].(float32))
+			assert.Equal(t, float64(11), row1[11].(float64))
+			assert.Equal(t, "1", row1[12].(string))
+			assert.Equal(t, "2", row1[13].(string))
+			_, err = consumer.Commit()
+			assert.NoError(t, err)
+			err = consumer.Unsubscribe()
+			assert.NoError(t, err)
+			err = consumer.Close()
+			assert.NoError(t, err)
+			return
+		case tmq.Error:
+			t.Error(e)
+			return
+		default:
+			t.Error("unexpected", e)
 			return
 		}
-	})
-	assert.NoError(t, err)
-	consumer, err := NewConsumer(config)
-	if err != nil {
-		t.Error(err)
-		return
 	}
-	err = consumer.Subscribe([]string{"test_tmq_common"})
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	message, err := consumer.Poll(500 * time.Millisecond)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	row1 := message.Data[0].Data[0]
-	assert.Equal(t, "af_test_tmq", message.DBName)
-	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
-	assert.Equal(t, true, row1[1].(bool))
-	assert.Equal(t, int8(2), row1[2].(int8))
-	assert.Equal(t, int16(3), row1[3].(int16))
-	assert.Equal(t, int32(4), row1[4].(int32))
-	assert.Equal(t, int64(5), row1[5].(int64))
-	assert.Equal(t, uint8(6), row1[6].(uint8))
-	assert.Equal(t, uint16(7), row1[7].(uint16))
-	assert.Equal(t, uint32(8), row1[8].(uint32))
-	assert.Equal(t, uint64(9), row1[9].(uint64))
-	assert.Equal(t, float32(10), row1[10].(float32))
-	assert.Equal(t, float64(11), row1[11].(float64))
-	assert.Equal(t, "1", row1[12].(string))
-	assert.Equal(t, "2", row1[13].(string))
-	err = consumer.Commit(context.Background(), nil)
-	consumer.FreeMessage(message.Message)
-	assert.NoError(t, err)
-	err = consumer.Unsubscribe()
-	assert.NoError(t, err)
-	err = consumer.Close()
-	assert.NoError(t, err)
 }

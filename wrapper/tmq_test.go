@@ -1091,7 +1091,7 @@ func TestTMQModify(t *testing.T) {
 	}
 	TaosFreeResult(result)
 
-	pool := func(cb func(*common.Meta, unsafe.Pointer)) {
+	pool := func(cb func(*tmq.Meta, unsafe.Pointer)) {
 		message := TMQConsumerPoll(tmq, 500)
 		assert.NotNil(t, message)
 		topic := TMQGetTopicName(message)
@@ -1101,7 +1101,7 @@ func TestTMQModify(t *testing.T) {
 		pointer := TMQGetJsonMeta(message)
 		assert.NotNil(t, pointer)
 		data := ParseJsonMeta(pointer)
-		var meta common.Meta
+		var meta tmq.Meta
 		err = jsoniter.Unmarshal(data, &meta)
 		assert.NoError(t, err)
 
@@ -1132,7 +1132,7 @@ func TestTMQModify(t *testing.T) {
 		TMQFreeRaw(rawMeta)
 	}
 
-	pool(func(meta *common.Meta, rawMeta unsafe.Pointer) {
+	pool(func(meta *tmq.Meta, rawMeta unsafe.Pointer) {
 		assert.Equal(t, "create", meta.Type)
 		assert.Equal(t, "stb", meta.TableName)
 		assert.Equal(t, "super", meta.TableType)
@@ -1322,7 +1322,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 			pointer := TMQGetJsonMeta(message)
 			data := ParseJsonMeta(pointer)
 			t.Log(string(data))
-			var meta common.Meta
+			var meta tmq.Meta
 			err = jsoniter.Unmarshal(data, &meta)
 			assert.NoError(t, err)
 			assert.Equal(t, "create", meta.Type)

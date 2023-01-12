@@ -2,16 +2,17 @@ package tmq
 
 import (
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/taosdata/driver-go/v3/common/tmq"
 )
 
-type Config struct {
+type config struct {
 	Url            string
 	ChanLength     uint
 	MessageTimeout time.Duration
 	WriteWait      time.Duration
-	ErrorHandler   func(consumer *Consumer, err error)
-	CloseHandler   func()
 	User           string
 	Password       string
 	GroupID        string
@@ -19,68 +20,81 @@ type Config struct {
 	OffsetRest     string
 }
 
-// NewConfig create new config for tmq over websocket
-func NewConfig(url string, chanLength uint) *Config {
-	return &Config{
+func newConfig(url string, chanLength uint) *config {
+	return &config{
 		Url:        url,
 		ChanLength: chanLength,
 	}
 }
 
-// SetConnectUser set connect user
-func (c *Config) SetConnectUser(user string) error {
-	c.User = user
-	return nil
-}
-
-// SetConnectPass set connect password
-func (c *Config) SetConnectPass(pass string) error {
-	c.Password = pass
-	return nil
-}
-
-// SetGroupID set group id
-func (c *Config) SetGroupID(groupID string) error {
-	c.GroupID = groupID
-	return nil
-}
-
-// SetClientID set client id
-func (c *Config) SetClientID(clientID string) error {
-	c.ClientID = clientID
-	return nil
-}
-
-// SetAutoOffsetReset set auto_offset_reset
-func (c *Config) SetAutoOffsetReset(offsetReset string) error {
-	c.OffsetRest = offsetReset
-	return nil
-}
-
-// SetMessageTimeout set get message timeout
-func (c *Config) SetMessageTimeout(timeout time.Duration) error {
-	if timeout < time.Second {
-		return errors.New("message timeout cannot be less than 1 second")
+func (c *config) setConnectUser(user tmq.ConfigValue) error {
+	var ok bool
+	c.User, ok = user.(string)
+	if !ok {
+		return fmt.Errorf("td.connect.user requires string got %T", user)
 	}
-	c.MessageTimeout = timeout
 	return nil
 }
 
-// SetWriteWait set write deadline wait time
-func (c *Config) SetWriteWait(writeWait time.Duration) error {
-	if writeWait < 0 {
-		return errors.New("write wait cannot be less than 0")
+func (c *config) setConnectPass(pass tmq.ConfigValue) error {
+	var ok bool
+	c.Password, ok = pass.(string)
+	if !ok {
+		return fmt.Errorf("td.connect.pass requires string got %T", pass)
 	}
-	c.WriteWait = writeWait
 	return nil
 }
 
-// SetErrorHandler set error handler. ErrorHandler function called when a read error occurs
-func (c *Config) SetErrorHandler(f func(consumer *Consumer, err error)) {
-	c.ErrorHandler = f
+func (c *config) setGroupID(groupID tmq.ConfigValue) error {
+	var ok bool
+	c.GroupID, ok = groupID.(string)
+	if !ok {
+		return fmt.Errorf("group.id requires string got %T", groupID)
+	}
+	return nil
 }
 
-// SetCloseHandler set close handler. CloseHandler function called when the connection closed
-func (c *Config) SetCloseHandler(f func()) {
-	c.CloseHandler = f
+func (c *config) setClientID(clientID tmq.ConfigValue) error {
+	var ok bool
+	c.ClientID, ok = clientID.(string)
+	if !ok {
+		return fmt.Errorf("client.id requires string got %T", clientID)
+	}
+	return nil
+}
+
+func (c *config) setAutoOffsetReset(offsetReset tmq.ConfigValue) error {
+	var ok bool
+	c.OffsetRest, ok = offsetReset.(string)
+	if !ok {
+		return fmt.Errorf("auto.offset.reset requires string got %T", offsetReset)
+	}
+	return nil
+}
+
+func (c *config) setMessageTimeout(timeout tmq.ConfigValue) error {
+	var ok bool
+	c.MessageTimeout, ok = timeout.(time.Duration)
+	if !ok {
+		return fmt.Errorf("ws.message.timeout requires time.Duration got %T", timeout)
+	}
+	if c.MessageTimeout < time.Second {
+		return errors.New("ws.message.timeout cannot be less than 1 second")
+	}
+	return nil
+}
+
+func (c *config) setWriteWait(writeWait tmq.ConfigValue) error {
+	var ok bool
+	c.WriteWait, ok = writeWait.(time.Duration)
+	if !ok {
+		return fmt.Errorf("ws.message.writeWait requires time.Duration got %T", writeWait)
+	}
+	if c.WriteWait < time.Second {
+		return errors.New("ws.message.writeWait cannot be less than 1 second")
+	}
+	if c.WriteWait < 0 {
+		return errors.New("ws.message.writeWait cannot be less than 0")
+	}
+	return nil
 }

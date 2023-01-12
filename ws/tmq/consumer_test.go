@@ -11,6 +11,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
@@ -119,28 +120,24 @@ func TestConsumer(t *testing.T) {
 			return
 		}
 	}()
-	config := NewConfig("ws://127.0.0.1:6041/rest/tmq", 0)
-	config.SetConnectUser("root")
-	config.SetConnectPass("taosdata")
-	config.SetGroupID("test")
-	config.SetClientID("test_consumer")
-	config.SetAutoOffsetReset("earliest")
-	config.SetMessageTimeout(common.DefaultMessageTimeout)
-	config.SetWriteWait(common.DefaultWriteWait)
-	config.SetErrorHandler(func(consumer *Consumer, err error) {
-		t.Log(err)
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                "ws://127.0.0.1:6041/rest/tmq",
+		"ws.message.channelLen": uint(0),
+		"ws.message.timeout":    common.DefaultMessageTimeout,
+		"ws.message.writeWait":  common.DefaultWriteWait,
+		"td.connect.user":       "root",
+		"td.connect.pass":       "taosdata",
+		"group.id":              "test",
+		"client.id":             "test_consumer",
+		"auto.offset.reset":     "earliest",
 	})
-	config.SetCloseHandler(func() {
-		t.Log("tmq websocket closed")
-	})
-	consumer, err := NewConsumer(config)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	defer consumer.Close()
 	topic := []string{"test_ws_tmq_topic"}
-	err = consumer.Subscribe(topic)
+	err = consumer.SubscribeTopics(topic, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -151,21 +148,18 @@ func TestConsumer(t *testing.T) {
 		if gotData && gotMeta {
 			return
 		}
-		result, err := consumer.Poll(0)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if result != nil {
-			switch result.Type {
-			case common.TMQ_RES_DATA:
+		ev := consumer.Poll(0)
+		if ev != nil {
+			switch e := ev.(type) {
+			case *tmq.DataMessage:
 				gotData = true
-				assert.Equal(t, "test_ws_tmq", result.DBName)
-				assert.Equal(t, 1, len(result.Data))
-				assert.Equal(t, "t_all", result.Data[0].TableName)
-				assert.Equal(t, 1, len(result.Data[0].Data))
-				assert.Equal(t, now.Unix(), result.Data[0].Data[0][0].(time.Time).Unix())
-				var v = result.Data[0].Data[0]
+				data := e.Value().([]*tmq.Data)
+				assert.Equal(t, "test_ws_tmq", e.DBName())
+				assert.Equal(t, 1, len(data))
+				assert.Equal(t, "t_all", data[0].TableName)
+				assert.Equal(t, 1, len(data[0].Data))
+				assert.Equal(t, now.Unix(), data[0].Data[0][0].(time.Time).Unix())
+				var v = data[0].Data[0]
 				assert.Equal(t, true, v[1].(bool))
 				assert.Equal(t, int8(2), v[2].(int8))
 				assert.Equal(t, int16(3), v[3].(int16))
@@ -179,13 +173,14 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, float64(11.123), v[11].(float64))
 				assert.Equal(t, "binary", v[12].(string))
 				assert.Equal(t, "nchar", v[13].(string))
-			case common.TMQ_RES_TABLE_META:
+			case *tmq.MetaMessage:
 				gotMeta = true
-				assert.Equal(t, "test_ws_tmq", result.DBName)
-				assert.Equal(t, "create", result.Meta.Type)
-				assert.Equal(t, "t_all", result.Meta.TableName)
-				assert.Equal(t, "normal", result.Meta.TableType)
-				assert.Equal(t, []*common.Column{
+				meta := e.Value().(*tmq.Meta)
+				assert.Equal(t, "test_ws_tmq", e.DBName())
+				assert.Equal(t, "create", meta.Type)
+				assert.Equal(t, "t_all", meta.TableName)
+				assert.Equal(t, "normal", meta.TableType)
+				assert.Equal(t, []*tmq.Column{
 					{
 						Name:   "ts",
 						Type:   9,
@@ -255,8 +250,20 @@ func TestConsumer(t *testing.T) {
 						Name:   "c13",
 						Type:   10,
 						Length: 20,
-					}}, result.Meta.Columns)
+					}}, meta.Columns)
+			case tmq.Error:
+				t.Error(e)
+				return
+			default:
+				t.Error("unexpected", e)
+				return
 			}
+			_, err = consumer.Commit()
+		}
+
+		if err != nil {
+			t.Error(err)
+			return
 		}
 	}
 	if !gotMeta {
