@@ -15,6 +15,8 @@ v2 与 v3 版本不兼容，与 TDengine 版本对应如下：
 | v3.0.0           | 3.0.0.0+        |
 | v3.0.1           | 3.0.0.0+        |
 | v3.0.3           | 3.0.1.5+        |
+| v3.0.4           | 3.0.2.2+        |
+| v3.1.0           | 3.0.2.2+        |
 
 ## 安装
 
@@ -128,31 +130,31 @@ func main() {
 创建消费：
 
 ```go
-func NewConsumer(conf *Config) (*Consumer, error)
+func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error)
+```
+
+订阅单个主题：
+
+```go
+func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error
 ```
 
 订阅：
 
 ```go
-func (c *Consumer) Subscribe(topics []string) error
+func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error
 ```
 
 轮询消息：
 
 ```go
-func (c *Consumer) Poll(timeout time.Duration) (*Result, error)
+func (c *Consumer) Poll(timeoutMs int) tmq.Event
 ```
 
 提交消息：
 
 ```go
-func (c *Consumer) Commit(ctx context.Context, message unsafe.Pointer) error
-```
-
-释放消息：
-
-```go
-func (c *Consumer) FreeMessage(message unsafe.Pointer)
+func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
 ```
 
 取消订阅：
@@ -511,19 +513,23 @@ DSN 格式为：
 
 ### 订阅相关 API
 
-- `func NewConsumer(config *Config) (*Consumer, error)`
+- `func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error)`
 
  创建消费者。
 
-- `func (c *Consumer) Subscribe(topic []string) error`
+- `func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error`
+
+ 订阅单个主题。
+
+- `func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error`
 
  订阅主题。
 
-- `func (c *Consumer) Poll(timeout time.Duration) (*Result, error)`
+- `func (c *Consumer) Poll(timeoutMs int) tmq.Event`
 
  轮询消息。
 
-- `func (c *Consumer) Commit(messageID uint64) error`
+- `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
 
  提交消息。
 
