@@ -74,7 +74,6 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		groupID:        config.GroupID,
 		clientID:       config.ClientID,
 		offsetRest:     config.OffsetRest,
-		closeOnce:      sync.Once{},
 		closeChan:      make(chan struct{}),
 	}
 	if config.WriteWait > 0 {
