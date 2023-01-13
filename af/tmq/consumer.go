@@ -22,11 +22,11 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer confStruct.destroy()
 	cConsumer, err := wrapper.TMQConsumerNew(confStruct.cConfig)
 	if err != nil {
 		return nil, err
 	}
-	confStruct.destroy()
 	consumer := &Consumer{
 		cConsumer: cConsumer,
 	}
