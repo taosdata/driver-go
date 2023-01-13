@@ -13,7 +13,6 @@ import (
 )
 
 type Consumer struct {
-	conf      *config
 	cConsumer unsafe.Pointer
 }
 
@@ -27,8 +26,8 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
+	confStruct.destroy()
 	consumer := &Consumer{
-		conf:      confStruct,
 		cConsumer: cConsumer,
 	}
 	return consumer, nil
@@ -100,8 +99,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 		result := &tmq.DataMessage{}
 		result.SetDbName(db)
 		result.SetTopic(topic)
-		var data []*tmq.Data
-		data, err := c.getData(message, data)
+		data, err := c.getData(message)
 		if err != nil {
 			return tmq.NewTMQErrorWithErr(err)
 		}
@@ -121,11 +119,9 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 		return result
 	case common.TMQ_RES_METADATA:
 		result := &tmq.MetaDataMessage{}
-		wrapper.TaosFreeResult(message)
 		result.SetDbName(db)
 		result.SetTopic(topic)
-		var data []*tmq.Data
-		data, err := c.getData(message, data)
+		data, err := c.getData(message)
 		if err != nil {
 			return tmq.NewTMQErrorWithErr(err)
 		}
@@ -137,6 +133,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			Meta: meta,
 			Data: data,
 		})
+		wrapper.TaosFreeResult(message)
 		return result
 	default:
 		return tmq.NewTMQError(0xfffff, "invalid tmq message type")
@@ -158,7 +155,8 @@ func (c *Consumer) getMeta(message unsafe.Pointer) (*tmq.Meta, error) {
 	return &meta, nil
 }
 
-func (c *Consumer) getData(message unsafe.Pointer, tmqData []*tmq.Data) ([]*tmq.Data, error) {
+func (c *Consumer) getData(message unsafe.Pointer) ([]*tmq.Data, error) {
+	var tmqData []*tmq.Data
 	for {
 		blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
 		if errCode != int(taosError.SUCCESS) {

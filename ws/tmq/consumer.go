@@ -66,7 +66,6 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	tmq := &Consumer{
 		client:         wsClient,
 		requestID:      0,
-		listLock:       sync.RWMutex{},
 		sendChanList:   list.New(),
 		messageTimeout: config.MessageTimeout,
 		url:            config.Url,
@@ -371,8 +370,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			result := &tmq.DataMessage{}
 			result.SetDbName(resp.Database)
 			result.SetTopic(resp.Topic)
-			var data []*tmq.Data
-			data, err = c.fetch(resp.MessageID, data)
+			data, err := c.fetch(resp.MessageID)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
 			}
@@ -396,8 +394,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
 			}
-			var data []*tmq.Data
-			data, err = c.fetch(resp.MessageID, data)
+			data, err := c.fetch(resp.MessageID)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
 			}
@@ -454,7 +451,8 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 	return &meta, nil
 }
 
-func (c *Consumer) fetch(messageID uint64, tmqData []*tmq.Data) ([]*tmq.Data, error) {
+func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
+	var tmqData []*tmq.Data
 	for {
 		reqID := c.generateReqID()
 		req := &FetchReq{
