@@ -119,10 +119,10 @@ func TMQConsumerNew(conf unsafe.Pointer) (unsafe.Pointer, error) {
 	tmq := unsafe.Pointer(C.tmq_consumer_new((*C.struct_tmq_conf_t)(conf), p, C.int32_t(1024)))
 	errStr := C.GoString(p)
 	if len(errStr) > 0 {
-		return tmq, errors.NewError(-1, errStr)
+		return nil, errors.NewError(-1, errStr)
 	}
 	if tmq == nil {
-		panic("new consumer return nil")
+		return nil, errors.NewError(-1, "new consumer return nil")
 	}
 	return tmq, nil
 }

@@ -15,6 +15,8 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 | v3.0.0                | 3.0.0.0+             |
 | v3.0.1                | 3.0.0.0+             |
 | v3.0.3                | 3.0.1.5+             |
+| v3.0.4                | 3.0.2.2+             |
+| v3.1.0                | 3.0.2.2+             |
 
 ## Install
 
@@ -125,31 +127,31 @@ APIs that are worthy to have a check:
 Create consumer:
 
 ````go
-func NewConsumer(conf *Config) (*Consumer, error)
+func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error)
 ````
 
-Subscribe:
+Subscribe single topic:
 
 ````go
-func (c *Consumer) Subscribe(topics []string) error
+func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error
+````
+
+Subscribe topics:
+
+````go
+func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error
 ````
 
 Poll message:
 
 ````go
-func (c *Consumer) Poll(timeout time.Duration) (*Result, error)
+func (c *Consumer) Poll(timeoutMs int) tmq.Event
 ````
 
 Commit message:
 
 ````go
-func (c *Consumer) Commit(ctx context.Context, message unsafe.Pointer) error
-````
-
-Free message:
-
-````go
-func (c *Consumer) FreeMessage(message unsafe.Pointer)
+func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
 ````
 
 Unsubscribe:
@@ -512,19 +514,23 @@ Use tmq over websocket. The server needs to start taoAdapter.
 
 ### Subscription related API
 
-- `func NewConsumer(config *Config) (*Consumer, error)`
+- `func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error)`
 
  Create a consumer.
 
-- `func (c *Consumer) Subscribe(topic []string) error`
+- `func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error`
+
+ Subscribe a topic.
+
+- `func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error`
 
  Subscribe to topics.
 
-- `func (c *Consumer) Poll(timeout time.Duration) (*Result, error)`
+- `func (c *Consumer) Poll(timeoutMs int) tmq.Event`
 
  Poll messages.
 
-- `func (c *Consumer) Commit(messageID uint64) error`
+- `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
 
  Commit message.
 

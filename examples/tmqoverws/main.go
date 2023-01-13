@@ -2,11 +2,10 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/taosdata/driver-go/v3/common"
+	tmqcommon "github.com/taosdata/driver-go/v3/common/tmq"
 	_ "github.com/taosdata/driver-go/v3/taosRestful"
 	"github.com/taosdata/driver-go/v3/ws/tmq"
 )
@@ -18,27 +17,21 @@ func main() {
 	}
 	defer db.Close()
 	prepareEnv(db)
-
-	config := tmq.NewConfig("ws://localhost:6041/rest/tmq", 0)
-	config.SetConnectUser("root")
-	config.SetConnectPass("taosdata")
-	config.SetGroupID("example")
-	config.SetClientID("example_consumer")
-	config.SetAutoOffsetReset("earliest")
-	config.SetMessageTimeout(common.DefaultMessageTimeout)
-	config.SetWriteWait(common.DefaultWriteWait)
-	config.SetErrorHandler(func(consumer *tmq.Consumer, err error) {
-		fmt.Println(err)
+	consumer, err := tmq.NewConsumer(&tmqcommon.ConfigMap{
+		"ws.url":                "ws://127.0.0.1:6041/rest/tmq",
+		"ws.message.channelLen": uint(0),
+		"ws.message.timeout":    common.DefaultMessageTimeout,
+		"ws.message.writeWait":  common.DefaultWriteWait,
+		"td.connect.user":       "root",
+		"td.connect.pass":       "taosdata",
+		"group.id":              "example",
+		"client.id":             "example_consumer",
+		"auto.offset.reset":     "earliest",
 	})
-	config.SetCloseHandler(func() {
-		fmt.Println("consumer closed")
-	})
-
-	consumer, err := tmq.NewConsumer(config)
 	if err != nil {
 		panic(err)
 	}
-	err = consumer.Subscribe([]string{"example_ws_tmq_topic"})
+	err = consumer.Subscribe("example_ws_tmq_topic", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -67,20 +60,21 @@ func main() {
 		}
 	}()
 	for i := 0; i < 5; i++ {
-		result, err := consumer.Poll(0)
-		if err != nil {
-			panic(err)
-		}
-		if result != nil {
-			b, err := json.Marshal(result)
-			if err != nil {
-				panic(err)
+		ev := consumer.Poll(0)
+		if ev != nil {
+			switch e := ev.(type) {
+			case *tmqcommon.DataMessage:
+				fmt.Printf("get message:%v", e)
+			case tmqcommon.Error:
+				fmt.Printf("%% Error: %v: %v\n", e.Code(), e)
+				panic(e)
 			}
-			fmt.Println("poll message:", string(b))
 		}
 	}
-	consumer.Close()
-	time.Sleep(time.Second)
+	err = consumer.Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func prepareEnv(db *sql.DB) {

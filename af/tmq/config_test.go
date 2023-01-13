@@ -7,8 +7,8 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	conf := NewConfig()
-	conf.Destroy()
+	conf := newConfig()
+	conf.destroy()
 }
 
 func TestList(t *testing.T) {

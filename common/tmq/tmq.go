@@ -1,4 +1,4 @@
-package common
+package tmq
 
 type Meta struct {
 	Type          string        `json:"type"`
@@ -36,4 +36,7 @@ type CreateItem struct {
 	Using     string `json:"using"`
 	TagNum    int    `json:"tagNum"`
 	Tags      []*Tag `json:"tags"`
+}
+
+type TopicPartition struct {
 }

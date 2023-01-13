@@ -3,11 +3,9 @@ package tmq
 import (
 	"container/list"
 	"context"
-	"database/sql/driver"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,26 +15,27 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
+	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
 type Consumer struct {
-	client             *client.Client
-	requestID          uint64
-	listLock           sync.RWMutex
-	sendChanList       *list.List
-	messageTimeout     time.Duration
-	url                string
-	user               string
-	password           string
-	groupID            string
-	clientID           string
-	offsetRest         string
-	closeOnce          sync.Once
-	closeChan          chan struct{}
-	customErrorHandler func(*Consumer, error)
-	customCloseHandler func()
+	client          *client.Client
+	requestID       uint64
+	err             error
+	latestMessageID uint64
+	listLock        sync.RWMutex
+	sendChanList    *list.List
+	messageTimeout  time.Duration
+	url             string
+	user            string
+	password        string
+	groupID         string
+	clientID        string
+	offsetRest      string
+	closeOnce       sync.Once
+	closeChan       chan struct{}
 }
 
 type IndexedChan struct {
@@ -44,32 +43,38 @@ type IndexedChan struct {
 	channel chan []byte
 }
 
+type WSError struct {
+	err error
+}
+
+func (e *WSError) Error() string {
+	return fmt.Sprintf("websocket close with error %s", e.err)
+}
+
 // NewConsumer create a tmq consumer
-func NewConsumer(config *Config) (*Consumer, error) {
+func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
+	confCopy := conf.Clone()
+	config, err := configMapToConfig(&confCopy)
+	if err != nil {
+		return nil, err
+	}
 	ws, _, err := common.DefaultDialer.Dial(config.Url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if config.MessageTimeout <= 0 {
-		config.MessageTimeout = common.DefaultMessageTimeout
-	}
 	wsClient := client.NewClient(ws, config.ChanLength)
 	tmq := &Consumer{
-		client:             wsClient,
-		requestID:          0,
-		listLock:           sync.RWMutex{},
-		sendChanList:       list.New(),
-		messageTimeout:     config.MessageTimeout,
-		url:                config.Url,
-		user:               config.User,
-		password:           config.Password,
-		groupID:            config.GroupID,
-		clientID:           config.ClientID,
-		offsetRest:         config.OffsetRest,
-		closeOnce:          sync.Once{},
-		closeChan:          make(chan struct{}),
-		customErrorHandler: config.ErrorHandler,
-		customCloseHandler: config.CloseHandler,
+		client:         wsClient,
+		requestID:      0,
+		sendChanList:   list.New(),
+		messageTimeout: config.MessageTimeout,
+		url:            config.Url,
+		user:           config.User,
+		password:       config.Password,
+		groupID:        config.GroupID,
+		clientID:       config.ClientID,
+		offsetRest:     config.OffsetRest,
+		closeChan:      make(chan struct{}),
 	}
 	if config.WriteWait > 0 {
 		wsClient.WriteWait = config.WriteWait
@@ -80,6 +85,78 @@ func NewConsumer(config *Config) (*Consumer, error) {
 	go wsClient.WritePump()
 	go wsClient.ReadPump()
 	return tmq, nil
+}
+
+func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
+	url, err := m.Get("ws.url", "")
+	if err != nil {
+		return nil, err
+	}
+	if url == "" {
+		return nil, errors.New("ws.url required")
+	}
+	chanLen, err := m.Get("ws.message.channelLen", uint(0))
+	if err != nil {
+		return nil, err
+	}
+	messageTimeout, err := m.Get("ws.message.timeout", common.DefaultMessageTimeout)
+	if err != nil {
+		return nil, err
+	}
+	writeWait, err := m.Get("ws.message.writeWait", common.DefaultWriteWait)
+	if err != nil {
+		return nil, err
+	}
+	user, err := m.Get("td.connect.user", "")
+	if err != nil {
+		return nil, err
+	}
+	pass, err := m.Get("td.connect.pass", "")
+	if err != nil {
+		return nil, err
+	}
+	groupID, err := m.Get("group.id", "")
+	if err != nil {
+		return nil, err
+	}
+	clientID, err := m.Get("client.id", "")
+	if err != nil {
+		return nil, err
+	}
+	offsetReset, err := m.Get("auto.offset.reset", "")
+	if err != nil {
+		return nil, err
+	}
+	config := newConfig(url.(string), chanLen.(uint))
+	err = config.setMessageTimeout(messageTimeout.(time.Duration))
+	if err != nil {
+		return nil, err
+	}
+	err = config.setWriteWait(writeWait.(time.Duration))
+	if err != nil {
+		return nil, err
+	}
+	err = config.setConnectUser(user.(string))
+	if err != nil {
+		return nil, err
+	}
+	err = config.setConnectPass(pass.(string))
+	if err != nil {
+		return nil, err
+	}
+	err = config.setGroupID(groupID.(string))
+	if err != nil {
+		return nil, err
+	}
+	err = config.setClientID(clientID.(string))
+	if err != nil {
+		return nil, err
+	}
+	err = config.setAutoOffsetReset(offsetReset.(string))
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 func (c *Consumer) handleTextMessage(message []byte) {
@@ -117,9 +194,7 @@ func (c *Consumer) handleBinaryMessage(message []byte) {
 }
 
 func (c *Consumer) handleError(err error) {
-	if c.customErrorHandler != nil {
-		c.customErrorHandler(c, err)
-	}
+	c.err = &WSError{err: err}
 	c.Close()
 }
 
@@ -132,9 +207,6 @@ func (c *Consumer) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.closeChan)
 		c.client.Close()
-		if c.customCloseHandler != nil {
-			c.customCloseHandler()
-		}
 	})
 	return nil
 }
@@ -176,7 +248,13 @@ const (
 	TMQCommit        = "commit"
 )
 
+var ClosedErr = errors.New("connection closed")
+
 func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	if !c.client.IsRunning() {
+		c.client.PutEnvelope(envelope)
+		return nil, ClosedErr
+	}
 	channel := &IndexedChan{
 		index:   reqID,
 		channel: make(chan []byte, 1),
@@ -188,7 +266,7 @@ func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, er
 	defer cancel()
 	select {
 	case <-c.closeChan:
-		return nil, errors.New("connection closed")
+		return nil, ClosedErr
 	case resp := <-channel.channel:
 		return resp, nil
 	case <-ctx.Done():
@@ -199,8 +277,16 @@ func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, er
 	}
 }
 
-// Subscribe with topic list
-func (c *Consumer) Subscribe(topic []string) error {
+type RebalanceCb func(*Consumer, tmq.Event) error
+
+func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error {
+	return c.SubscribeTopics([]string{topic}, rebalanceCb)
+}
+
+func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error {
+	if c.err != nil {
+		return c.err
+	}
 	reqID := c.generateReqID()
 	req := &SubscribeReq{
 		ReqID:      reqID,
@@ -209,7 +295,7 @@ func (c *Consumer) Subscribe(topic []string) error {
 		GroupID:    c.groupID,
 		ClientID:   c.clientID,
 		OffsetRest: c.offsetRest,
-		Topics:     topic,
+		Topics:     topics,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -240,30 +326,19 @@ func (c *Consumer) Subscribe(topic []string) error {
 	return nil
 }
 
-type Result struct {
-	Type    int32
-	DBName  string
-	Topic   string
-	Message uint64
-	Meta    *common.Meta
-	Data    []*Data
-}
-
-type Data struct {
-	TableName string
-	Data      [][]driver.Value
-}
-
 // Poll messages
-func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
+func (c *Consumer) Poll(timeoutMs int) tmq.Event {
+	if c.err != nil {
+		panic(c.err)
+	}
 	reqID := c.generateReqID()
 	req := &PollReq{
 		ReqID:        reqID,
-		BlockingTime: timeout.Milliseconds(),
+		BlockingTime: int64(timeoutMs),
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
-		return nil, err
+		return tmq.NewTMQErrorWithErr(err)
 	}
 	action := &client.WSAction{
 		Action: TMQPoll,
@@ -273,61 +348,69 @@ func (c *Consumer) Poll(timeout time.Duration) (*Result, error) {
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
 		c.client.PutEnvelope(envelope)
-		return nil, err
+		return tmq.NewTMQErrorWithErr(err)
 	}
 	respBytes, err := c.sendText(reqID, envelope)
 	if err != nil {
-		return nil, err
+		return tmq.NewTMQErrorWithErr(err)
 	}
 	var resp PollResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
 	if err != nil {
-		return nil, err
+		return tmq.NewTMQErrorWithErr(err)
 	}
 	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
+		panic(taosErrors.NewError(resp.Code, resp.Message))
 	}
+	c.latestMessageID = resp.MessageID
 	if resp.HaveMessage {
-		result := &Result{
-			Type:    resp.MessageType,
-			DBName:  resp.Database,
-			Topic:   resp.Topic,
-			Message: resp.MessageID,
-		}
 		switch resp.MessageType {
 		case common.TMQ_RES_DATA:
-			err = c.fetch(resp.MessageID, result)
+			result := &tmq.DataMessage{}
+			result.SetDbName(resp.Database)
+			result.SetTopic(resp.Topic)
+			data, err := c.fetch(resp.MessageID)
 			if err != nil {
-				return nil, err
+				return tmq.NewTMQErrorWithErr(err)
 			}
-			return result, nil
+			result.SetData(data)
+			return result
 		case common.TMQ_RES_TABLE_META:
+			result := &tmq.MetaMessage{}
+			result.SetDbName(resp.Database)
+			result.SetTopic(resp.Topic)
 			meta, err := c.fetchJsonMeta(resp.MessageID)
 			if err != nil {
-				return nil, err
+				return tmq.NewTMQErrorWithErr(err)
 			}
-			result.Meta = meta
-			return result, nil
+			result.SetMeta(meta)
+			return result
 		case common.TMQ_RES_METADATA:
+			result := &tmq.MetaDataMessage{}
+			result.SetDbName(resp.Database)
+			result.SetTopic(resp.Topic)
 			meta, err := c.fetchJsonMeta(resp.MessageID)
 			if err != nil {
-				return nil, err
+				return tmq.NewTMQErrorWithErr(err)
 			}
-			result.Meta = meta
-			err = c.fetch(resp.MessageID, result)
+			data, err := c.fetch(resp.MessageID)
 			if err != nil {
-				return nil, err
+				return tmq.NewTMQErrorWithErr(err)
 			}
-			return result, nil
+			result.SetMetaData(&tmq.MetaData{
+				Meta: meta,
+				Data: data,
+			})
+			return result
 		default:
-			return nil, errors.New("unknown message type:" + strconv.FormatUint(resp.MessageID, 10))
+			return tmq.NewTMQErrorWithErr(err)
 		}
 	} else {
-		return nil, nil
+		return nil
 	}
 }
 
-func (c *Consumer) fetchJsonMeta(messageID uint64) (*common.Meta, error) {
+func (c *Consumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 	reqID := c.generateReqID()
 	req := &FetchJsonMetaReq{
 		ReqID:     reqID,
@@ -359,7 +442,7 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*common.Meta, error) {
 	if resp.Code != 0 {
 		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
-	var meta common.Meta
+	var meta tmq.Meta
 	err = client.JsonI.Unmarshal(resp.Data, &meta)
 	if err != nil {
 		return nil, err
@@ -367,7 +450,8 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*common.Meta, error) {
 	return &meta, nil
 }
 
-func (c *Consumer) fetch(messageID uint64, result *Result) error {
+func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
+	var tmqData []*tmq.Data
 	for {
 		reqID := c.generateReqID()
 		req := &FetchReq{
@@ -376,7 +460,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 		}
 		args, err := client.JsonI.Marshal(req)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		action := &client.WSAction{
 			Action: TMQFetch,
@@ -386,19 +470,19 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 		if err != nil {
 			c.client.PutEnvelope(envelope)
-			return err
+			return nil, err
 		}
 		respBytes, err := c.sendText(reqID, envelope)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		var resp FetchResp
 		err = client.JsonI.Unmarshal(respBytes, &resp)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if resp.Code != 0 {
-			return taosErrors.NewError(resp.Code, resp.Message)
+			return nil, taosErrors.NewError(resp.Code, resp.Message)
 		}
 		if resp.Completed {
 			break
@@ -411,7 +495,7 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 			}
 			args, err := client.JsonI.Marshal(req)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			action := &client.WSAction{
 				Action: TMQFetchBlock,
@@ -421,25 +505,31 @@ func (c *Consumer) fetch(messageID uint64, result *Result) error {
 			err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 			if err != nil {
 				c.client.PutEnvelope(envelope)
-				return err
+				return nil, err
 			}
 			respBytes, err := c.sendText(reqID, envelope)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			block := respBytes[24:]
 			data := parser.ReadBlock(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(&block))), resp.Rows, resp.FieldsTypes, resp.Precision)
-			result.Data = append(result.Data, &Data{
+			tmqData = append(tmqData, &tmq.Data{
 				TableName: resp.TableName,
 				Data:      data,
 			})
 		}
 	}
-	return nil
+	return tmqData, nil
 }
 
-// Commit message with messageID
-func (c *Consumer) Commit(messageID uint64) error {
+func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {
+	return c.doCommit(c.latestMessageID)
+}
+
+func (c *Consumer) doCommit(messageID uint64) ([]tmq.TopicPartition, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
 	reqID := c.generateReqID()
 	req := &CommitReq{
 		ReqID:     reqID,
@@ -447,7 +537,7 @@ func (c *Consumer) Commit(messageID uint64) error {
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	action := &client.WSAction{
 		Action: TMQCommit,
@@ -457,19 +547,23 @@ func (c *Consumer) Commit(messageID uint64) error {
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
 		c.client.PutEnvelope(envelope)
-		return err
+		return nil, err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var resp CommitResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
+		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
-	return nil
+	return nil, nil
+}
+
+func (c *Consumer) Unsubscribe() error {
+	return c.Close()
 }
