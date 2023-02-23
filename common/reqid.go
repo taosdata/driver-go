@@ -11,7 +11,7 @@ import (
 )
 
 var tUUIDHashId int64
-var serialNo atomic.Int64
+var serialNo int64
 
 func init() {
 	var tUUID = uuid.New().String()
@@ -21,7 +21,7 @@ func init() {
 func GetReqID() int64 {
 	ts := time.Now().UnixMilli() >> 8
 	pid := int64(os.Getpid())
-	val := serialNo.Add(1)
+	val := atomic.AddInt64(&serialNo, 1)
 
 	return ((tUUIDHashId & 0x07ff) << 52) | ((pid & 0x0f) << 48) | ((ts & 0x3ffffff) << 20) | (val & 0xfffff)
 }
