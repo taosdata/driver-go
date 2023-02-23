@@ -17,7 +17,7 @@ var pid int64
 func init() {
 	var tUUID = uuid.New().String()
 	tUUIDHashId = (int64(murmurHash32([]byte(tUUID), uint32(len(tUUID)))) & 0x07ff) << 52
-	pid = int64(os.Getpid()) & 0x0f
+	pid = (int64(os.Getpid()) & 0x0f) << 48
 }
 
 func GetReqID() int64 {
