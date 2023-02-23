@@ -7,7 +7,23 @@ import (
 func BenchmarkGetReqID(b *testing.B) {
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		GetReqID()
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			GetReqID()
+		}
+	})
+}
+
+func BenchmarkGetReqIDParallel(b *testing.B) {
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			GetReqID()
+		}
+	})
+}
+
+func TestGetReqID(t *testing.T) {
+	t.Log(GetReqID())
 }
