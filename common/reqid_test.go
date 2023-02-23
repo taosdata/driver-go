@@ -27,3 +27,9 @@ func BenchmarkGetReqIDParallel(b *testing.B) {
 func TestGetReqID(t *testing.T) {
 	t.Log(GetReqID())
 }
+
+func TestMurmurHash(t *testing.T) {
+	if murmurHash32([]byte("test"), 0) != 3145219843 {
+		t.Fatal("fail")
+	}
+}

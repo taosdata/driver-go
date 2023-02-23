@@ -12,17 +12,17 @@ import (
 
 var tUUIDHashId int64
 var serialNo int64
+var pid int64
 
 func init() {
 	var tUUID = uuid.New().String()
-	tUUIDHashId = int64(MurmurHash32([]byte(tUUID), uint32(len(tUUID))))
+	tUUIDHashId = int64(murmurHash32([]byte(tUUID), uint32(len(tUUID))))
+	pid = int64(os.Getpid())
 }
 
 func GetReqID() int64 {
 	ts := (time.Now().UnixNano() / 1e6) >> 8
-	pid := int64(os.Getpid())
 	val := atomic.AddInt64(&serialNo, 1)
-
 	return ((tUUIDHashId & 0x07ff) << 52) | ((pid & 0x0f) << 48) | ((ts & 0x3ffffff) << 20) | (val & 0xfffff)
 }
 
@@ -32,7 +32,7 @@ const (
 )
 
 // MurmurHash32 returns the MurmurHash3 sum of data.
-func MurmurHash32(data []byte, seed uint32) uint32 {
+func murmurHash32(data []byte, seed uint32) uint32 {
 	h1 := seed
 
 	nBlocks := len(data) / 4
