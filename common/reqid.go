@@ -19,7 +19,7 @@ func init() {
 }
 
 func GetReqID() int64 {
-	ts := time.Now().UnixMilli() >> 8
+	ts := (time.Now().UnixNano() / 1e6) >> 8
 	pid := int64(os.Getpid())
 	val := atomic.AddInt64(&serialNo, 1)
 
