@@ -29,7 +29,7 @@ func TestGetReqID(t *testing.T) {
 }
 
 func TestMurmurHash(t *testing.T) {
-	if murmurHash32([]byte("test"), 0) != 3145219843 {
+	if murmurHash32([]byte("driver-go"), 0) != 3037880692 {
 		t.Fatal("fail")
 	}
 }

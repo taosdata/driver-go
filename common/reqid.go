@@ -39,7 +39,7 @@ func murmurHash32(data []byte, seed uint32) uint32 {
 	p := uintptr(unsafe.Pointer(&data[0]))
 	p1 := p + uintptr(4*nBlocks)
 	for ; p < p1; p += 4 {
-		k1 := *(*uint32)(unsafe.Pointer(&p))
+		k1 := *(*uint32)(unsafe.Pointer(p))
 
 		k1 *= c1
 		k1 = bits.RotateLeft32(k1, 15)
