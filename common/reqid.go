@@ -16,14 +16,14 @@ var pid int64
 
 func init() {
 	var tUUID = uuid.New().String()
-	tUUIDHashId = int64(murmurHash32([]byte(tUUID), uint32(len(tUUID))))
-	pid = int64(os.Getpid())
+	tUUIDHashId = (int64(murmurHash32([]byte(tUUID), uint32(len(tUUID)))) & 0x07ff) << 52
+	pid = int64(os.Getpid()) & 0x0f
 }
 
 func GetReqID() int64 {
 	ts := (time.Now().UnixNano() / 1e6) >> 8
 	val := atomic.AddInt64(&serialNo, 1)
-	return ((tUUIDHashId & 0x07ff) << 52) | ((pid & 0x0f) << 48) | ((ts & 0x3ffffff) << 20) | (val & 0xfffff)
+	return tUUIDHashId | pid | ((ts & 0x3ffffff) << 20) | (val & 0xfffff)
 }
 
 const (
