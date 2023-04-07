@@ -59,8 +59,8 @@ var cases = []struct {
 		precision: "ms",
 		data: "meters.current 1648432611249 10.3 location=California.SanFrancisco group=2\n" +
 			"meters.current 1648432611250 12.6 location=California.SanFrancisco group=2\n" +
-			"meters.current 1648432611249 10.8 location=California.LosAngeles group=3\n" +
-			"meters.current 1648432611250 11.3 location=California.LosAngeles group=3\n",
+			"meters.current 1648432611251 10.8 location=California.LosAngeles group=3\n" +
+			"meters.current 1648432611252 11.3 location=California.LosAngeles group=3\n",
 		ttl:  1000,
 		code: 0,
 	},
@@ -69,10 +69,10 @@ var cases = []struct {
 		db:        "test_schemaless_ws",
 		protocol:  wrapper.OpenTSDBJsonFormatProtocol,
 		precision: "ms",
-		data: "[{\"metric\": \"meters.voltage\", \"timestamp\": 1648432611249, \"value\": 219, \"tags\": " +
-			"{\"location\": \"California.LosAngeles\", \"groupid\": 1 } }, {\"metric\": \"meters.voltage\", " +
-			"\"timestamp\": 1648432611250, \"value\": 221, \"tags\": {\"location\": \"California.LosAngeles\", " +
-			"\"groupid\": 1 } }]",
+		data: "[{\"metric\": \"meters.current\", \"timestamp\": 1648432611253, \"value\": 10.2, \"tags\": " +
+			"{\"location\": \"California.LosAngeles\", \"group\": \"1\" } }, {\"metric\": \"meters.current\", " +
+			"\"timestamp\": 1648432611254, \"value\": 12.1, \"tags\": {\"location\": \"California.LosAngeles\", " +
+			"\"group\": \"1\" } }]",
 		ttl:  100,
 		code: 0,
 	},
