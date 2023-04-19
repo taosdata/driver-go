@@ -21,21 +21,25 @@ import (
 )
 
 type Consumer struct {
-	client          *client.Client
-	requestID       uint64
-	err             error
-	latestMessageID uint64
-	listLock        sync.RWMutex
-	sendChanList    *list.List
-	messageTimeout  time.Duration
-	url             string
-	user            string
-	password        string
-	groupID         string
-	clientID        string
-	offsetRest      string
-	closeOnce       sync.Once
-	closeChan       chan struct{}
+	client               *client.Client
+	requestID            uint64
+	err                  error
+	latestMessageID      uint64
+	listLock             sync.RWMutex
+	sendChanList         *list.List
+	messageTimeout       time.Duration
+	url                  string
+	user                 string
+	password             string
+	groupID              string
+	clientID             string
+	offsetRest           string
+	autoCommit           string
+	autoCommitIntervalMS string
+	snapshotEnable       string
+	withTableName        string
+	closeOnce            sync.Once
+	closeChan            chan struct{}
 }
 
 type IndexedChan struct {
@@ -64,17 +68,22 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	}
 	wsClient := client.NewClient(ws, config.ChanLength)
 	tmq := &Consumer{
-		client:         wsClient,
-		requestID:      0,
-		sendChanList:   list.New(),
-		messageTimeout: config.MessageTimeout,
-		url:            config.Url,
-		user:           config.User,
-		password:       config.Password,
-		groupID:        config.GroupID,
-		clientID:       config.ClientID,
-		offsetRest:     config.OffsetRest,
-		closeChan:      make(chan struct{}),
+		client:               wsClient,
+		requestID:            0,
+		sendChanList:         list.New(),
+		messageTimeout:       config.MessageTimeout,
+		url:                  config.Url,
+		user:                 config.User,
+		password:             config.Password,
+		groupID:              config.GroupID,
+		clientID:             config.ClientID,
+		offsetRest:           config.OffsetRest,
+		autoCommit:           config.AutoCommit,
+		autoCommitIntervalMS: config.AutoCommitIntervalMS,
+		snapshotEnable:       config.SnapshotEnable,
+		withTableName:        config.WithTableName,
+		closeOnce:            sync.Once{},
+		closeChan:            make(chan struct{}),
 	}
 	if config.WriteWait > 0 {
 		wsClient.WriteWait = config.WriteWait
@@ -127,6 +136,23 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	enableAutoCommit, err := m.Get("enable.auto.commit", "")
+	if err != nil {
+		return nil, err
+	}
+	//auto.commit.interval.ms
+	autoCommitIntervalMS, err := m.Get("auto.commit.interval.ms", "")
+	if err != nil {
+		return nil, err
+	}
+	enableSnapshot, err := m.Get("experimental.snapshot.enable", "")
+	if err != nil {
+		return nil, err
+	}
+	withTableName, err := m.Get("msg.with.table.name", "")
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -136,23 +162,39 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = config.setConnectUser(user.(string))
+	err = config.setConnectUser(user)
 	if err != nil {
 		return nil, err
 	}
-	err = config.setConnectPass(pass.(string))
+	err = config.setConnectPass(pass)
 	if err != nil {
 		return nil, err
 	}
-	err = config.setGroupID(groupID.(string))
+	err = config.setGroupID(groupID)
 	if err != nil {
 		return nil, err
 	}
-	err = config.setClientID(clientID.(string))
+	err = config.setClientID(clientID)
 	if err != nil {
 		return nil, err
 	}
-	err = config.setAutoOffsetReset(offsetReset.(string))
+	err = config.setAutoOffsetReset(offsetReset)
+	if err != nil {
+		return nil, err
+	}
+	err = config.setAutoCommit(enableAutoCommit)
+	if err != nil {
+		return nil, err
+	}
+	err = config.setAutoCommitIntervalMS(autoCommitIntervalMS)
+	if err != nil {
+		return nil, err
+	}
+	err = config.setSnapshotEnable(enableSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	err = config.setWithTableName(withTableName)
 	if err != nil {
 		return nil, err
 	}
@@ -246,6 +288,7 @@ const (
 	TMQFetchBlock    = "fetch_block"
 	TMQFetchJsonMeta = "fetch_json_meta"
 	TMQCommit        = "commit"
+	TMQUnsubscribe   = "unsubscribe"
 )
 
 var ClosedErr = errors.New("connection closed")
@@ -289,13 +332,17 @@ func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) err
 	}
 	reqID := c.generateReqID()
 	req := &SubscribeReq{
-		ReqID:      reqID,
-		User:       c.user,
-		Password:   c.password,
-		GroupID:    c.groupID,
-		ClientID:   c.clientID,
-		OffsetRest: c.offsetRest,
-		Topics:     topics,
+		ReqID:                reqID,
+		User:                 c.user,
+		Password:             c.password,
+		GroupID:              c.groupID,
+		ClientID:             c.clientID,
+		OffsetRest:           c.offsetRest,
+		Topics:               topics,
+		AutoCommit:           c.autoCommit,
+		AutoCommitIntervalMS: c.autoCommitIntervalMS,
+		SnapshotEnable:       c.snapshotEnable,
+		WithTableName:        c.withTableName,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -565,5 +612,38 @@ func (c *Consumer) doCommit(messageID uint64) ([]tmq.TopicPartition, error) {
 }
 
 func (c *Consumer) Unsubscribe() error {
-	return c.Close()
+	if c.err != nil {
+		return c.err
+	}
+	reqID := c.generateReqID()
+	req := &UnsubscribeReq{
+		ReqID: reqID,
+	}
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return err
+	}
+	action := &client.WSAction{
+		Action: TMQUnsubscribe,
+		Args:   args,
+	}
+	envelope := c.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		c.client.PutEnvelope(envelope)
+		return err
+	}
+	respBytes, err := c.sendText(reqID, envelope)
+	if err != nil {
+		return err
+	}
+	var resp CommitResp
+	err = client.JsonI.Unmarshal(respBytes, &resp)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return taosErrors.NewError(resp.Code, resp.Message)
+	}
+	return nil
 }

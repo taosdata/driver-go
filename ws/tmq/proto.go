@@ -3,14 +3,18 @@ package tmq
 import "encoding/json"
 
 type SubscribeReq struct {
-	ReqID      uint64   `json:"req_id"`
-	User       string   `json:"user"`
-	Password   string   `json:"password"`
-	DB         string   `json:"db"`
-	GroupID    string   `json:"group_id"`
-	ClientID   string   `json:"client_id"`
-	OffsetRest string   `json:"offset_rest"`
-	Topics     []string `json:"topics"`
+	ReqID                uint64   `json:"req_id"`
+	User                 string   `json:"user"`
+	Password             string   `json:"password"`
+	DB                   string   `json:"db"`
+	GroupID              string   `json:"group_id"`
+	ClientID             string   `json:"client_id"`
+	OffsetRest           string   `json:"offset_rest"`
+	Topics               []string `json:"topics"`
+	AutoCommit           string   `json:"auto_commit"`
+	AutoCommitIntervalMS string   `json:"auto_commit_interval_ms"`
+	SnapshotEnable       string   `json:"snapshot_enable"`
+	WithTableName        string   `json:"with_table_name"`
 }
 
 type SubscribeResp struct {
@@ -94,4 +98,16 @@ type CommitResp struct {
 	ReqID     uint64 `json:"req_id"`
 	Timing    int64  `json:"timing"`
 	MessageID uint64 `json:"message_id"`
+}
+
+type UnsubscribeReq struct {
+	ReqID uint64 `json:"req_id"`
+}
+
+type UnsubscribeResp struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
 }
