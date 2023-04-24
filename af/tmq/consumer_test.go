@@ -145,7 +145,6 @@ func TestTmq(t *testing.T) {
 		"td.connect.port":              "6030",
 		"client.id":                    "test_tmq_c",
 		"enable.auto.commit":           "false",
-		"enable.heartbeat.background":  "true",
 		"experimental.snapshot.enable": "true",
 		"msg.with.table.name":          "true",
 	})
