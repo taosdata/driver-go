@@ -78,7 +78,7 @@ func main() {
 }
 
 func prepareEnv(db *sql.DB) {
-	_, err := db.Exec("create database example_ws_tmq")
+	_, err := db.Exec("create database example_ws_tmq WAL_RETENTION_PERIOD 86400")
 	if err != nil {
 		panic(err)
 	}
