@@ -21,7 +21,7 @@ func prepareEnv() error {
 	steps := []string{
 		"drop topic if exists test_ws_tmq_topic",
 		"drop database if exists test_ws_tmq",
-		"create database test_ws_tmq",
+		"create database test_ws_tmq WAL_RETENTION_PERIOD 86400",
 		"create topic test_ws_tmq_topic with meta as database test_ws_tmq",
 	}
 	for _, step := range steps {
