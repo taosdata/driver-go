@@ -82,7 +82,6 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		autoCommitIntervalMS: config.AutoCommitIntervalMS,
 		snapshotEnable:       config.SnapshotEnable,
 		withTableName:        config.WithTableName,
-		closeOnce:            sync.Once{},
 		closeChan:            make(chan struct{}),
 	}
 	if config.WriteWait > 0 {
