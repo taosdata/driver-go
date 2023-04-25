@@ -21,7 +21,7 @@ func prepareEnv() error {
 	steps := []string{
 		"drop topic if exists test_ws_tmq_topic",
 		"drop database if exists test_ws_tmq",
-		"create database test_ws_tmq",
+		"create database test_ws_tmq WAL_RETENTION_PERIOD 86400",
 		"create topic test_ws_tmq_topic with meta as database test_ws_tmq",
 	}
 	for _, step := range steps {
@@ -121,15 +121,19 @@ func TestConsumer(t *testing.T) {
 		}
 	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"ws.url":                "ws://127.0.0.1:6041/rest/tmq",
-		"ws.message.channelLen": uint(0),
-		"ws.message.timeout":    common.DefaultMessageTimeout,
-		"ws.message.writeWait":  common.DefaultWriteWait,
-		"td.connect.user":       "root",
-		"td.connect.pass":       "taosdata",
-		"group.id":              "test",
-		"client.id":             "test_consumer",
-		"auto.offset.reset":     "earliest",
+		"ws.url":                       "ws://127.0.0.1:6041/rest/tmq",
+		"ws.message.channelLen":        uint(0),
+		"ws.message.timeout":           common.DefaultMessageTimeout,
+		"ws.message.writeWait":         common.DefaultWriteWait,
+		"td.connect.user":              "root",
+		"td.connect.pass":              "taosdata",
+		"group.id":                     "test",
+		"client.id":                    "test_consumer",
+		"auto.offset.reset":            "earliest",
+		"enable.auto.commit":           "true",
+		"auto.commit.interval.ms":      "5000",
+		"experimental.snapshot.enable": "true",
+		"msg.with.table.name":          "true",
 	})
 	if err != nil {
 		t.Error(err)
@@ -271,5 +275,10 @@ func TestConsumer(t *testing.T) {
 	}
 	if !gotData {
 		t.Error("no data got")
+	}
+	err = consumer.Unsubscribe()
+	if err != nil {
+		t.Error(err)
+		return
 	}
 }

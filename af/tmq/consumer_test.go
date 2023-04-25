@@ -30,7 +30,7 @@ func TestTmq(t *testing.T) {
 		wrapper.TaosFreeResult(result)
 	}()
 
-	result := wrapper.TaosQuery(conn, "create database if not exists af_test_tmq vgroups 2")
+	result := wrapper.TaosQuery(conn, "create database if not exists af_test_tmq vgroups 2 WAL_RETENTION_PERIOD 86400")
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
@@ -145,7 +145,6 @@ func TestTmq(t *testing.T) {
 		"td.connect.port":              "6030",
 		"client.id":                    "test_tmq_c",
 		"enable.auto.commit":           "false",
-		"enable.heartbeat.background":  "true",
 		"experimental.snapshot.enable": "true",
 		"msg.with.table.name":          "true",
 	})
