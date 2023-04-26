@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -16,8 +17,8 @@ import (
 )
 
 const (
-	SchemalessConn  = "conn"
-	SchemalessWrite = "insert"
+	connAction   = "conn"
+	insertAction = "insert"
 )
 
 type wsConnection struct {
@@ -30,9 +31,10 @@ type wsConnection struct {
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	conn         *websocket.Conn
+	once         sync.Once
 }
 
-func NewWsConnection(ssl bool, user, password, token, host string, port int, db string, readTimeout, writeTimeout time.Duration) (Connection, error) {
+func newWsConnection(ssl bool, user, password, token, host string, port int, db string, readTimeout, writeTimeout time.Duration) (connection, error) {
 	schema := "ws"
 	if ssl {
 		schema = "wss"
@@ -77,11 +79,15 @@ func NewWsConnection(ssl bool, user, password, token, host string, port int, db 
 }
 
 func (w *wsConnection) close(_ context.Context) error {
-	if w.conn != nil {
-		return w.conn.Close()
-	}
-	w.conn = nil
-	return nil
+	var err error
+	w.once.Do(func() {
+		if w.conn != nil {
+			err = w.conn.Close()
+		}
+		w.conn = nil
+	})
+
+	return err
 }
 
 func (w *wsConnection) connect(_ context.Context) error {
@@ -96,7 +102,7 @@ func (w *wsConnection) connect(_ context.Context) error {
 		return err
 	}
 	action := taosWS.WSAction{
-		Action: SchemalessConn,
+		Action: connAction,
 		Args:   args,
 	}
 
@@ -124,7 +130,7 @@ func (w *wsConnection) insert(_ context.Context, lines string, protocol int, pre
 		return err
 	}
 	action := taosWS.WSAction{
-		Action: SchemalessWrite,
+		Action: insertAction,
 		Args:   args,
 	}
 
@@ -219,4 +225,4 @@ type schemalessWriteReq struct {
 	Data      string `json:"data"`
 }
 
-var _ Connection = (*wsConnection)(nil)
+var _ connection = (*wsConnection)(nil)

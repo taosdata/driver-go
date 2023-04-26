@@ -13,22 +13,27 @@ func TestSchemaless_Insert_by_native(t *testing.T) {
 	before()
 	defer after()
 
-	conn, err := NewNativeConnection("root", "taosdata", "", 6030, "test_schemaless")
+	conn, err := NewNativeSchemaless("root", "taosdata", "", 6030, "test_schemaless")
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	doTest(t, conn)
+	_ = conn.Close(context.Background())
 }
 
 func TestSchemaless_Insert_by_ws(t *testing.T) {
 	before()
 	defer after()
 
-	conn, err := NewWsConnection(false, "root", "taosdata", "", "", 6041, "test_schemaless", time.Second, time.Second)
+	conn, err := NewWsSchemaless(false, "root", "taosdata", "", "", 6042, "test_schemaless", 10*time.Second, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	doTest(t, conn)
+	_ = conn.Close(context.Background())
 }
 
 var cases = []struct {
@@ -69,10 +74,10 @@ var cases = []struct {
 		db:        "test_schemaless_ws",
 		protocol:  wrapper.OpenTSDBJsonFormatProtocol,
 		precision: "ms",
-		data: "[{\"metric\": \"meters.current\", \"timestamp\": 1648432611253, \"value\": 10.2, \"tags\": " +
-			"{\"location\": \"California.LosAngeles\", \"group\": \"1\" } }, {\"metric\": \"meters.current\", " +
-			"\"timestamp\": 1648432611254, \"value\": 12.1, \"tags\": {\"location\": \"California.LosAngeles\", " +
-			"\"group\": \"1\" } }]",
+		data: "[{\"metric\": \"meters.voltage\", \"timestamp\": 1648432611249, \"value\": 219, \"tags\": " +
+			"{\"location\": \"California.LosAngeles\", \"groupid\": 1 } }, {\"metric\": \"meters.voltage\", " +
+			"\"timestamp\": 1648432611250, \"value\": 221, \"tags\": {\"location\": \"California.LosAngeles\", " +
+			"\"groupid\": 1 } }]",
 		ttl:  100,
 		code: 0,
 	},
@@ -101,12 +106,10 @@ func after() {
 	_, _ = afConn.Exec("drop database if exists test_schemaless")
 }
 
-func doTest(t *testing.T, conn Connection) {
-	s := NewSchemaless(conn)
-	defer s.Close(context.Background())
+func doTest(t *testing.T, schemaless Schemaless) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if err := s.Insert(context.Background(), c.data, c.protocol, c.precision, c.ttl, 0); err != nil {
+			if err := schemaless.Insert(context.Background(), c.data, c.protocol, c.precision, c.ttl, 0); err != nil {
 				t.Fatal(err)
 			}
 		})

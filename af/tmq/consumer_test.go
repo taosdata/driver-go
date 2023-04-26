@@ -30,7 +30,7 @@ func TestTmq(t *testing.T) {
 		wrapper.TaosFreeResult(result)
 	}()
 
-	result := wrapper.TaosQuery(conn, "create database if not exists af_test_tmq vgroups 2")
+	result := wrapper.TaosQuery(conn, "create database if not exists af_test_tmq vgroups 2 wal_retention_period 3600")
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)

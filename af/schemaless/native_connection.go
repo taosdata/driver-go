@@ -10,7 +10,7 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
-func NewNativeConnection(user, password, host string, port int, db string) (Connection, error) {
+func newNativeConnection(user, password, host string, port int, db string) (connection, error) {
 	if len(user) == 0 {
 		user = common.DefaultUser
 	}
@@ -35,6 +35,10 @@ func (n *nativeConnection) close(ctx context.Context) error {
 	locker.Lock()
 	defer locker.Unlock()
 
+	if n.taos == nil {
+		return nil
+	}
+
 	wrapper.TaosClose(n.taos)
 	n.taos = nil
 	return nil
@@ -55,4 +59,4 @@ func (n *nativeConnection) insert(_ context.Context, lines string, protocol int,
 	return nil
 }
 
-var _ Connection = (*nativeConnection)(nil)
+var _ connection = (*nativeConnection)(nil)
