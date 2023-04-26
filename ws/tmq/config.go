@@ -9,15 +9,19 @@ import (
 )
 
 type config struct {
-	Url            string
-	ChanLength     uint
-	MessageTimeout time.Duration
-	WriteWait      time.Duration
-	User           string
-	Password       string
-	GroupID        string
-	ClientID       string
-	OffsetRest     string
+	Url                  string
+	ChanLength           uint
+	MessageTimeout       time.Duration
+	WriteWait            time.Duration
+	User                 string
+	Password             string
+	GroupID              string
+	ClientID             string
+	OffsetRest           string
+	AutoCommit           string
+	AutoCommitIntervalMS string
+	SnapshotEnable       string
+	WithTableName        string
 }
 
 func newConfig(url string, chanLength uint) *config {
@@ -95,6 +99,42 @@ func (c *config) setWriteWait(writeWait tmq.ConfigValue) error {
 	}
 	if c.WriteWait < 0 {
 		return errors.New("ws.message.writeWait cannot be less than 0")
+	}
+	return nil
+}
+
+func (c *config) setAutoCommit(enable tmq.ConfigValue) error {
+	var ok bool
+	c.AutoCommit, ok = enable.(string)
+	if !ok {
+		return fmt.Errorf("enable.auto.commit requires string got %T", enable)
+	}
+	return nil
+}
+
+func (c *config) setAutoCommitIntervalMS(autoCommitIntervalMS tmq.ConfigValue) error {
+	var ok bool
+	c.AutoCommitIntervalMS, ok = autoCommitIntervalMS.(string)
+	if !ok {
+		return fmt.Errorf("auto.commit.interval.ms requires string got %T", autoCommitIntervalMS)
+	}
+	return nil
+}
+
+func (c *config) setSnapshotEnable(enableSnapshot tmq.ConfigValue) error {
+	var ok bool
+	c.SnapshotEnable, ok = enableSnapshot.(string)
+	if !ok {
+		return fmt.Errorf("experimental.snapshot.enable requires string got %T", enableSnapshot)
+	}
+	return nil
+}
+
+func (c *config) setWithTableName(withTableName tmq.ConfigValue) error {
+	var ok bool
+	c.SnapshotEnable, ok = withTableName.(string)
+	if !ok {
+		return fmt.Errorf("msg.with.table.name requires string got %T", withTableName)
 	}
 	return nil
 }
