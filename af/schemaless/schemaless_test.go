@@ -27,7 +27,7 @@ func TestSchemaless_Insert_by_ws(t *testing.T) {
 	before()
 	defer after()
 
-	conn, err := NewWsSchemaless(false, "root", "taosdata", "", "", 6042, "test_schemaless", 10*time.Second, 10*time.Second)
+	conn, err := NewWsSchemaless(false, "root", "taosdata", "", "", 6041, "test_schemaless", 10*time.Second, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
