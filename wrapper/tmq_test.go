@@ -488,11 +488,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 		}
 		TaosFreeResult(result)
 	}()
-<<<<<<< HEAD
-	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi vgroups 2 wal_retention_period 3600")
-=======
 	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi vgroups 2 WAL_RETENTION_PERIOD 86400")
->>>>>>> 3.0
 	code := TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -726,11 +722,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 		}
 		TaosFreeResult(result)
 	}()
-<<<<<<< HEAD
 	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2 wal_retention_period 3600")
-=======
-	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2 WAL_RETENTION_PERIOD 86400")
->>>>>>> 3.0
 	code := TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -964,12 +956,7 @@ func TestTMQModify(t *testing.T) {
 		return
 	}
 	TaosFreeResult(result)
-
-<<<<<<< HEAD
-	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify_target vgroups 2 wal_retention_period 3600")
-=======
 	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify_target vgroups 2 WAL_RETENTION_PERIOD 86400")
->>>>>>> 3.0
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -979,11 +966,7 @@ func TestTMQModify(t *testing.T) {
 	}
 	TaosFreeResult(result)
 
-<<<<<<< HEAD
-	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify vgroups 5 wal_retention_period 3600")
-=======
 	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify vgroups 5 WAL_RETENTION_PERIOD 86400")
->>>>>>> 3.0
 	code = TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -1223,11 +1206,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 		}
 		TaosFreeResult(result)
 	}()
-<<<<<<< HEAD
-	result := TaosQuery(conn, "create database if not exists tmq_test_auto_create vgroups 2 wal_retention_period 3600")
-=======
 	result := TaosQuery(conn, "create database if not exists tmq_test_auto_create vgroups 2 WAL_RETENTION_PERIOD 86400")
->>>>>>> 3.0
 	code := TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
