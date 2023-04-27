@@ -760,6 +760,7 @@ func TestGetFields(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosStmtReclaimFields(stmt, tagsP)
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
@@ -767,6 +768,7 @@ func TestGetFields(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
 	tags := StmtParseFields(tagCount, tagsP)
 	assert.Equal(t, []*StmtField{
@@ -859,6 +861,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
 	assert.Equal(t, []*StmtField{
 		{"ts", 9, 0, 0, 8},
