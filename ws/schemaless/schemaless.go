@@ -16,6 +16,12 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
+const (
+	InfluxDBLineProtocol       = 1
+	OpenTSDBTelnetLineProtocol = 2
+	OpenTSDBJsonFormatProtocol = 3
+)
+
 type Schemaless struct {
 	client       *client.Client
 	sendList     *list.List

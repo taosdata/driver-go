@@ -10,7 +10,6 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -25,7 +24,7 @@ func TestSchemaless_Insert(t *testing.T) {
 	}{
 		{
 			name:      "influxdb",
-			protocol:  wrapper.InfluxDBLineProtocol,
+			protocol:  InfluxDBLineProtocol,
 			precision: "ms",
 			data: "measurement,host=host1 field1=2i,field2=2.0 1577837300000\n" +
 				"measurement,host=host1 field1=2i,field2=2.0 1577837400000\n" +
@@ -35,7 +34,7 @@ func TestSchemaless_Insert(t *testing.T) {
 		},
 		{
 			name:      "opentsdb_telnet",
-			protocol:  wrapper.OpenTSDBTelnetLineProtocol,
+			protocol:  OpenTSDBTelnetLineProtocol,
 			precision: "ms",
 			data: "meters.current 1648432611249 10.3 location=California.SanFrancisco group=2\n" +
 				"meters.current 1648432611250 12.6 location=California.SanFrancisco group=2\n" +
@@ -45,7 +44,7 @@ func TestSchemaless_Insert(t *testing.T) {
 		},
 		{
 			name:      "opentsdb_json",
-			protocol:  wrapper.OpenTSDBJsonFormatProtocol,
+			protocol:  OpenTSDBJsonFormatProtocol,
 			precision: "ms",
 			data: "[{\"metric\": \"meters.voltage\", \"timestamp\": 1648432611249, \"value\": 219, \"tags\": " +
 				"{\"location\": \"California.LosAngeles\", \"groupid\": 1 } }, {\"metric\": \"meters.voltage\", " +

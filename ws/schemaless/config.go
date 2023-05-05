@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+const (
+	connAction   = "conn"
+	insertAction = "insert"
+)
+
 type Config struct {
 	url          string
 	chanLength   uint
@@ -60,11 +65,6 @@ func SetErrorHandler(errorHandler func(error)) func(*Config) {
 		c.errorHandler = errorHandler
 	}
 }
-
-const (
-	connAction   = "conn"
-	insertAction = "insert"
-)
 
 type wsConnectReq struct {
 	ReqID    uint64 `json:"req_id"`
