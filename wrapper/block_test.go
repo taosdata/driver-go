@@ -381,17 +381,17 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	//defer func() {
-	//	res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
-	//	code = TaosError(res)
-	//	if code != 0 {
-	//		errStr := TaosErrorStr(res)
-	//		TaosFreeResult(res)
-	//		t.Error(errors.NewError(code, errStr))
-	//		return
-	//	}
-	//	TaosFreeResult(res)
-	//}()
+	defer func() {
+		res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
+		code = TaosError(res)
+		if code != 0 {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			t.Error(errors.NewError(code, errStr))
+			return
+		}
+		TaosFreeResult(res)
+	}()
 	res = TaosQuery(conn, "create database test_write_block_raw_fields")
 	code = TaosError(res)
 	if code != 0 {
