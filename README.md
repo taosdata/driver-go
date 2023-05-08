@@ -17,6 +17,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 | v3.0.3                | 3.0.1.5+             |
 | v3.0.4                | 3.0.2.2+             |
 | v3.1.0                | 3.0.2.2+             |
+| v3.3.1                | 3.0.4.1+             |
 
 ## Install
 
