@@ -12,6 +12,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 
 | **driver-go version** | **TDengine version** | 
 |-----------------------|----------------------|
+| v3.3.1                | 3.0.4.1+             |
 | v3.0.0                | 3.0.0.0+             |
 | v3.0.1                | 3.0.0.0+             |
 | v3.0.3                | 3.0.1.5+             |
