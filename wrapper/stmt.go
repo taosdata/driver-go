@@ -683,3 +683,8 @@ func StmtParseFields(num int, fields unsafe.Pointer) []*StmtField {
 	}
 	return result
 }
+
+// TaosStmtReclaimFields DLL_EXPORT void       taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields);
+func TaosStmtReclaimFields(stmt unsafe.Pointer, fields unsafe.Pointer) {
+	C.taos_stmt_reclaim_fields(stmt, (*C.TAOS_FIELD_E)(fields))
+}

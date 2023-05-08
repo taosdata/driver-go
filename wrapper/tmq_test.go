@@ -488,7 +488,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 		}
 		TaosFreeResult(result)
 	}()
-	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi vgroups 2  WAL_RETENTION_PERIOD 86400")
+	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi vgroups 2 WAL_RETENTION_PERIOD 86400")
 	code := TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -722,7 +722,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 		}
 		TaosFreeResult(result)
 	}()
-	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2  WAL_RETENTION_PERIOD 86400")
+	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2 wal_retention_period 3600")
 	code := TaosError(result)
 	if code != 0 {
 		errStr := TaosErrorStr(result)
@@ -956,7 +956,6 @@ func TestTMQModify(t *testing.T) {
 		return
 	}
 	TaosFreeResult(result)
-
 	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify_target vgroups 2 WAL_RETENTION_PERIOD 86400")
 	code = TaosError(result)
 	if code != 0 {

@@ -121,6 +121,7 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 				errStr := wrapper.TaosStmtErrStr(stmt.stmt)
 				return errors.NewError(code, errStr)
 			}
+			defer wrapper.TaosStmtReclaimFields(stmt.stmt, fieldsP)
 			stmt.cols = wrapper.StmtParseFields(num, fieldsP)
 		}
 		if v.Ordinal > len(stmt.cols) {
