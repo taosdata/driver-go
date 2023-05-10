@@ -40,3 +40,10 @@ type CreateItem struct {
 
 type TopicPartition struct {
 }
+
+type Assignment struct {
+	VGroupID int32
+	Offset   int64
+	Begin    int64
+	End      int64
+}

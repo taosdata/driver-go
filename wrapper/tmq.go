@@ -12,6 +12,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/common/tmq"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
@@ -250,56 +251,36 @@ func BuildRawMeta(length uint32, metaType uint16, data unsafe.Pointer) unsafe.Po
 	return unsafe.Pointer(&meta)
 }
 
-// TMQGetTopicAssignment 获取给定 topic 的所有vgroup 信息以及 vgroup 的数量, assignment 是一个空指针，需要用户自己释放
-// DLL_EXPORT int32_t   tmq_get_topic_assignment(tmq_t *tmq, const char* pTopicName, tmq_topic_assignment **assignment, int32_t *numOfAssignment)
-func TMQGetTopicAssignment(consumer unsafe.Pointer, topic string) (tmqAssignment TmqTopicAssignment, numOfAssignment int32, err error) {
+// TMQGetTopicAssignment DLL_EXPORT int32_t   tmq_get_topic_assignment(tmq_t *tmq, const char* pTopicName, tmq_topic_assignment **assignment, int32_t *numOfAssignment)
+func TMQGetTopicAssignment(consumer unsafe.Pointer, topic string) (int32, []*tmq.Assignment) {
 	var assignment *C.tmq_topic_assignment
-
+	var numOfAssignment int32
 	topicName := C.CString(topic)
 	defer C.free(unsafe.Pointer(topicName))
-
 	code := int32(C.tmq_get_topic_assignment((*C.tmq_t)(consumer), topicName, (**C.tmq_topic_assignment)(unsafe.Pointer(&assignment)), (*C.int32_t)(&numOfAssignment)))
 	if code != 0 {
-		err = errors.NewError(int(code), TMQErr2Str(code))
-		return
+		return code, nil
 	}
-	tmqAssignment, err = decodeAssignment(assignment)
-
-	return
-}
-
-type TmqTopicAssignment struct {
-	VGroupID int32
-	Offset   int64
-	Begin    int64
-	End      int64
-}
-
-func decodeAssignment(assignment *C.tmq_topic_assignment) (TmqTopicAssignment, error) {
-	var result TmqTopicAssignment
-	if assignment != nil {
-		return result, errors.NewError(0xffff, "assignment is nil")
+	if assignment == nil {
+		return 0, nil
 	}
 	defer C.free(unsafe.Pointer(assignment))
-
-	result.VGroupID = int32(assignment.vgId)
-	result.Offset = int64(assignment.currentOffset)
-	result.Begin = int64(assignment.begin)
-	result.End = int64(assignment.end)
-	return result, nil
+	result := make([]*tmq.Assignment, numOfAssignment)
+	for i := 0; i < int(numOfAssignment); i++ {
+		item := *(*C.struct_tmq_topic_assignment)(unsafe.Pointer(uintptr(unsafe.Pointer(assignment)) + uintptr(C.sizeof_struct_tmq_topic_assignment*C.int(i))))
+		result[i] = &tmq.Assignment{
+			VGroupID: int32(item.vgId),
+			Offset:   int64(item.currentOffset),
+			Begin:    int64(item.begin),
+			End:      int64(item.end),
+		}
+	}
+	return 0, result
 }
 
-// TMQOffsetSeek 指定 topic 的 某个  vgroupHandle 的消费位点(对应 TDengine 的  version)
-// DLL_EXPORT int32_t   tmq_offset_seek(tmq_t* tmq, const char* pTopicName, int32_t vgroupHandle, int64_t offset);
-func TMQOffsetSeek(consumer unsafe.Pointer, topic string, vGroupID int32, offset int64) (err error) {
+// TMQOffsetSeek DLL_EXPORT int32_t   tmq_offset_seek(tmq_t* tmq, const char* pTopicName, int32_t vgroupHandle, int64_t offset);
+func TMQOffsetSeek(consumer unsafe.Pointer, topic string, vGroupID int32, offset int64) int32 {
 	topicName := C.CString(topic)
 	defer C.free(unsafe.Pointer(topicName))
-	cVgID := (C.int32_t)(vGroupID)
-	cOffset := (C.int64_t)(offset)
-
-	code := int32(C.tmq_offset_seek((*C.tmq_t)(consumer), topicName, cVgID, cOffset))
-	if code != 0 {
-		err = errors.NewError(int(code), TMQErr2Str(code))
-	}
-	return
+	return int32(C.tmq_offset_seek((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID), (C.int64_t)(offset)))
 }
