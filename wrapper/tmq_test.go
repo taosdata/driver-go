@@ -1378,3 +1378,103 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, totalCount, 1)
 }
+
+func TestTMQGetTopicAssignment(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	defer TaosClose(conn)
+
+	defer func() {
+		if err = taosOperation(conn, "drop database if exists test_tmq_get_topic_assignment"); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	if err = taosOperation(conn, "create database if not exists test_tmq_get_topic_assignment vgroups 2 WAL_RETENTION_PERIOD 86400"); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if err = taosOperation(conn, "use test_tmq_get_topic_assignment"); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if err = taosOperation(conn, "create table if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)"); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// create topic
+	if err = taosOperation(conn, "create topic if not exists test_tmq_assignment as select * from st1"); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer func() {
+		time.Sleep(2 * time.Second)
+		if err = taosOperation(conn, "drop topic if exists test_tmq_assignment"); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	_ = taosOperation(conn, "insert into t1 using st1 tags(1) values(now-3s,1,2,'3')")
+	_ = taosOperation(conn, "insert into t1 using st1 tags(1) values(now-2s,4,5,'6')")
+	_ = taosOperation(conn, "insert into t1 using st1 tags(1) values(now-1s,7,8,'9')")
+	_ = taosOperation(conn, "insert into t2 using st1 tags(2) values(now-3s,10,11,'12')")
+	_ = taosOperation(conn, "insert into t2 using st1 tags(2) values(now-2s,13,14,'15')")
+	_ = taosOperation(conn, "insert into t2 using st1 tags(2) values(now-1s,16,17,'18')")
+
+	//build consumer
+	conf := TMQConfNew()
+	defer TMQConfDestroy(conf)
+	TMQConfSet(conf, "group.id", "tg2")
+
+	tmq, err := TMQConsumerNew(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer TMQConsumerClose(tmq)
+
+	//build_topic_list
+	topicList := TMQListNew()
+	TMQListAppend(topicList, "test_tmq_assignment")
+
+	//sync_consume_loop
+	errCode := TMQSubscribe(tmq, topicList)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Fatal(errors.NewError(int(errCode), errStr))
+		return
+	}
+
+	for i := 0; i < 3; i++ {
+		message := TMQConsumerPoll(tmq, 500)
+		if message != nil {
+			TMQCommitSync(tmq, message)
+			TaosFreeResult(message)
+		}
+	}
+
+	ass, noa, err := TMQGetTopicAssignment(tmq, "test_tmq_get_topic_assignment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(noa)
+	t.Error(ass)
+}
+
+func TestTMQOffsetSeek(t *testing.T) {
+
+}
+
+func taosOperation(conn unsafe.Pointer, sql string) (err error) {
+	res := TaosQuery(conn, sql)
+	defer TaosFreeResult(res)
+	code := TaosError(res)
+	if code != 0 {
+		err = errors.NewError(code, TaosErrorStr(res))
+	}
+	return
+}
