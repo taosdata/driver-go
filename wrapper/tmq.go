@@ -267,7 +267,7 @@ func TMQGetTopicAssignment(consumer unsafe.Pointer, topic string) (int32, []*tmq
 	defer C.free(unsafe.Pointer(assignment))
 	result := make([]*tmq.Assignment, numOfAssignment)
 	for i := 0; i < int(numOfAssignment); i++ {
-		item := *(*C.struct_tmq_topic_assignment)(unsafe.Pointer(uintptr(unsafe.Pointer(assignment)) + uintptr(C.sizeof_struct_tmq_topic_assignment*C.int(i))))
+		item := *(*C.tmq_topic_assignment)(unsafe.Pointer(uintptr(unsafe.Pointer(assignment)) + uintptr(C.sizeof_struct_tmq_topic_assignment*C.int(i))))
 		result[i] = &tmq.Assignment{
 			VGroupID: int32(item.vgId),
 			Offset:   int64(item.currentOffset),
