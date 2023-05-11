@@ -4,7 +4,7 @@ on: [ push,pull_request ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         go: [ '1.14', '1.19' ]
@@ -19,15 +19,15 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'main'
-
+          ref: '3.0'
       - name: install TDengine
         run: |
           cd TDengine
           mkdir debug
           cd debug
+          sudo apt-get install libgflags-dev
           cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false -DBUILD_TEST=off
-          make -j32
+          make
           sudo make install
 
       - name: shell
