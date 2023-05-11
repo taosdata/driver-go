@@ -27,7 +27,7 @@ jobs:
           cd debug
           sudo apt-get install libgflags-dev
           cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false -DBUILD_TEST=off
-          make -j32
+          make
           sudo make install
 
       - name: shell
