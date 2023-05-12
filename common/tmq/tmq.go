@@ -42,8 +42,8 @@ type TopicPartition struct {
 }
 
 type Assignment struct {
-	VGroupID int32
-	Offset   int64
-	Begin    int64
-	End      int64
+	VGroupID int32 `json:"vGroupID"`
+	Offset   int64 `json:"offset"`
+	Begin    int64 `json:"begin"`
+	End      int64 `json:"end"`
 }
