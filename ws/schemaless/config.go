@@ -73,7 +73,7 @@ type wsConnectReq struct {
 	DB       string `json:"db"`
 }
 
-type wsConnectResp struct {
+type wsResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Action  string `json:"action"`
@@ -88,12 +88,6 @@ type schemalessReq struct {
 	Precision string `json:"precision"`
 	TTL       int    `json:"ttl"`
 	Data      string `json:"data"`
-}
-
-type schemalessResp struct {
-	ReqID  uint64 `json:"req_id"`
-	Action string `json:"action"`
-	Timing int64  `json:"timing"`
 }
 
 type wsAction struct {

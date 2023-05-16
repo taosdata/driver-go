@@ -91,7 +91,7 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 	if err != nil {
 		return err
 	}
-	_, err = s.send(req.ReqID, &wsAction{Action: insertAction, Args: args})
+	err = s.send(req.ReqID, &wsAction{Action: insertAction, Args: args})
 	return err
 }
 
@@ -116,16 +116,16 @@ func (s *Schemaless) connect() error {
 		return err
 	}
 
-	_, err = s.send(req.ReqID, &wsAction{Action: connAction, Args: args})
+	err = s.send(req.ReqID, &wsAction{Action: connAction, Args: args})
 	return err
 }
 
-func (s *Schemaless) send(reqID uint64, action *wsAction) ([]byte, error) {
+func (s *Schemaless) send(reqID uint64, action *wsAction) (err error) {
 	envelope := s.client.GetEnvelope()
 	defer s.client.PutEnvelope(envelope)
-	err := client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	envelope.Type = websocket.TextMessage
 
@@ -139,12 +139,17 @@ func (s *Schemaless) send(reqID uint64, action *wsAction) ([]byte, error) {
 
 	select {
 	case resp := <-channel.channel:
-		return resp, nil
+		var wsResponse wsResp
+		err = json.Unmarshal(resp, &wsResponse)
+		if wsResponse.Code != 0 {
+			err = fmt.Errorf("schemaless via websocket error. code:%d, msg:%s", wsResponse.Code, wsResponse.Message)
+		}
+		return
 	case <-ctx.Done():
 		s.lock.Lock()
 		defer s.lock.Unlock()
 		s.sendList.Remove(element)
-		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
+		return fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }
 
