@@ -1539,6 +1539,8 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 		message := TMQConsumerPoll(tmq, 500)
 		if message != nil {
 			haveMessage = true
+			offset := TMQGetVgroupOffset(message)
+			assert.Greater(t, offset, int64(0))
 			TMQCommitSync(tmq, message)
 			TaosFreeResult(message)
 			break

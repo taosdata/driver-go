@@ -1,5 +1,7 @@
 package tmq
 
+import "fmt"
+
 type Meta struct {
 	Type          string        `json:"type"`
 	TableName     string        `json:"tableName"`
@@ -38,12 +40,36 @@ type CreateItem struct {
 	Tags      []*Tag `json:"tags"`
 }
 
+type Offset int64
+
+func (o Offset) String() string {
+	return fmt.Sprintf("%d", int64(o))
+}
+
 type TopicPartition struct {
+	Topic     *string
+	Partition int32
+	Offset    Offset
+	Metadata  *string
+	Error     error
+}
+
+func (p TopicPartition) String() string {
+	topic := "<null>"
+	if p.Topic != nil {
+		topic = *p.Topic
+	}
+	if p.Error != nil {
+		return fmt.Sprintf("%s[%d]@%s(%s)",
+			topic, p.Partition, p.Offset, p.Error)
+	}
+	return fmt.Sprintf("%s[%d]@%s",
+		topic, p.Partition, p.Offset)
 }
 
 type Assignment struct {
-	VGroupID int32
-	Offset   int64
-	Begin    int64
-	End      int64
+	VGroupID int32 `json:"vgroup_id"`
+	Offset   int64 `json:"offset"`
+	Begin    int64 `json:"begin"`
+	End      int64 `json:"end"`
 }

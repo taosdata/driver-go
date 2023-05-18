@@ -3,7 +3,6 @@ package schemaless
 import (
 	"container/list"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
+	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -32,6 +32,7 @@ type Schemaless struct {
 	readTimeout  time.Duration
 	lock         sync.Mutex
 	once         sync.Once
+	closeChan    chan struct{}
 	errorHandler func(error)
 }
 
@@ -58,6 +59,7 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 		user:         config.user,
 		password:     config.password,
 		db:           config.db,
+		closeChan:    make(chan struct{}),
 		errorHandler: config.errorHandler,
 	}
 
@@ -85,18 +87,44 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 	if reqID == 0 {
 		reqID = common.GetReqID()
 	}
-	req := schemalessReq{ReqID: uint64(reqID), DB: s.db, Protocol: protocol, Precision: precision, TTL: ttl, Data: lines}
+	req := &schemalessReq{
+		ReqID:     uint64(reqID),
+		DB:        s.db,
+		Protocol:  protocol,
+		Precision: precision,
+		TTL:       ttl,
+		Data:      lines,
+	}
 
-	args, err := json.Marshal(req)
+	args, err := client.JsonI.Marshal(req)
 	if err != nil {
 		return err
 	}
-	_, err = s.send(req.ReqID, &wsAction{Action: insertAction, Args: args})
-	return err
+	action := &client.WSAction{Action: insertAction, Args: args}
+	envelope := s.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		s.client.PutEnvelope(envelope)
+		return err
+	}
+	respBytes, err := s.sendText(uint64(reqID), envelope)
+	if err != nil {
+		return err
+	}
+	var resp schemalessResp
+	err = client.JsonI.Unmarshal(respBytes, &resp)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return taosErrors.NewError(resp.Code, resp.Message)
+	}
+	return nil
 }
 
 func (s *Schemaless) Close() {
 	s.once.Do(func() {
+		close(s.closeChan)
 		if s.client != nil {
 			s.client.Close()
 		}
@@ -105,45 +133,66 @@ func (s *Schemaless) Close() {
 }
 
 func (s *Schemaless) connect() error {
+	reqID := uint64(common.GetReqID())
 	req := &wsConnectReq{
-		ReqID:    uint64(common.GetReqID()),
+		ReqID:    reqID,
 		User:     s.user,
 		Password: s.password,
 		DB:       s.db,
 	}
-	args, err := json.Marshal(req)
+	args, err := client.JsonI.Marshal(req)
 	if err != nil {
 		return err
 	}
+	action := &client.WSAction{
+		Action: connAction,
+		Args:   args,
+	}
+	envelope := s.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		s.client.PutEnvelope(envelope)
+		return err
+	}
 
-	_, err = s.send(req.ReqID, &wsAction{Action: connAction, Args: args})
-	return err
+	respBytes, err := s.sendText(reqID, envelope)
+	if err != nil {
+		return err
+	}
+	var resp wsConnectResp
+	err = client.JsonI.Unmarshal(respBytes, &resp)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return taosErrors.NewError(resp.Code, resp.Message)
+	}
+	return nil
 }
 
-func (s *Schemaless) send(reqID uint64, action *wsAction) ([]byte, error) {
-	envelope := s.client.GetEnvelope()
-	defer s.client.PutEnvelope(envelope)
-	err := client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return nil, err
-	}
+func (s *Schemaless) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	envelope.Type = websocket.TextMessage
+	return s.send(reqID, envelope)
+}
 
-	channel := &IndexedChan{index: reqID, channel: make(chan []byte, 1)}
+func (s *Schemaless) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	channel := &IndexedChan{
+		index:   reqID,
+		channel: make(chan []byte, 1),
+	}
 	element := s.addMessageOutChan(channel)
-
 	s.client.Send(envelope)
-
 	ctx, cancel := context.WithTimeout(context.Background(), s.readTimeout)
 	defer cancel()
-
 	select {
+	case <-s.closeChan:
+		return nil, errors.New("connection closed")
 	case resp := <-channel.channel:
 		return resp, nil
 	case <-ctx.Done():
 		s.lock.Lock()
-		defer s.lock.Unlock()
 		s.sendList.Remove(element)
+		s.lock.Unlock()
 		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }

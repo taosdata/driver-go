@@ -284,3 +284,8 @@ func TMQOffsetSeek(consumer unsafe.Pointer, topic string, vGroupID int32, offset
 	defer C.free(unsafe.Pointer(topicName))
 	return int32(C.tmq_offset_seek((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID), (C.int64_t)(offset)))
 }
+
+// DLL_EXPORT int64_t     tmq_get_vgroup_offset(TAOS_RES* res, int32_t vgroupId);
+func TMQGetVgroupOffset(message unsafe.Pointer) int64 {
+	return int64(C.tmq_get_vgroup_offset(message))
+}
