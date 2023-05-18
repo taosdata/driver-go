@@ -615,7 +615,7 @@ func (c *Consumer) doCommit(messageID uint64) ([]tmq.TopicPartition, error) {
 	if resp.Code != 0 {
 		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
-	return c.Assignment()
+	return nil, nil
 }
 
 func (c *Consumer) Unsubscribe() error {

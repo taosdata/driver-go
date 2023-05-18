@@ -20,15 +20,30 @@ jobs:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: '3.0'
+      - name: checkout taosAdapter
+        uses: actions/checkout@v3
+        with:
+          repository: 'taosdata/taosadapter'
+          path: 'taosadapter'
+          ref: 'enh/TD-24019'
+
       - name: install TDengine
         run: |
           cd TDengine
           mkdir debug
           cd debug
           sudo apt-get install libgflags-dev
-          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false -DBUILD_TEST=off
-          make
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off
+          make -j2
           sudo make install
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: build taosAdapter
+        run: cd ./taosadapter && go build
 
       - name: shell
         run: |
@@ -40,12 +55,7 @@ jobs:
         run: nohup sudo sh ./start.sh &
 
       - name: start taosadapter
-        run: sudo taosadapter &
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go }}
+        run: cd ./taosadapter && sudo ./taosadapter &
 
       - uses: actions/cache@v3
         with:

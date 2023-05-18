@@ -80,8 +80,13 @@ func TestTmq(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	haveMessage := false
 	for i := 0; i < 5; i++ {
 		ev := consumer.Poll(500)
+		if ev == nil {
+			continue
+		}
+		haveMessage = true
 		switch e := ev.(type) {
 		case *tmq.DataMessage:
 			row1 := e.Value().([]*tmq.Data)[0].Data[0]
@@ -115,6 +120,7 @@ func TestTmq(t *testing.T) {
 			return
 		}
 	}
+	assert.True(t, haveMessage)
 }
 
 func TestSeek(t *testing.T) {

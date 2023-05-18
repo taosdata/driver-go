@@ -196,7 +196,7 @@ func (c *Consumer) doCommit(message unsafe.Pointer) ([]tmq.TopicPartition, error
 		errStr := wrapper.TMQErr2Str(errCode)
 		return nil, taosError.NewError(int(errCode), errStr)
 	}
-	return c.Assignment()
+	return nil, nil
 }
 
 func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
