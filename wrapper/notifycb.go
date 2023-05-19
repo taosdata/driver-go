@@ -1,7 +1,10 @@
 package wrapper
 
 /*
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <taos.h>
 */
 import "C"
 import (
