@@ -264,7 +264,7 @@ func TMQGetTopicAssignment(consumer unsafe.Pointer, topic string) (int32, []*tmq
 	if assignment == nil {
 		return 0, nil
 	}
-	defer C.free(unsafe.Pointer(assignment))
+	defer TMQFreeAssignment(unsafe.Pointer(assignment))
 	result := make([]*tmq.Assignment, numOfAssignment)
 	for i := 0; i < int(numOfAssignment); i++ {
 		item := *(*C.tmq_topic_assignment)(unsafe.Pointer(uintptr(unsafe.Pointer(assignment)) + uintptr(C.sizeof_struct_tmq_topic_assignment*C.int(i))))
@@ -285,7 +285,15 @@ func TMQOffsetSeek(consumer unsafe.Pointer, topic string, vGroupID int32, offset
 	return int32(C.tmq_offset_seek((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID), (C.int64_t)(offset)))
 }
 
-// DLL_EXPORT int64_t     tmq_get_vgroup_offset(TAOS_RES* res, int32_t vgroupId);
+// TMQGetVgroupOffset DLL_EXPORT int64_t     tmq_get_vgroup_offset(TAOS_RES* res, int32_t vgroupId);
 func TMQGetVgroupOffset(message unsafe.Pointer) int64 {
 	return int64(C.tmq_get_vgroup_offset(message))
+}
+
+// TMQFreeAssignment DLL_EXPORT void      tmq_free_assignment(tmq_topic_assignment* pAssignment);
+func TMQFreeAssignment(assignment unsafe.Pointer) {
+	if assignment == nil {
+		return
+	}
+	C.tmq_free_assignment(assignment)
 }
