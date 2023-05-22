@@ -295,5 +295,5 @@ func TMQFreeAssignment(assignment unsafe.Pointer) {
 	if assignment == nil {
 		return
 	}
-	C.tmq_free_assignment(assignment)
+	C.tmq_free_assignment((*C.tmq_topic_assignment)(assignment))
 }
