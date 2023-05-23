@@ -78,7 +78,7 @@ jobs:
         with:
           repository: 'taosdata/taosadapter'
           path: 'taosadapter'
-          ref: 'enh/TD-24019'
+          ref: '3.0'
 
       - name: Cache server
         id: cache-server
