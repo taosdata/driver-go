@@ -1,6 +1,16 @@
 name: Go
 
-on: [ push,pull_request ]
+on:
+  pull_request:
+    branches:
+      - 'main'
+      - '3.0'
+  workflow_dispatch:
+    inputs:
+      tbBranch:
+        description: 'TDengine branch'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -9,12 +19,21 @@ jobs:
     outputs:
       commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
     steps:
-      - name: checkout TDengine
+      - name: checkout TDengine by pr
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v3
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: ${{ env.GITHUB_BASE_REF }}
+
+      - name: checkout TDengine manually
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v3
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: ${{ inputs.tbBranch }}
 
       - name: get_commit_id
         id: get_commit_id
@@ -30,6 +49,9 @@ jobs:
         with:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.get_commit_id.outputs.commit_id }}
+      - name: prepare install
+        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        run: GITHUB_BASE_REF
 
       - name: install TDengine
         if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
@@ -37,7 +59,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DVERNUMBER=3.9.9.9
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
           make -j 4
 
       - name: package
@@ -46,13 +68,16 @@ jobs:
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
           cp ./TDengine/debug/build/bin/taosd ./release/
+          cp ./TDengine/tools/taosadapter/taosadapter ./release/
           cp ./TDengine/debug/build/lib/libtaos.so.3.9.9.9 ./release/
           cp ./TDengine/include/client/taos.h ./release/
           cat >./release/install.sh<<EOF 
           chmod +x ./taos
           chmod +x ./taosd
+          chmod +x ./taosadapter
           cp ./taos /bin/
           cp ./taosd /bin/
+          cp ./taosadapter /bin/
           cp ./libtaos.so.3.9.9.9 /usr/lib
           ln -sf /usr/lib/libtaos.so.3.9.9.9 /usr/lib/libtaos.so.1
           ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
@@ -73,13 +98,6 @@ jobs:
         with:
           path: 'driver-go'
 
-      - name: checkout taosAdapter
-        uses: actions/checkout@v3
-        with:
-          repository: 'taosdata/taosadapter'
-          path: 'taosadapter'
-          ref: '3.0'
-
       - name: Cache server
         id: cache-server
         uses: actions/cache@v3
@@ -96,9 +114,6 @@ jobs:
           tar -zxvf server.tar.gz
           cd release && sudo sh install.sh
 
-      - name: build taosAdapter
-        run: cd ./taosadapter && go build
-
       - name: shell
         run: |
           cat >start.sh<<EOF 
@@ -109,7 +124,7 @@ jobs:
         run: nohup sudo sh ./start.sh &
 
       - name: start taosadapter
-        run: cd ./taosadapter && sudo ./taosadapter &
+        run:  sudo taosadapter &
 
       - name: Set up Go
         uses: actions/setup-go@v4
