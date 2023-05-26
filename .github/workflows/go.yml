@@ -95,6 +95,9 @@ jobs:
         with:
           path: 'driver-go'
 
+      - name: prepare install
+        run: sudo apt install -y libgeos-dev
+
       - name: Cache server
         id: cache-server
         uses: actions/cache@v3
