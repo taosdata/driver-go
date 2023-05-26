@@ -1,10 +1,90 @@
 name: Go
 
-on: [ push,pull_request ]
+on:
+  pull_request:
+    branches:
+      - 'main'
+      - '3.0'
+  workflow_dispatch:
+    inputs:
+      tbBranch:
+        description: 'TDengine branch'
+        required: true
+        type: string
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+    name: Build
+    outputs:
+      commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
+    steps:
+      - name: checkout TDengine by pr
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v3
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: ${{ github.base_ref }}
+
+      - name: checkout TDengine manually
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v3
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: ${{ inputs.tbBranch }}
+
+      - name: get_commit_id
+        id: get_commit_id
+        run: |
+          cd TDengine
+          echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      - name: Cache server
+        id: cache-server
+        uses: actions/cache@v3
+        env:
+          cache-name: td-linux
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.get_commit_id.outputs.commit_id }}
+      - name: prepare install
+        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        run: sudo apt install -y libgeos-dev
+
+      - name: install TDengine
+        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        run: |
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
+          make -j 4
+      - name: package
+        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        run: |
+          mkdir -p ./release
+          cp ./TDengine/debug/build/bin/taos ./release/
+          cp ./TDengine/debug/build/bin/taosd ./release/
+          cp ./TDengine/tools/taosadapter/taosadapter ./release/
+          cp ./TDengine/debug/build/lib/libtaos.so.3.9.9.9 ./release/
+          cp ./TDengine/include/client/taos.h ./release/
+          cat >./release/install.sh<<EOF 
+          chmod +x ./taos
+          chmod +x ./taosd
+          chmod +x ./taosadapter
+          cp ./taos /bin/
+          cp ./taosd /bin/
+          cp ./taosadapter /bin/
+          cp ./libtaos.so.3.9.9.9 /usr/lib
+          ln -sf /usr/lib/libtaos.so.3.9.9.9 /usr/lib/libtaos.so.1
+          ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
+          cp ./taos.h /usr/include
+          EOF
+          tar -zcvf server.tar.gz ./release
+  test:
+    runs-on: ubuntu-20.04
+    needs: build
     strategy:
       matrix:
         go: [ '1.14', '1.19' ]
@@ -14,47 +94,37 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: 'driver-go'
-      - name: checkout TDengine
-        uses: actions/checkout@v3
+
+      - name: Cache server
+        id: cache-server
+        uses: actions/cache@v3
+        env:
+          cache-name: td-linux
         with:
-          repository: 'taosdata/TDengine'
-          path: 'TDengine'
-          ref: 'main'
-
-      - name: install TDengine
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+      - name: install
         run: |
-          cd TDengine
-          mkdir debug
-          cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false -DBUILD_HTTP=false -DBUILD_TEST=off
-          make -j32
-          sudo make install
-
+          tar -zxvf server.tar.gz
+          cd release && sudo sh install.sh
       - name: shell
         run: |
           cat >start.sh<<EOF 
           ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
           EOF
-
       - name: taosd
         run: nohup sudo sh ./start.sh &
 
       - name: start taosadapter
-        run: sudo taosadapter &
+        run:  sudo taosadapter &
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go }}-${{ hashFiles('driver-go/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go }}-
+          cache-dependency-path: driver-go/go.sum
 
       - name: Test
         run: cd ./driver-go && go test -v ./...
