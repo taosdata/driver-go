@@ -40,14 +40,23 @@ jobs:
         run: |
           cd TDengine
           echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-      - name: Cache server
-        id: cache-server
+
+      - name: Cache server by pr
+        if: github.event_name == 'pull_request'
+        id: cache-server-pr
         uses: actions/cache@v3
-        env:
-          cache-name: td-linux
         with:
           path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.get_commit_id.outputs.commit_id }}
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ steps.get_commit_id.outputs.commit_id }}
+
+      - name: Cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: cache-server-manually
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ steps.get_commit_id.outputs.commit_id }}
+
       - name: prepare install
         if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
         run: sudo apt install -y libgeos-dev
@@ -60,6 +69,7 @@ jobs:
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
           make -j 4
+
       - name: package
         if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
         run: |
@@ -82,6 +92,7 @@ jobs:
           cp ./taos.h /usr/include
           EOF
           tar -zcvf server.tar.gz ./release
+
   test:
     runs-on: ubuntu-20.04
     needs: build
@@ -90,6 +101,26 @@ jobs:
         go: [ '1.14', '1.19' ]
     name: Go ${{ matrix.go }}
     steps:
+      - name: get cache server by pr
+        if: github.event_name == 'pull_request'
+        id: get-cache-server-pr
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ github.base_ref }}-
+
+      - name: cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: get-cache-server-manually
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ inputs.tbBranch }}-
+
       - name: checkout
         uses: actions/checkout@v3
         with:
@@ -98,25 +129,17 @@ jobs:
       - name: prepare install
         run: sudo apt install -y libgeos-dev
 
-      - name: Cache server
-        id: cache-server
-        uses: actions/cache@v3
-        env:
-          cache-name: td-linux
-        with:
-          path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ needs.build.outputs.commit_id }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
       - name: install
         run: |
           tar -zxvf server.tar.gz
           cd release && sudo sh install.sh
+
       - name: shell
         run: |
           cat >start.sh<<EOF 
           ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
           EOF
+
       - name: taosd
         run: nohup sudo sh ./start.sh &
 
