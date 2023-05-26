@@ -51,7 +51,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.get_commit_id.outputs.commit_id }}
       - name: prepare install
         if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
-        run: GITHUB_BASE_REF
+        run: sudo apt install -y libgeos-dev
 
       - name: install TDengine
         if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}

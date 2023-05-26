@@ -1464,9 +1464,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 			break
 		}
 	}
-	if !haveMessage {
-		assert.True(t, haveMessage, "expect have message")
-	}
+	assert.True(t, haveMessage, "expect have message")
 	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
@@ -1504,9 +1502,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 			break
 		}
 	}
-	if !haveMessage {
-		assert.True(t, haveMessage, "expect have message")
-	}
+	assert.True(t, haveMessage, "expect have message")
 	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
@@ -1546,9 +1542,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 			break
 		}
 	}
-	if !haveMessage {
-		assert.True(t, haveMessage, "expect have message")
-	}
+	assert.True(t, haveMessage, "expect have message")
 	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
