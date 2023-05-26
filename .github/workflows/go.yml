@@ -41,14 +41,22 @@ jobs:
           cd TDengine
           echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Cache server
-        id: cache-server
+      - name: Cache server by pr
+        if: github.event_name == 'pull_request'
+        id: cache-server-pr
         uses: actions/cache@v3
-        env:
-          cache-name: td-linux
         with:
           path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.get_commit_id.outputs.commit_id }}
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ steps.get_commit_id.outputs.commit_id }}
+
+      - name: Cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: cache-server-manually
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ steps.get_commit_id.outputs.commit_id }}
+
       - name: prepare install
         if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
         run: sudo apt install -y libgeos-dev
@@ -93,22 +101,33 @@ jobs:
         go: [ '1.14', '1.19' ]
     name: Go ${{ matrix.go }}
     steps:
+      - name: get cache server by pr
+        if: github.event_name == 'pull_request'
+        id: get-cache-server-pr
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ github.base_ref }}-
+
+      - name: cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: get-cache-server-manually
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ inputs.tbBranch }}-
+
       - name: checkout
         uses: actions/checkout@v3
         with:
           path: 'driver-go'
+
       - name: prepare install
         run: sudo apt install -y libgeos-dev
-      - name: Cache server
-        id: cache-server
-        uses: actions/cache@v3
-        env:
-          cache-name: td-linux
-        with:
-          path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ needs.build.outputs.commit_id }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
 
       - name: install
         run: |
