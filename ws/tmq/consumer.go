@@ -40,6 +40,7 @@ type Consumer struct {
 	withTableName        string
 	closeOnce            sync.Once
 	closeChan            chan struct{}
+	topics               []string
 }
 
 type IndexedChan struct {
@@ -281,13 +282,15 @@ func (c *Consumer) findOutChanByID(index uint64) *list.Element {
 }
 
 const (
-	TMQSubscribe     = "subscribe"
-	TMQPoll          = "poll"
-	TMQFetch         = "fetch"
-	TMQFetchBlock    = "fetch_block"
-	TMQFetchJsonMeta = "fetch_json_meta"
-	TMQCommit        = "commit"
-	TMQUnsubscribe   = "unsubscribe"
+	TMQSubscribe          = "subscribe"
+	TMQPoll               = "poll"
+	TMQFetch              = "fetch"
+	TMQFetchBlock         = "fetch_block"
+	TMQFetchJsonMeta      = "fetch_json_meta"
+	TMQCommit             = "commit"
+	TMQUnsubscribe        = "unsubscribe"
+	TMQGetTopicAssignment = "assignment"
+	TMQSeek               = "seek"
 )
 
 var ClosedErr = errors.New("connection closed")
@@ -369,6 +372,8 @@ func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) err
 	if resp.Code != 0 {
 		return taosErrors.NewError(resp.Code, resp.Message)
 	}
+	c.topics = make([]string, len(topics))
+	copy(c.topics, topics)
 	return nil
 }
 
@@ -415,6 +420,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			result := &tmq.DataMessage{}
 			result.SetDbName(resp.Database)
 			result.SetTopic(resp.Topic)
+			result.SetOffset(tmq.Offset(resp.Offset))
 			data, err := c.fetch(resp.MessageID)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
@@ -425,6 +431,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			result := &tmq.MetaMessage{}
 			result.SetDbName(resp.Database)
 			result.SetTopic(resp.Topic)
+			result.SetOffset(tmq.Offset(resp.Offset))
 			meta, err := c.fetchJsonMeta(resp.MessageID)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
@@ -435,6 +442,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			result := &tmq.MetaDataMessage{}
 			result.SetDbName(resp.Database)
 			result.SetTopic(resp.Topic)
+			result.SetOffset(tmq.Offset(resp.Offset))
 			meta, err := c.fetchJsonMeta(resp.MessageID)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
@@ -637,6 +645,95 @@ func (c *Consumer) Unsubscribe() error {
 		return err
 	}
 	var resp CommitResp
+	err = client.JsonI.Unmarshal(respBytes, &resp)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return taosErrors.NewError(resp.Code, resp.Message)
+	}
+	return nil
+}
+
+func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	for _, topic := range c.topics {
+		reqID := c.generateReqID()
+		req := &AssignmentReq{
+			ReqID: reqID,
+			Topic: topic,
+		}
+		args, err := client.JsonI.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		action := &client.WSAction{
+			Action: TMQGetTopicAssignment,
+			Args:   args,
+		}
+		envelope := c.client.GetEnvelope()
+		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+		if err != nil {
+			c.client.PutEnvelope(envelope)
+			return nil, err
+		}
+		respBytes, err := c.sendText(reqID, envelope)
+		if err != nil {
+			return nil, err
+		}
+		var resp AssignmentResp
+		err = client.JsonI.Unmarshal(respBytes, &resp)
+		if err != nil {
+			return nil, err
+		}
+		if resp.Code != 0 {
+			return nil, taosErrors.NewError(resp.Code, resp.Message)
+		}
+		topicName := topic
+		for i := 0; i < len(resp.Assignment); i++ {
+			offset := tmq.Offset(resp.Assignment[i].Offset)
+			partitions = append(partitions, tmq.TopicPartition{
+				Topic:     &topicName,
+				Partition: resp.Assignment[i].VGroupID,
+				Offset:    offset,
+			})
+		}
+	}
+	return partitions, nil
+}
+
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error {
+	if c.err != nil {
+		return c.err
+	}
+	reqID := c.generateReqID()
+	req := &OffsetSeekReq{
+		ReqID:    reqID,
+		Topic:    *partition.Topic,
+		VgroupID: partition.Partition,
+		Offset:   int64(partition.Offset),
+	}
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return err
+	}
+	action := &client.WSAction{
+		Action: TMQSeek,
+		Args:   args,
+	}
+	envelope := c.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		c.client.PutEnvelope(envelope)
+		return err
+	}
+	respBytes, err := c.sendText(reqID, envelope)
+	if err != nil {
+		return err
+	}
+	var resp OffsetSeekResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
 	if err != nil {
 		return err

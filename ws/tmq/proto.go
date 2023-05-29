@@ -1,6 +1,10 @@
 package tmq
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/taosdata/driver-go/v3/common/tmq"
+)
 
 type SubscribeReq struct {
 	ReqID                uint64   `json:"req_id"`
@@ -42,6 +46,7 @@ type PollResp struct {
 	VgroupID    int32  `json:"vgroup_id"`
 	MessageType int32  `json:"message_type"`
 	MessageID   uint64 `json:"message_id"`
+	Offset      int64  `json:"offset"`
 }
 
 type FetchJsonMetaReq struct {
@@ -105,6 +110,35 @@ type UnsubscribeReq struct {
 }
 
 type UnsubscribeResp struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
+}
+
+type AssignmentReq struct {
+	ReqID uint64 `json:"req_id"`
+	Topic string `json:"topic"`
+}
+
+type AssignmentResp struct {
+	Code       int              `json:"code"`
+	Message    string           `json:"message"`
+	Action     string           `json:"action"`
+	ReqID      uint64           `json:"req_id"`
+	Timing     int64            `json:"timing"`
+	Assignment []tmq.Assignment `json:"assignment"`
+}
+
+type OffsetSeekReq struct {
+	ReqID    uint64 `json:"req_id"`
+	Topic    string `json:"topic"`
+	VgroupID int32  `json:"vgroup_id"`
+	Offset   int64  `json:"offset"`
+}
+
+type OffsetSeekResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Action  string `json:"action"`
