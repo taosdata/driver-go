@@ -58,11 +58,15 @@ jobs:
           key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ steps.get_commit_id.outputs.commit_id }}
 
       - name: prepare install
-        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: sudo apt install -y libgeos-dev
 
       - name: install TDengine
-        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: |
           cd TDengine
           mkdir debug
@@ -71,13 +75,16 @@ jobs:
           make -j 4
 
       - name: package
-        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: |
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
           cp ./TDengine/debug/build/bin/taosd ./release/
           cp ./TDengine/tools/taosadapter/taosadapter ./release/
           cp ./TDengine/debug/build/lib/libtaos.so.3.9.9.9 ./release/
+          cp ./TDengine/debug/build/lib/librocksdb.so.8.1.1 ./release/
           cp ./TDengine/include/client/taos.h ./release/
           cat >./release/install.sh<<EOF 
           chmod +x ./taos
@@ -87,8 +94,11 @@ jobs:
           cp ./taosd /bin/
           cp ./taosadapter /bin/
           cp ./libtaos.so.3.9.9.9 /usr/lib
+          cp ./librocksdb.so.8.1.1 /usr/lib
           ln -sf /usr/lib/libtaos.so.3.9.9.9 /usr/lib/libtaos.so.1
           ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
+          ln -sf /usr/lib/librocksdb.so.8.1.1 /usr/lib/librocksdb.so.8
+          ln -sf /usr/lib/librocksdb.so.8 /usr/lib/librocksdb.so
           cp ./taos.h /usr/include
           EOF
           tar -zcvf server.tar.gz ./release
