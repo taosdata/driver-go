@@ -58,11 +58,15 @@ jobs:
           key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ steps.get_commit_id.outputs.commit_id }}
 
       - name: prepare install
-        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: sudo apt install -y libgeos-dev
 
       - name: install TDengine
-        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: |
           cd TDengine
           mkdir debug
@@ -71,7 +75,9 @@ jobs:
           make -j 4
 
       - name: package
-        if: ${{ steps.cache-server.outputs.cache-hit != 'true' }}
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: |
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
