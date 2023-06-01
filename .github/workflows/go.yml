@@ -88,11 +88,11 @@ jobs:
           cp ./taosd /bin/
           cp ./taosadapter /bin/
           cp ./libtaos.so.3.9.9.9 /usr/lib
-          cp ./TDengine/debug/build/lib/librocksdb.so.8.1.1 ./release/
+          cp ./librocksdb.so.8.1.1 ./release/
           ln -sf /usr/lib/libtaos.so.3.9.9.9 /usr/lib/libtaos.so.1
           ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
-          ln -sf /usr/lib/librocksdb.so.8.1.1 /use/lib/librocksdb.so.8
-          ln -sf /usr/lib/librocksdb.so.8 /use/lib/librocksdb.so
+          ln -sf /usr/lib/librocksdb.so.8.1.1 /usr/lib/librocksdb.so.8
+          ln -sf /usr/lib/librocksdb.so.8 /usr/lib/librocksdb.so
           cp ./taos.h /usr/include
           EOF
           tar -zcvf server.tar.gz ./release
