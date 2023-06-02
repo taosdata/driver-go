@@ -282,3 +282,131 @@ func TestConsumer(t *testing.T) {
 		return
 	}
 }
+
+func prepareSeekEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_seek_topic",
+		"drop database if exists test_ws_tmq_seek",
+		"create database test_ws_tmq_seek vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_seek_topic as database test_ws_tmq_seek",
+		"create table test_ws_tmq_seek.t1(ts timestamp,v int)",
+		"insert into test_ws_tmq_seek.t1 values (now,1)",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanSeekEnv() error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_ws_tmq_seek_topic",
+		"drop database if exists test_ws_tmq_seek",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestSeek(t *testing.T) {
+	err := prepareSeekEnv()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer cleanSeekEnv()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                       "ws://127.0.0.1:6041/rest/tmq",
+		"ws.message.channelLen":        uint(0),
+		"ws.message.timeout":           common.DefaultMessageTimeout,
+		"ws.message.writeWait":         common.DefaultWriteWait,
+		"td.connect.user":              "root",
+		"td.connect.pass":              "taosdata",
+		"group.id":                     "test",
+		"client.id":                    "test_consumer",
+		"auto.offset.reset":            "earliest",
+		"enable.auto.commit":           "false",
+		"experimental.snapshot.enable": "false",
+		"msg.with.table.name":          "true",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer consumer.Close()
+	topic := []string{"test_ws_tmq_seek_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	partitions, err := consumer.Assignment()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(partitions))
+	assert.Equal(t, "test_ws_tmq_seek_topic", *partitions[0].Topic)
+	assert.Equal(t, tmq.Offset(0), partitions[0].Offset)
+
+	//poll
+	messageOffset := tmq.Offset(0)
+	haveMessage := false
+	for i := 0; i < 5; i++ {
+		event := consumer.Poll(500)
+		if event != nil {
+			haveMessage = true
+			_, err = consumer.Commit()
+			assert.NoError(t, err)
+			messageOffset = event.(*tmq.DataMessage).Offset()
+		}
+	}
+	assert.True(t, haveMessage)
+	partitions, err = consumer.Assignment()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(partitions))
+	assert.Equal(t, "test_ws_tmq_seek_topic", *partitions[0].Topic)
+	assert.GreaterOrEqual(t, partitions[0].Offset, messageOffset)
+
+	//seek
+	tmpTopic := "test_ws_tmq_seek_topic"
+	err = consumer.Seek(tmq.TopicPartition{
+		Topic:     &tmpTopic,
+		Partition: partitions[0].Partition,
+		Offset:    0,
+	}, 0)
+	assert.NoError(t, err)
+
+	//assignment
+	partitions, err = consumer.Assignment()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(partitions))
+	assert.Equal(t, "test_ws_tmq_seek_topic", *partitions[0].Topic)
+	assert.Equal(t, tmq.Offset(0), partitions[0].Offset)
+
+	//poll
+	messageOffset = tmq.Offset(0)
+	haveMessage = false
+	for i := 0; i < 5; i++ {
+		event := consumer.Poll(500)
+		if event != nil {
+			haveMessage = true
+			messageOffset = event.(*tmq.DataMessage).Offset()
+			_, err = consumer.Commit()
+			assert.NoError(t, err)
+		}
+	}
+	partitions, err = consumer.Assignment()
+	assert.True(t, haveMessage)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(partitions))
+	assert.Equal(t, "test_ws_tmq_seek_topic", *partitions[0].Topic)
+	assert.GreaterOrEqual(t, partitions[0].Offset, messageOffset)
+}

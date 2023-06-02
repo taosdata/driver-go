@@ -1378,3 +1378,189 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, totalCount, 1)
 }
+
+func TestTMQGetTopicAssignment(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	defer TaosClose(conn)
+
+	defer func() {
+		if err = taosOperation(conn, "drop database if exists test_tmq_get_topic_assignment"); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	if err = taosOperation(conn, "create database if not exists test_tmq_get_topic_assignment vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if err = taosOperation(conn, "use test_tmq_get_topic_assignment"); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if err = taosOperation(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// create topic
+	if err = taosOperation(conn, "create topic if not exists test_tmq_assignment as select * from t"); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	defer func() {
+		if err = taosOperation(conn, "drop topic if exists test_tmq_assignment"); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	conf := TMQConfNew()
+	defer TMQConfDestroy(conf)
+	TMQConfSet(conf, "group.id", "tg2")
+
+	tmq, err := TMQConsumerNew(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer TMQConsumerClose(tmq)
+
+	topicList := TMQListNew()
+	TMQListAppend(topicList, "test_tmq_assignment")
+
+	errCode := TMQSubscribe(tmq, topicList)
+	if errCode != 0 {
+		errStr := TMQErr2Str(errCode)
+		t.Fatal(errors.NewError(int(errCode), errStr))
+		return
+	}
+
+	code, assignment := TMQGetTopicAssignment(tmq, "test_tmq_assignment")
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, 1, len(assignment))
+	assert.Equal(t, int64(0), assignment[0].Begin)
+	assert.Equal(t, int64(0), assignment[0].Offset)
+	assert.GreaterOrEqual(t, assignment[0].End, assignment[0].Offset)
+	end := assignment[0].End
+	vgID, vgCode := TaosGetTableVgID(conn, "test_tmq_get_topic_assignment", "t")
+	if vgCode != 0 {
+		t.Fatal(errors.NewError(int(vgCode), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
+
+	_ = taosOperation(conn, "insert into t values(now,1)")
+	haveMessage := false
+	for i := 0; i < 3; i++ {
+		message := TMQConsumerPoll(tmq, 500)
+		if message != nil {
+			haveMessage = true
+			TMQCommitSync(tmq, message)
+			TaosFreeResult(message)
+			break
+		}
+	}
+	assert.True(t, haveMessage, "expect have message")
+	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, 1, len(assignment))
+	assert.Equal(t, int64(0), assignment[0].Begin)
+	assert.GreaterOrEqual(t, assignment[0].End, end)
+	end = assignment[0].End
+	assert.Equal(t, assignment[0].End, assignment[0].Offset)
+	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
+
+	//seek
+	code = TMQOffsetSeek(tmq, "test_tmq_assignment", int32(vgID), 0)
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, 1, len(assignment))
+	assert.Equal(t, int64(0), assignment[0].Begin)
+	assert.Equal(t, int64(0), assignment[0].Offset)
+	assert.GreaterOrEqual(t, assignment[0].End, end)
+	end = assignment[0].End
+	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
+
+	haveMessage = false
+	for i := 0; i < 3; i++ {
+		message := TMQConsumerPoll(tmq, 500)
+		if message != nil {
+			haveMessage = true
+			TMQCommitSync(tmq, message)
+			TaosFreeResult(message)
+			break
+		}
+	}
+	assert.True(t, haveMessage, "expect have message")
+	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, 1, len(assignment))
+	assert.Equal(t, int64(0), assignment[0].Begin)
+	assert.GreaterOrEqual(t, assignment[0].End, end)
+	end = assignment[0].End
+	assert.Equal(t, assignment[0].End, assignment[0].Offset)
+	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
+
+	// seek twice
+	code = TMQOffsetSeek(tmq, "test_tmq_assignment", int32(vgID), 1)
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, 1, len(assignment))
+	assert.Equal(t, int64(0), assignment[0].Begin)
+	assert.Equal(t, int64(1), assignment[0].Offset)
+	assert.GreaterOrEqual(t, assignment[0].End, end)
+	end = assignment[0].End
+	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
+
+	haveMessage = false
+	for i := 0; i < 3; i++ {
+		message := TMQConsumerPoll(tmq, 500)
+		if message != nil {
+			haveMessage = true
+			offset := TMQGetVgroupOffset(message)
+			assert.Greater(t, offset, int64(0))
+			TMQCommitSync(tmq, message)
+			TaosFreeResult(message)
+			break
+		}
+	}
+	assert.True(t, haveMessage, "expect have message")
+	code, assignment = TMQGetTopicAssignment(tmq, "test_tmq_assignment")
+	if code != 0 {
+		t.Fatal(errors.NewError(int(code), TaosErrorStr(nil)))
+	}
+	assert.Equal(t, 1, len(assignment))
+	assert.Equal(t, int64(0), assignment[0].Begin)
+	assert.GreaterOrEqual(t, assignment[0].End, end)
+	end = assignment[0].End
+	assert.Equal(t, assignment[0].End, assignment[0].Offset)
+	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
+}
+
+func taosOperation(conn unsafe.Pointer, sql string) (err error) {
+	res := TaosQuery(conn, sql)
+	defer TaosFreeResult(res)
+	code := TaosError(res)
+	if code != 0 {
+		err = errors.NewError(code, TaosErrorStr(res))
+	}
+	return
+}

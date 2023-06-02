@@ -132,7 +132,7 @@ func (c *config) setSnapshotEnable(enableSnapshot tmq.ConfigValue) error {
 
 func (c *config) setWithTableName(withTableName tmq.ConfigValue) error {
 	var ok bool
-	c.SnapshotEnable, ok = withTableName.(string)
+	c.WithTableName, ok = withTableName.(string)
 	if !ok {
 		return fmt.Errorf("msg.with.table.name requires string got %T", withTableName)
 	}
