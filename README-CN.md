@@ -18,6 +18,7 @@ v2 与 v3 版本不兼容，与 TDengine 版本对应如下：
 | v3.0.4           | 3.0.2.2+        |
 | v3.1.0           | 3.0.2.2+        |
 | v3.3.1           | 3.0.4.1+        |
+| v3.5.0           | 3.0.5.0+        |
 
 ## 安装
 
@@ -157,6 +158,20 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event
 ```go
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
 ```
+
+获取分配任务:
+
+```go
+func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
+```
+
+重新定位消费偏移量:
+
+```go
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error {
+
+```
+
 
 取消订阅：
 
@@ -533,6 +548,14 @@ DSN 格式为：
 - `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
 
  提交消息。
+
+- `func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)`
+
+ 获取分配任务。
+
+- `func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error`
+
+ 重新定位消费偏移量。
 
 - `func (c *Consumer) Close() error`
 
