@@ -35,7 +35,6 @@ func main() {
 		"td.connect.port":              "6030",
 		"client.id":                    "test_tmq_client",
 		"enable.auto.commit":           "false",
-		"enable.heartbeat.background":  "true",
 		"experimental.snapshot.enable": "true",
 		"msg.with.table.name":          "true",
 	})
@@ -55,17 +54,42 @@ func main() {
 		panic(err)
 	}
 	for i := 0; i < 5; i++ {
-		ev := consumer.Poll(0)
+		ev := consumer.Poll(500)
 		if ev != nil {
 			switch e := ev.(type) {
 			case *tmqcommon.DataMessage:
-				fmt.Println(e.Value())
+				fmt.Printf("get message:%v\n", e)
 			case tmqcommon.Error:
 				fmt.Fprintf(os.Stderr, "%% Error: %v: %v\n", e.Code(), e)
 				panic(e)
 			}
+			consumer.Commit()
 		}
 	}
+	partitions, err := consumer.Assignment()
+	if err != nil {
+		panic(err)
+	}
+	for i := 0; i < len(partitions); i++ {
+		fmt.Println(partitions[i])
+		err = consumer.Seek(tmqcommon.TopicPartition{
+			Topic:     partitions[i].Topic,
+			Partition: partitions[i].Partition,
+			Offset:    0,
+		}, 0)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	partitions, err = consumer.Assignment()
+	if err != nil {
+		panic(err)
+	}
+	for i := 0; i < len(partitions); i++ {
+		fmt.Println(partitions[i])
+	}
+
 	err = consumer.Close()
 	if err != nil {
 		panic(err)

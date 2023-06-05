@@ -18,6 +18,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 | v3.0.4                | 3.0.2.2+             |
 | v3.1.0                | 3.0.2.2+             |
 | v3.3.1                | 3.0.4.1+             |
+| v3.5.0                | 3.0.5.0+             |
 
 ## Install
 
@@ -154,6 +155,18 @@ Commit message:
 ````go
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
 ````
+
+Get assignment:
+
+```go
+func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
+```
+
+Seek offset:
+
+```go
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error
+```
 
 Unsubscribe:
 
@@ -534,6 +547,14 @@ Use tmq over websocket. The server needs to start taoAdapter.
 - `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
 
  Commit message.
+
+- `func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)`
+
+ Get assignment.
+
+- `func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error`
+
+ Seek offset.
 
 - `func (c *Consumer) Close() error`
 
