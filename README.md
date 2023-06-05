@@ -165,8 +165,7 @@ func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
 Seek offset:
 
 ```go
-func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error {
-
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error
 ```
 
 Unsubscribe:

@@ -168,8 +168,7 @@ func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
 按照指定的进度消费:
 
 ```go
-func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error {
-
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error
 ```
 
 取消订阅：
@@ -550,11 +549,11 @@ DSN 格式为：
 
 - `func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)`
 
- 获取分配任务。
+ 获取消费进度。
 
 - `func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error`
 
- 重新定位消费偏移量。
+ 按照指定的进度消费。
 
 - `func (c *Consumer) Close() error`
 
