@@ -159,19 +159,18 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
 ```
 
-获取分配任务:
+获取消费进度:
 
 ```go
 func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
 ```
 
-重新定位消费偏移量:
+按照指定的进度消费:
 
 ```go
 func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error {
 
 ```
-
 
 取消订阅：
 
