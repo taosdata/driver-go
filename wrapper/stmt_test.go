@@ -7,12 +7,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/luobote55/driver-go/v3/common"
+	"github.com/luobote55/driver-go/v3/common/param"
+	"github.com/luobote55/driver-go/v3/common/parser"
+	taosError "github.com/luobote55/driver-go/v3/errors"
+	taosTypes "github.com/luobote55/driver-go/v3/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v3/common"
-	"github.com/taosdata/driver-go/v3/common/param"
-	"github.com/taosdata/driver-go/v3/common/parser"
-	taosError "github.com/taosdata/driver-go/v3/errors"
-	taosTypes "github.com/taosdata/driver-go/v3/types"
 )
 
 // @author: xftan

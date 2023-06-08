@@ -9,8 +9,8 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/ws/client"
+	taosErrors "github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/ws/client"
 )
 
 func TestSchemaless_Insert(t *testing.T) {

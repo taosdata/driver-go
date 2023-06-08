@@ -13,11 +13,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/taosdata/driver-go/v3/common"
-	"github.com/taosdata/driver-go/v3/common/parser"
-	"github.com/taosdata/driver-go/v3/common/tmq"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/ws/client"
+	"github.com/luobote55/driver-go/v3/common"
+	"github.com/luobote55/driver-go/v3/common/parser"
+	"github.com/luobote55/driver-go/v3/common/tmq"
+	taosErrors "github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/ws/client"
 )
 
 type Consumer struct {

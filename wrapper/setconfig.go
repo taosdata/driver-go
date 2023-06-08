@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/errors"
 )
 
 // TaosSetConfig int   taos_set_config(const char *config);

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/taosdata/driver-go/v3/af"
+	"github.com/luobote55/driver-go/v3/af"
 )
 
 func main() {

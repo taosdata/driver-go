@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/luobote55/driver-go/v3/common/tmq"
+	"github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/wrapper"
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v3/common/tmq"
-	"github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 func TestTmq(t *testing.T) {

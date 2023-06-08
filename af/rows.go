@@ -6,12 +6,12 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/af/async"
-	"github.com/taosdata/driver-go/v3/af/locker"
-	"github.com/taosdata/driver-go/v3/common/parser"
-	"github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
-	"github.com/taosdata/driver-go/v3/wrapper/handler"
+	"github.com/luobote55/driver-go/v3/af/async"
+	"github.com/luobote55/driver-go/v3/af/locker"
+	"github.com/luobote55/driver-go/v3/common/parser"
+	"github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/wrapper"
+	"github.com/luobote55/driver-go/v3/wrapper/handler"
 )
 
 type rows struct {

@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/taosdata/driver-go/v3/common"
-	tmqcommon "github.com/taosdata/driver-go/v3/common/tmq"
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
-	"github.com/taosdata/driver-go/v3/ws/tmq"
+	"github.com/luobote55/driver-go/v3/common"
+	tmqcommon "github.com/luobote55/driver-go/v3/common/tmq"
+	_ "github.com/luobote55/driver-go/v3/taosRestful"
+	"github.com/luobote55/driver-go/v3/ws/tmq"
 )
 
 func main() {

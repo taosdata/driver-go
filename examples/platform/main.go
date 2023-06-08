@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
-	"github.com/taosdata/driver-go/v3/types"
+	_ "github.com/luobote55/driver-go/v3/taosRestful"
+	"github.com/luobote55/driver-go/v3/types"
 )
 
 func main() {

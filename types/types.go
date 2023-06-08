@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/taosdata/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/errors"
 )
 
 type NullInt64 struct {

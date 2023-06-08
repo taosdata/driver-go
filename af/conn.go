@@ -5,15 +5,15 @@ import (
 	"database/sql/driver"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/af/async"
-	"github.com/taosdata/driver-go/v3/af/insertstmt"
-	"github.com/taosdata/driver-go/v3/af/locker"
-	"github.com/taosdata/driver-go/v3/common"
-	"github.com/taosdata/driver-go/v3/common/param"
-	"github.com/taosdata/driver-go/v3/errors"
-	taosError "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
-	"github.com/taosdata/driver-go/v3/wrapper/handler"
+	"github.com/luobote55/driver-go/v3/af/async"
+	"github.com/luobote55/driver-go/v3/af/insertstmt"
+	"github.com/luobote55/driver-go/v3/af/locker"
+	"github.com/luobote55/driver-go/v3/common"
+	"github.com/luobote55/driver-go/v3/common/param"
+	"github.com/luobote55/driver-go/v3/errors"
+	taosError "github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/wrapper"
+	"github.com/luobote55/driver-go/v3/wrapper/handler"
 )
 
 type Connector struct {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/luobote55/driver-go/v3/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v3/errors"
 )
 
 // @author: xftan

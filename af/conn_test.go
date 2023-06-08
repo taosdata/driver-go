@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/taosdata/driver-go/v3/common"
-	param2 "github.com/taosdata/driver-go/v3/common/param"
+	"github.com/luobote55/driver-go/v3/common"
+	param2 "github.com/luobote55/driver-go/v3/common/param"
 )
 
 func TestMain(m *testing.M) {

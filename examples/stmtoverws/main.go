@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/taosdata/driver-go/v3/common"
-	"github.com/taosdata/driver-go/v3/common/param"
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
-	"github.com/taosdata/driver-go/v3/ws/stmt"
+	"github.com/luobote55/driver-go/v3/common"
+	"github.com/luobote55/driver-go/v3/common/param"
+	_ "github.com/luobote55/driver-go/v3/taosRestful"
+	"github.com/luobote55/driver-go/v3/ws/stmt"
 )
 
 func main() {

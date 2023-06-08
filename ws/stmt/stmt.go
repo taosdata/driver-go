@@ -3,10 +3,10 @@ package stmt
 import (
 	"encoding/binary"
 
-	"github.com/taosdata/driver-go/v3/common/param"
-	"github.com/taosdata/driver-go/v3/common/serializer"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/ws/client"
+	"github.com/luobote55/driver-go/v3/common/param"
+	"github.com/luobote55/driver-go/v3/common/serializer"
+	taosErrors "github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/ws/client"
 )
 
 type Stmt struct {

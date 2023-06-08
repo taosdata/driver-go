@@ -4,7 +4,7 @@ import (
 	"database/sql/driver"
 	"time"
 
-	taosTypes "github.com/taosdata/driver-go/v3/types"
+	taosTypes "github.com/luobote55/driver-go/v3/types"
 )
 
 type Param struct {

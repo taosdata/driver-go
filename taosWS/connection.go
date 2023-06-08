@@ -14,8 +14,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/taosdata/driver-go/v3/common"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/common"
+	taosErrors "github.com/luobote55/driver-go/v3/errors"
 )
 
 var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary

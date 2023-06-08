@@ -31,7 +31,7 @@ import taosSql：
 ```go
 import (
     "database/sql"
-    _ "github.com/taosdata/driver-go/v3/taosSql"
+    _ "github.com/luobote55/driver-go/v3/taosSql"
 )
 ```
 
@@ -44,7 +44,7 @@ go mod tidy
 Or `go get` to directly install it:
 
 ```sh
-go get github.com/taosdata/driver-go/v3/taosSql
+go get github.com/luobote55/driver-go/v3/taosSql
 ```
 
 ## Usage
@@ -61,7 +61,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v3/taosSql"
+    _ "github.com/luobote55/driver-go/v3/taosSql"
 )
 
 func main() {
@@ -264,7 +264,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
+    _ "github.com/luobote55/driver-go/v3/taosRestful"
 )
 
 func main() {
@@ -311,7 +311,7 @@ import
 ```go
 import (
     "database/sql"
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
+    _ "github.com/luobote55/driver-go/v3/taosRestful"
 )
 ```
 
@@ -348,7 +348,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
+    _ "github.com/luobote55/driver-go/v3/taosRestful"
 )
 
 func main() {
@@ -400,7 +400,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/taosdata/driver-go/v3/taosWS"
+    _ "github.com/luobote55/driver-go/v3/taosWS"
 )
 
 func main() {
@@ -447,7 +447,7 @@ import
 ```go
 import (
     "database/sql"
-    _ "github.com/taosdata/driver-go/v3/taosWS"
+    _ "github.com/luobote55/driver-go/v3/taosWS"
 )
 ```
 

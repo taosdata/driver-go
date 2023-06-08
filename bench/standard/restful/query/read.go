@@ -1,6 +1,6 @@
 package main
 
-import "github.com/taosdata/driver-go/v3/bench/standard/executor"
+import "github.com/luobote55/driver-go/v3/bench/standard/executor"
 
 func main() {
 	test := executor.NewTDTest(executor.DefaultRestfulDriverName, executor.DefaultRestfulDSN)

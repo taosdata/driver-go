@@ -10,7 +10,7 @@ import "C"
 import (
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/wrapper/cgo"
+	"github.com/luobote55/driver-go/v3/wrapper/cgo"
 )
 
 //typedef void(tmq_commit_cb(tmq_t *, int32_t code, void *param));

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/taosdata/driver-go/v3/bench/standard/executor"
+	"github.com/luobote55/driver-go/v3/bench/standard/executor"
 )
 
 func main() {

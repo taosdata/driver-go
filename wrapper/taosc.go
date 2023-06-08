@@ -34,8 +34,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper/cgo"
+	"github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/wrapper/cgo"
 )
 
 // TaosFreeResult void taos_free_result(TAOS_RES *res);

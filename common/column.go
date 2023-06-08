@@ -3,7 +3,7 @@ package common
 import (
 	"reflect"
 
-	"github.com/taosdata/driver-go/v3/types"
+	"github.com/luobote55/driver-go/v3/types"
 )
 
 var (

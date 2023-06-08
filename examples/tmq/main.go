@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/taosdata/driver-go/v3/af"
-	"github.com/taosdata/driver-go/v3/af/tmq"
-	tmqcommon "github.com/taosdata/driver-go/v3/common/tmq"
+	"github.com/luobote55/driver-go/v3/af"
+	"github.com/luobote55/driver-go/v3/af/tmq"
+	tmqcommon "github.com/luobote55/driver-go/v3/common/tmq"
 )
 
 func main() {

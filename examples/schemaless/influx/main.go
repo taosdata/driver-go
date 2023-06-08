@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"github.com/taosdata/driver-go/v3/af"
+	"github.com/luobote55/driver-go/v3/af"
 )
 
 const raw = `http_response,host=host161,method=GET,result=success,server=http://localhost,status_code=404 response_time=0.003226372,http_response_code=404i,content_length=19i,result_type="success",result_code=0i 1648090640000000000

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
+	_ "github.com/luobote55/driver-go/v3/taosRestful"
 )
 
 func main() {

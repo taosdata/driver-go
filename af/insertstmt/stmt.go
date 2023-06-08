@@ -5,10 +5,10 @@ import (
 	"errors"
 	"unsafe"
 
-	"github.com/taosdata/driver-go/v3/af/locker"
-	"github.com/taosdata/driver-go/v3/common/param"
-	taosError "github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
+	"github.com/luobote55/driver-go/v3/af/locker"
+	"github.com/luobote55/driver-go/v3/common/param"
+	taosError "github.com/luobote55/driver-go/v3/errors"
+	"github.com/luobote55/driver-go/v3/wrapper"
 )
 
 type InsertStmt struct {

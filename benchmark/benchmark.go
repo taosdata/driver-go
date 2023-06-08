@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"time"
 
-	_ "github.com/taosdata/driver-go/v3/taosSql"
+	_ "github.com/luobote55/driver-go/v3/taosSql"
 )
 
 const (
