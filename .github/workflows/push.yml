@@ -44,6 +44,9 @@ jobs:
         if: steps.cache-server.outputs.cache-hit != 'true'
         run: sudo apt install -y libgeos-dev
 
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
       - name: install TDengine
         if: steps.cache-server.outputs.cache-hit != 'true'
         run: |
