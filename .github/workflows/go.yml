@@ -12,6 +12,9 @@ on:
         required: true
         type: string
 
+env:
+  SCCACHE_GHA_ENABLED: "true"
+
 jobs:
   build:
     runs-on: ubuntu-20.04
@@ -40,6 +43,9 @@ jobs:
         run: |
           cd TDengine
           echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Cache server by pr
         if: github.event_name == 'pull_request'
@@ -71,7 +77,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           make -j 4
 
       - name: package
