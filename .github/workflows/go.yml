@@ -22,13 +22,21 @@ jobs:
     outputs:
       commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
     steps:
-      - name: checkout TDengine
+      - name: checkout TDengine by pr
         if: github.event_name == 'pull_request'
         uses: actions/checkout@v3
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.base_ref }}
+
+      - name: checkout TDengine manually
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v3
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: ${{ inputs.tbBranch }}
 
       - name: get_commit_id
         id: get_commit_id
@@ -36,31 +44,43 @@ jobs:
           cd TDengine
           echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
-
-      - name: Cache server
-        id: cache-server
+      - name: Cache server by pr
+        if: github.event_name == 'pull_request'
+        id: cache-server-pr
         uses: actions/cache@v3
         with:
           path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ steps.get_commit_id.outputs.commit_id }}
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ steps.get_commit_id.outputs.commit_id }}
+
+      - name: Cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: cache-server-manually
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ steps.get_commit_id.outputs.commit_id }}
 
       - name: prepare install
-        if: steps.cache-server.outputs.cache-hit != 'true'
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: sudo apt install -y libgeos-dev
 
       - name: install TDengine
-        if: steps.cache-server.outputs.cache-hit != 'true'
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: |
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
           make -j 4
 
       - name: package
-        if: steps.cache-server.outputs.cache-hit != 'true'
+        if: >
+          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
         run: |
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
@@ -94,14 +114,25 @@ jobs:
         go: [ '1.14', '1.19' ]
     name: Go ${{ matrix.go }}
     steps:
-      - name: get cache server
-        id: get-cache-server
+      - name: get cache server by pr
+        if: github.event_name == 'pull_request'
+        id: get-cache-server-pr
         uses: actions/cache@v3
         with:
           path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ needs.build.outputs.commit_id }}
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ needs.build.outputs.commit_id }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ github.ref_name }}-
+            ${{ runner.os }}-build-${{ github.base_ref }}-
+
+      - name: cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: get-cache-server-manually
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ inputs.tbBranch }}-
 
       - name: checkout
         uses: actions/checkout@v3
