@@ -10,14 +10,16 @@ English | [简体中文](README-CN.md)
 
 v2 is not compatible with v3 version and corresponds to the TDengine version as follows:
 
-| **driver-go version** | **TDengine version** | 
-|-----------------------|----------------------|
-| v3.0.0                | 3.0.0.0+             |
-| v3.0.1                | 3.0.0.0+             |
-| v3.0.3                | 3.0.1.5+             |
-| v3.0.4                | 3.0.2.2+             |
-| v3.1.0                | 3.0.2.2+             |
-| v3.3.1                | 3.0.4.1+             |
+| **driver-go version** | **TDengine version** | **major features**                     |
+|-----------------------|----------------------|----------------------------------------|
+| v3.5.0                | 3.0.5.0+             | tmq: get assignment and seek offset    |
+| v3.3.1                | 3.0.4.1+             | schemaless insert over websocket       |
+| v3.1.0                | 3.0.2.2+             | provide tmq apis close to kafka        |
+| v3.0.4                | 3.0.2.2+             | add request id                         |
+| v3.0.3                | 3.0.1.5+             | statement insert over websocket        |
+| v3.0.2                | 3.0.1.5+             | bulk pulling over websocket            |
+| v3.0.1                | 3.0.0.0+             | tmq over websocket                     |
+| v3.0.0                | 3.0.0.0+             | adapt to TDengine 3.0 query and insert |
 
 ## Install
 
@@ -154,6 +156,18 @@ Commit message:
 ````go
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
 ````
+
+Get assignment:
+
+```go
+func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
+```
+
+Seek offset:
+
+```go
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error
+```
 
 Unsubscribe:
 
@@ -534,6 +548,14 @@ Use tmq over websocket. The server needs to start taoAdapter.
 - `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
 
  Commit message.
+
+- `func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)`
+
+ Get assignment.
+
+- `func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error`
+
+ Seek offset.
 
 - `func (c *Consumer) Close() error`
 

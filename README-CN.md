@@ -10,14 +10,16 @@
 
 v2 与 v3 版本不兼容，与 TDengine 版本对应如下：
 
-| **driver-go 版本** | **TDengine 版本** |
-|------------------|-----------------|
-| v3.0.0           | 3.0.0.0+        |
-| v3.0.1           | 3.0.0.0+        |
-| v3.0.3           | 3.0.1.5+        |
-| v3.0.4           | 3.0.2.2+        |
-| v3.1.0           | 3.0.2.2+        |
-| v3.3.1           | 3.0.4.1+        |
+| **driver-go 版本** | **TDengine 版本** | **主要功能**                       |
+|------------------|-----------------|--------------------------------|
+| v3.5.0           | 3.0.5.0+        | 获取消费进度及按照指定进度开始消费              |
+| v3.3.1           | 3.0.4.1+        | 基于 websocket 的 schemaless 协议写入 |
+| v3.1.0           | 3.0.2.2+        | 提供贴近 kafka 的订阅 api             |
+| v3.0.4           | 3.0.2.2+        | 新增 request id 相关接口             |
+| v3.0.3           | 3.0.1.5+        | 基于 websocket 的 statement 写入    |
+| v3.0.2           | 3.0.1.5+        | 基于 websocket 的数据查询和写入          |
+| v3.0.1           | 3.0.0.0+        | 基于 websocket 的消息订阅             |
+| v3.0.0           | 3.0.0.0+        | 适配 TDengine 3.0 查询和写入          |
 
 ## 安装
 
@@ -156,6 +158,18 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event
 
 ```go
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
+```
+
+获取消费进度:
+
+```go
+func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
+```
+
+按照指定的进度消费:
+
+```go
+func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error
 ```
 
 取消订阅：
@@ -533,6 +547,14 @@ DSN 格式为：
 - `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
 
  提交消息。
+
+- `func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)`
+
+ 获取消费进度。
+
+- `func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error`
+
+ 按照指定的进度消费。
 
 - `func (c *Consumer) Close() error`
 
