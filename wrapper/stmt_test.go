@@ -11,6 +11,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/parser"
+	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
 	taosError "github.com/taosdata/driver-go/v3/errors"
 	taosTypes "github.com/taosdata/driver-go/v3/types"
 )
@@ -771,7 +772,7 @@ func TestGetFields(t *testing.T) {
 	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
 	tags := StmtParseFields(tagCount, tagsP)
-	assert.Equal(t, []*StmtField{
+	assert.Equal(t, []*stmtCommon.StmtField{
 		{"ts", 9, 0, 0, 8},
 		{"c1", 1, 0, 0, 1},
 		{"c2", 2, 0, 0, 1},
@@ -787,7 +788,7 @@ func TestGetFields(t *testing.T) {
 		{"c12", 8, 0, 0, 22},
 		{"c13", 10, 0, 0, 82},
 	}, columns)
-	assert.Equal(t, []*StmtField{
+	assert.Equal(t, []*stmtCommon.StmtField{
 		{"tts", 9, 0, 0, 8},
 		{"tc1", 1, 0, 0, 1},
 		{"tc2", 2, 0, 0, 1},
@@ -863,7 +864,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 	}
 	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
-	assert.Equal(t, []*StmtField{
+	assert.Equal(t, []*stmtCommon.StmtField{
 		{"ts", 9, 0, 0, 8},
 		{"c1", 1, 0, 0, 1},
 		{"c2", 2, 0, 0, 1},
