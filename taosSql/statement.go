@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -23,7 +24,7 @@ type Stmt struct {
 	tc       *taosConn
 	pSql     string
 	isInsert bool
-	cols     []*wrapper.StmtField
+	cols     []*stmtCommon.StmtField
 	//tags     []*wrapper.StmtField
 }
 

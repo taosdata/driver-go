@@ -11,10 +11,10 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/stmt"
 	taosTypes "github.com/taosdata/driver-go/v3/types"
 )
 
@@ -586,50 +586,6 @@ func TaosStmtAffectedRowsOnce(stmt unsafe.Pointer) int {
 //int32_t bytes;
 //} TAOS_FIELD_E;
 
-type StmtField struct {
-	Name      string
-	FieldType int8
-	Precision uint8
-	Scale     uint8
-	Bytes     int32
-}
-
-func (s *StmtField) GetType() (*taosTypes.ColumnType, error) {
-	switch s.FieldType {
-	case common.TSDB_DATA_TYPE_BOOL:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosBoolType}, nil
-	case common.TSDB_DATA_TYPE_TINYINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosTinyintType}, nil
-	case common.TSDB_DATA_TYPE_SMALLINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosSmallintType}, nil
-	case common.TSDB_DATA_TYPE_INT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosIntType}, nil
-	case common.TSDB_DATA_TYPE_BIGINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosBigintType}, nil
-	case common.TSDB_DATA_TYPE_UTINYINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosUTinyintType}, nil
-	case common.TSDB_DATA_TYPE_USMALLINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosUSmallintType}, nil
-	case common.TSDB_DATA_TYPE_UINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosUIntType}, nil
-	case common.TSDB_DATA_TYPE_UBIGINT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosUBigintType}, nil
-	case common.TSDB_DATA_TYPE_FLOAT:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosFloatType}, nil
-	case common.TSDB_DATA_TYPE_DOUBLE:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosDoubleType}, nil
-	case common.TSDB_DATA_TYPE_BINARY:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosBinaryType}, nil
-	case common.TSDB_DATA_TYPE_NCHAR:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosNcharType}, nil
-	case common.TSDB_DATA_TYPE_TIMESTAMP:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosTimestampType}, nil
-	case common.TSDB_DATA_TYPE_JSON:
-		return &taosTypes.ColumnType{Type: taosTypes.TaosJsonType}, nil
-	}
-	return nil, fmt.Errorf("unsupported type: %d, name %s", s.FieldType, s.Name)
-}
-
 // TaosStmtGetTagFields DLL_EXPORT int        taos_stmt_get_tag_fields(TAOS_STMT *stmt, int* fieldNum, TAOS_FIELD_E** fields);
 func TaosStmtGetTagFields(stmt unsafe.Pointer) (code, num int, fields unsafe.Pointer) {
 	cNum := unsafe.Pointer(&num)
@@ -658,14 +614,14 @@ func TaosStmtGetColFields(stmt unsafe.Pointer) (code, num int, fields unsafe.Poi
 	return code, num, unsafe.Pointer(cField)
 }
 
-func StmtParseFields(num int, fields unsafe.Pointer) []*StmtField {
+func StmtParseFields(num int, fields unsafe.Pointer) []*stmt.StmtField {
 	if num == 0 {
 		return nil
 	}
-	result := make([]*StmtField, num)
+	result := make([]*stmt.StmtField, num)
 	buf := bytes.NewBufferString("")
 	for i := 0; i < num; i++ {
-		r := &StmtField{}
+		r := &stmt.StmtField{}
 		field := *(*C.TAOS_FIELD_E)(unsafe.Pointer(uintptr(fields) + uintptr(C.sizeof_struct_TAOS_FIELD_E*C.int(i))))
 		for _, c := range field.name {
 			if c == 0 {
