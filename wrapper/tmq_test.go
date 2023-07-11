@@ -1525,7 +1525,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	}
 	assert.Equal(t, 1, len(assignment))
 	assert.Equal(t, int64(0), assignment[0].Begin)
-	assert.Equal(t, int64(1), assignment[0].Offset)
+	assert.Equal(t, int64(0), assignment[0].Offset)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
