@@ -225,6 +225,7 @@ func TestSeek(t *testing.T) {
 			for _, datum := range data {
 				dataCount += len(datum.Data)
 			}
+			time.Sleep(time.Second * 2)
 			_, err = consumer.Commit()
 			assert.NoError(t, err)
 		}
