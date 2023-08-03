@@ -212,9 +212,7 @@ func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = partitions
-	return nil, nil
-	//return c.Committed(partitions, 0)
+	return c.Committed(partitions, 0)
 }
 
 func (c *Consumer) doCommit(message unsafe.Pointer) ([]tmq.TopicPartition, error) {
