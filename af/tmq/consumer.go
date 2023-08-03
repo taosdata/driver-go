@@ -208,11 +208,12 @@ func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {
 		errStr := wrapper.TMQErr2Str(errCode)
 		return nil, taosError.NewError(int(errCode), errStr)
 	}
+	partitions, err := c.Assignment()
+	if err != nil {
+		return nil, err
+	}
+	_ = partitions
 	return nil, nil
-	//partitions, err := c.Assignment()
-	//if err != nil {
-	//	return nil, err
-	//}
 	//return c.Committed(partitions, 0)
 }
 
