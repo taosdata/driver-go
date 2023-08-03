@@ -225,9 +225,9 @@ func TestSeek(t *testing.T) {
 			for _, datum := range data {
 				dataCount += len(datum.Data)
 			}
+			_, err = consumer.Commit()
+			assert.NoError(t, err)
 		}
-		_, err = consumer.Commit()
-		assert.NoError(t, err)
 	}
 	assert.Equal(t, record, dataCount)
 
