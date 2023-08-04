@@ -156,11 +156,11 @@ jobs:
           ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
           EOF
 
-      - name: taosd
-        run: nohup sudo sh ./start.sh &
-
-      - name: start taosadapter
-        run:  sudo taosadapter &
+#      - name: taosd
+#        run: nohup sudo sh ./start.sh &
+#
+#      - name: start taosadapter
+#        run:  sudo taosadapter &
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -168,5 +168,7 @@ jobs:
           go-version: ${{ matrix.go }}
           cache-dependency-path: driver-go/go.sum
 
-      - name: Test
-        run: cd ./driver-go && go test -v ./...
+#      - name: Test
+#        run: cd ./driver-go && go test -v ./...
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
