@@ -292,6 +292,9 @@ func (c *Consumer) Position(partitions []tmq.TopicPartition) (offsets []tmq.Topi
 	offsets = make([]tmq.TopicPartition, len(partitions))
 	for i := 0; i < len(partitions); i++ {
 		position := wrapper.TMQPosition(c.cConsumer, *partitions[i].Topic, partitions[i].Partition)
+		if position < 0 {
+			return nil, taosError.NewError(int(position), wrapper.TMQErr2Str(int32(position)))
+		}
 		offsets[i] = tmq.TopicPartition{
 			Topic:     partitions[i].Topic,
 			Partition: partitions[i].Partition,
