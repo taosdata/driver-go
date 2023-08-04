@@ -6,6 +6,8 @@ package wrapper
 #include <string.h>
 #include <taos.h>
 extern void TMQCommitCB(tmq_t *, int32_t,  void *param);
+extern void TMQAutoCommitCB(tmq_t *, int32_t,  void *param);
+extern void TMQCommitOffsetCB(tmq_t *, int32_t,  void *param);
 */
 import "C"
 import (
@@ -68,7 +70,7 @@ func TMQConfDestroy(conf unsafe.Pointer) {
 
 // TMQConfSetAutoCommitCB DLL_EXPORT void           tmq_conf_set_auto_commit_cb(tmq_conf_t *conf, tmq_commit_cb *cb, void *param);
 func TMQConfSetAutoCommitCB(conf unsafe.Pointer, h cgo.Handle) {
-	C.tmq_conf_set_auto_commit_cb((*C.struct_tmq_conf_t)(conf), (*C.tmq_commit_cb)(C.TMQCommitCB), h.Pointer())
+	C.tmq_conf_set_auto_commit_cb((*C.struct_tmq_conf_t)(conf), (*C.tmq_commit_cb)(C.TMQAutoCommitCB), h.Pointer())
 }
 
 // TMQCommitAsync DLL_EXPORT void    tmq_commit_async(tmq_t *tmq, const TAOS_RES *msg, tmq_commit_cb *cb, void *param);
@@ -296,4 +298,32 @@ func TMQFreeAssignment(assignment unsafe.Pointer) {
 		return
 	}
 	C.tmq_free_assignment((*C.tmq_topic_assignment)(assignment))
+}
+
+// TMQPosition DLL_EXPORT int64_t     tmq_position(tmq_t *tmq, const char *pTopicName, int32_t vgId);
+func TMQPosition(consumer unsafe.Pointer, topic string, vGroupID int32) int64 {
+	topicName := C.CString(topic)
+	defer C.free(unsafe.Pointer(topicName))
+	return int64(C.tmq_position((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID)))
+}
+
+// TMQCommitted DLL_EXPORT int64_t     tmq_committed(tmq_t *tmq, const char *pTopicName, int32_t vgId);
+func TMQCommitted(consumer unsafe.Pointer, topic string, vGroupID int32) int64 {
+	topicName := C.CString(topic)
+	defer C.free(unsafe.Pointer(topicName))
+	return int64(C.tmq_committed((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID)))
+}
+
+// TMQCommitOffsetSync DLL_EXPORT int32_t   tmq_commit_offset_sync(tmq_t *tmq, const char *pTopicName, int32_t vgId, int64_t offset);
+func TMQCommitOffsetSync(consumer unsafe.Pointer, topic string, vGroupID int32, offset int64) int32 {
+	topicName := C.CString(topic)
+	defer C.free(unsafe.Pointer(topicName))
+	return int32(C.tmq_commit_offset_sync((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID), (C.int64_t)(offset)))
+}
+
+// TMQCommitOffsetAsync DLL_EXPORT void      tmq_commit_offset_async(tmq_t *tmq, const char *pTopicName, int32_t vgId, int64_t offset, tmq_commit_cb *cb, void *param);
+func TMQCommitOffsetAsync(consumer unsafe.Pointer, topic string, vGroupID int32, offset int64, h cgo.Handle) {
+	topicName := C.CString(topic)
+	defer C.free(unsafe.Pointer(topicName))
+	C.tmq_commit_offset_async((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID), (C.int64_t)(offset), (*C.tmq_commit_cb)(C.TMQCommitOffsetCB), h.Pointer())
 }
