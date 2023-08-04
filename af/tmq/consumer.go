@@ -2,6 +2,7 @@ package tmq
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
@@ -206,10 +207,12 @@ func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {
 	errCode := wrapper.TMQCommitSync(c.cConsumer, nil)
 	if errCode != taosError.SUCCESS {
 		errStr := wrapper.TMQErr2Str(errCode)
+		fmt.Println("TMQ COMMIT SYNC FAIL", errCode)
 		return nil, taosError.NewError(int(errCode), errStr)
 	}
 	partitions, err := c.Assignment()
 	if err != nil {
+		fmt.Println("Assignment FAIL")
 		return nil, err
 	}
 	return c.Committed(partitions, 0)
@@ -227,6 +230,7 @@ func (c *Consumer) doCommit(message unsafe.Pointer) ([]tmq.TopicPartition, error
 func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
 	errCode, list := wrapper.TMQSubscription(c.cConsumer)
 	if errCode != taosError.SUCCESS {
+		fmt.Println("TMQ Assignment FAIL", errCode)
 		errStr := wrapper.TMQErr2Str(errCode)
 		return nil, taosError.NewError(int(errCode), errStr)
 	}
@@ -237,6 +241,7 @@ func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
 		errCode, assignment := wrapper.TMQGetTopicAssignment(c.cConsumer, topic)
 		if errCode != taosError.SUCCESS {
 			errStr := wrapper.TMQErr2Str(errCode)
+			fmt.Println("TMQGetTopicAssignment FAIL", errCode)
 			return nil, taosError.NewError(int(errCode), errStr)
 		}
 		for i := 0; i < len(assignment); i++ {
@@ -266,6 +271,7 @@ func (c *Consumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) (of
 		cOffset := wrapper.TMQCommitted(c.cConsumer, *partitions[i].Topic, partitions[i].Partition)
 		offset := tmq.Offset(cOffset)
 		if !offset.Valid() {
+			fmt.Println("TMQCommitted FAIL", cOffset)
 			return nil, taosError.NewError(int(offset), wrapper.TMQErr2Str(int32(offset)))
 		}
 		offsets[i] = tmq.TopicPartition{
