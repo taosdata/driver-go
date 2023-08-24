@@ -87,7 +87,7 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 }
 
 func (c *Client) ReadPump() {
-	c.conn.SetReadLimit(common.BufferSize4M)
+	c.conn.SetReadLimit(0)
 	c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
@@ -105,9 +105,9 @@ func (c *Client) ReadPump() {
 		}
 		switch messageType {
 		case websocket.TextMessage:
-			c.TextMessageHandler(message)
+			go c.TextMessageHandler(message)
 		case websocket.BinaryMessage:
-			c.BinaryMessageHandler(message)
+			go c.BinaryMessageHandler(message)
 		}
 	}
 }

@@ -1620,7 +1620,7 @@ func TestTMQPosition(t *testing.T) {
 	}
 	vgID := assignment[0].VGroupID
 	position := TMQPosition(tmq, "test_tmq_position_topic", vgID)
-	assert.Less(t, position, int64(0))
+	assert.Equal(t, position, int64(0))
 	haveMessage := false
 	for i := 0; i < 3; i++ {
 		message := TMQConsumerPoll(tmq, 500)
@@ -1726,7 +1726,7 @@ func TestTMQCommitOffset(t *testing.T) {
 				t.Fatal(errors.NewError(int(code), TMQErr2Str(code)))
 			}
 			committed = TMQCommitted(tmq, "test_tmq_commit_offset_topic", vgID)
-			assert.Equal(t, int64(1), committed)
+			assert.Equal(t, int64(offset), committed)
 			TaosFreeResult(message)
 			break
 		}
@@ -1833,7 +1833,7 @@ func TestTMQCommitOffsetAsync(t *testing.T) {
 				timer.Stop()
 			}
 			committed = TMQCommitted(tmq, topic, vgID)
-			assert.Equal(t, int64(1), committed)
+			assert.Equal(t, int64(offset), committed)
 			TaosFreeResult(message)
 			break
 		}
