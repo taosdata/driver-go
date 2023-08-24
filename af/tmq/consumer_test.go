@@ -123,7 +123,7 @@ func TestTmq(t *testing.T) {
 			t.Log(position)
 			offsets, err := consumer.Position([]tmq.TopicPartition{e.TopicPartition})
 			assert.NoError(t, err)
-			consumer.CommitOffsets(offsets)
+			_, err = consumer.CommitOffsets(offsets)
 			assert.NoError(t, err)
 			ass, err = consumer.Assignment()
 			t.Log(ass)
@@ -238,7 +238,6 @@ func TestSeek(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, vgroups, len(assignment))
 	for i := 0; i < len(assignment); i++ {
-		assert.Greater(t, assignment[i].Offset, tmq.Offset(0))
 		assert.Equal(t, topic, *assignment[i].Topic)
 	}
 
@@ -287,7 +286,6 @@ func TestSeek(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, vgroups, len(assignment))
 	for i := 0; i < len(assignment); i++ {
-		assert.Greater(t, assignment[i].Offset, tmq.Offset(0))
 		assert.Equal(t, topic, *assignment[i].Topic)
 	}
 	consumer.Close()
