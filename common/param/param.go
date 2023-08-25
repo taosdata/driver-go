@@ -111,6 +111,13 @@ func (p *Param) SetBinary(offset int, value []byte) {
 	p.value[offset] = taosTypes.TaosBinary(value)
 }
 
+func (p *Param) SetVarBinary(offset int, value []byte) {
+	if offset >= p.size {
+		return
+	}
+	p.value[offset] = taosTypes.TaosVarBinary(value)
+}
+
 func (p *Param) SetNchar(offset int, value string) {
 	if offset >= p.size {
 		return
@@ -248,6 +255,15 @@ func (p *Param) AddBinary(value []byte) *Param {
 		return p
 	}
 	p.value[p.offset] = taosTypes.TaosBinary(value)
+	p.offset += 1
+	return p
+}
+
+func (p *Param) AddVarBinary(value []byte) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = taosTypes.TaosVarBinary(value)
 	p.offset += 1
 	return p
 }

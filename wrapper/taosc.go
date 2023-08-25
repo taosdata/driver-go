@@ -33,6 +33,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/common/pointer"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
@@ -251,7 +252,7 @@ func TaosGetTablesVgID(conn unsafe.Pointer, db string, tables []string) (vgIDs [
 	}
 	vgIDs = make([]int, numTables)
 	for i := 0; i < numTables; i++ {
-		vgIDs[i] = int(*(*C.int)(unsafe.Pointer(uintptr(p) + uintptr(C.sizeof_int*C.int(i)))))
+		vgIDs[i] = int(*(*C.int)(pointer.AddUintptr(p, uintptr(C.sizeof_int*C.int(i)))))
 	}
 	return
 }

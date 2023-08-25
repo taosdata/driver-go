@@ -234,6 +234,17 @@ func generateTaosBindList(params []driver.Value) ([]C.TAOS_MULTI_BIND, []unsafe.
 				*(bind.length) = C.int32_t(clen)
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer_length = C.uintptr_t(clen)
+			case taosTypes.TaosVarBinary:
+				bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
+				cbuf := C.CString(string(value))
+				needFreePointer = append(needFreePointer, unsafe.Pointer(cbuf))
+				bind.buffer = unsafe.Pointer(cbuf)
+				clen := int32(len(value))
+				p := C.malloc(C.size_t(unsafe.Sizeof(clen)))
+				bind.length = (*C.int32_t)(p)
+				*(bind.length) = C.int32_t(clen)
+				needFreePointer = append(needFreePointer, p)
+				bind.buffer_length = C.uintptr_t(clen)
 			case taosTypes.TaosNchar:
 				bind.buffer_type = C.TSDB_DATA_TYPE_NCHAR
 				p := unsafe.Pointer(C.CString(string(value)))
@@ -511,6 +522,24 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 				} else {
 					*(*C.char)(currentNull) = C.char(0)
 					value := rowData.(taosTypes.TaosBinary)
+					for j := 0; j < len(value); j++ {
+						*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(columnType.MaxLen*i+j))) = (C.char)(value[j])
+					}
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
+					*(*C.int32_t)(l) = C.int32_t(len(value))
+				}
+			}
+		case taosTypes.TaosVarBinaryType:
+			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(columnType.MaxLen * rowLen))))
+			bind.buffer_type = C.TSDB_DATA_TYPE_VARBINARY
+			bind.buffer_length = C.uintptr_t(columnType.MaxLen)
+			for i, rowData := range columnData {
+				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
+				if rowData == nil {
+					*(*C.char)(currentNull) = C.char(1)
+				} else {
+					*(*C.char)(currentNull) = C.char(0)
+					value := rowData.(taosTypes.TaosVarBinary)
 					for j := 0; j < len(value); j++ {
 						*(*C.char)(unsafe.Pointer(uintptr(p) + uintptr(columnType.MaxLen*i+j))) = (C.char)(value[j])
 					}

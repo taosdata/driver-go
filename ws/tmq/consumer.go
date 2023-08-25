@@ -588,7 +588,8 @@ func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 				return nil, err
 			}
 			block := respBytes[24:]
-			data := parser.ReadBlock(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(&block))), resp.Rows, resp.FieldsTypes, resp.Precision)
+			p := unsafe.Pointer(&block[0])
+			data := parser.ReadBlock(p, resp.Rows, resp.FieldsTypes, resp.Precision)
 			tmqData = append(tmqData, &tmq.Data{
 				TableName: resp.TableName,
 				Data:      data,

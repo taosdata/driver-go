@@ -139,6 +139,16 @@ func TestStmt(t *testing.T) {
 			expectValue: "yes",
 		}, //3
 		{
+			tbType: "ts timestamp, v varbinary(8)",
+			pos:    "?, ?",
+			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosVarBinary("yes")}},
+			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
+				Type:   taosTypes.TaosVarBinaryType,
+				MaxLen: 3,
+			}},
+			expectValue: "yes",
+		}, //3
+		{
 			tbType: "ts timestamp, v nchar(8)",
 			pos:    "?, ?",
 			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosNchar("yes")}},
@@ -334,6 +344,12 @@ func TestStmtExec(t *testing.T) {
 			tbType:      "ts timestamp, v binary(8)",
 			pos:         "?, ?",
 			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBinary("yes")},
+			expectValue: "yes",
+		}, //3
+		{
+			tbType:      "ts timestamp, v varbinary(8)",
+			pos:         "?, ?",
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosVarBinary("yes")},
 			expectValue: "yes",
 		}, //3
 		{

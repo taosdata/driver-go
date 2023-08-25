@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/pointer"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
@@ -102,8 +103,8 @@ func TestReadBlock(t *testing.T) {
 		return
 	}
 	precision := wrapper.TaosResultPrecision(res)
-	pHeaderList := make([]uintptr, fileCount)
-	pStartList := make([]uintptr, fileCount)
+	pHeaderList := make([]unsafe.Pointer, fileCount)
+	pStartList := make([]unsafe.Pointer, fileCount)
 	var data [][]driver.Value
 	for {
 		blockSize, errCode, block := wrapper.TaosFetchRawBlock(res)
@@ -119,20 +120,20 @@ func TestReadBlock(t *testing.T) {
 		}
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
 		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
-		tmpPHeader := uintptr(block) + RawBlockGetColDataOffset(fileCount)
-		var tmpPStart uintptr
+		tmpPHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(fileCount))
+		var tmpPStart unsafe.Pointer
 		for column := 0; column < fileCount; column++ {
-			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
+			colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 			if IsVarDataType(rh.ColTypes[column]) {
 				pHeaderList[column] = tmpPHeader
-				tmpPStart = tmpPHeader + Int32Size*uintptr(blockSize)
+				tmpPStart = pointer.AddUintptr(tmpPHeader, Int32Size*uintptr(blockSize))
 				pStartList[column] = tmpPStart
 			} else {
 				pHeaderList[column] = tmpPHeader
-				tmpPStart = tmpPHeader + nullBitMapOffset
+				tmpPStart = pointer.AddUintptr(tmpPHeader, nullBitMapOffset)
 				pStartList[column] = tmpPStart
 			}
-			tmpPHeader = tmpPStart + uintptr(colLength)
+			tmpPHeader = pointer.AddUintptr(tmpPStart, uintptr(colLength))
 		}
 		for row := 0; row < blockSize; row++ {
 			rowV := make([]driver.Value, fileCount)
@@ -244,8 +245,8 @@ func TestBlockTag(t *testing.T) {
 		return
 	}
 	precision := wrapper.TaosResultPrecision(res)
-	pHeaderList := make([]uintptr, fileCount)
-	pStartList := make([]uintptr, fileCount)
+	pHeaderList := make([]unsafe.Pointer, fileCount)
+	pStartList := make([]unsafe.Pointer, fileCount)
 	var data [][]driver.Value
 	for {
 		blockSize, errCode, block := wrapper.TaosFetchRawBlock(res)
@@ -261,20 +262,20 @@ func TestBlockTag(t *testing.T) {
 		}
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
 		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
-		tmpPHeader := uintptr(block) + RawBlockGetColDataOffset(fileCount) // length i32, group u64
-		var tmpPStart uintptr
+		tmpPHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(fileCount)) // length i32, group u64
+		var tmpPStart unsafe.Pointer
 		for column := 0; column < fileCount; column++ {
-			colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
+			colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 			if IsVarDataType(rh.ColTypes[column]) {
 				pHeaderList[column] = tmpPHeader
-				tmpPStart = tmpPHeader + Int32Size*uintptr(blockSize)
+				tmpPStart = pointer.AddUintptr(tmpPHeader, Int32Size*uintptr(blockSize))
 				pStartList[column] = tmpPStart
 			} else {
 				pHeaderList[column] = tmpPHeader
-				tmpPStart = tmpPHeader + nullBitMapOffset
+				tmpPStart = pointer.AddUintptr(tmpPHeader, nullBitMapOffset)
 				pStartList[column] = tmpPStart
 			}
-			tmpPHeader = tmpPStart + uintptr(colLength)
+			tmpPHeader = pointer.AddUintptr(tmpPStart, uintptr(colLength))
 		}
 		for row := 0; row < blockSize; row++ {
 			rowV := make([]driver.Value, fileCount)
