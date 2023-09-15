@@ -59,7 +59,7 @@ func TestSchemaless_Insert(t *testing.T) {
 	}
 	defer func() { _ = after() }()
 
-	s, err := NewSchemaless(NewConfig("ws://localhost:6041/rest/schemaless", 1,
+	s, err := NewSchemaless(NewConfig("ws://localhost:6041/ws", 1,
 		SetDb("test_schemaless_ws"),
 		SetReadTimeout(10*time.Second),
 		SetWriteTimeout(10*time.Second),

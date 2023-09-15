@@ -51,7 +51,7 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	endpointUrl := &url.URL{
 		Scheme: cfg.net,
 		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
-		Path:   "/rest/ws",
+		Path:   "/ws",
 	}
 	if cfg.token != "" {
 		endpointUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
