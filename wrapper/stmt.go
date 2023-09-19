@@ -235,7 +235,7 @@ func generateTaosBindList(params []driver.Value) ([]C.TAOS_MULTI_BIND, []unsafe.
 				needFreePointer = append(needFreePointer, p)
 				bind.buffer_length = C.uintptr_t(clen)
 			case taosTypes.TaosVarBinary:
-				bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
+				bind.buffer_type = C.TSDB_DATA_TYPE_VARBINARY
 				cbuf := C.CString(string(value))
 				needFreePointer = append(needFreePointer, unsafe.Pointer(cbuf))
 				bind.buffer = unsafe.Pointer(cbuf)
