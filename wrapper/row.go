@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/pointer"
 )
 
 const (
@@ -18,7 +19,8 @@ const (
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
 func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...interface{}) driver.Value {
-	p := unsafe.Pointer(*(*uintptr)(unsafe.Pointer(uintptr(row) + uintptr(offset)*PointerSize)))
+	base := *(**C.void)(pointer.AddUintptr(row, uintptr(offset)*PointerSize))
+	p := unsafe.Pointer(base)
 	if p == nil {
 		return nil
 	}
@@ -49,10 +51,10 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 		return *((*float32)(p))
 	case C.TSDB_DATA_TYPE_DOUBLE:
 		return *((*float64)(p))
-	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
+	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR, C.TSDB_DATA_TYPE_VARBINARY:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
-			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
 		}
 		return string(data)
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
@@ -66,7 +68,7 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 	case C.TSDB_DATA_TYPE_JSON:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
-			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
 		}
 		return data
 	default:

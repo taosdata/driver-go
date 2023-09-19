@@ -18,6 +18,7 @@ type (
 	TaosFloat     float32
 	TaosDouble    float64
 	TaosBinary    []byte
+	TaosVarBinary []byte
 	TaosNchar     string
 	TaosTimestamp struct {
 		T         time.Time
@@ -39,6 +40,7 @@ var (
 	TaosFloatType     = reflect.TypeOf(TaosFloat(0))
 	TaosDoubleType    = reflect.TypeOf(TaosDouble(0))
 	TaosBinaryType    = reflect.TypeOf(TaosBinary(nil))
+	TaosVarBinaryType = reflect.TypeOf(TaosVarBinary(nil))
 	TaosNcharType     = reflect.TypeOf(TaosNchar(""))
 	TaosTimestampType = reflect.TypeOf(TaosTimestamp{})
 	TaosJsonType      = reflect.TypeOf(TaosJson(""))

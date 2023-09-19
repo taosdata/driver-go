@@ -149,6 +149,18 @@ func (c *ColumnType) AddBinary(strMaxLen int) *ColumnType {
 	return c
 }
 
+func (c *ColumnType) AddVarBinary(strMaxLen int) *ColumnType {
+	if c.column >= c.size {
+		return c
+	}
+	c.value[c.column] = &types.ColumnType{
+		Type:   types.TaosVarBinaryType,
+		MaxLen: strMaxLen,
+	}
+	c.column += 1
+	return c
+}
+
 func (c *ColumnType) AddNchar(strMaxLen int) *ColumnType {
 	if c.column >= c.size {
 		return c

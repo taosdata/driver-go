@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/pointer"
 )
 
 const (
@@ -33,27 +34,27 @@ const (
 )
 
 func RawBlockGetVersion(rawBlock unsafe.Pointer) int32 {
-	return *((*int32)(unsafe.Pointer(uintptr(rawBlock) + RawBlockVersionOffset)))
+	return *((*int32)(pointer.AddUintptr(rawBlock, RawBlockVersionOffset)))
 }
 
 func RawBlockGetLength(rawBlock unsafe.Pointer) int32 {
-	return *((*int32)(unsafe.Pointer(uintptr(rawBlock) + RawBlockLengthOffset)))
+	return *((*int32)(pointer.AddUintptr(rawBlock, RawBlockLengthOffset)))
 }
 
 func RawBlockGetNumOfRows(rawBlock unsafe.Pointer) int32 {
-	return *((*int32)(unsafe.Pointer(uintptr(rawBlock) + NumOfRowsOffset)))
+	return *((*int32)(pointer.AddUintptr(rawBlock, NumOfRowsOffset)))
 }
 
 func RawBlockGetNumOfCols(rawBlock unsafe.Pointer) int32 {
-	return *((*int32)(unsafe.Pointer(uintptr(rawBlock) + NumOfColsOffset)))
+	return *((*int32)(pointer.AddUintptr(rawBlock, NumOfColsOffset)))
 }
 
 func RawBlockGetHasColumnSegment(rawBlock unsafe.Pointer) int32 {
-	return *((*int32)(unsafe.Pointer(uintptr(rawBlock) + HasColumnSegmentOffset)))
+	return *((*int32)(pointer.AddUintptr(rawBlock, HasColumnSegmentOffset)))
 }
 
 func RawBlockGetGroupID(rawBlock unsafe.Pointer) uint64 {
-	return *((*uint64)(unsafe.Pointer(uintptr(rawBlock) + GroupIDOffset)))
+	return *((*uint64)(pointer.AddUintptr(rawBlock, GroupIDOffset)))
 }
 
 type RawBlockColInfo struct {
@@ -63,9 +64,9 @@ type RawBlockColInfo struct {
 
 func RawBlockGetColInfo(rawBlock unsafe.Pointer, infos []RawBlockColInfo) {
 	for i := 0; i < len(infos); i++ {
-		offset := uintptr(rawBlock) + ColInfoOffset + ColInfoSize*uintptr(i)
-		infos[i].ColType = *((*int8)(unsafe.Pointer(offset)))
-		infos[i].Bytes = *((*int32)(unsafe.Pointer(offset + Int8Size)))
+		offset := ColInfoOffset + ColInfoSize*uintptr(i)
+		infos[i].ColType = *((*int8)(pointer.AddUintptr(rawBlock, offset)))
+		infos[i].Bytes = *((*int32)(pointer.AddUintptr(rawBlock, offset+Int8Size)))
 	}
 }
 
@@ -80,7 +81,7 @@ func RawBlockGetColDataOffset(colCount int) uintptr {
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
 func IsVarDataType(colType uint8) bool {
-	return colType == common.TSDB_DATA_TYPE_BINARY || colType == common.TSDB_DATA_TYPE_NCHAR || colType == common.TSDB_DATA_TYPE_JSON
+	return colType == common.TSDB_DATA_TYPE_BINARY || colType == common.TSDB_DATA_TYPE_NCHAR || colType == common.TSDB_DATA_TYPE_JSON || colType == common.TSDB_DATA_TYPE_VARBINARY
 }
 
 func BitmapLen(n int) int {
@@ -99,9 +100,9 @@ func BMIsNull(c byte, n int) bool {
 	return c&(1<<(7-BitPos(n))) == (1 << (7 - BitPos(n)))
 }
 
-type rawConvertFunc func(pStart uintptr, row int, arg ...interface{}) driver.Value
+type rawConvertFunc func(pStart unsafe.Pointer, row int, arg ...interface{}) driver.Value
 
-type rawConvertVarDataFunc func(pHeader, pStart uintptr, row int) driver.Value
+type rawConvertVarDataFunc func(pHeader, pStart unsafe.Pointer, row int) driver.Value
 
 var rawConvertFuncMap = map[uint8]rawConvertFunc{
 	uint8(common.TSDB_DATA_TYPE_BOOL):      rawConvertBool,
@@ -119,81 +120,86 @@ var rawConvertFuncMap = map[uint8]rawConvertFunc{
 }
 
 var rawConvertVarDataMap = map[uint8]rawConvertVarDataFunc{
-	uint8(common.TSDB_DATA_TYPE_BINARY): rawConvertBinary,
-	uint8(common.TSDB_DATA_TYPE_NCHAR):  rawConvertNchar,
-	uint8(common.TSDB_DATA_TYPE_JSON):   rawConvertJson,
+	uint8(common.TSDB_DATA_TYPE_BINARY):    rawConvertBinary,
+	uint8(common.TSDB_DATA_TYPE_NCHAR):     rawConvertNchar,
+	uint8(common.TSDB_DATA_TYPE_JSON):      rawConvertJson,
+	uint8(common.TSDB_DATA_TYPE_VARBINARY): rawConvertVarBinary,
 }
 
-func ItemIsNull(pHeader uintptr, row int) bool {
+func ItemIsNull(pHeader unsafe.Pointer, row int) bool {
 	offset := CharOffset(row)
-	c := *((*byte)(unsafe.Pointer(pHeader + uintptr(offset))))
+	c := *((*byte)(pointer.AddUintptr(pHeader, uintptr(offset))))
 	return BMIsNull(c, row)
 }
 
-func rawConvertBool(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	if (*((*byte)(unsafe.Pointer(pStart + uintptr(row)*1)))) != 0 {
+func rawConvertBool(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	if (*((*byte)(pointer.AddUintptr(pStart, uintptr(row)*1)))) != 0 {
 		return true
 	} else {
 		return false
 	}
 }
 
-func rawConvertTinyint(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*int8)(unsafe.Pointer(pStart + uintptr(row)*Int8Size)))
+func rawConvertTinyint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*int8)(pointer.AddUintptr(pStart, uintptr(row)*Int8Size)))
 }
 
-func rawConvertSmallint(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*int16)(unsafe.Pointer(pStart + uintptr(row)*Int16Size)))
+func rawConvertSmallint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*int16)(pointer.AddUintptr(pStart, uintptr(row)*Int16Size)))
 }
 
-func rawConvertInt(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*int32)(unsafe.Pointer(pStart + uintptr(row)*Int32Size)))
+func rawConvertInt(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*int32)(pointer.AddUintptr(pStart, uintptr(row)*Int32Size)))
 }
 
-func rawConvertBigint(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*int64)(unsafe.Pointer(pStart + uintptr(row)*Int64Size)))
+func rawConvertBigint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size)))
 }
 
-func rawConvertUTinyint(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*uint8)(unsafe.Pointer(pStart + uintptr(row)*UInt8Size)))
+func rawConvertUTinyint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*uint8)(pointer.AddUintptr(pStart, uintptr(row)*UInt8Size)))
 }
 
-func rawConvertUSmallint(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*uint16)(unsafe.Pointer(pStart + uintptr(row)*UInt16Size)))
+func rawConvertUSmallint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*uint16)(pointer.AddUintptr(pStart, uintptr(row)*UInt16Size)))
 }
 
-func rawConvertUInt(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*uint32)(unsafe.Pointer(pStart + uintptr(row)*UInt32Size)))
+func rawConvertUInt(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*uint32)(pointer.AddUintptr(pStart, uintptr(row)*UInt32Size)))
 }
 
-func rawConvertUBigint(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return *((*uint64)(unsafe.Pointer(pStart + uintptr(row)*UInt64Size)))
+func rawConvertUBigint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return *((*uint64)(pointer.AddUintptr(pStart, uintptr(row)*UInt64Size)))
 }
 
-func rawConvertFloat(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return math.Float32frombits(*((*uint32)(unsafe.Pointer(pStart + uintptr(row)*Float32Size))))
+func rawConvertFloat(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return math.Float32frombits(*((*uint32)(pointer.AddUintptr(pStart, uintptr(row)*Float32Size))))
 }
 
-func rawConvertDouble(pStart uintptr, row int, _ ...interface{}) driver.Value {
-	return math.Float64frombits(*((*uint64)(unsafe.Pointer(pStart + uintptr(row)*Float64Size))))
+func rawConvertDouble(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
+	return math.Float64frombits(*((*uint64)(pointer.AddUintptr(pStart, uintptr(row)*Float64Size))))
 }
 
-func rawConvertTime(pStart uintptr, row int, arg ...interface{}) driver.Value {
+func rawConvertTime(pStart unsafe.Pointer, row int, arg ...interface{}) driver.Value {
 	if len(arg) == 1 {
-		return common.TimestampConvertToTime(*((*int64)(unsafe.Pointer(pStart + uintptr(row)*Int64Size))), arg[0].(int))
+		return common.TimestampConvertToTime(*((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size))), arg[0].(int))
 	} else if len(arg) == 2 {
-		return arg[1].(FormatTimeFunc)(*((*int64)(unsafe.Pointer(pStart + uintptr(row)*Int64Size))), arg[0].(int))
+		return arg[1].(FormatTimeFunc)(*((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size))), arg[0].(int))
 	} else {
 		panic("convertTime error")
 	}
 }
 
-func rawConvertBinary(pHeader, pStart uintptr, row int) driver.Value {
-	offset := *((*int32)(unsafe.Pointer(pHeader + uintptr(row*4))))
+func rawConvertVarBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
+	return rawConvertBinary(pHeader, pStart, row)
+}
+
+func rawConvertBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
+	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
 	if offset == -1 {
 		return nil
 	}
-	currentRow := unsafe.Pointer(pStart + uintptr(offset))
+	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
 	clen := *((*int16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
@@ -205,12 +211,12 @@ func rawConvertBinary(pHeader, pStart uintptr, row int) driver.Value {
 	return string(binaryVal[:])
 }
 
-func rawConvertNchar(pHeader, pStart uintptr, row int) driver.Value {
-	offset := *((*int32)(unsafe.Pointer(pHeader + uintptr(row*4))))
+func rawConvertNchar(pHeader, pStart unsafe.Pointer, row int) driver.Value {
+	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
 	if offset == -1 {
 		return nil
 	}
-	currentRow := unsafe.Pointer(pStart + uintptr(offset))
+	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
 	clen := *((*int16)(currentRow)) / 4
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
@@ -222,19 +228,19 @@ func rawConvertNchar(pHeader, pStart uintptr, row int) driver.Value {
 	return string(binaryVal)
 }
 
-func rawConvertJson(pHeader, pStart uintptr, row int) driver.Value {
-	offset := *((*int32)(unsafe.Pointer(pHeader + uintptr(row*4))))
+func rawConvertJson(pHeader, pStart unsafe.Pointer, row int) driver.Value {
+	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
 	if offset == -1 {
 		return nil
 	}
-	currentRow := unsafe.Pointer(pStart + uintptr(offset))
+	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
 	clen := *((*int16)(currentRow))
-	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+	currentRow = pointer.AddUintptr(currentRow, 2)
 
 	binaryVal := make([]byte, clen)
 
 	for index := int16(0); index < clen; index++ {
-		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
+		binaryVal[index] = *((*byte)(pointer.AddUintptr(currentRow, uintptr(index))))
 	}
 	return binaryVal[:]
 }
@@ -245,13 +251,13 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 	colCount := len(colTypes)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
-	pHeader := uintptr(block) + RawBlockGetColDataOffset(colCount)
-	var pStart uintptr
+	pHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(colCount))
+	var pStart unsafe.Pointer
 	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
+		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
 			convertF := rawConvertVarDataMap[colTypes[column]]
-			pStart = pHeader + Int32Size*uintptr(blockSize)
+			pStart = pointer.AddUintptr(pHeader, Int32Size*uintptr(blockSize))
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
 					r[row] = make([]driver.Value, colCount)
@@ -260,7 +266,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 			}
 		} else {
 			convertF := rawConvertFuncMap[colTypes[column]]
-			pStart = pHeader + nullBitMapOffset
+			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
 					r[row] = make([]driver.Value, colCount)
@@ -272,7 +278,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 				}
 			}
 		}
-		pHeader = pStart + uintptr(colLength)
+		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
 	}
 	return r
 }
@@ -281,24 +287,24 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 	colCount := len(colTypes)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
-	pHeader := uintptr(block) + RawBlockGetColDataOffset(colCount)
-	var pStart uintptr
+	pHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(colCount))
+	var pStart unsafe.Pointer
 	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
+		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
 			convertF := rawConvertVarDataMap[colTypes[column]]
-			pStart = pHeader + Int32Size*uintptr(blockSize)
+			pStart = pointer.AddUintptr(pHeader, Int32Size*uintptr(blockSize))
 			dest[column] = convertF(pHeader, pStart, row)
 		} else {
 			convertF := rawConvertFuncMap[colTypes[column]]
-			pStart = pHeader + nullBitMapOffset
+			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
 			if ItemIsNull(pHeader, row) {
 				dest[column] = nil
 			} else {
 				dest[column] = convertF(pStart, row, precision)
 			}
 		}
-		pHeader = pStart + uintptr(colLength)
+		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
 	}
 }
 
@@ -307,13 +313,13 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 	colCount := len(colTypes)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
-	pHeader := uintptr(block) + RawBlockGetColDataOffset(colCount)
-	var pStart uintptr
+	pHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(colCount))
+	var pStart unsafe.Pointer
 	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(unsafe.Pointer(uintptr(block) + lengthOffset + uintptr(column)*Int32Size)))
+		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
 			convertF := rawConvertVarDataMap[colTypes[column]]
-			pStart = pHeader + uintptr(4*blockSize)
+			pStart = pointer.AddUintptr(pHeader, uintptr(4*blockSize))
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
 					r[row] = make([]driver.Value, colCount)
@@ -322,7 +328,7 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 			}
 		} else {
 			convertF := rawConvertFuncMap[colTypes[column]]
-			pStart = pHeader + nullBitMapOffset
+			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
 					r[row] = make([]driver.Value, colCount)
@@ -334,52 +340,19 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 				}
 			}
 		}
-		pHeader = pStart + uintptr(colLength)
+		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
 	}
 	return r
 }
 
-func ItemRawBlock(colType uint8, pHeader, pStart uintptr, row int, precision int, timeFormat FormatTimeFunc) driver.Value {
+func ItemRawBlock(colType uint8, pHeader, pStart unsafe.Pointer, row int, precision int, timeFormat FormatTimeFunc) driver.Value {
 	if IsVarDataType(colType) {
-		switch colType {
-		case uint8(common.TSDB_DATA_TYPE_BINARY):
-			return rawConvertBinary(pHeader, pStart, row)
-		case uint8(common.TSDB_DATA_TYPE_NCHAR):
-			return rawConvertNchar(pHeader, pStart, row)
-		case uint8(common.TSDB_DATA_TYPE_JSON):
-			return rawConvertJson(pHeader, pStart, row)
-		}
+		return rawConvertVarDataMap[colType](pHeader, pStart, row)
 	} else {
 		if ItemIsNull(pHeader, row) {
 			return nil
 		} else {
-			switch colType {
-			case uint8(common.TSDB_DATA_TYPE_BOOL):
-				return rawConvertBool(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_TINYINT):
-				return rawConvertTinyint(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_SMALLINT):
-				return rawConvertSmallint(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_INT):
-				return rawConvertInt(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_BIGINT):
-				return rawConvertBigint(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_UTINYINT):
-				return rawConvertUTinyint(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_USMALLINT):
-				return rawConvertUSmallint(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_UINT):
-				return rawConvertUInt(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_UBIGINT):
-				return rawConvertUBigint(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_FLOAT):
-				return rawConvertFloat(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_DOUBLE):
-				return rawConvertDouble(pStart, row)
-			case uint8(common.TSDB_DATA_TYPE_TIMESTAMP):
-				return rawConvertTime(pStart, row, precision, timeFormat)
-			}
+			return rawConvertFuncMap[colType](pStart, row, precision, timeFormat)
 		}
 	}
-	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/common/pointer"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
@@ -107,10 +108,10 @@ func TMQListGetSize(list unsafe.Pointer) int32 {
 
 // TMQListToCArray char      **tmq_list_to_c_array(const tmq_list_t *);
 func TMQListToCArray(list unsafe.Pointer, size int) []string {
-	head := uintptr(unsafe.Pointer(C.tmq_list_to_c_array((*C.tmq_list_t)(list))))
+	head := unsafe.Pointer(C.tmq_list_to_c_array((*C.tmq_list_t)(list)))
 	result := make([]string, size)
 	for i := 0; i < size; i++ {
-		result[i] = C.GoString(*(**C.char)(unsafe.Pointer(head + PointerSize*uintptr(i))))
+		result[i] = C.GoString(*(**C.char)(pointer.AddUintptr(head, PointerSize*uintptr(i))))
 	}
 	return result
 }
