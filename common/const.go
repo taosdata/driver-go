@@ -142,4 +142,7 @@ const (
 
 const ReqIDKey = "taos_req_id"
 
-const TAOS_NOTIFY_PASSVER = 0
+const (
+	TAOS_NOTIFY_PASSVER       = 0
+	TAOS_NOTIFY_WHITELIST_VER = 1
+)

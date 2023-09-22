@@ -327,3 +327,8 @@ func TMQCommitOffsetAsync(consumer unsafe.Pointer, topic string, vGroupID int32,
 	defer C.free(unsafe.Pointer(topicName))
 	C.tmq_commit_offset_async((*C.tmq_t)(consumer), topicName, (C.int32_t)(vGroupID), (C.int64_t)(offset), (*C.tmq_commit_cb)(C.TMQCommitOffsetCB), h.Pointer())
 }
+
+// TMQGetConnect TAOS *tmq_get_connect(tmq_t *tmq)
+func TMQGetConnect(consumer unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Pointer(C.tmq_get_connect((*C.tmq_t)(consumer)))
+}
