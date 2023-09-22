@@ -349,6 +349,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					} else {
 						*(*C.int8_t)(current) = C.int8_t(0)
 					}
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(i))
+					*(*C.int32_t)(l) = C.int32_t(1)
 				}
 			}
 		case taosTypes.TaosTinyintType:
@@ -365,6 +368,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosTinyint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					*(*C.int8_t)(current) = C.int8_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(i))
+					*(*C.int32_t)(l) = C.int32_t(1)
 				}
 			}
 		case taosTypes.TaosSmallintType:
@@ -381,6 +387,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosSmallint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
 					*(*C.int16_t)(current) = C.int16_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(2*i))
+					*(*C.int32_t)(l) = C.int32_t(2)
 				}
 			}
 		case taosTypes.TaosIntType:
@@ -397,6 +406,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosInt)
 					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
 					*(*C.int32_t)(current) = C.int32_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
+					*(*C.int32_t)(l) = C.int32_t(4)
 				}
 			}
 		case taosTypes.TaosBigintType:
@@ -413,6 +425,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosBigint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.int64_t)(current) = C.int64_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
 		case taosTypes.TaosUTinyintType:
@@ -429,6 +444,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosUTinyint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					*(*C.uint8_t)(current) = C.uint8_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(i))
+					*(*C.int32_t)(l) = C.int32_t(1)
 				}
 			}
 		case taosTypes.TaosUSmallintType:
@@ -445,6 +463,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosUSmallint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
 					*(*C.uint16_t)(current) = C.uint16_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(2*i))
+					*(*C.int32_t)(l) = C.int32_t(2)
 				}
 			}
 		case taosTypes.TaosUIntType:
@@ -461,6 +482,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosUInt)
 					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
 					*(*C.uint32_t)(current) = C.uint32_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
+					*(*C.int32_t)(l) = C.int32_t(4)
 				}
 			}
 		case taosTypes.TaosUBigintType:
@@ -477,6 +501,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosUBigint)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.uint64_t)(current) = C.uint64_t(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
 		case taosTypes.TaosFloatType:
@@ -493,6 +520,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosFloat)
 					current := unsafe.Pointer(uintptr(p) + uintptr(4*i))
 					*(*C.float)(current) = C.float(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
+					*(*C.int32_t)(l) = C.int32_t(4)
 				}
 			}
 		case taosTypes.TaosDoubleType:
@@ -509,6 +539,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					value := rowData.(taosTypes.TaosDouble)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.double)(current) = C.double(value)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
 		case taosTypes.TaosBinaryType:
@@ -580,6 +613,9 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					ts := common.TimeToTimestamp(value.T, value.Precision)
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.int64_t)(current) = C.int64_t(ts)
+
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
 		}
