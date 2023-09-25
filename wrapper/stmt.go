@@ -350,7 +350,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 						*(*C.int8_t)(current) = C.int8_t(0)
 					}
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(1)
 				}
 			}
@@ -369,7 +369,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					*(*C.int8_t)(current) = C.int8_t(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(1)
 				}
 			}
@@ -388,7 +388,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
 					*(*C.int16_t)(current) = C.int16_t(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(2*i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(2)
 				}
 			}
@@ -426,7 +426,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.int64_t)(current) = C.int64_t(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
@@ -445,7 +445,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(i))
 					*(*C.uint8_t)(current) = C.uint8_t(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(1)
 				}
 			}
@@ -464,7 +464,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(2*i))
 					*(*C.uint16_t)(current) = C.uint16_t(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(2*i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(2)
 				}
 			}
@@ -502,7 +502,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.uint64_t)(current) = C.uint64_t(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
@@ -540,7 +540,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.double)(current) = C.double(value)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
@@ -614,7 +614,7 @@ func TaosStmtBindParamBatch(stmt unsafe.Pointer, multiBind [][]driver.Value, bin
 					current := unsafe.Pointer(uintptr(p) + uintptr(8*i))
 					*(*C.int64_t)(current) = C.int64_t(ts)
 
-					l := unsafe.Pointer(uintptr(lengthList) + uintptr(8*i))
+					l := unsafe.Pointer(uintptr(lengthList) + uintptr(4*i))
 					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
