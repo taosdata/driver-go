@@ -552,3 +552,13 @@ func TestTaosGetTablesVgID(t *testing.T) {
 	assert.Equal(t, 2, len(vgs2))
 	assert.Equal(t, vgs2, vgs1)
 }
+
+func TestTaosSetConnMode(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer TaosClose(conn)
+	code := TaosSetConnMode(conn, 0, 1)
+	if code != 0 {
+		t.Errorf("TaosSetConnMode() error code= %d, msg: %s", code, TaosErrorStr(nil))
+	}
+}
