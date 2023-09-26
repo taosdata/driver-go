@@ -256,3 +256,13 @@ func TaosGetTablesVgID(conn unsafe.Pointer, db string, tables []string) (vgIDs [
 	}
 	return
 }
+
+//typedef enum {
+//TAOS_CONN_MODE_BI = 0,
+//} TAOS_CONN_MODE;
+//
+//DLL_EXPORT int taos_set_conn_mode(TAOS* taos, int mode, int value);
+
+func TaosSetConnMode(conn unsafe.Pointer, mode int, value int) int {
+	return int(C.taos_set_conn_mode(conn, C.int(mode), C.int(value)))
+}
