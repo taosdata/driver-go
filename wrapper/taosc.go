@@ -266,3 +266,24 @@ func TaosGetTablesVgID(conn unsafe.Pointer, db string, tables []string) (vgIDs [
 func TaosSetConnMode(conn unsafe.Pointer, mode int, value int) int {
 	return int(C.taos_set_conn_mode(conn, C.int(mode), C.int(value)))
 }
+
+// TaosGetCurrentDB DLL_EXPORT int taos_get_current_db(TAOS *taos, char *database, int len, int *required)
+func TaosGetCurrentDB(conn unsafe.Pointer) (db string, err error) {
+	cDb := C.CString(db)
+	defer C.free(unsafe.Pointer(cDb))
+	var required int
+
+	code := C.taos_get_current_db(conn, cDb, C.int(193), (*C.int)(unsafe.Pointer(&required)))
+	if code != 0 {
+		err = errors.NewError(int(code), TaosErrorStr(nil))
+	}
+	db = C.GoString(cDb)
+
+	return
+}
+
+// TaosGetServerInfo DLL_EXPORT const char *taos_get_server_info(TAOS *taos)
+func TaosGetServerInfo(conn unsafe.Pointer) string {
+	info := C.taos_get_server_info(conn)
+	return C.GoString(info)
+}

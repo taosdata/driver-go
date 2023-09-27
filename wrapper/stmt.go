@@ -15,6 +15,7 @@ import (
 
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/stmt"
+	taosError "github.com/taosdata/driver-go/v3/errors"
 	taosTypes "github.com/taosdata/driver-go/v3/types"
 )
 
@@ -708,4 +709,16 @@ func StmtParseFields(num int, fields unsafe.Pointer) []*stmt.StmtField {
 // TaosStmtReclaimFields DLL_EXPORT void       taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields);
 func TaosStmtReclaimFields(stmt unsafe.Pointer, fields unsafe.Pointer) {
 	C.taos_stmt_reclaim_fields(stmt, (*C.TAOS_FIELD_E)(fields))
+}
+
+// TaosStmtGetParam  DLL_EXPORT int taos_stmt_get_param(TAOS_STMT *stmt, int idx, int *type, int *bytes)
+func TaosStmtGetParam(stmt unsafe.Pointer, idx int) (dataType int, dataLength int, err error) {
+	code := C.taos_stmt_get_param(stmt, C.int(idx), (*C.int)(unsafe.Pointer(&dataType)), (*C.int)(unsafe.Pointer(&dataLength)))
+	if code != 0 {
+		err = &taosError.TaosError{
+			Code:   int32(code),
+			ErrStr: TaosStmtErrStr(stmt),
+		}
+	}
+	return
 }
