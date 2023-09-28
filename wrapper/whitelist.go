@@ -21,8 +21,6 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
 
-const TAOS_NOTIFY_WHITELIST_VER = 1
-
 // typedef void (*__taos_async_whitelist_fn_t)(void *param, int code, TAOS *taos, int numOfWhiteLists, uint64_t* pWhiteLists);
 
 // TaosFetchWhitelistA DLL_EXPORT void taos_fetch_whitelist_a(TAOS *taos, __taos_async_whitelist_fn_t fp, void *param);
