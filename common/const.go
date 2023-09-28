@@ -148,4 +148,9 @@ const ReqIDKey = "taos_req_id"
 const (
 	TAOS_NOTIFY_PASSVER       = 0
 	TAOS_NOTIFY_WHITELIST_VER = 1
+	TAOS_NOTIFY_USER_DROPPED  = 2
+)
+
+const (
+	TAOS_CONN_MODE_BI = 0
 )
