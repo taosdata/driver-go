@@ -67,7 +67,7 @@ jobs:
         if: >
           (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
           (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
-        run: sudo apt install -y libgeos-dev libapr1 libapr1-dev libaprutil1-dev libcurl4-openssl-dev
+        run: sudo apt install -y libgeos-dev
 
       - name: install TDengine
         if: >
