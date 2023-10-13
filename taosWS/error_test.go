@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:26
+// @description: test bad conn error
 func TestBadConnError(t *testing.T) {
 	nothingErr := errors.New("error")
 	err := NewBadConnError(nothingErr)

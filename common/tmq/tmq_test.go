@@ -41,6 +41,9 @@ const dropJson = `{
   "tableNameList":["t1", "t2"]
 }`
 
+// @author: xftan
+// @date: 2023/10/13 11:19
+// @description: test json
 func TestCreateJson(t *testing.T) {
 	var obj Meta
 	err := json.Unmarshal([]byte(createJson), &obj)
@@ -51,6 +54,9 @@ func TestCreateJson(t *testing.T) {
 	t.Log(obj)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:19
+// @description: test drop json
 func TestDropJson(t *testing.T) {
 	var obj Meta
 	err := json.Unmarshal([]byte(dropJson), &obj)

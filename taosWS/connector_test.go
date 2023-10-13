@@ -11,6 +11,9 @@ import (
 	"github.com/taosdata/driver-go/v3/types"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:22
+// @description: test all type query
 func TestAllTypeQuery(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	db, err := sql.Open("taosWS", dataSourceName)
@@ -141,6 +144,9 @@ func TestAllTypeQuery(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:22
+// @description: test null value
 func TestAllTypeQueryNull(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	db, err := sql.Open("taosWS", dataSourceName)
@@ -257,6 +263,9 @@ func TestAllTypeQueryNull(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:24
+// @description: test compression
 func TestAllTypeQueryCompression(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	db, err := sql.Open("taosWS", dataSourceNameWithCompression)
@@ -386,6 +395,9 @@ func TestAllTypeQueryCompression(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:24
+// @description: test all type query without json
 func TestAllTypeQueryWithoutJson(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	db, err := sql.Open("taosWS", dataSourceName)
@@ -512,6 +524,9 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:24
+// @description: test all type query with null without json
 func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	db, err := sql.Open("taosWS", dataSourceName)
@@ -624,6 +639,9 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:24
+// @description: test query
 func TestBatch(t *testing.T) {
 	now := time.Now()
 	tests := []struct {

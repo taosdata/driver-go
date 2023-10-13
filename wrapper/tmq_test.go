@@ -15,6 +15,9 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:32
+// @description: test tmq
 func TestTMQ(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -245,6 +248,9 @@ func TestTMQ(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test TMQList
 func TestTMQList(t *testing.T) {
 	list := TMQListNew()
 	TMQListAppend(list, "1")
@@ -256,6 +262,9 @@ func TestTMQList(t *testing.T) {
 	TMQListDestroy(list)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test tmq subscribe db
 func TestTMQDB(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -472,6 +481,9 @@ func TestTMQDB(t *testing.T) {
 	assert.GreaterOrEqual(t, totalCount, 5)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test tmq subscribe multi tables
 func TestTMQDBMultiTable(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -707,6 +719,9 @@ func TestTMQDBMultiTable(t *testing.T) {
 	assert.Emptyf(t, tables, "tables name not empty", tables)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test tmq subscribe db with multi table insert
 func TestTMQDBMultiInsert(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -913,6 +928,9 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	t.Log(tables)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:34
+// @description: tmq test modify meta
 func TestTMQModify(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -1193,6 +1211,9 @@ func TestTMQModify(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:34
+// @description: test tmq subscribe with auto create table
 func TestTMQAutoCreateTable(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -1385,6 +1406,9 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	assert.GreaterOrEqual(t, totalCount, 1)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:35
+// @description: test tmq get assignment
 func TestTMQGetTopicAssignment(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

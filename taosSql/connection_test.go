@@ -8,6 +8,9 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:21
+// @description: test taos connection exec context
 func TestTaosConn_ExecContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), common.ReqIDKey, common.GetReqID())
 	db, err := sql.Open("taosSql", dataSourceName)

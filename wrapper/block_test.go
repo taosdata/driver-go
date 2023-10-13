@@ -12,6 +12,9 @@ import (
 	"github.com/taosdata/driver-go/v3/errors"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:27
+// @description: test read block
 func TestReadBlock(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -178,6 +181,9 @@ func TestReadBlock(t *testing.T) {
 	assert.Equal(t, []byte(`{"a":1}`), row3[14].([]byte))
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:27
+// @description: test write raw block
 func TestTaosWriteRawBlock(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -364,6 +370,9 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:28
+// @description: test write raw block with fields
 func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

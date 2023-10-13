@@ -2,6 +2,9 @@ package errors
 
 import "testing"
 
+// @author: xftan
+// @date: 2023/10/13 11:20
+// @description: test new error
 func TestNewError(t *testing.T) {
 	type args struct {
 		code   int

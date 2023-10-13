@@ -13,6 +13,9 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:11
+// @description: test tmq
 func TestTmq(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -123,6 +126,9 @@ func TestTmq(t *testing.T) {
 	assert.True(t, haveMessage)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:11
+// @description: test seek
 func TestSeek(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

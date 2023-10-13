@@ -24,10 +24,16 @@ func BenchmarkGetReqIDParallel(b *testing.B) {
 	})
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:20
+// @description: test get req id
 func TestGetReqID(t *testing.T) {
 	t.Log(GetReqID())
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:20
+// @description: test MurmurHash
 func TestMurmurHash(t *testing.T) {
 	if murmurHash32([]byte("driver-go"), 0) != 3037880692 {
 		t.Fatal("fail")

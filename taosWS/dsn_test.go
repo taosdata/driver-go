@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:26
+// @description: test parse dsn
 func TestParseDsn(t *testing.T) {
 	tests := []struct {
 		dsn  string

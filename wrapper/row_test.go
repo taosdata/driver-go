@@ -482,6 +482,9 @@ func TestFetchRowNchar(t *testing.T) {
 	assert.Empty(t, names)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:28
+// @description: test fetch row all type
 func TestFetchRowAllType(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
