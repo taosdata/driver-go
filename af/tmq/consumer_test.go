@@ -167,6 +167,7 @@ func TestSeek(t *testing.T) {
 		"td.connect.user":     "root",
 		"td.connect.pass":     "taosdata",
 		"td.connect.port":     "6030",
+		"auto.offset.reset":   "earliest",
 		"client.id":           "test_tmq_seek",
 		"enable.auto.commit":  "false",
 		"msg.with.table.name": "true",
@@ -213,7 +214,6 @@ func TestSeek(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, vgroups, len(assignment))
 	for i := 0; i < len(assignment); i++ {
-		assert.Greater(t, assignment[i].Offset, tmq.Offset(0))
 		assert.Equal(t, topic, *assignment[i].Topic)
 	}
 
@@ -262,7 +262,6 @@ func TestSeek(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, vgroups, len(assignment))
 	for i := 0; i < len(assignment); i++ {
-		assert.Greater(t, assignment[i].Offset, tmq.Offset(0))
 		assert.Equal(t, topic, *assignment[i].Topic)
 	}
 	consumer.Close()

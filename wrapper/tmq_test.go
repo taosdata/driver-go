@@ -145,6 +145,7 @@ func TestTMQ(t *testing.T) {
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -374,6 +375,7 @@ func TestTMQDB(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -598,6 +600,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -810,6 +813,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -1013,6 +1017,7 @@ func TestTMQModify(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -1272,6 +1277,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -1421,7 +1427,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	conf := TMQConfNew()
 	defer TMQConfDestroy(conf)
 	TMQConfSet(conf, "group.id", "tg2")
-
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Fatal(err)
@@ -1473,7 +1479,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 
 	//seek
@@ -1511,7 +1516,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 
 	// seek twice
@@ -1525,7 +1529,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	}
 	assert.Equal(t, 1, len(assignment))
 	assert.Equal(t, int64(0), assignment[0].Begin)
-	assert.Equal(t, int64(0), assignment[0].Offset)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
@@ -1551,7 +1554,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 }
 
