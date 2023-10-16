@@ -13,6 +13,7 @@ import (
 )
 
 // Ensure that all the driver interfaces are implemented
+
 func TestMain(m *testing.M) {
 	m.Run()
 	db, err := sql.Open(driverName, dataSourceName)
@@ -112,6 +113,9 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows,
 	return
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:25
+// @description: test empty query
 func TestEmptyQuery(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// just a comment, no query
@@ -123,6 +127,9 @@ func TestEmptyQuery(t *testing.T) {
 	})
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:25
+// @description: test error query
 func TestErrorQuery(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		// just a comment, no query
@@ -191,6 +198,9 @@ var (
 	}
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:25
+// @description: test select and query
 func TestAny(t *testing.T) {
 	runTests(t, func(dbt *DBTest) {
 		now := time.Now()
@@ -215,6 +225,9 @@ func TestAny(t *testing.T) {
 	})
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:26
+// @description: test chinese
 func TestChinese(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -223,33 +236,33 @@ func TestChinese(t *testing.T) {
 	}
 	defer db.Close()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_chinese")
+		_, err = db.Exec("drop database if exists test_chinese_ws")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_chinese")
+	_, err = db.Exec("create database if not exists test_chinese_ws")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_chinese.chinese")
+	_, err = db.Exec("drop table if exists test_chinese_ws.chinese")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,v nchar(32))")
+	_, err = db.Exec("create table if not exists test_chinese_ws.chinese(ts timestamp,v nchar(32))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	_, err = db.Exec(`INSERT INTO test_chinese_ws.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	rows, err := db.Query("select * from test_chinese.chinese")
+	rows, err := db.Query("select * from test_chinese_ws.chinese")
 	if err != nil {
 		t.Error(err)
 		return

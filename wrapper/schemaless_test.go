@@ -204,6 +204,9 @@ func TestSchemalessInfluxDB(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:28
+// @description: test schemaless insert with opentsdb telnet line protocol
 func TestSchemalessRawTelnet(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -243,6 +246,9 @@ func TestSchemalessRawTelnet(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:29
+// @description: test schemaless insert with opentsdb telnet line protocol
 func TestSchemalessRawInfluxDB(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -313,6 +319,9 @@ func TestSchemalessRawInfluxDB(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:29
+// @description: test schemaless insert raw with reqid
 func TestTaosSchemalessInsertRawWithReqID(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -378,6 +387,9 @@ func TestTaosSchemalessInsertRawWithReqID(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:29
+// @description: test schemaless insert with reqid
 func TestTaosSchemalessInsertWithReqID(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -436,6 +448,9 @@ func TestTaosSchemalessInsertWithReqID(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:29
+// @description: test schemaless insert with ttl
 func TestTaosSchemalessInsertTTL(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -488,6 +503,9 @@ func TestTaosSchemalessInsertTTL(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:30
+// @description: test schemaless insert with ttl and reqid
 func TestTaosSchemalessInsertTTLWithReqID(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -545,6 +563,9 @@ func TestTaosSchemalessInsertTTLWithReqID(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:30
+// @description: test schemaless insert raw with ttl
 func TestTaosSchemalessInsertRawTTL(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)
@@ -596,6 +617,9 @@ func TestTaosSchemalessInsertRawTTL(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:30
+// @description: test schemaless insert raw with ttl and reqid
 func TestTaosSchemalessInsertRawTTLWithReqID(t *testing.T) {
 	conn := prepareEnv()
 	defer wrapper.TaosClose(conn)

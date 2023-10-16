@@ -13,6 +13,9 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:13
+// @description: test block
 func TestReadBlock(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -169,6 +172,9 @@ func TestReadBlock(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:13
+// @description: test block tag
 func TestBlockTag(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -292,6 +298,9 @@ func TestBlockTag(t *testing.T) {
 	t.Log(len(data[0][1].(string)))
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:18
+// @description: test read row
 func TestReadRow(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -427,6 +436,9 @@ func TestReadRow(t *testing.T) {
 	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:18
+// @description: test read block with time format
 func TestReadBlockWithTimeFormat(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -560,6 +572,9 @@ func TestReadBlockWithTimeFormat(t *testing.T) {
 	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:18
+// @description: test parse block
 func TestParseBlock(t *testing.T) {
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

@@ -147,6 +147,9 @@ func query(payload string) (*common.TDEngineRestfulResp, error) {
 	return marshalBody(resp.Body, 512)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:35
+// @description: test stmt over websocket
 func TestStmt(t *testing.T) {
 	err := prepareEnv()
 	if err != nil {

@@ -424,6 +424,9 @@ func TestStmtExec(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:30
+// @description: test stmt query
 func TestStmtQuery(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -686,6 +689,9 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 	return data, nil
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:30
+// @description: test get field
 func TestGetFields(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -806,6 +812,9 @@ func TestGetFields(t *testing.T) {
 	}, tags)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:30
+// @description: test get fields with common table
 func TestGetFieldsCommonTable(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -893,6 +902,9 @@ func exec(conn unsafe.Pointer, sql string) error {
 	return nil
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:31
+// @description: test stmt set tags
 func TestTaosStmtSetTags(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

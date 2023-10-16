@@ -245,33 +245,33 @@ func TestChinese(t *testing.T) {
 	}
 	defer db.Close()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_chinese")
+		_, err = db.Exec("drop database if exists test_chinese_rest")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_chinese")
+	_, err = db.Exec("create database if not exists test_chinese_rest")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_chinese.chinese")
+	_, err = db.Exec("drop table if exists test_chinese_rest.chinese")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_chinese.chinese(ts timestamp,v nchar(32))")
+	_, err = db.Exec("create table if not exists test_chinese_rest.chinese(ts timestamp,v nchar(32))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`INSERT INTO test_chinese.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	_, err = db.Exec(`INSERT INTO test_chinese_rest.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	rows, err := db.Query("select * from test_chinese.chinese")
+	rows, err := db.Query("select * from test_chinese_rest.chinese")
 	if err != nil {
 		t.Error(err)
 		return
