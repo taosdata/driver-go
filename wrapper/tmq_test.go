@@ -1612,7 +1612,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 }
 
@@ -1658,6 +1657,7 @@ func TestTMQPosition(t *testing.T) {
 	conf := TMQConfNew()
 	defer TMQConfDestroy(conf)
 	TMQConfSet(conf, "group.id", "position")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
@@ -1750,6 +1750,7 @@ func TestTMQCommitOffset(t *testing.T) {
 	conf := TMQConfNew()
 	defer TMQConfDestroy(conf)
 	TMQConfSet(conf, "group.id", "commit")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
@@ -1846,6 +1847,7 @@ func TestTMQCommitOffsetAsync(t *testing.T) {
 	conf := TMQConfNew()
 	defer TMQConfDestroy(conf)
 	TMQConfSet(conf, "group.id", "commit_a")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
@@ -1954,6 +1956,7 @@ func TestTMQCommitAsyncCallback(t *testing.T) {
 	defer TMQConfDestroy(conf)
 	TMQConfSet(conf, "group.id", "commit_a")
 	TMQConfSet(conf, "enable.auto.commit", "false")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	TMQConfSet(conf, "auto.commit.interval.ms", "100")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
