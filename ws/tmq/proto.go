@@ -145,3 +145,54 @@ type OffsetSeekResp struct {
 	ReqID   uint64 `json:"req_id"`
 	Timing  int64  `json:"timing"`
 }
+
+type CommittedReq struct {
+	ReqID          uint64          `json:"req_id"`
+	TopicVgroupIDs []TopicVgroupID `json:"topic_vgroup_ids"`
+}
+
+type CommittedResp struct {
+	Code      int     `json:"code"`
+	Message   string  `json:"message"`
+	Action    string  `json:"action"`
+	ReqID     uint64  `json:"req_id"`
+	Timing    int64   `json:"timing"`
+	Committed []int64 `json:"committed"`
+}
+
+type TopicVgroupID struct {
+	Topic    string `json:"topic"`
+	VgroupID int32  `json:"vgroup_id"`
+}
+
+type CommitOffsetReq struct {
+	ReqID    uint64 `json:"req_id"`
+	Topic    string `json:"topic"`
+	VgroupID int32  `json:"vgroup_id"`
+	Offset   int64  `json:"offset"`
+}
+
+type CommitOffsetResp struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	Action   string `json:"action"`
+	ReqID    uint64 `json:"req_id"`
+	Timing   int64  `json:"timing"`
+	Topic    string `json:"topic"`
+	VgroupID int32  `json:"vgroup_id"`
+	Offset   int64  `json:"offset"`
+}
+
+type PositionReq struct {
+	ReqID          uint64          `json:"req_id"`
+	TopicVgroupIDs []TopicVgroupID `json:"topic_vgroup_ids"`
+}
+
+type PositionResp struct {
+	Code     int     `json:"code"`
+	Message  string  `json:"message"`
+	Action   string  `json:"action"`
+	ReqID    uint64  `json:"req_id"`
+	Timing   int64   `json:"timing"`
+	Position []int64 `json:"position"`
+}

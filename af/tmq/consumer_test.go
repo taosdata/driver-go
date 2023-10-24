@@ -23,6 +23,7 @@ func TestTmq(t *testing.T) {
 		return
 	}
 	sqls := []string{
+		"drop topic if exists test_tmq_common",
 		"drop database if exists af_test_tmq",
 		"create database if not exists af_test_tmq vgroups 2  WAL_RETENTION_PERIOD 86400",
 		"use af_test_tmq",
@@ -43,8 +44,8 @@ func TestTmq(t *testing.T) {
 			") tags(t1 int)",
 		"create table if not exists ct0 using all_type tags(1000)",
 		"create table if not exists ct1 using all_type tags(2000)",
-		"create table if not exists ct3 using all_type tags(3000)",
-		"create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13 from ct1",
+		"create table if not exists ct2 using all_type tags(3000)",
+		"create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13 from all_type",
 	}
 
 	defer func() {
@@ -59,20 +60,24 @@ func TestTmq(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	now := time.Now()
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2')", now.Format(time.RFC3339Nano)))
+	assert.NoError(t, err)
 	err = execWithoutResult(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2')", now.Format(time.RFC3339Nano)))
+	assert.NoError(t, err)
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct2 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"group.id":                     "test",
-		"auto.offset.reset":            "earliest",
-		"td.connect.ip":                "127.0.0.1",
-		"td.connect.user":              "root",
-		"td.connect.pass":              "taosdata",
-		"td.connect.port":              "6030",
-		"client.id":                    "test_tmq_c",
-		"enable.auto.commit":           "false",
-		"experimental.snapshot.enable": "true",
-		"msg.with.table.name":          "true",
+		"group.id":           "test",
+		"auto.offset.reset":  "earliest",
+		"td.connect.ip":      "127.0.0.1",
+		"td.connect.user":    "root",
+		"td.connect.pass":    "taosdata",
+		"td.connect.port":    "6030",
+		"client.id":          "test_tmq_c",
+		"enable.auto.commit": "false",
+		//"experimental.snapshot.enable": "true",
+		"msg.with.table.name": "true",
 	})
 	if err != nil {
 		t.Error(err)
@@ -83,6 +88,10 @@ func TestTmq(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	ass, err := consumer.Assignment()
+	t.Log(ass)
+	position, _ := consumer.Position(ass)
+	t.Log(position)
 	haveMessage := false
 	for i := 0; i < 5; i++ {
 		ev := consumer.Poll(500)
@@ -108,8 +117,23 @@ func TestTmq(t *testing.T) {
 			assert.Equal(t, float64(11), row1[11].(float64))
 			assert.Equal(t, "1", row1[12].(string))
 			assert.Equal(t, "2", row1[13].(string))
-			_, err = consumer.Commit()
+			t.Log(e.Offset())
+			ass, err := consumer.Assignment()
+			t.Log(ass)
+			committed, err := consumer.Committed(ass, 0)
+			t.Log(committed)
+			position, _ := consumer.Position(ass)
+			t.Log(position)
+			offsets, err := consumer.Position([]tmq.TopicPartition{e.TopicPartition})
 			assert.NoError(t, err)
+			_, err = consumer.CommitOffsets(offsets)
+			assert.NoError(t, err)
+			ass, err = consumer.Assignment()
+			t.Log(ass)
+			committed, err = consumer.Committed(ass, 0)
+			t.Log(committed)
+			position, _ = consumer.Position(ass)
+			t.Log(position)
 			err = consumer.Unsubscribe()
 			assert.NoError(t, err)
 			err = consumer.Close()
@@ -208,9 +232,10 @@ func TestSeek(t *testing.T) {
 			for _, datum := range data {
 				dataCount += len(datum.Data)
 			}
+			time.Sleep(time.Second * 2)
+			_, err = consumer.Commit()
+			assert.NoError(t, err)
 		}
-		_, err = consumer.Commit()
-		assert.NoError(t, err)
 	}
 	assert.Equal(t, record, dataCount)
 

@@ -139,6 +139,16 @@ func TestStmt(t *testing.T) {
 			expectValue: "yes",
 		}, //3
 		{
+			tbType: "ts timestamp, v varbinary(8)",
+			pos:    "?, ?",
+			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosVarBinary("yes")}},
+			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
+				Type:   taosTypes.TaosVarBinaryType,
+				MaxLen: 3,
+			}},
+			expectValue: "yes",
+		}, //3
+		{
 			tbType: "ts timestamp, v nchar(8)",
 			pos:    "?, ?",
 			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosNchar("yes")}},
@@ -334,6 +344,12 @@ func TestStmtExec(t *testing.T) {
 			tbType:      "ts timestamp, v binary(8)",
 			pos:         "?, ?",
 			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosBinary("yes")},
+			expectValue: "yes",
+		}, //3
+		{
+			tbType:      "ts timestamp, v varbinary(8)",
+			pos:         "?, ?",
+			params:      []driver.Value{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}, taosTypes.TaosVarBinary("yes")},
 			expectValue: "yes",
 		}, //3
 		{
@@ -1140,4 +1156,47 @@ func TestTaosStmtSetTags(t *testing.T) {
 	assert.Equal(t, now.UTC().UnixNano()/1e3, data[0][1].(time.Time).UTC().UnixNano()/1e3)
 	assert.Equal(t, int32(102), data[0][2].(int32))
 	assert.Equal(t, []byte(`{"a":"b"}`), data[0][3].([]byte))
+}
+
+func TestTaosStmtGetParam(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer TaosClose(conn)
+
+	err = exec(conn, "drop database if exists test_stmt_get_param")
+	assert.NoError(t, err)
+	err = exec(conn, "create database if not exists test_stmt_get_param")
+	assert.NoError(t, err)
+	defer exec(conn, "drop database if exists test_stmt_get_param")
+
+	err = exec(conn,
+		"create table if not exists test_stmt_get_param.stb(ts TIMESTAMP,current float,voltage int,phase float) TAGS (groupid int,location varchar(24))")
+	assert.NoError(t, err)
+
+	stmt := TaosStmtInit(conn)
+	assert.NotNilf(t, stmt, "failed to init stmt")
+	defer TaosStmtClose(stmt)
+
+	code := TaosStmtPrepare(stmt, "insert into test_stmt_get_param.tb_0 using test_stmt_get_param.stb tags(?,?) values (?,?,?,?)")
+	assert.Equal(t, 0, code, TaosStmtErrStr(stmt))
+
+	dt, dl, err := TaosStmtGetParam(stmt, 0) // ts
+	assert.NoError(t, err)
+	assert.Equal(t, 9, dt)
+	assert.Equal(t, 8, dl)
+
+	dt, dl, err = TaosStmtGetParam(stmt, 1) // current
+	assert.NoError(t, err)
+	assert.Equal(t, 6, dt)
+	assert.Equal(t, 4, dl)
+
+	dt, dl, err = TaosStmtGetParam(stmt, 2) // voltage
+	assert.NoError(t, err)
+	assert.Equal(t, 4, dt)
+	assert.Equal(t, 4, dl)
+
+	dt, dl, err = TaosStmtGetParam(stmt, 3) // phase
+	assert.NoError(t, err)
+	assert.Equal(t, 6, dt)
+	assert.Equal(t, 4, dl)
 }
