@@ -86,6 +86,9 @@ func doRequest(payload string) error {
 	return nil
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:36
+// @description: test tmq subscribe over websocket
 func TestConsumer(t *testing.T) {
 	err := prepareEnv()
 	if err != nil {
@@ -252,6 +255,9 @@ func cleanSeekEnv() error {
 	return nil
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:36
+// @description: test tmq seek over websocket
 func TestSeek(t *testing.T) {
 	err := prepareSeekEnv()
 	if err != nil {

@@ -23,6 +23,10 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 }
+
+// @author: xftan
+// @date: 2023/10/13 11:41
+// @description: test af create database
 func testDatabase(t *testing.T) *Connector {
 	db, err := Open("", "", "", "", 0)
 	if err != nil {
@@ -779,6 +783,9 @@ func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:12
+// @description: test opentsdb json
 func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
@@ -797,6 +804,9 @@ func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:12
+// @description: test stmt execute with reqID
 func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
@@ -822,6 +832,9 @@ func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:12
+// @description: test stmt execute with reqID
 func TestConnector_InsertStmtWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
@@ -856,6 +869,9 @@ func TestConnector_InsertStmtWithReqID(t *testing.T) {
 
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:13
+// @description: test execute with reqID
 func TestConnector_ExecWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()
@@ -874,6 +890,9 @@ func TestConnector_ExecWithReqID(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:13
+// @description: test query with reqID
 func TestConnector_QueryWithReqID(t *testing.T) {
 	db := testDatabase(t)
 	defer db.Close()

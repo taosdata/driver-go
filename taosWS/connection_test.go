@@ -6,6 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:22
+// @description: test format bytes
 func Test_formatBytes(t *testing.T) {
 	type args struct {
 		bs []byte

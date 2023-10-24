@@ -11,6 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:22
+// @description: test stmt exec
 func TestStmtExec(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -185,6 +188,9 @@ func TestStmtExec(t *testing.T) {
 //	assert.Equal(t, 1, count)
 //}
 
+// @author: xftan
+// @date: 2023/10/13 11:22
+// @description: test stmt convert
 func TestStmtConvertExec(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {

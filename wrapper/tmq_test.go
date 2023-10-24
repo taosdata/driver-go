@@ -15,6 +15,9 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:32
+// @description: test tmq
 func TestTMQ(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -145,6 +148,7 @@ func TestTMQ(t *testing.T) {
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -244,6 +248,9 @@ func TestTMQ(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test TMQList
 func TestTMQList(t *testing.T) {
 	list := TMQListNew()
 	TMQListAppend(list, "1")
@@ -255,6 +262,9 @@ func TestTMQList(t *testing.T) {
 	TMQListDestroy(list)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test tmq subscribe db
 func TestTMQDB(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -374,6 +384,7 @@ func TestTMQDB(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -470,6 +481,9 @@ func TestTMQDB(t *testing.T) {
 	assert.GreaterOrEqual(t, totalCount, 5)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test tmq subscribe multi tables
 func TestTMQDBMultiTable(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -598,6 +612,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -704,6 +719,9 @@ func TestTMQDBMultiTable(t *testing.T) {
 	assert.Emptyf(t, tables, "tables name not empty", tables)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:33
+// @description: test tmq subscribe db with multi table insert
 func TestTMQDBMultiInsert(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -810,6 +828,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -909,6 +928,9 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	t.Log(tables)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:34
+// @description: tmq test modify meta
 func TestTMQModify(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -1013,6 +1035,7 @@ func TestTMQModify(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -1222,6 +1245,9 @@ func TestTMQModify(t *testing.T) {
 	}
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:34
+// @description: test tmq subscribe with auto create table
 func TestTMQAutoCreateTable(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -1306,6 +1332,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	TMQConfSet(conf, "enable.auto.commit", "true")
 	TMQConfSet(conf, "group.id", "tg2")
 	TMQConfSet(conf, "msg.with.table.name", "true")
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	c := make(chan *TMQCommitCallbackResult, 1)
 	h := cgo.NewHandle(c)
 	TMQConfSetAutoCommitCB(conf, h)
@@ -1413,6 +1440,9 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	assert.GreaterOrEqual(t, totalCount, 1)
 }
 
+// @author: xftan
+// @date: 2023/10/13 11:35
+// @description: test tmq get assignment
 func TestTMQGetTopicAssignment(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
@@ -1455,7 +1485,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	conf := TMQConfNew()
 	defer TMQConfDestroy(conf)
 	TMQConfSet(conf, "group.id", "tg2")
-
+	TMQConfSet(conf, "auto.offset.reset", "earliest")
 	tmq, err := TMQConsumerNew(conf)
 	if err != nil {
 		t.Fatal(err)
@@ -1507,7 +1537,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	//assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 
 	//seek
@@ -1545,7 +1574,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	//assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 
 	// seek twice
@@ -1559,7 +1587,6 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	}
 	assert.Equal(t, 1, len(assignment))
 	assert.Equal(t, int64(0), assignment[0].Begin)
-	//assert.Equal(t, int64(0), assignment[0].Offset)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
@@ -1585,7 +1612,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	assert.Equal(t, int64(0), assignment[0].Begin)
 	assert.GreaterOrEqual(t, assignment[0].End, end)
 	end = assignment[0].End
-	//assert.Equal(t, assignment[0].End, assignment[0].Offset)
+	assert.Equal(t, assignment[0].End, assignment[0].Offset)
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 }
 
