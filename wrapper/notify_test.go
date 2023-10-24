@@ -11,6 +11,9 @@ import (
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:28
+// @description: test notify callback
 func TestNotify(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {

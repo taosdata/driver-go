@@ -13,6 +13,9 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:35
+// @description: test websocket schemaless insert
 func TestSchemaless_Insert(t *testing.T) {
 	cases := []struct {
 		name      string

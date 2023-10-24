@@ -9,6 +9,9 @@ import (
 	"github.com/taosdata/driver-go/v3/common/param"
 )
 
+// @author: xftan
+// @date: 2023/10/13 11:19
+// @description: test block
 func TestSerializeRawBlock(t *testing.T) {
 	type args struct {
 		params  []*param.Param
