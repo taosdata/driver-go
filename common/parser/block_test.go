@@ -627,7 +627,9 @@ func TestParseBlock(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20)"+
+		"c13 nchar(20),"+
+		"c14 varbinary(20),"+
+		"c15 geometry(100)"+
 		") tags (info json)")
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -639,7 +641,9 @@ func TestParseBlock(t *testing.T) {
 	wrapper.TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into parse_block.t0 using parse_block.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into parse_block.t0 using parse_block.all_type tags('{\"a\":1}') "+
+		"values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','POINT(100 100)')"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = wrapper.TaosQuery(conn, sql)
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -682,11 +686,11 @@ func TestParseBlock(t *testing.T) {
 		version := RawBlockGetVersion(block)
 		assert.Equal(t, int32(1), version)
 		length := RawBlockGetLength(block)
-		assert.Equal(t, int32(374), length)
+		assert.Equal(t, int32(447), length)
 		rows := RawBlockGetNumOfRows(block)
 		assert.Equal(t, int32(2), rows)
 		columns := RawBlockGetNumOfCols(block)
-		assert.Equal(t, int32(15), columns)
+		assert.Equal(t, int32(17), columns)
 		hasColumnSegment := RawBlockGetHasColumnSegment(block)
 		assert.Equal(t, int32(-2147483648), hasColumnSegment)
 		groupId := RawBlockGetGroupID(block)
@@ -753,6 +757,14 @@ func TestParseBlock(t *testing.T) {
 					Bytes:   82,
 				},
 				{
+					ColType: 16,
+					Bytes:   22,
+				},
+				{
+					ColType: 20,
+					Bytes:   102,
+				},
+				{
 					ColType: 15,
 					Bytes:   16384,
 				},
@@ -779,7 +791,9 @@ func TestParseBlock(t *testing.T) {
 	assert.Equal(t, float64(1), row1[11].(float64))
 	assert.Equal(t, "test_binary", row1[12].(string))
 	assert.Equal(t, "test_nchar", row1[13].(string))
-	assert.Equal(t, []byte(`{"a":1}`), row1[14].([]byte))
+	assert.Equal(t, []byte("test_varbinary"), row1[14].([]byte))
+	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row1[16].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
 	for i := 1; i < 14; i++ {

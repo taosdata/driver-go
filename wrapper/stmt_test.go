@@ -146,7 +146,17 @@ func TestStmt(t *testing.T) {
 				Type:   taosTypes.TaosVarBinaryType,
 				MaxLen: 3,
 			}},
-			expectValue: "yes",
+			expectValue: []byte("yes"),
+		}, //3
+		{
+			tbType: "ts timestamp, v geometry(100)",
+			pos:    "?, ?",
+			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosGeometry{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}}},
+			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
+				Type:   taosTypes.TaosGeometryType,
+				MaxLen: 3,
+			}},
+			expectValue: []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 		}, //3
 		{
 			tbType: "ts timestamp, v nchar(8)",
@@ -231,10 +241,11 @@ func TestStmt(t *testing.T) {
 				t.Errorf("expect %d got %d", 1, len(result))
 				return
 			}
-			if result[0][0] != tc.expectValue {
-				t.Errorf("expect %v got %v", tc.expectValue, result[0][0])
-				return
-			}
+			assert.Equal(t, tc.expectValue, result[0][0])
+			//if result[0][0] != tc.expectValue {
+			//	t.Errorf("expect %v got %v", tc.expectValue, result[0][0])
+			//	return
+			//}
 		})
 	}
 
