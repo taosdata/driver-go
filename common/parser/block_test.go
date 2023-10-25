@@ -796,8 +796,8 @@ func TestParseBlock(t *testing.T) {
 	assert.Equal(t, []byte(`{"a":1}`), row1[16].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 14; i++ {
+	for i := 1; i < 16; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[16].([]byte))
 }
