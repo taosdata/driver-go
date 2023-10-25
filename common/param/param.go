@@ -142,6 +142,13 @@ func (p *Param) SetJson(offset int, value []byte) {
 	p.value[offset] = taosTypes.TaosJson(value)
 }
 
+func (p *Param) SetGeometry(offset int, value []byte) {
+	if offset >= p.size {
+		return
+	}
+	p.value[offset] = taosTypes.TaosGeometry(value)
+}
+
 func (p *Param) AddBool(value bool) *Param {
 	if p.offset >= p.size {
 		return p
@@ -294,6 +301,15 @@ func (p *Param) AddJson(value []byte) *Param {
 		return p
 	}
 	p.value[p.offset] = taosTypes.TaosJson(value)
+	p.offset += 1
+	return p
+}
+
+func (p *Param) AddGeometry(value []byte) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = taosTypes.TaosGeometry(value)
 	p.offset += 1
 	return p
 }

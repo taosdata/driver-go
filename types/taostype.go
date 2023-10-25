@@ -24,7 +24,8 @@ type (
 		T         time.Time
 		Precision int
 	}
-	TaosJson []byte
+	TaosJson     []byte
+	TaosGeometry []byte
 )
 
 var (
@@ -44,6 +45,7 @@ var (
 	TaosNcharType     = reflect.TypeOf(TaosNchar(""))
 	TaosTimestampType = reflect.TypeOf(TaosTimestamp{})
 	TaosJsonType      = reflect.TypeOf(TaosJson(""))
+	TaosGeometryType  = reflect.TypeOf(TaosGeometry(nil))
 )
 
 type ColumnType struct {

@@ -51,7 +51,7 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 		return *((*float32)(p))
 	case C.TSDB_DATA_TYPE_DOUBLE:
 		return *((*float64)(p))
-	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR, C.TSDB_DATA_TYPE_VARBINARY:
+	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
 			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
@@ -65,7 +65,7 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 		} else {
 			panic("convertTime error")
 		}
-	case C.TSDB_DATA_TYPE_JSON:
+	case C.TSDB_DATA_TYPE_JSON, C.TSDB_DATA_TYPE_VARBINARY, C.TSDB_DATA_TYPE_GEOMETRY:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
 			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
