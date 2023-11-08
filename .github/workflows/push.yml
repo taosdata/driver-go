@@ -5,6 +5,7 @@ on:
     branches:
       - 'main'
       - '3.0'
+      - '3.1'
 
 env:
   SCCACHE_GHA_ENABLED: "true"
