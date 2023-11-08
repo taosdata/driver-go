@@ -2,7 +2,6 @@ package taosSql
 
 import (
 	"database/sql/driver"
-	errors2 "errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -25,7 +24,6 @@ type Stmt struct {
 	pSql     string
 	isInsert bool
 	cols     []*stmtCommon.StmtField
-	//tags     []*wrapper.StmtField
 }
 
 func (stmt *Stmt) Close() error {
@@ -47,7 +45,7 @@ func (stmt *Stmt) NumInput() int {
 
 func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	if stmt.tc == nil || stmt.tc.taos == nil {
-		return nil, errors.ErrTscInvalidConnection
+		return nil, driver.ErrBadConn
 	}
 	if len(args) != len(stmt.cols) {
 		return nil, fmt.Errorf("stmt exec error: wrong number of parameters")
@@ -74,42 +72,42 @@ func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	return nil, errors2.New("unsupported")
-	//if stmt.tc == nil || stmt.tc.taos == nil {
-	//	return nil, errors.ErrTscInvalidConnection
-	//}
-	//locker.Lock()
-	//defer locker.Unlock()
-	//code := wrapper.TaosStmtBindParam(stmt.stmt, args)
-	//if code != 0 {
-	//	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-	//	return nil, errors.NewError(code, errStr)
-	//}
-	//code = wrapper.TaosStmtAddBatch(stmt.stmt)
-	//if code != 0 {
-	//	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-	//	return nil, errors.NewError(code, errStr)
-	//}
-	//code = wrapper.TaosStmtExecute(stmt.stmt)
-	//if code != 0 {
-	//	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-	//	return nil, errors.NewError(code, errStr)
-	//}
-	//res := wrapper.TaosStmtUseResult(stmt.stmt)
-	//handler := asyncHandlerPool.Get()
-	//numFields := wrapper.TaosNumFields(res)
-	//rowsHeader, err := wrapper.ReadColumn(res, numFields)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//precision := wrapper.TaosResultPrecision(res)
-	//rs := &rows{
-	//	handler:    handler,
-	//	rowsHeader: rowsHeader,
-	//	result:     res,
-	//	precision:  precision,
-	//}
-	//return rs, nil
+	if stmt.tc == nil || stmt.tc.taos == nil {
+		return nil, driver.ErrBadConn
+	}
+	locker.Lock()
+	defer locker.Unlock()
+	code := wrapper.TaosStmtBindParam(stmt.stmt, args)
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+		return nil, errors.NewError(code, errStr)
+	}
+	code = wrapper.TaosStmtAddBatch(stmt.stmt)
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+		return nil, errors.NewError(code, errStr)
+	}
+	code = wrapper.TaosStmtExecute(stmt.stmt)
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+		return nil, errors.NewError(code, errStr)
+	}
+	res := wrapper.TaosStmtUseResult(stmt.stmt)
+	handler := asyncHandlerPool.Get()
+	numFields := wrapper.TaosNumFields(res)
+	rowsHeader, err := wrapper.ReadColumn(res, numFields)
+	if err != nil {
+		return nil, err
+	}
+	precision := wrapper.TaosResultPrecision(res)
+	rs := &rows{
+		handler:    handler,
+		rowsHeader: rowsHeader,
+		result:     res,
+		precision:  precision,
+		isStmt:     true,
+	}
+	return rs, nil
 }
 
 func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
@@ -482,7 +480,6 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 				v.Value = types.TaosBinary(rv.Bytes())
 			} else {
 				return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
-
 			}
 		default:
 			return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)

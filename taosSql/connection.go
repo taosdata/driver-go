@@ -3,7 +3,6 @@ package taosSql
 import (
 	"context"
 	"database/sql/driver"
-	errors2 "errors"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -49,6 +48,7 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	}
 	locker.Lock()
 	isInsert, code := wrapper.TaosStmtIsInsert(stmtP)
+	locker.Unlock()
 	if code != 0 {
 		errStr := wrapper.TaosStmtErrStr(stmtP)
 		err := errors.NewError(code, errStr)
@@ -57,13 +57,6 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 		locker.Unlock()
 		return nil, err
 	}
-	if !isInsert {
-		locker.Lock()
-		wrapper.TaosStmtClose(stmtP)
-		locker.Unlock()
-		return nil, errors2.New("only supports insert statements")
-	}
-	locker.Unlock()
 	stmt := &Stmt{
 		tc:       tc,
 		pSql:     query,
