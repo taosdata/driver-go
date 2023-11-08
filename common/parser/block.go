@@ -200,12 +200,12 @@ func rawConvertBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 		return nil
 	}
 	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
-	clen := *((*int16)(currentRow))
+	clen := *((*uint16)(currentRow))
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
 	binaryVal := make([]byte, clen)
 
-	for index := int16(0); index < clen; index++ {
+	for index := uint16(0); index < clen; index++ {
 		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
 	}
 	return string(binaryVal[:])
@@ -217,12 +217,12 @@ func rawConvertNchar(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 		return nil
 	}
 	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
-	clen := *((*int16)(currentRow)) / 4
+	clen := *((*uint16)(currentRow)) / 4
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
 
 	binaryVal := make([]rune, clen)
 
-	for index := int16(0); index < clen; index++ {
+	for index := uint16(0); index < clen; index++ {
 		binaryVal[index] = *((*rune)(unsafe.Pointer(uintptr(currentRow) + uintptr(index*4))))
 	}
 	return string(binaryVal)
@@ -234,12 +234,12 @@ func rawConvertJson(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 		return nil
 	}
 	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
-	clen := *((*int16)(currentRow))
+	clen := *((*uint16)(currentRow))
 	currentRow = pointer.AddUintptr(currentRow, 2)
 
 	binaryVal := make([]byte, clen)
 
-	for index := int16(0); index < clen; index++ {
+	for index := uint16(0); index < clen; index++ {
 		binaryVal[index] = *((*byte)(pointer.AddUintptr(currentRow, uintptr(index))))
 	}
 	return binaryVal[:]
