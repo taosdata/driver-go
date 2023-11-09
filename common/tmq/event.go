@@ -65,10 +65,11 @@ type Message interface {
 }
 
 type DataMessage struct {
-	dbName string
-	topic  string
-	data   []*Data
-	offset Offset
+	TopicPartition TopicPartition
+	dbName         string
+	topic          string
+	data           []*Data
+	offset         Offset
 }
 
 func (m *DataMessage) String() string {
@@ -109,10 +110,11 @@ func (m *DataMessage) Offset() Offset {
 }
 
 type MetaMessage struct {
-	dbName string
-	topic  string
-	offset Offset
-	meta   *Meta
+	TopicPartition TopicPartition
+	dbName         string
+	topic          string
+	offset         Offset
+	meta           *Meta
 }
 
 func (m *MetaMessage) Offset() Offset {
@@ -153,10 +155,11 @@ func (m *MetaMessage) Value() interface{} {
 }
 
 type MetaDataMessage struct {
-	dbName   string
-	topic    string
-	offset   Offset
-	metaData *MetaData
+	TopicPartition TopicPartition
+	dbName         string
+	topic          string
+	offset         Offset
+	metaData       *MetaData
 }
 
 func (m *MetaDataMessage) Offset() Offset {

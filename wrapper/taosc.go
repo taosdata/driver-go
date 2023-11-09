@@ -33,6 +33,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/common/pointer"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
@@ -251,7 +252,38 @@ func TaosGetTablesVgID(conn unsafe.Pointer, db string, tables []string) (vgIDs [
 	}
 	vgIDs = make([]int, numTables)
 	for i := 0; i < numTables; i++ {
-		vgIDs[i] = int(*(*C.int)(unsafe.Pointer(uintptr(p) + uintptr(C.sizeof_int*C.int(i)))))
+		vgIDs[i] = int(*(*C.int)(pointer.AddUintptr(p, uintptr(C.sizeof_int*C.int(i)))))
 	}
 	return
+}
+
+//typedef enum {
+//TAOS_CONN_MODE_BI = 0,
+//} TAOS_CONN_MODE;
+//
+//DLL_EXPORT int taos_set_conn_mode(TAOS* taos, int mode, int value);
+
+func TaosSetConnMode(conn unsafe.Pointer, mode int, value int) int {
+	return int(C.taos_set_conn_mode(conn, C.int(mode), C.int(value)))
+}
+
+// TaosGetCurrentDB DLL_EXPORT int taos_get_current_db(TAOS *taos, char *database, int len, int *required)
+func TaosGetCurrentDB(conn unsafe.Pointer) (db string, err error) {
+	cDb := C.CString(db)
+	defer C.free(unsafe.Pointer(cDb))
+	var required int
+
+	code := C.taos_get_current_db(conn, cDb, C.int(193), (*C.int)(unsafe.Pointer(&required)))
+	if code != 0 {
+		err = errors.NewError(int(code), TaosErrorStr(nil))
+	}
+	db = C.GoString(cDb)
+
+	return
+}
+
+// TaosGetServerInfo DLL_EXPORT const char *taos_get_server_info(TAOS *taos)
+func TaosGetServerInfo(conn unsafe.Pointer) string {
+	info := C.taos_get_server_info(conn)
+	return C.GoString(info)
 }

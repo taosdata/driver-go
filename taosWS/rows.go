@@ -10,6 +10,7 @@ import (
 
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
+	"github.com/taosdata/driver-go/v3/common/pointer"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -151,7 +152,7 @@ func (rs *rows) fetchBlock() error {
 		return err
 	}
 	rs.block = respBytes
-	rs.blockPtr = unsafe.Pointer(*(*uintptr)(unsafe.Pointer(&rs.block)) + uintptr(16))
+	rs.blockPtr = pointer.AddUintptr(unsafe.Pointer(&rs.block[0]), 16)
 	rs.blockOffset = 0
 	return nil
 }

@@ -25,3 +25,25 @@ func TMQCommitCB(consumer unsafe.Pointer, resp C.int32_t, param unsafe.Pointer) 
 	}()
 	c <- r
 }
+
+//export TMQAutoCommitCB
+func TMQAutoCommitCB(consumer unsafe.Pointer, resp C.int32_t, param unsafe.Pointer) {
+	c := (*(*cgo.Handle)(param)).Value().(chan *TMQCommitCallbackResult)
+	r := GetTMQCommitCallbackResult(int32(resp), consumer)
+	defer func() {
+		// Avoid panic due to channel closed
+		recover()
+	}()
+	c <- r
+}
+
+//export TMQCommitOffsetCB
+func TMQCommitOffsetCB(consumer unsafe.Pointer, resp C.int32_t, param unsafe.Pointer) {
+	c := (*(*cgo.Handle)(param)).Value().(chan *TMQCommitCallbackResult)
+	r := GetTMQCommitCallbackResult(int32(resp), consumer)
+	defer func() {
+		// Avoid panic due to channel closed
+		recover()
+	}()
+	c <- r
+}

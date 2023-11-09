@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/google/uuid"
+	"github.com/taosdata/driver-go/v3/common/pointer"
 )
 
 var tUUIDHashId int64
@@ -36,10 +37,9 @@ func murmurHash32(data []byte, seed uint32) uint32 {
 	h1 := seed
 
 	nBlocks := len(data) / 4
-	p := uintptr(unsafe.Pointer(&data[0]))
-	p1 := p + uintptr(4*nBlocks)
-	for ; p < p1; p += 4 {
-		k1 := *(*uint32)(unsafe.Pointer(p))
+	p := unsafe.Pointer(&data[0])
+	for i := 0; i < nBlocks; i++ {
+		k1 := *(*uint32)(pointer.AddUintptr(p, uintptr(i*4)))
 
 		k1 *= c1
 		k1 = bits.RotateLeft32(k1, 15)

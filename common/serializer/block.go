@@ -366,6 +366,62 @@ func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte
 			}
 			lengthData = appendUint32(lengthData, uint32(length))
 			data = append(data, dataTmp...)
+		case taosTypes.TaosVarBinaryType:
+			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_VARBINARY)
+			colInfoData = appendUint32(colInfoData, uint32(0))
+			length := 0
+			dataTmp := make([]byte, Int32Size*rows)
+			rowData := params[colIndex].GetValues()
+			for rowIndex := 0; rowIndex < rows; rowIndex++ {
+				offset := Int32Size * rowIndex
+				if rowData[rowIndex] == nil {
+					for i := 0; i < Int32Size; i++ {
+						// -1
+						dataTmp[offset+i] = byte(255)
+					}
+				} else {
+					v, is := rowData[rowIndex].(taosTypes.TaosVarBinary)
+					if !is {
+						return nil, DataTypeWrong
+					}
+					for i := 0; i < Int32Size; i++ {
+						dataTmp[offset+i] = byte(length >> (8 * i))
+					}
+					dataTmp = appendUint16(dataTmp, uint16(len(v)))
+					dataTmp = append(dataTmp, v...)
+					length += len(v) + Int16Size
+				}
+			}
+			lengthData = appendUint32(lengthData, uint32(length))
+			data = append(data, dataTmp...)
+		case taosTypes.TaosGeometryType:
+			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_GEOMETRY)
+			colInfoData = appendUint32(colInfoData, uint32(0))
+			length := 0
+			dataTmp := make([]byte, Int32Size*rows)
+			rowData := params[colIndex].GetValues()
+			for rowIndex := 0; rowIndex < rows; rowIndex++ {
+				offset := Int32Size * rowIndex
+				if rowData[rowIndex] == nil {
+					for i := 0; i < Int32Size; i++ {
+						// -1
+						dataTmp[offset+i] = byte(255)
+					}
+				} else {
+					v, is := rowData[rowIndex].(taosTypes.TaosGeometry)
+					if !is {
+						return nil, DataTypeWrong
+					}
+					for i := 0; i < Int32Size; i++ {
+						dataTmp[offset+i] = byte(length >> (8 * i))
+					}
+					dataTmp = appendUint16(dataTmp, uint16(len(v)))
+					dataTmp = append(dataTmp, v...)
+					length += len(v) + Int16Size
+				}
+			}
+			lengthData = appendUint32(lengthData, uint32(length))
+			data = append(data, dataTmp...)
 		case taosTypes.TaosNcharType:
 			colInfoData = append(colInfoData, common.TSDB_DATA_TYPE_NCHAR)
 			colInfoData = appendUint32(colInfoData, uint32(0))

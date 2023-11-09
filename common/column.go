@@ -20,6 +20,7 @@ var (
 	NullTime    = reflect.TypeOf(types.NullTime{})
 	NullBool    = reflect.TypeOf(types.NullBool{})
 	NullString  = reflect.TypeOf(types.NullString{})
+	Bytes       = reflect.TypeOf([]byte{})
 	NullJson    = reflect.TypeOf(types.NullJson{})
 	UnknownType = reflect.TypeOf(new(interface{})).Elem()
 )
@@ -40,4 +41,6 @@ var ColumnTypeMap = map[int]reflect.Type{
 	TSDB_DATA_TYPE_NCHAR:     NullString,
 	TSDB_DATA_TYPE_TIMESTAMP: NullTime,
 	TSDB_DATA_TYPE_JSON:      NullJson,
+	TSDB_DATA_TYPE_VARBINARY: Bytes,
+	TSDB_DATA_TYPE_GEOMETRY:  Bytes,
 }
