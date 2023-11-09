@@ -22,6 +22,7 @@ type rows struct {
 	lengthList  []int
 	result      unsafe.Pointer
 	precision   int
+	isStmt      bool
 }
 
 func (rs *rows) Columns() []string {
@@ -41,7 +42,16 @@ func (rs *rows) ColumnTypeScanType(i int) reflect.Type {
 }
 
 func (rs *rows) Close() error {
-	rs.freeResult()
+	if rs.handler != nil {
+		asyncHandlerPool.Put(rs.handler)
+		rs.handler = nil
+	}
+	if !rs.isStmt && rs.result != nil {
+		locker.Lock()
+		wrapper.TaosFreeResult(rs.result)
+		locker.Unlock()
+	}
+	rs.result = nil
 	rs.block = nil
 	return nil
 }
@@ -82,6 +92,8 @@ func (rs *rows) Next(dest []driver.Value) error {
 }
 
 func (rs *rows) taosFetchBlock() error {
+	//rs.blockSize, rs.block = wrapper.TaosFetchBlock(rs.result)
+	//return nil
 	result := rs.asyncFetchRows()
 	if result.N == 0 {
 		rs.blockSize = 0
@@ -106,17 +118,4 @@ func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 	locker.Unlock()
 	r := <-rs.handler.Caller.FetchResult
 	return r
-}
-
-func (rs *rows) freeResult() {
-	if rs.handler != nil {
-		asyncHandlerPool.Put(rs.handler)
-		rs.handler = nil
-	}
-	if rs.result != nil {
-		locker.Lock()
-		wrapper.TaosFreeResult(rs.result)
-		locker.Unlock()
-		rs.result = nil
-	}
 }
