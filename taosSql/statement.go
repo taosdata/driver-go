@@ -305,6 +305,26 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			default:
 				return fmt.Errorf("CheckNamedValue:%v can not convert to binary", v)
 			}
+		case common.TSDB_DATA_TYPE_VARBINARY:
+			switch v.Value.(type) {
+			case string:
+				v.Value = types.TaosVarBinary(v.Value.(string))
+			case []byte:
+				v.Value = types.TaosVarBinary(v.Value.([]byte))
+			default:
+				return fmt.Errorf("CheckNamedValue:%v can not convert to varbinary", v)
+			}
+
+		case common.TSDB_DATA_TYPE_GEOMETRY:
+			switch v.Value.(type) {
+			case string:
+				v.Value = types.TaosGeometry(v.Value.(string))
+			case []byte:
+				v.Value = types.TaosGeometry(v.Value.([]byte))
+			default:
+				return fmt.Errorf("CheckNamedValue:%v can not convert to geometry", v)
+			}
+
 		case common.TSDB_DATA_TYPE_TIMESTAMP:
 			t, is := v.Value.(time.Time)
 			if is {

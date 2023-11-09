@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/pointer"
 )
 
 const (
@@ -18,7 +19,8 @@ const (
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
 func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...interface{}) driver.Value {
-	p := unsafe.Pointer(*(*uintptr)(unsafe.Pointer(uintptr(row) + uintptr(offset)*PointerSize)))
+	base := *(**C.void)(pointer.AddUintptr(row, uintptr(offset)*PointerSize))
+	p := unsafe.Pointer(base)
 	if p == nil {
 		return nil
 	}
@@ -52,7 +54,7 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 	case C.TSDB_DATA_TYPE_BINARY, C.TSDB_DATA_TYPE_NCHAR:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
-			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
 		}
 		return string(data)
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
@@ -63,10 +65,10 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 		} else {
 			panic("convertTime error")
 		}
-	case C.TSDB_DATA_TYPE_JSON:
+	case C.TSDB_DATA_TYPE_JSON, C.TSDB_DATA_TYPE_VARBINARY, C.TSDB_DATA_TYPE_GEOMETRY:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
-			data[i] = *((*byte)(unsafe.Pointer(uintptr(p) + uintptr(i))))
+			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
 		}
 		return data
 	default:

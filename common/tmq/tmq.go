@@ -42,8 +42,20 @@ type CreateItem struct {
 
 type Offset int64
 
+const OffsetInvalid = Offset(-2147467247)
+
 func (o Offset) String() string {
+	if o == OffsetInvalid {
+		return "unset"
+	}
 	return fmt.Sprintf("%d", int64(o))
+}
+
+func (o Offset) Valid() bool {
+	if o < 0 && o != OffsetInvalid {
+		return false
+	}
+	return true
 }
 
 type TopicPartition struct {

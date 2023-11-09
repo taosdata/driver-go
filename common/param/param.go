@@ -111,6 +111,13 @@ func (p *Param) SetBinary(offset int, value []byte) {
 	p.value[offset] = taosTypes.TaosBinary(value)
 }
 
+func (p *Param) SetVarBinary(offset int, value []byte) {
+	if offset >= p.size {
+		return
+	}
+	p.value[offset] = taosTypes.TaosVarBinary(value)
+}
+
 func (p *Param) SetNchar(offset int, value string) {
 	if offset >= p.size {
 		return
@@ -133,6 +140,13 @@ func (p *Param) SetJson(offset int, value []byte) {
 		return
 	}
 	p.value[offset] = taosTypes.TaosJson(value)
+}
+
+func (p *Param) SetGeometry(offset int, value []byte) {
+	if offset >= p.size {
+		return
+	}
+	p.value[offset] = taosTypes.TaosGeometry(value)
 }
 
 func (p *Param) AddBool(value bool) *Param {
@@ -252,6 +266,15 @@ func (p *Param) AddBinary(value []byte) *Param {
 	return p
 }
 
+func (p *Param) AddVarBinary(value []byte) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = taosTypes.TaosVarBinary(value)
+	p.offset += 1
+	return p
+}
+
 func (p *Param) AddNchar(value string) *Param {
 	if p.offset >= p.size {
 		return p
@@ -278,6 +301,15 @@ func (p *Param) AddJson(value []byte) *Param {
 		return p
 	}
 	p.value[p.offset] = taosTypes.TaosJson(value)
+	p.offset += 1
+	return p
+}
+
+func (p *Param) AddGeometry(value []byte) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = taosTypes.TaosGeometry(value)
 	p.offset += 1
 	return p
 }

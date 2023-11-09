@@ -52,4 +52,25 @@ func TestNotify(t *testing.T) {
 	case <-timeout.Done():
 		t.Error("wait for notify callback timeout")
 	}
+	{
+		notify := make(chan struct{}, 1)
+		handler := cgo.NewHandle(notify)
+		errCode := TaosSetNotifyCB(conn2, handler, common.TAOS_NOTIFY_USER_DROPPED)
+		if errCode != 0 {
+			errStr := TaosErrorStr(nil)
+			t.Error(errCode, errStr)
+		}
+		err = exec(conn, "drop USER t_notify")
+		assert.NoError(t, err)
+		timeout, cancel = context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		now := time.Now()
+		select {
+		case _ = <-notify:
+			fmt.Println(time.Now().Sub(now))
+			t.Log("user dropped")
+		case <-timeout.Done():
+			t.Error("wait for notify callback timeout")
+		}
+	}
 }
