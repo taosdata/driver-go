@@ -81,7 +81,11 @@ func RawBlockGetColDataOffset(colCount int) uintptr {
 type FormatTimeFunc func(ts int64, precision int) driver.Value
 
 func IsVarDataType(colType uint8) bool {
-	return colType == common.TSDB_DATA_TYPE_BINARY || colType == common.TSDB_DATA_TYPE_NCHAR || colType == common.TSDB_DATA_TYPE_JSON || colType == common.TSDB_DATA_TYPE_VARBINARY
+	return colType == common.TSDB_DATA_TYPE_BINARY ||
+		colType == common.TSDB_DATA_TYPE_NCHAR ||
+		colType == common.TSDB_DATA_TYPE_JSON ||
+		colType == common.TSDB_DATA_TYPE_VARBINARY ||
+		colType == common.TSDB_DATA_TYPE_GEOMETRY
 }
 
 func BitmapLen(n int) int {
@@ -124,6 +128,7 @@ var rawConvertVarDataMap = map[uint8]rawConvertVarDataFunc{
 	uint8(common.TSDB_DATA_TYPE_NCHAR):     rawConvertNchar,
 	uint8(common.TSDB_DATA_TYPE_JSON):      rawConvertJson,
 	uint8(common.TSDB_DATA_TYPE_VARBINARY): rawConvertVarBinary,
+	uint8(common.TSDB_DATA_TYPE_GEOMETRY):  rawConvertGeometry,
 }
 
 func ItemIsNull(pHeader unsafe.Pointer, row int) bool {
@@ -191,7 +196,24 @@ func rawConvertTime(pStart unsafe.Pointer, row int, arg ...interface{}) driver.V
 }
 
 func rawConvertVarBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
-	return rawConvertBinary(pHeader, pStart, row)
+	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
+	if offset == -1 {
+		return nil
+	}
+	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
+	clen := *((*uint16)(currentRow))
+	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+
+	binaryVal := make([]byte, clen)
+
+	for index := uint16(0); index < clen; index++ {
+		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
+	}
+	return binaryVal[:]
+}
+
+func rawConvertGeometry(pHeader, pStart unsafe.Pointer, row int) driver.Value {
+	return rawConvertVarBinary(pHeader, pStart, row)
 }
 
 func rawConvertBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {

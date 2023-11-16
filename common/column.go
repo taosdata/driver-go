@@ -42,4 +42,5 @@ var ColumnTypeMap = map[int]reflect.Type{
 	TSDB_DATA_TYPE_TIMESTAMP: NullTime,
 	TSDB_DATA_TYPE_JSON:      NullJson,
 	TSDB_DATA_TYPE_VARBINARY: Bytes,
+	TSDB_DATA_TYPE_GEOMETRY:  Bytes,
 }

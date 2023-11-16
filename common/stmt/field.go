@@ -49,6 +49,8 @@ func (s *StmtField) GetType() (*types.ColumnType, error) {
 		return &types.ColumnType{Type: types.TaosTimestampType}, nil
 	case common.TSDB_DATA_TYPE_JSON:
 		return &types.ColumnType{Type: types.TaosJsonType}, nil
+	case common.TSDB_DATA_TYPE_GEOMETRY:
+		return &types.ColumnType{Type: types.TaosGeometryType}, nil
 	}
 	return nil, fmt.Errorf("unsupported type: %d, name %s", s.FieldType, s.Name)
 }
