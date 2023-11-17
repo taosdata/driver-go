@@ -33,3 +33,17 @@ func TaosWriteRawBlockWithFields(conn unsafe.Pointer, numOfRows int, pData unsaf
 	defer C.free(unsafe.Pointer(cStr))
 	return int(C.taos_write_raw_block_with_fields(conn, (C.int)(numOfRows), (*C.char)(pData), cStr, (*C.struct_taosField)(fields), (C.int)(numFields)))
 }
+
+// DLL_EXPORT int taos_write_raw_block_with_reqid(TAOS *taos, int numOfRows, char *pData, const char *tbname, int64_t reqid);
+func TaosWriteRawBlockWithReqID(conn unsafe.Pointer, numOfRows int, pData unsafe.Pointer, tableName string, reqID int64) int {
+	cStr := C.CString(tableName)
+	defer C.free(unsafe.Pointer(cStr))
+	return int(C.taos_write_raw_block_with_reqid(conn, (C.int)(numOfRows), (*C.char)(pData), cStr, (C.int64_t)(reqID)))
+}
+
+// DLL_EXPORT int taos_write_raw_block_with_fields_with_reqid(TAOS *taos, int rows, char *pData, const char *tbname,TAOS_FIELD *fields, int numFields, int64_t reqid);
+func TaosWriteRawBlockWithFieldsWithReqID(conn unsafe.Pointer, numOfRows int, pData unsafe.Pointer, tableName string, fields unsafe.Pointer, numFields int, reqID int64) int {
+	cStr := C.CString(tableName)
+	defer C.free(unsafe.Pointer(cStr))
+	return int(C.taos_write_raw_block_with_fields_with_reqid(conn, (C.int)(numOfRows), (*C.char)(pData), cStr, (*C.struct_taosField)(fields), (C.int)(numFields), (C.int64_t)(reqID)))
+}
