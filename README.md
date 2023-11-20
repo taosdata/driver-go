@@ -12,6 +12,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 
 | **driver-go version** | **TDengine version** | **major features**                     |
 |-----------------------|----------------------|----------------------------------------|
+| v3.5.1                | 3.2.1.0+ / 3.1.1.13+ | native stmt query and geometry support |
 | v3.5.0                | 3.0.5.0+             | tmq: get assignment and seek offset    |
 | v3.3.1                | 3.0.4.1+             | schemaless insert over websocket       |
 | v3.1.0                | 3.0.2.2+             | provide tmq apis close to kafka        |
