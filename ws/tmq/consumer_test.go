@@ -350,3 +350,104 @@ func TestSeek(t *testing.T) {
 	assert.Equal(t, "test_ws_tmq_seek_topic", *partitions[0].Topic)
 	assert.GreaterOrEqual(t, partitions[0].Offset, messageOffset)
 }
+
+func prepareAutocommitEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_autocommit_topic",
+		"drop database if exists test_ws_tmq_autocommit",
+		"create database test_ws_tmq_autocommit vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_autocommit_topic as database test_ws_tmq_autocommit",
+		"create table test_ws_tmq_autocommit.t1(ts timestamp,v int)",
+		"insert into test_ws_tmq_autocommit.t1 values (now,1)",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanAutocommitEnv() error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_ws_tmq_autocommit_topic",
+		"drop database if exists test_ws_tmq_autocommit",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestAutoCommit(t *testing.T) {
+	err := prepareAutocommitEnv()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer cleanAutocommitEnv()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                       "ws://127.0.0.1:6041/rest/tmq",
+		"ws.message.channelLen":        uint(0),
+		"ws.message.timeout":           common.DefaultMessageTimeout,
+		"ws.message.writeWait":         common.DefaultWriteWait,
+		"td.connect.user":              "root",
+		"td.connect.pass":              "taosdata",
+		"group.id":                     "test",
+		"client.id":                    "test_consumer",
+		"auto.offset.reset":            "earliest",
+		"enable.auto.commit":           "true",
+		"auto.commit.interval.ms":      "1000",
+		"experimental.snapshot.enable": "false",
+		"msg.with.table.name":          "true",
+	})
+	assert.NoError(t, err)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		consumer.Unsubscribe()
+		consumer.Close()
+	}()
+	topic := []string{"test_ws_tmq_autocommit_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	partitions, err := consumer.Assignment()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(partitions))
+	assert.Equal(t, "test_ws_tmq_autocommit_topic", *partitions[0].Topic)
+	assert.Equal(t, tmq.Offset(0), partitions[0].Offset)
+
+	offset, err := consumer.Committed(partitions, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(offset))
+	assert.Equal(t, tmq.OffsetInvalid, offset[0].Offset)
+
+	//poll
+	messageOffset := tmq.Offset(0)
+	haveMessage := false
+	for i := 0; i < 5; i++ {
+		event := consumer.Poll(500)
+		if event != nil {
+			haveMessage = true
+			messageOffset = event.(*tmq.DataMessage).Offset()
+		}
+	}
+	assert.True(t, haveMessage)
+
+	offset, err = consumer.Committed(partitions, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(offset))
+	assert.GreaterOrEqual(t, offset[0].Offset, messageOffset)
+}
