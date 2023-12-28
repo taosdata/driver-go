@@ -10,14 +10,15 @@ const (
 )
 
 type Config struct {
-	url          string
-	chanLength   uint
-	user         string
-	password     string
-	db           string
-	readTimeout  time.Duration
-	writeTimeout time.Duration
-	errorHandler func(error)
+	url               string
+	chanLength        uint
+	user              string
+	password          string
+	db                string
+	readTimeout       time.Duration
+	writeTimeout      time.Duration
+	errorHandler      func(error)
+	enableCompression bool
 }
 
 func NewConfig(url string, chanLength uint, opts ...func(*Config)) *Config {
@@ -62,5 +63,11 @@ func SetWriteTimeout(writeTimeout time.Duration) func(*Config) {
 func SetErrorHandler(errorHandler func(error)) func(*Config) {
 	return func(c *Config) {
 		c.errorHandler = errorHandler
+	}
+}
+
+func SetEnableCompression(enableCompression bool) func(*Config) {
+	return func(c *Config) {
+		c.enableCompression = enableCompression
 	}
 }

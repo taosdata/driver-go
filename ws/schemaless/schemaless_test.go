@@ -68,6 +68,7 @@ func TestSchemaless_Insert(t *testing.T) {
 		SetWriteTimeout(10*time.Second),
 		SetUser("root"),
 		SetPassword("taosdata"),
+		SetEnableCompression(true),
 		SetErrorHandler(func(err error) {
 			t.Fatal(err)
 		}),

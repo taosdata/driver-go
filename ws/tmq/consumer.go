@@ -77,10 +77,13 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		autoCommitInterval = time.Millisecond * time.Duration(interval)
 	}
 
-	ws, _, err := common.DefaultDialer.Dial(config.Url, nil)
+	dialer := common.DefaultDialer
+	dialer.EnableCompression = config.EnableCompression
+	ws, _, err := dialer.Dial(config.Url, nil)
 	if err != nil {
 		return nil, err
 	}
+	ws.EnableWriteCompression(config.EnableCompression)
 	wsClient := client.NewClient(ws, config.ChanLength)
 
 	consumer := &Consumer{
@@ -168,6 +171,10 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	enableCompression, err := m.Get("ws.message.enableCompression", false)
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -210,6 +217,10 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 		return nil, err
 	}
 	err = config.setWithTableName(withTableName)
+	if err != nil {
+		return nil, err
+	}
+	err = config.setEnableCompression(enableCompression)
 	if err != nil {
 		return nil, err
 	}

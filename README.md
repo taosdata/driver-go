@@ -485,6 +485,7 @@ Parameters:
 
 - `writeTimeout` The timeout to send data via websocket.
 - `readTimeout` The timeout to receive response data via websocket.
+- `enableCompression` Whether to compress the transmitted data, the default is `false` and no compressed data is sent.
 
 ## Using tmq over websocket
 
