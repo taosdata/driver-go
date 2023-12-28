@@ -25,6 +25,15 @@ func TestParseDsn(t *testing.T) {
 		{dsn: "user:passwd@wss(:0)/?interpolateParams=false&test=1", want: &config{user: "user", passwd: "passwd", net: "wss", params: map[string]string{"test": "1"}}},
 		{dsn: "user:passwd@wss(:0)/?interpolateParams=false&token=token", want: &config{user: "user", passwd: "passwd", net: "wss", token: "token"}},
 		{dsn: "user:passwd@wss(:0)/?writeTimeout=8s&readTimeout=10m", want: &config{user: "user", passwd: "passwd", net: "wss", readTimeout: 10 * time.Minute, writeTimeout: 8 * time.Second, interpolateParams: true}},
+		{dsn: "user:passwd@wss(:0)/?writeTimeout=8s&readTimeout=10m&enableCompression=true", want: &config{
+			user:              "user",
+			passwd:            "passwd",
+			net:               "wss",
+			readTimeout:       10 * time.Minute,
+			writeTimeout:      8 * time.Second,
+			interpolateParams: true,
+			enableCompression: true,
+		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.dsn, func(t *testing.T) {

@@ -57,11 +57,13 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		endpointUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
 	}
 	endpoint := endpointUrl.String()
-	ws, _, err := common.DefaultDialer.Dial(endpoint, nil)
+	dialer := common.DefaultDialer
+	dialer.EnableCompression = cfg.enableCompression
+	ws, _, err := dialer.Dial(endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	ws.SetReadLimit(common.BufferSize4M)
+	ws.EnableWriteCompression(cfg.enableCompression)
 	ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 	ws.SetPongHandler(func(string) error {
 		ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))

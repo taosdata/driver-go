@@ -68,15 +68,14 @@ func TestTmq(t *testing.T) {
 	assert.NoError(t, err)
 
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"group.id":           "test",
-		"auto.offset.reset":  "earliest",
-		"td.connect.ip":      "127.0.0.1",
-		"td.connect.user":    "root",
-		"td.connect.pass":    "taosdata",
-		"td.connect.port":    "6030",
-		"client.id":          "test_tmq_c",
-		"enable.auto.commit": "false",
-		//"experimental.snapshot.enable": "true",
+		"group.id":            "test",
+		"auto.offset.reset":   "earliest",
+		"td.connect.ip":       "127.0.0.1",
+		"td.connect.user":     "root",
+		"td.connect.pass":     "taosdata",
+		"td.connect.port":     "6030",
+		"client.id":           "test_tmq_c",
+		"enable.auto.commit":  "false",
 		"msg.with.table.name": "true",
 	})
 	if err != nil {

@@ -27,16 +27,15 @@ func main() {
 		panic(err)
 	}
 	consumer, err := tmq.NewConsumer(&tmqcommon.ConfigMap{
-		"group.id":                     "test",
-		"auto.offset.reset":            "earliest",
-		"td.connect.ip":                "127.0.0.1",
-		"td.connect.user":              "root",
-		"td.connect.pass":              "taosdata",
-		"td.connect.port":              "6030",
-		"client.id":                    "test_tmq_client",
-		"enable.auto.commit":           "false",
-		"experimental.snapshot.enable": "true",
-		"msg.with.table.name":          "true",
+		"group.id":            "test",
+		"auto.offset.reset":   "earliest",
+		"td.connect.ip":       "127.0.0.1",
+		"td.connect.user":     "root",
+		"td.connect.pass":     "taosdata",
+		"td.connect.port":     "6030",
+		"client.id":           "test_tmq_client",
+		"enable.auto.commit":  "false",
+		"msg.with.table.name": "true",
 	})
 	if err != nil {
 		panic(err)

@@ -6,15 +6,16 @@ import (
 )
 
 type Config struct {
-	Url            string
-	ChanLength     uint
-	MessageTimeout time.Duration
-	WriteWait      time.Duration
-	ErrorHandler   func(connector *Connector, err error)
-	CloseHandler   func()
-	User           string
-	Password       string
-	DB             string
+	Url               string
+	ChanLength        uint
+	MessageTimeout    time.Duration
+	WriteWait         time.Duration
+	ErrorHandler      func(connector *Connector, err error)
+	CloseHandler      func()
+	User              string
+	Password          string
+	DB                string
+	EnableCompression bool
 }
 
 func NewConfig(url string, chanLength uint) *Config {
@@ -59,4 +60,8 @@ func (c *Config) SetErrorHandler(f func(connector *Connector, err error)) {
 
 func (c *Config) SetCloseHandler(f func()) {
 	c.CloseHandler = f
+}
+
+func (c *Config) SetEnableCompression(enableCompression bool) {
+	c.EnableCompression = enableCompression
 }
