@@ -29,6 +29,7 @@ type config struct {
 	params            map[string]string // Connection parameters
 	interpolateParams bool              // Interpolate placeholders into query string
 	token             string            // cloud platform token
+	enableCompression bool              // Enable write compression
 	readTimeout       time.Duration     // read message timeout
 	writeTimeout      time.Duration     // write message timeout
 }
@@ -143,6 +144,11 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			}
 		case "token":
 			cfg.token = value
+		case "enableCompression":
+			cfg.enableCompression, err = strconv.ParseBool(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid enableCompression value: " + value}
+			}
 		case "readTimeout":
 			cfg.readTimeout, err = time.ParseDuration(value)
 			if err != nil {

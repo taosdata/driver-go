@@ -276,8 +276,8 @@ func TestSeek(t *testing.T) {
 		"client.id":                    "test_consumer",
 		"auto.offset.reset":            "earliest",
 		"enable.auto.commit":           "false",
-		"experimental.snapshot.enable": "false",
 		"msg.with.table.name":          "true",
+		"ws.message.enableCompression": true,
 	})
 	if err != nil {
 		t.Error(err)
@@ -394,19 +394,18 @@ func TestAutoCommit(t *testing.T) {
 	}
 	defer cleanAutocommitEnv()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"ws.url":                       "ws://127.0.0.1:6041/rest/tmq",
-		"ws.message.channelLen":        uint(0),
-		"ws.message.timeout":           common.DefaultMessageTimeout,
-		"ws.message.writeWait":         common.DefaultWriteWait,
-		"td.connect.user":              "root",
-		"td.connect.pass":              "taosdata",
-		"group.id":                     "test",
-		"client.id":                    "test_consumer",
-		"auto.offset.reset":            "earliest",
-		"enable.auto.commit":           "true",
-		"auto.commit.interval.ms":      "1000",
-		"experimental.snapshot.enable": "false",
-		"msg.with.table.name":          "true",
+		"ws.url":                  "ws://127.0.0.1:6041/rest/tmq",
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      common.DefaultMessageTimeout,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
 	})
 	assert.NoError(t, err)
 	if err != nil {

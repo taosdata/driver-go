@@ -164,6 +164,7 @@ func TestStmt(t *testing.T) {
 	config.SetConnectDB("test_ws_stmt")
 	config.SetMessageTimeout(common.DefaultMessageTimeout)
 	config.SetWriteWait(common.DefaultWriteWait)
+	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
 	})

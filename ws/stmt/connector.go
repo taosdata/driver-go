@@ -44,10 +44,13 @@ func NewConnector(config *Config) (*Connector, error) {
 	if config.WriteWait > 0 {
 		writeTimeout = config.WriteWait
 	}
-	ws, _, err := common.DefaultDialer.Dial(config.Url, nil)
+	dialer := common.DefaultDialer
+	dialer.EnableCompression = config.EnableCompression
+	ws, _, err := dialer.Dial(config.Url, nil)
 	if err != nil {
 		return nil, err
 	}
+	ws.EnableWriteCompression(config.EnableCompression)
 	defer func() {
 		if connector == nil {
 			ws.Close()
