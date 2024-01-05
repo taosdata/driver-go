@@ -1,127 +1,112 @@
-package taosSql
+package taosWS
 
 import (
+	"bytes"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"time"
-	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/param"
+	"github.com/taosdata/driver-go/v3/common/serializer"
 	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
-	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
-	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
-//Client can't get stmt structure even by reflection.
-//So the sql can't contain unset table name and tags.
-
 type Stmt struct {
-	stmt     unsafe.Pointer
-	tc       *taosConn
-	pSql     string
-	isInsert bool
-	cols     []*stmtCommon.StmtField
+	stmtID        uint64
+	conn          *taosConn
+	buffer        bytes.Buffer
+	pSql          string
+	isInsert      bool
+	cols          []*stmtCommon.StmtField
+	colTypes      *param.ColumnType
+	queryColTypes []*types.ColumnType
 }
 
 func (stmt *Stmt) Close() error {
-	if stmt.stmt != nil {
-		locker.Lock()
-		wrapper.TaosStmtClose(stmt.stmt)
-		locker.Unlock()
-		stmt.stmt = nil
-	}
-	return nil
+	err := stmt.conn.stmtClose(stmt.stmtID)
+	stmt.buffer.Reset()
+	stmt.conn = nil
+	return err
 }
 
 func (stmt *Stmt) NumInput() int {
-	if stmt.cols != nil {
+	if stmt.colTypes != nil {
 		return len(stmt.cols)
 	}
 	return -1
 }
 
 func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
-	if stmt.tc == nil || stmt.tc.taos == nil {
+	if stmt.conn == nil {
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != len(stmt.cols) {
 		return nil, fmt.Errorf("stmt exec error: wrong number of parameters")
 	}
-	locker.Lock()
-	defer locker.Unlock()
-	code := wrapper.TaosStmtBindParam(stmt.stmt, args)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	code = wrapper.TaosStmtAddBatch(stmt.stmt)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	code = wrapper.TaosStmtExecute(stmt.stmt)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	affectRows := wrapper.TaosStmtAffectedRowsOnce(stmt.stmt)
-	return driver.RowsAffected(affectRows), nil
-}
-
-func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	if stmt.tc == nil || stmt.tc.taos == nil {
-		return nil, driver.ErrBadConn
-	}
-	locker.Lock()
-	defer locker.Unlock()
-	code := wrapper.TaosStmtBindParam(stmt.stmt, args)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	code = wrapper.TaosStmtAddBatch(stmt.stmt)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	code = wrapper.TaosStmtExecute(stmt.stmt)
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return nil, errors.NewError(code, errStr)
-	}
-	res := wrapper.TaosStmtUseResult(stmt.stmt)
-	handler := asyncHandlerPool.Get()
-	numFields := wrapper.TaosNumFields(res)
-	rowsHeader, err := wrapper.ReadColumn(res, numFields)
+	block, err := serializer.SerializeRawBlock(param.NewParamsWithRowValue(args), stmt.colTypes)
 	if err != nil {
 		return nil, err
 	}
-	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    handler,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-		isStmt:     true,
+	err = stmt.conn.stmtBindParam(stmt.stmtID, block)
+	if err != nil {
+		return nil, err
 	}
-	return rs, nil
+	err = stmt.conn.stmtAddBatch(stmt.stmtID)
+	if err != nil {
+		return nil, err
+	}
+	affected, err := stmt.conn.stmtExec(stmt.stmtID)
+	if err != nil {
+		return nil, err
+	}
+	return driver.RowsAffected(affected), nil
+}
+
+func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
+	if stmt.conn == nil {
+		return nil, driver.ErrBadConn
+	}
+	block, err := serializer.SerializeRawBlock(param.NewParamsWithRowValue(args), param.NewColumnTypeWithValue(stmt.queryColTypes))
+	if err != nil {
+		return nil, err
+	}
+	err = stmt.conn.stmtBindParam(stmt.stmtID, block)
+	if err != nil {
+		return nil, err
+	}
+	err = stmt.conn.stmtAddBatch(stmt.stmtID)
+	if err != nil {
+		return nil, err
+	}
+	_, err = stmt.conn.stmtExec(stmt.stmtID)
+	if err != nil {
+		return nil, err
+	}
+	return stmt.conn.stmtUseResult(stmt.stmtID)
 }
 
 func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 	if stmt.isInsert {
 		if stmt.cols == nil {
-			locker.Lock()
-			code, num, fieldsP := wrapper.TaosStmtGetColFields(stmt.stmt)
-			locker.Unlock()
-			if code != 0 {
-				errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-				return errors.NewError(code, errStr)
+			cols, err := stmt.conn.stmtGetColFields(stmt.stmtID)
+			if err != nil {
+				return err
 			}
-			defer wrapper.TaosStmtReclaimFields(stmt.stmt, fieldsP)
-			stmt.cols = wrapper.StmtParseFields(num, fieldsP)
+			colTypes := make([]*types.ColumnType, len(cols))
+			for i, col := range cols {
+				t, err := col.GetType()
+				if err != nil {
+					return err
+				}
+				colTypes[i] = t
+			}
+			stmt.cols = cols
+			stmt.colTypes = param.NewColumnTypeWithValue(colTypes)
 		}
 		if v.Ordinal > len(stmt.cols) {
 			return nil
@@ -475,29 +460,52 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 		return nil
 	} else {
 		if v.Value == nil {
-			return nil
+			return errors.New("CheckNamedValue: value is nil")
+		}
+		if v.Ordinal == 1 {
+			stmt.queryColTypes = nil
+		}
+		if len(stmt.queryColTypes) < v.Ordinal {
+			tmp := stmt.queryColTypes
+			stmt.queryColTypes = make([]*types.ColumnType, v.Ordinal)
+			copy(stmt.queryColTypes, tmp)
 		}
 		t, is := v.Value.(time.Time)
 		if is {
 			v.Value = types.TaosBinary(t.Format(time.RFC3339Nano))
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBinaryType}
 			return nil
 		}
 		rv := reflect.ValueOf(v.Value)
 		switch rv.Kind() {
 		case reflect.Bool:
 			v.Value = types.TaosBool(rv.Bool())
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBoolType}
 		case reflect.Float32, reflect.Float64:
 			v.Value = types.TaosDouble(rv.Float())
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosDoubleType}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			v.Value = types.TaosBigint(rv.Int())
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBigintType}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			v.Value = types.TaosUBigint(rv.Uint())
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosUBigintType}
 		case reflect.String:
-			v.Value = types.TaosBinary(rv.String())
+			strVal := rv.String()
+			v.Value = types.TaosBinary(strVal)
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{
+				Type:   types.TaosBinaryType,
+				MaxLen: len(strVal),
+			}
 		case reflect.Slice:
 			ek := rv.Type().Elem().Kind()
 			if ek == reflect.Uint8 {
-				v.Value = types.TaosBinary(rv.Bytes())
+				bsVal := rv.Bytes()
+				v.Value = types.TaosBinary(bsVal)
+				stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{
+					Type:   types.TaosBinaryType,
+					MaxLen: len(bsVal),
+				}
 			} else {
 				return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
 			}
