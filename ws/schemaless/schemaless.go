@@ -44,9 +44,7 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 	if wsUrl.Scheme != "ws" && wsUrl.Scheme != "wss" {
 		return nil, errors.New("config url scheme error")
 	}
-	if len(wsUrl.Path) == 0 || wsUrl.Path != "/rest/schemaless" {
-		wsUrl.Path = "/rest/schemaless"
-	}
+	wsUrl.Path = "/ws"
 	dialer := common.DefaultDialer
 	dialer.EnableCompression = config.enableCompression
 	ws, _, err := dialer.Dial(wsUrl.String(), nil)

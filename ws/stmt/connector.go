@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,7 +47,12 @@ func NewConnector(config *Config) (*Connector, error) {
 	}
 	dialer := common.DefaultDialer
 	dialer.EnableCompression = config.EnableCompression
-	ws, _, err := dialer.Dial(config.Url, nil)
+	u, err := url.Parse(config.Url)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = "/ws"
+	ws, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
