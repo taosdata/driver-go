@@ -6,8 +6,6 @@ on:
       - 'main'
       - '3.0'
 
-env:
-  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   build:
@@ -29,8 +27,6 @@ jobs:
           cd TDengine
           echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Cache server
         id: cache-server
@@ -43,8 +39,6 @@ jobs:
         if: steps.cache-server.outputs.cache-hit != 'true'
         run: sudo apt install -y libgeos-dev
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: install TDengine
         if: steps.cache-server.outputs.cache-hit != 'true'
@@ -52,7 +46,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
           make -j 4
 
       - name: package
