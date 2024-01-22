@@ -124,7 +124,7 @@ func TestConsumer(t *testing.T) {
 		}
 	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"ws.url":                  "ws://127.0.0.1:6041/rest/tmq",
+		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
 		"ws.message.timeout":      common.DefaultMessageTimeout,
 		"ws.message.writeWait":    common.DefaultWriteWait,
@@ -266,7 +266,7 @@ func TestSeek(t *testing.T) {
 	}
 	defer cleanSeekEnv()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"ws.url":                       "ws://127.0.0.1:6041/rest/tmq",
+		"ws.url":                       "ws://127.0.0.1:6041",
 		"ws.message.channelLen":        uint(0),
 		"ws.message.timeout":           common.DefaultMessageTimeout,
 		"ws.message.writeWait":         common.DefaultWriteWait,
@@ -394,7 +394,7 @@ func TestAutoCommit(t *testing.T) {
 	}
 	defer cleanAutocommitEnv()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"ws.url":                  "ws://127.0.0.1:6041/rest/tmq",
+		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
 		"ws.message.timeout":      common.DefaultMessageTimeout,
 		"ws.message.writeWait":    common.DefaultWriteWait,

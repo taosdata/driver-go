@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -79,7 +80,12 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 
 	dialer := common.DefaultDialer
 	dialer.EnableCompression = config.EnableCompression
-	ws, _, err := dialer.Dial(config.Url, nil)
+	u, err := url.Parse(config.Url)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = "/rest/tmq"
+	ws, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
