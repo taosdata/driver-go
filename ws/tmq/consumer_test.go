@@ -450,3 +450,99 @@ func TestAutoCommit(t *testing.T) {
 	assert.Equal(t, 1, len(offset))
 	assert.GreaterOrEqual(t, offset[0].Offset, messageOffset)
 }
+
+func prepareMultiBlockEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_multi_block_topic",
+		"drop database if exists test_ws_tmq_multi_block",
+		"create database test_ws_tmq_multi_block vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_multi_block_topic as database test_ws_tmq_multi_block",
+		"create table test_ws_tmq_multi_block.t1(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t2(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t3(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t4(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t5(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t6(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t7(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t8(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t9(ts timestamp,v int)",
+		"create table test_ws_tmq_multi_block.t10(ts timestamp,v int)",
+		"insert into test_ws_tmq_multi_block.t1 values (now,1) test_ws_tmq_multi_block.t2 values (now,2) " +
+			"test_ws_tmq_multi_block.t3 values (now,3) test_ws_tmq_multi_block.t4 values (now,4)" +
+			"test_ws_tmq_multi_block.t5 values (now,5) test_ws_tmq_multi_block.t6 values (now,6)" +
+			"test_ws_tmq_multi_block.t7 values (now,7) test_ws_tmq_multi_block.t8 values (now,8)" +
+			"test_ws_tmq_multi_block.t9 values (now,9) test_ws_tmq_multi_block.t10 values (now,10)",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanMultiBlockEnv() error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_ws_tmq_multi_block_topic",
+		"drop database if exists test_ws_tmq_multi_block",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestMultiBlock(t *testing.T) {
+	err := prepareMultiBlockEnv()
+	assert.NoError(t, err)
+	defer cleanMultiBlockEnv()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:6041",
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      common.DefaultMessageTimeout,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
+	})
+	assert.NoError(t, err)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		consumer.Unsubscribe()
+		consumer.Close()
+	}()
+	topic := []string{"test_ws_tmq_multi_block_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			data := e.Value().([]*tmq.Data)
+			assert.Equal(t, "test_ws_tmq_multi_block", e.DBName())
+			assert.Equal(t, 10, len(data))
+			return
+		}
+	}
+}
