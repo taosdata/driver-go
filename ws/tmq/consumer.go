@@ -26,6 +26,7 @@ type Consumer struct {
 	client             *client.Client
 	requestID          uint64
 	err                error
+	dataParser         *parser.TMQRawDataParser
 	listLock           sync.RWMutex
 	sendChanList       *list.List
 	messageTimeout     time.Duration
@@ -108,6 +109,7 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		snapshotEnable:     config.SnapshotEnable,
 		withTableName:      config.WithTableName,
 		closeChan:          make(chan struct{}),
+		dataParser:         parser.NewTMQRawDataParser(),
 	}
 	if config.WriteWait > 0 {
 		wsClient.WriteWait = config.WriteWait
@@ -316,8 +318,7 @@ func (c *Consumer) findOutChanByID(index uint64) *list.Element {
 const (
 	TMQSubscribe          = "subscribe"
 	TMQPoll               = "poll"
-	TMQFetch              = "fetch"
-	TMQFetchBlock         = "fetch_block"
+	TMQFetchRaw           = "fetch_raw"
 	TMQFetchJsonMeta      = "fetch_json_meta"
 	TMQCommit             = "commit"
 	TMQUnsubscribe        = "unsubscribe"
@@ -566,73 +567,38 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 }
 
 func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
-	var tmqData []*tmq.Data
-	for {
-		reqID := c.generateReqID()
-		req := &FetchReq{
-			ReqID:     reqID,
-			MessageID: messageID,
-		}
-		args, err := client.JsonI.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		action := &client.WSAction{
-			Action: TMQFetch,
-			Args:   args,
-		}
-		envelope := c.client.GetEnvelope()
-		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-		if err != nil {
-			c.client.PutEnvelope(envelope)
-			return nil, err
-		}
-		respBytes, err := c.sendText(reqID, envelope)
-		if err != nil {
-			return nil, err
-		}
-		var resp FetchResp
-		err = client.JsonI.Unmarshal(respBytes, &resp)
-		if err != nil {
-			return nil, err
-		}
-		if resp.Code != 0 {
-			return nil, taosErrors.NewError(resp.Code, resp.Message)
-		}
-		if resp.Completed {
-			break
-		}
-		// fetch block
-		{
-			req := &FetchBlockReq{
-				ReqID:     reqID,
-				MessageID: messageID,
-			}
-			args, err := client.JsonI.Marshal(req)
-			if err != nil {
-				return nil, err
-			}
-			action := &client.WSAction{
-				Action: TMQFetchBlock,
-				Args:   args,
-			}
-			envelope := c.client.GetEnvelope()
-			err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-			if err != nil {
-				c.client.PutEnvelope(envelope)
-				return nil, err
-			}
-			respBytes, err := c.sendText(reqID, envelope)
-			if err != nil {
-				return nil, err
-			}
-			block := respBytes[24:]
-			p := unsafe.Pointer(&block[0])
-			data := parser.ReadBlock(p, resp.Rows, resp.FieldsTypes, resp.Precision)
-			tmqData = append(tmqData, &tmq.Data{
-				TableName: resp.TableName,
-				Data:      data,
-			})
+	reqID := c.generateReqID()
+	req := &TMQFetchRawMetaReq{
+		ReqID:     reqID,
+		MessageID: messageID,
+	}
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	action := &client.WSAction{
+		Action: TMQFetchRaw,
+		Args:   args,
+	}
+	envelope := c.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		c.client.PutEnvelope(envelope)
+		return nil, err
+	}
+	respBytes, err := c.sendText(reqID, envelope)
+	if err != nil {
+		return nil, err
+	}
+	blockInfo, err := c.dataParser.Parse(unsafe.Pointer(&respBytes[38]))
+	if err != nil {
+		return nil, err
+	}
+	tmqData := make([]*tmq.Data, len(blockInfo))
+	for i := 0; i < len(blockInfo); i++ {
+		tmqData[i] = &tmq.Data{
+			TableName: blockInfo[i].TableName,
+			Data:      parser.ReadBlockSimple(blockInfo[i].RawBlock, blockInfo[i].Precision),
 		}
 	}
 	return tmqData, nil
