@@ -22,6 +22,7 @@ type config struct {
 	AutoCommitIntervalMS string
 	SnapshotEnable       string
 	WithTableName        string
+	EnableCompression    bool
 }
 
 func newConfig(url string, chanLength uint) *config {
@@ -135,6 +136,15 @@ func (c *config) setWithTableName(withTableName tmq.ConfigValue) error {
 	c.WithTableName, ok = withTableName.(string)
 	if !ok {
 		return fmt.Errorf("msg.with.table.name requires string got %T", withTableName)
+	}
+	return nil
+}
+
+func (c *config) setEnableCompression(enableCompression tmq.ConfigValue) error {
+	var ok bool
+	c.EnableCompression, ok = enableCompression.(bool)
+	if !ok {
+		return fmt.Errorf("ws.message.enableCompression requires bool got %T", enableCompression)
 	}
 	return nil
 }

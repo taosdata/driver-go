@@ -267,6 +267,18 @@ func rawConvertJson(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 	return binaryVal[:]
 }
 
+func ReadBlockSimple(block unsafe.Pointer, precision int) [][]driver.Value {
+	blockSize := RawBlockGetNumOfRows(block)
+	colCount := RawBlockGetNumOfCols(block)
+	colInfo := make([]RawBlockColInfo, colCount)
+	RawBlockGetColInfo(block, colInfo)
+	colTypes := make([]uint8, colCount)
+	for i := int32(0); i < colCount; i++ {
+		colTypes[i] = uint8(colInfo[i].ColType)
+	}
+	return ReadBlock(block, int(blockSize), colTypes, precision)
+}
+
 // ReadBlock in-place
 func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int) [][]driver.Value {
 	r := make([][]driver.Value, blockSize)

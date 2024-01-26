@@ -27,6 +27,7 @@ type rows struct {
 	fieldsTypes   []uint8
 	fieldsLengths []int64
 	precision     int
+	isStmt        bool
 }
 
 func (rs *rows) Columns() []string {
@@ -158,6 +159,9 @@ func (rs *rows) fetchBlock() error {
 }
 
 func (rs *rows) freeResult() error {
+	if rs.isStmt {
+		return nil
+	}
 	tc := rs.conn
 	reqID := tc.generateReqID()
 	req := &WSFreeResultReq{

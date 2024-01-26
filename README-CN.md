@@ -484,6 +484,7 @@ DSN 格式为：
 
 - `writeTimeout` 通过 websocket 发送数据的超时时间。
 - `readTimeout` 通过 websocket 接收响应数据的超时时间。
+- `enableCompression` 是否压缩传输数据，默认为 `false` 不发送压缩数据。
 
 ## 通过 websocket 使用 tmq
 

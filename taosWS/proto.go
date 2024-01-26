@@ -1,6 +1,10 @@
 package taosWS
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
+)
 
 type WSConnectReq struct {
 	ReqID    uint64 `json:"req_id"`
@@ -68,4 +72,123 @@ type WSFreeResultReq struct {
 type WSAction struct {
 	Action string          `json:"action"`
 	Args   json.RawMessage `json:"args"`
+}
+
+type StmtPrepareRequest struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+	SQL    string `json:"sql"`
+}
+
+type StmtPrepareResponse struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	Action   string `json:"action"`
+	ReqID    uint64 `json:"req_id"`
+	Timing   int64  `json:"timing"`
+	StmtID   uint64 `json:"stmt_id"`
+	IsInsert bool   `json:"is_insert"`
+}
+
+type StmtInitReq struct {
+	ReqID uint64 `json:"req_id"`
+}
+
+type StmtInitResp struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
+	StmtID  uint64 `json:"stmt_id"`
+}
+type StmtCloseRequest struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+}
+
+type StmtCloseResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
+	StmtID  uint64 `json:"stmt_id,omitempty"`
+}
+
+type StmtGetColFieldsRequest struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+}
+
+type StmtGetColFieldsResponse struct {
+	Code    int                     `json:"code"`
+	Message string                  `json:"message"`
+	Action  string                  `json:"action"`
+	ReqID   uint64                  `json:"req_id"`
+	Timing  int64                   `json:"timing"`
+	StmtID  uint64                  `json:"stmt_id"`
+	Fields  []*stmtCommon.StmtField `json:"fields"`
+}
+
+const (
+	BindMessage = 2
+)
+
+type StmtBindResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
+	StmtID  uint64 `json:"stmt_id"`
+}
+
+type StmtAddBatchRequest struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+}
+
+type StmtAddBatchResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
+	StmtID  uint64 `json:"stmt_id"`
+}
+
+type StmtExecRequest struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+}
+
+type StmtExecResponse struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	Action   string `json:"action"`
+	ReqID    uint64 `json:"req_id"`
+	Timing   int64  `json:"timing"`
+	StmtID   uint64 `json:"stmt_id"`
+	Affected int    `json:"affected"`
+}
+
+type StmtUseResultRequest struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+}
+
+type StmtUseResultResponse struct {
+	Code          int      `json:"code"`
+	Message       string   `json:"message"`
+	Action        string   `json:"action"`
+	ReqID         uint64   `json:"req_id"`
+	Timing        int64    `json:"timing"`
+	StmtID        uint64   `json:"stmt_id"`
+	ResultID      uint64   `json:"result_id"`
+	FieldsCount   int      `json:"fields_count"`
+	FieldsNames   []string `json:"fields_names"`
+	FieldsTypes   []uint8  `json:"fields_types"`
+	FieldsLengths []int64  `json:"fields_lengths"`
+	Precision     int      `json:"precision"`
 }

@@ -158,12 +158,13 @@ func TestStmt(t *testing.T) {
 	}
 	defer cleanEnv()
 	now := time.Now()
-	config := NewConfig("ws://127.0.0.1:6041/rest/stmt", 0)
+	config := NewConfig("ws://127.0.0.1:6041", 0)
 	config.SetConnectUser("root")
 	config.SetConnectPass("taosdata")
 	config.SetConnectDB("test_ws_stmt")
 	config.SetMessageTimeout(common.DefaultMessageTimeout)
 	config.SetWriteWait(common.DefaultWriteWait)
+	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
 	})

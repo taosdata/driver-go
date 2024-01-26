@@ -34,7 +34,7 @@ var (
 	port                          = 6041
 	dbName                        = "test_taos_ws"
 	dataSourceName                = fmt.Sprintf("%s:%s@ws(%s:%d)/", user, password, host, port)
-	dataSourceNameWithCompression = fmt.Sprintf("%s:%s@ws(%s:%d)/?disableCompression=false", user, password, host, port)
+	dataSourceNameWithCompression = fmt.Sprintf("%s:%s@ws(%s:%d)/?enableCompression=true", user, password, host, port)
 )
 
 type DBTest struct {

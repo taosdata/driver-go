@@ -68,15 +68,14 @@ func TestTmq(t *testing.T) {
 	assert.NoError(t, err)
 
 	consumer, err := NewConsumer(&tmq.ConfigMap{
-		"group.id":           "test",
-		"auto.offset.reset":  "earliest",
-		"td.connect.ip":      "127.0.0.1",
-		"td.connect.user":    "root",
-		"td.connect.pass":    "taosdata",
-		"td.connect.port":    "6030",
-		"client.id":          "test_tmq_c",
-		"enable.auto.commit": "false",
-		//"experimental.snapshot.enable": "true",
+		"group.id":            "test",
+		"auto.offset.reset":   "earliest",
+		"td.connect.ip":       "127.0.0.1",
+		"td.connect.user":     "root",
+		"td.connect.pass":     "taosdata",
+		"td.connect.port":     "6030",
+		"client.id":           "test_tmq_c",
+		"enable.auto.commit":  "false",
 		"msg.with.table.name": "true",
 	})
 	if err != nil {
@@ -181,7 +180,7 @@ func TestSeek(t *testing.T) {
 	}
 
 	defer func() {
-		//execWithoutResult(conn, "drop database if exists "+db)
+		execWithoutResult(conn, "drop database if exists "+db)
 	}()
 	for _, sql := range sqls {
 		err = execWithoutResult(conn, sql)
@@ -308,4 +307,103 @@ func execWithoutResult(conn unsafe.Pointer, sql string) error {
 		return &errors.TaosError{Code: int32(code), ErrStr: errStr}
 	}
 	return nil
+}
+
+func prepareMultiBlockEnv(conn unsafe.Pointer) error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_tmq_multi_block_topic",
+		"drop database if exists test_tmq_multi_block",
+		"create database test_tmq_multi_block vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_tmq_multi_block_topic as database test_tmq_multi_block",
+		"create table test_tmq_multi_block.t1(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t2(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t3(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t4(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t5(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t6(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t7(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t8(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t9(ts timestamp,v int)",
+		"create table test_tmq_multi_block.t10(ts timestamp,v int)",
+		"insert into test_tmq_multi_block.t1 values (now,1) test_tmq_multi_block.t2 values (now,2) " +
+			"test_tmq_multi_block.t3 values (now,3) test_tmq_multi_block.t4 values (now,4)" +
+			"test_tmq_multi_block.t5 values (now,5) test_tmq_multi_block.t6 values (now,6)" +
+			"test_tmq_multi_block.t7 values (now,7) test_tmq_multi_block.t8 values (now,8)" +
+			"test_tmq_multi_block.t9 values (now,9) test_tmq_multi_block.t10 values (now,10)",
+	}
+	for _, step := range steps {
+		err = execWithoutResult(conn, step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanMultiBlockEnv(conn unsafe.Pointer) error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_tmq_multi_block_topic",
+		"drop database if exists test_tmq_multi_block",
+	}
+	for _, step := range steps {
+		err = execWithoutResult(conn, step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestMultiBlock(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer wrapper.TaosClose(conn)
+	err = prepareMultiBlockEnv(conn)
+	assert.NoError(t, err)
+	defer cleanMultiBlockEnv(conn)
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"group.id":            "test",
+		"td.connect.ip":       "127.0.0.1",
+		"td.connect.user":     "root",
+		"td.connect.pass":     "taosdata",
+		"td.connect.port":     "6030",
+		"auto.offset.reset":   "earliest",
+		"client.id":           "test_tmq_multi_block_topic",
+		"enable.auto.commit":  "false",
+		"msg.with.table.name": "true",
+	})
+	assert.NoError(t, err)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		consumer.Unsubscribe()
+		consumer.Close()
+	}()
+	topic := []string{"test_tmq_multi_block_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			data := e.Value().([]*tmq.Data)
+			assert.Equal(t, "test_tmq_multi_block", e.DBName())
+			assert.Equal(t, 10, len(data))
+			return
+		}
+	}
 }

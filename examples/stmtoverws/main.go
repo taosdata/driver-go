@@ -19,7 +19,7 @@ func main() {
 	defer db.Close()
 	prepareEnv(db)
 
-	config := stmt.NewConfig("ws://127.0.0.1:6041/rest/stmt", 0)
+	config := stmt.NewConfig("ws://127.0.0.1:6041", 0)
 	config.SetConnectUser("root")
 	config.SetConnectPass("taosdata")
 	config.SetConnectDB("example_ws_stmt")
