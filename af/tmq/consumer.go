@@ -13,7 +13,8 @@ import (
 )
 
 type Consumer struct {
-	cConsumer unsafe.Pointer
+	cConsumer  unsafe.Pointer
+	dataParser *parser.TMQRawDataParser
 }
 
 // NewConsumer Create new TMQ consumer with TMQ config
@@ -28,7 +29,8 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		return nil, err
 	}
 	consumer := &Consumer{
-		cConsumer: cConsumer,
+		cConsumer:  cConsumer,
+		dataParser: parser.NewTMQRawDataParser(),
 	}
 	return consumer, nil
 }
@@ -176,27 +178,22 @@ func (c *Consumer) getMeta(message unsafe.Pointer) (*tmq.Meta, error) {
 }
 
 func (c *Consumer) getData(message unsafe.Pointer) ([]*tmq.Data, error) {
+	errCode, raw := wrapper.TMQGetRaw(message)
+	if errCode != taosError.SUCCESS {
+		errStr := wrapper.TaosErrorStr(message)
+		err := taosError.NewError(int(errCode), errStr)
+		return nil, err
+	}
+	_, _, rawPtr := wrapper.ParseRawMeta(raw)
+	blockInfos, err := c.dataParser.Parse(rawPtr)
+	if err != nil {
+		return nil, err
+	}
 	var tmqData []*tmq.Data
-	for {
-		blockSize, errCode, block := wrapper.TaosFetchRawBlock(message)
-		if errCode != int(taosError.SUCCESS) {
-			errStr := wrapper.TaosErrorStr(message)
-			err := taosError.NewError(errCode, errStr)
-			return nil, err
-		}
-		if blockSize == 0 {
-			break
-		}
-		tableName := wrapper.TMQGetTableName(message)
-		fileCount := wrapper.TaosNumFields(message)
-		rh, err := wrapper.ReadColumn(message, fileCount)
-		if err != nil {
-			return nil, err
-		}
-		precision := wrapper.TaosResultPrecision(message)
+	for i := 0; i < len(blockInfos); i++ {
 		tmqData = append(tmqData, &tmq.Data{
-			TableName: tableName,
-			Data:      parser.ReadBlock(block, blockSize, rh.ColTypes, precision),
+			TableName: blockInfos[i].TableName,
+			Data:      parser.ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision),
 		})
 	}
 	return tmqData, nil
