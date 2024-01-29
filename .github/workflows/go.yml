@@ -110,7 +110,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        go: [ '1.14', '1.19' ]
+        go: [ '1.14', 'stable' ]
     name: Go ${{ matrix.go }}
     steps:
       - name: get cache server by pr
@@ -133,11 +133,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ inputs.tbBranch }}-
 
-      - name: checkout
-        uses: actions/checkout@v3
-        with:
-          path: 'driver-go'
-
       - name: prepare install
         run: sudo apt install -y libgeos-dev
 
@@ -145,6 +140,9 @@ jobs:
         run: |
           tar -zxvf server.tar.gz
           cd release && sudo sh install.sh
+
+      - name: checkout
+        uses: actions/checkout@v3
 
       - name: shell
         run: |
@@ -162,7 +160,15 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
-          cache-dependency-path: driver-go/go.sum
+          cache-dependency-path: go.sum
 
       - name: Test
-        run: cd ./driver-go && go test -v ./...
+        run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.go }} == 'stable'
+        uses: codecov/codecov-action@v4-beta
+        with:
+          files: ./coverage.txt
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
