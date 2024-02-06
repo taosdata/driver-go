@@ -320,6 +320,16 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						row[column] = iter.ReadUint32()
 					case common.TSDB_DATA_TYPE_UBIGINT:
 						row[column] = iter.ReadUint64()
+					case common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY:
+						data := iter.ReadStringAsSlice()
+						if len(data)%2 != 0 {
+							iter.ReportError("read varbinary", fmt.Sprintf("invalid length %s", string(data)))
+						}
+						value := make([]byte, len(data)/2)
+						for i := 0; i < len(data); i += 2 {
+							value[i/2] = hexCharToDigit(data[i])<<4 | hexCharToDigit(data[i+1])
+						}
+						row[column] = value
 					default:
 						row[column] = nil
 						iter.Skip()
@@ -365,4 +375,15 @@ func lower(b byte) byte {
 		return b + ('a' - 'A')
 	}
 	return b
+}
+
+func hexCharToDigit(char byte) uint8 {
+	switch {
+	case char >= '0' && char <= '9':
+		return char - '0'
+	case char >= 'a' && char <= 'f':
+		return char - 'a' + 10
+	default:
+		panic("assertion failed: invalid hex char")
+	}
 }
