@@ -211,6 +211,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 		return nil, fmt.Errorf("server response: %s - %s", resp.Status, string(body))
 	}
 	respBody := resp.Body
+	defer ioutil.ReadAll(respBody)
 	if !tc.cfg.disableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
 		respBody, err = gzip.NewReader(resp.Body)
 		if err != nil {
