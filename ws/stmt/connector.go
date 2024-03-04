@@ -3,6 +3,7 @@ package stmt
 import (
 	"container/list"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net/url"
@@ -130,6 +131,7 @@ func NewConnector(config *Config) (*Connector, error) {
 	}
 
 	wsClient.TextMessageHandler = connector.handleTextMessage
+	wsClient.BinaryMessageHandler = connector.handleBinaryMessage
 	wsClient.ErrorHandler = connector.handleError
 	go wsClient.WritePump()
 	go wsClient.ReadPump()
@@ -150,6 +152,17 @@ func (c *Connector) handleTextMessage(message []byte) {
 		return iter.Error == nil
 	})
 	client.JsonI.ReturnIterator(iter)
+	c.listLock.Lock()
+	element := c.findOutChanByID(reqID)
+	if element != nil {
+		element.Value.(*IndexedChan).channel <- message
+		c.sendChanList.Remove(element)
+	}
+	c.listLock.Unlock()
+}
+
+func (c *Connector) handleBinaryMessage(message []byte) {
+	reqID := binary.LittleEndian.Uint64(message[8:16])
 	c.listLock.Lock()
 	element := c.findOutChanByID(reqID)
 	if element != nil {
