@@ -57,18 +57,7 @@ func (rs *Rows) Close() error {
 }
 
 func (rs *Rows) Next(dest []driver.Value) error {
-	if rs.blockPtr == nil {
-		err := rs.taosFetchBlock()
-		if err != nil {
-			return err
-		}
-	}
-	if rs.blockSize == 0 {
-		rs.blockPtr = nil
-		rs.block = nil
-		return io.EOF
-	}
-	if rs.blockOffset >= rs.blockSize {
+	if rs.blockPtr == nil || rs.blockOffset >= rs.blockSize {
 		err := rs.taosFetchBlock()
 		if err != nil {
 			return err
