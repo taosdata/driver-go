@@ -28,6 +28,9 @@ type Stmt struct {
 }
 
 func (stmt *Stmt) Close() error {
+	if stmt.conn == nil || stmt.conn.isClosed() || stmt.conn.messageError != nil {
+		return driver.ErrBadConn
+	}
 	err := stmt.conn.stmtClose(stmt.stmtID)
 	stmt.buffer.Reset()
 	stmt.conn = nil
@@ -42,7 +45,7 @@ func (stmt *Stmt) NumInput() int {
 }
 
 func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
-	if stmt.conn == nil {
+	if stmt.conn.isClosed() {
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != len(stmt.cols) {
@@ -68,7 +71,7 @@ func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	if stmt.conn == nil {
+	if stmt.conn.isClosed() {
 		return nil, driver.ErrBadConn
 	}
 	block, err := serializer.SerializeRawBlock(param.NewParamsWithRowValue(args), param.NewColumnTypeWithValue(stmt.queryColTypes))
