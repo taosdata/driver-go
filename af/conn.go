@@ -58,8 +58,7 @@ func (conn *Connector) Close() error {
 func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.Result, err error) {
 	stmt := NewStmt(conn.taos)
 	if stmt == nil {
-		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
-		return
+		return nil, &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 	}
 
 	defer stmt.Close()
@@ -229,6 +228,11 @@ func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmt(conn.taos)
 }
 
+// Stmt Prepare stmt
+func (conn *Connector) Stmt() *Stmt {
+	return NewStmt(conn.taos)
+}
+
 // InsertStmtWithReqID Prepare batch insert stmt with reqID
 func (conn *Connector) InsertStmtWithReqID(reqID int64) *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmtWithReqID(conn.taos, reqID)
@@ -240,8 +244,7 @@ func (conn *Connector) SelectDB(db string) error {
 	code := wrapper.TaosSelectDB(conn.taos, db)
 	locker.Unlock()
 	if code != 0 {
-		err := taosError.NewError(code, wrapper.TaosErrorStr(nil))
-		return err
+		return taosError.NewError(code, wrapper.TaosErrorStr(nil))
 	}
 	return nil
 }

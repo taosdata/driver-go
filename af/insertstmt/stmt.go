@@ -34,13 +34,11 @@ func (stmt *InsertStmt) Prepare(sql string) error {
 	code := wrapper.TaosStmtPrepare(stmt.stmt, sql)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	isInsert, code := wrapper.TaosStmtIsInsert(stmt.stmt)
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	if !isInsert {
 		return errors.New("only support insert")
@@ -53,8 +51,7 @@ func (stmt *InsertStmt) SetTableName(name string) error {
 	code := wrapper.TaosStmtSetTBName(stmt.stmt, name)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	return nil
 }
@@ -64,8 +61,7 @@ func (stmt *InsertStmt) SetSubTableName(name string) error {
 	code := wrapper.TaosStmtSetSubTBName(stmt.stmt, name)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	return nil
 }
@@ -75,8 +71,7 @@ func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param.Param
 	code := wrapper.TaosStmtSetTBNameTags(stmt.stmt, tableName, tags.GetValues())
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	return nil
 }
@@ -95,8 +90,7 @@ func (stmt *InsertStmt) BindParam(params []*param.Param, bindType *param.ColumnT
 	code := wrapper.TaosStmtBindParamBatch(stmt.stmt, data, columnTypes)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	return nil
 }
@@ -106,8 +100,7 @@ func (stmt *InsertStmt) AddBatch() error {
 	code := wrapper.TaosStmtAddBatch(stmt.stmt)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	return nil
 }
@@ -117,8 +110,7 @@ func (stmt *InsertStmt) Execute() error {
 	code := wrapper.TaosStmtExecute(stmt.stmt)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		return taosError.NewError(code, errStr)
+		return stmt.stmtErr(code)
 	}
 	return nil
 }
@@ -133,9 +125,13 @@ func (stmt *InsertStmt) Close() error {
 	locker.Unlock()
 	var err error
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmt.stmt)
-		err = taosError.NewError(code, errStr)
+		err = stmt.stmtErr(code)
 	}
 	stmt.stmt = nil
 	return err
+}
+
+func (stmt *InsertStmt) stmtErr(code int) error {
+	errStr := wrapper.TaosStmtErrStr(stmt.stmt)
+	return taosError.NewError(code, errStr)
 }
