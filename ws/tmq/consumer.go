@@ -192,46 +192,16 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = config.setConnectUser(user)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setConnectPass(pass)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setGroupID(groupID)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setClientID(clientID)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setAutoOffsetReset(offsetReset)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setAutoCommit(enableAutoCommit)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setAutoCommitIntervalMS(autoCommitIntervalMS)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setSnapshotEnable(enableSnapshot)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setWithTableName(withTableName)
-	if err != nil {
-		return nil, err
-	}
-	err = config.setEnableCompression(enableCompression)
-	if err != nil {
-		return nil, err
-	}
+	config.setConnectUser(user.(string))
+	config.setConnectPass(pass.(string))
+	config.setGroupID(groupID.(string))
+	config.setClientID(clientID.(string))
+	config.setAutoOffsetReset(offsetReset.(string))
+	config.setAutoCommit(enableAutoCommit.(string))
+	config.setAutoCommitIntervalMS(autoCommitIntervalMS.(string))
+	config.setSnapshotEnable(enableSnapshot.(string))
+	config.setWithTableName(withTableName.(string))
+	config.setEnableCompression(enableCompression.(bool))
 	return config, nil
 }
 

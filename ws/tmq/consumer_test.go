@@ -546,3 +546,276 @@ func TestMultiBlock(t *testing.T) {
 		}
 	}
 }
+
+func Test_configMapToConfigWrong(t *testing.T) {
+	type args struct {
+		m *tmq.ConfigMap
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr string
+	}{
+		{
+			name: "url",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url": 123,
+				},
+			},
+			wantErr: "ws.url expects type string, not int",
+		},
+		{
+			name: "empty url",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url": "",
+				},
+			},
+			wantErr: "ws.url required",
+		},
+		{
+			name: "channelLen",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":                "ws://127.0.0.1:6041",
+					"ws.message.channelLen": "not a uint",
+				},
+			},
+			wantErr: "ws.message.channelLen expects type uint, not string",
+		},
+		{
+			name: "ws.message.timeout",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":             "ws://127.0.0.1:6041",
+					"ws.message.timeout": "xx",
+				},
+			},
+			wantErr: "ws.message.timeout expects type time.Duration, not string",
+		},
+		{
+			name: "ws.message.writeWait",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":               "ws://127.0.0.1:6041",
+					"ws.message.writeWait": "xx",
+				},
+			},
+			wantErr: "ws.message.writeWait expects type time.Duration, not string",
+		},
+		{
+			name: "td.connect.user",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":          "ws://127.0.0.1:6041",
+					"td.connect.user": 123,
+				},
+			},
+			wantErr: "td.connect.user expects type string, not int",
+		},
+		{
+			name: "td.connect.pass",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":          "ws://127.0.0.1:6041",
+					"td.connect.pass": 123,
+				},
+			},
+			wantErr: "td.connect.pass expects type string, not int",
+		},
+		{
+			name: "group.id",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":   "ws://127.0.0.1:6041",
+					"group.id": 123,
+				},
+			},
+			wantErr: "group.id expects type string, not int",
+		},
+		{
+			name: "client.id",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":    "ws://127.0.0.1:6041",
+					"client.id": 123,
+				},
+			},
+			wantErr: "client.id expects type string, not int",
+		},
+		{
+			name: "auto.offset.reset",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":            "ws://127.0.0.1:6041",
+					"auto.offset.reset": 123,
+				},
+			},
+			wantErr: "auto.offset.reset expects type string, not int",
+		},
+		{
+			name: "enable.auto.commit",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":             "ws://127.0.0.1:6041",
+					"enable.auto.commit": 123,
+				},
+			},
+			wantErr: "enable.auto.commit expects type string, not int",
+		},
+		{
+			name: "auto.commit.interval.ms",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":                  "ws://127.0.0.1:6041",
+					"auto.commit.interval.ms": 123,
+				},
+			},
+			wantErr: "auto.commit.interval.ms expects type string, not int",
+		},
+		{
+			name: "experimental.snapshot.enable",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":                       "ws://127.0.0.1:6041",
+					"experimental.snapshot.enable": 123,
+				},
+			},
+			wantErr: "experimental.snapshot.enable expects type string, not int",
+		},
+		{
+			name: "msg.with.table.name",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":              "ws://127.0.0.1:6041",
+					"msg.with.table.name": 123,
+				},
+			},
+			wantErr: "msg.with.table.name expects type string, not int",
+		},
+		{
+			name: "ws.message.enableCompression",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":                       "ws://127.0.0.1:6041",
+					"ws.message.enableCompression": 123,
+				},
+			},
+			wantErr: "ws.message.enableCompression expects type bool, not int",
+		},
+		{
+			name: "ws.message.timeout < 1s",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":             "ws://127.0.0.1:6041",
+					"ws.message.timeout": time.Millisecond,
+				},
+			},
+			wantErr: "ws.message.timeout cannot be less than 1 second",
+		},
+		{
+			name: "ws.message.writeWait < 1s",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":               "ws://127.0.0.1:6041",
+					"ws.message.writeWait": time.Millisecond,
+				},
+			},
+			wantErr: "ws.message.writeWait cannot be less than 1 second",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := configMapToConfig(tt.args.m)
+			assert.Nil(t, got)
+			assert.Equal(t, tt.wantErr, err.Error())
+		})
+	}
+}
+
+func prepareMetaEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_meta_topic",
+		"drop database if exists test_ws_tmq_meta",
+		"create database test_ws_tmq_meta vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_meta_topic with meta as database test_ws_tmq_meta",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanMetaEnv() error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_ws_tmq_meta_topic",
+		"drop database if exists test_ws_tmq_meta",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestMeta(t *testing.T) {
+	err := prepareMetaEnv()
+	assert.NoError(t, err)
+	defer cleanMetaEnv()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:6041",
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      common.DefaultMessageTimeout,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
+	})
+	err = consumer.Subscribe("test_ws_tmq_meta_topic", nil)
+	assert.NoError(t, err)
+	defer func() {
+		consumer.Unsubscribe()
+		consumer.Close()
+	}()
+	go func() {
+		doRequest("create table test_ws_tmq_meta.st(ts timestamp,v int) tags (cn binary(20))")
+		doRequest("create table test_ws_tmq_meta.t1 using test_ws_tmq_meta.st tags ('t1')")
+		doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+		doRequest("insert into test_ws_tmq_meta.t2 using test_ws_tmq_meta.st tags ('t1') values (now,2)")
+		time.Sleep(time.Second)
+		doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+		doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+	}()
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			t.Log(e)
+			assert.Equal(t, "test_ws_tmq_meta", e.DBName())
+		case *tmq.MetaDataMessage:
+			assert.Equal(t, "test_ws_tmq_meta", e.DBName())
+			assert.Equal(t, "test_ws_tmq_meta_topic", e.Topic())
+			t.Log(e)
+		case *tmq.MetaMessage:
+			assert.Equal(t, "test_ws_tmq_meta", e.DBName())
+			t.Log(e)
+		}
+	}
+}

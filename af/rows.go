@@ -23,6 +23,7 @@ type rows struct {
 	blockSize   int
 	result      unsafe.Pointer
 	precision   int
+	isStmt      bool
 }
 
 func (rs *rows) Columns() []string {
@@ -55,8 +56,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 	if rs.result == nil {
 		return &errors.TaosError{Code: 0xffff, ErrStr: "result is nil!"}
 	}
-
-	if rs.block == nil {
+	if rs.block == nil || rs.blockOffset >= rs.blockSize {
 		if err := rs.taosFetchBlock(); err != nil {
 			return err
 		}
@@ -67,16 +67,6 @@ func (rs *rows) Next(dest []driver.Value) error {
 		return io.EOF
 	}
 
-	if rs.blockOffset >= rs.blockSize {
-		if err := rs.taosFetchBlock(); err != nil {
-			return err
-		}
-	}
-	if rs.blockSize == 0 {
-		rs.block = nil
-		rs.freeResult()
-		return io.EOF
-	}
 	parser.ReadRow(dest, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision)
 	rs.blockOffset++
 	return nil
@@ -111,9 +101,11 @@ func (rs *rows) asyncFetchRows() *handler.AsyncResult {
 
 func (rs *rows) freeResult() {
 	if rs.result != nil {
-		locker.Lock()
-		wrapper.TaosFreeResult(rs.result)
-		locker.Unlock()
+		if !rs.isStmt {
+			locker.Lock()
+			wrapper.TaosFreeResult(rs.result)
+			locker.Unlock()
+		}
 		rs.result = nil
 	}
 

@@ -2,10 +2,7 @@ package tmq
 
 import (
 	"errors"
-	"fmt"
 	"time"
-
-	"github.com/taosdata/driver-go/v3/common/tmq"
 )
 
 type config struct {
@@ -32,119 +29,58 @@ func newConfig(url string, chanLength uint) *config {
 	}
 }
 
-func (c *config) setConnectUser(user tmq.ConfigValue) error {
-	var ok bool
-	c.User, ok = user.(string)
-	if !ok {
-		return fmt.Errorf("td.connect.user requires string got %T", user)
-	}
-	return nil
+func (c *config) setConnectUser(user string) {
+	c.User = user
 }
 
-func (c *config) setConnectPass(pass tmq.ConfigValue) error {
-	var ok bool
-	c.Password, ok = pass.(string)
-	if !ok {
-		return fmt.Errorf("td.connect.pass requires string got %T", pass)
-	}
-	return nil
+func (c *config) setConnectPass(pass string) {
+	c.Password = pass
 }
 
-func (c *config) setGroupID(groupID tmq.ConfigValue) error {
-	var ok bool
-	c.GroupID, ok = groupID.(string)
-	if !ok {
-		return fmt.Errorf("group.id requires string got %T", groupID)
-	}
-	return nil
+func (c *config) setGroupID(groupID string) {
+	c.GroupID = groupID
 }
 
-func (c *config) setClientID(clientID tmq.ConfigValue) error {
-	var ok bool
-	c.ClientID, ok = clientID.(string)
-	if !ok {
-		return fmt.Errorf("client.id requires string got %T", clientID)
-	}
-	return nil
+func (c *config) setClientID(clientID string) {
+	c.ClientID = clientID
 }
 
-func (c *config) setAutoOffsetReset(offsetReset tmq.ConfigValue) error {
-	var ok bool
-	c.OffsetRest, ok = offsetReset.(string)
-	if !ok {
-		return fmt.Errorf("auto.offset.reset requires string got %T", offsetReset)
-	}
-	return nil
+func (c *config) setAutoOffsetReset(offsetReset string) {
+	c.OffsetRest = offsetReset
 }
 
-func (c *config) setMessageTimeout(timeout tmq.ConfigValue) error {
-	var ok bool
-	c.MessageTimeout, ok = timeout.(time.Duration)
-	if !ok {
-		return fmt.Errorf("ws.message.timeout requires time.Duration got %T", timeout)
-	}
-	if c.MessageTimeout < time.Second {
+func (c *config) setMessageTimeout(timeout time.Duration) error {
+	if timeout < time.Second {
 		return errors.New("ws.message.timeout cannot be less than 1 second")
 	}
+	c.MessageTimeout = timeout
 	return nil
 }
 
-func (c *config) setWriteWait(writeWait tmq.ConfigValue) error {
-	var ok bool
-	c.WriteWait, ok = writeWait.(time.Duration)
-	if !ok {
-		return fmt.Errorf("ws.message.writeWait requires time.Duration got %T", writeWait)
-	}
-	if c.WriteWait < time.Second {
+func (c *config) setWriteWait(writeWait time.Duration) error {
+	if writeWait < time.Second {
 		return errors.New("ws.message.writeWait cannot be less than 1 second")
 	}
-	if c.WriteWait < 0 {
-		return errors.New("ws.message.writeWait cannot be less than 0")
-	}
+	c.WriteWait = writeWait
 	return nil
 }
 
-func (c *config) setAutoCommit(enable tmq.ConfigValue) error {
-	var ok bool
-	c.AutoCommit, ok = enable.(string)
-	if !ok {
-		return fmt.Errorf("enable.auto.commit requires string got %T", enable)
-	}
-	return nil
+func (c *config) setAutoCommit(enable string) {
+	c.AutoCommit = enable
 }
 
-func (c *config) setAutoCommitIntervalMS(autoCommitIntervalMS tmq.ConfigValue) error {
-	var ok bool
-	c.AutoCommitIntervalMS, ok = autoCommitIntervalMS.(string)
-	if !ok {
-		return fmt.Errorf("auto.commit.interval.ms requires string got %T", autoCommitIntervalMS)
-	}
-	return nil
+func (c *config) setAutoCommitIntervalMS(autoCommitIntervalMS string) {
+	c.AutoCommitIntervalMS = autoCommitIntervalMS
 }
 
-func (c *config) setSnapshotEnable(enableSnapshot tmq.ConfigValue) error {
-	var ok bool
-	c.SnapshotEnable, ok = enableSnapshot.(string)
-	if !ok {
-		return fmt.Errorf("experimental.snapshot.enable requires string got %T", enableSnapshot)
-	}
-	return nil
+func (c *config) setSnapshotEnable(enableSnapshot string) {
+	c.SnapshotEnable = enableSnapshot
 }
 
-func (c *config) setWithTableName(withTableName tmq.ConfigValue) error {
-	var ok bool
-	c.WithTableName, ok = withTableName.(string)
-	if !ok {
-		return fmt.Errorf("msg.with.table.name requires string got %T", withTableName)
-	}
-	return nil
+func (c *config) setWithTableName(withTableName string) {
+	c.WithTableName = withTableName
 }
 
-func (c *config) setEnableCompression(enableCompression tmq.ConfigValue) error {
-	var ok bool
-	c.EnableCompression, ok = enableCompression.(bool)
-	if !ok {
-		return fmt.Errorf("ws.message.enableCompression requires bool got %T", enableCompression)
-	}
-	return nil
+func (c *config) setEnableCompression(enableCompression bool) {
+	c.EnableCompression = enableCompression
 }
