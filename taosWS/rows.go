@@ -159,9 +159,6 @@ func (rs *rows) fetchBlock() error {
 }
 
 func (rs *rows) freeResult() error {
-	if rs.isStmt {
-		return nil
-	}
 	tc := rs.conn
 	reqID := tc.generateReqID()
 	req := &WSFreeResultReq{
@@ -181,5 +178,5 @@ func (rs *rows) freeResult() error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return tc.writeText(rs.buf.Bytes())
 }
