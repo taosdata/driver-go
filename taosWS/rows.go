@@ -177,5 +177,5 @@ func (rs *rows) freeResult() error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return tc.writeText(rs.buf.Bytes())
 }
