@@ -18,6 +18,7 @@ const (
 	STMTUseResult    = "use_result"
 	WSFetch          = "fetch"
 	WSFetchBlock     = "fetch_block"
+	WSFreeResult     = "free_result"
 )
 
 type ConnectReq struct {
@@ -176,6 +177,11 @@ type WSFetchResp struct {
 }
 
 type WSFetchBlockReq struct {
+	ReqID uint64 `json:"req_id"`
+	ID    uint64 `json:"id"`
+}
+
+type WSFreeResultRequest struct {
 	ReqID uint64 `json:"req_id"`
 	ID    uint64 `json:"id"`
 }

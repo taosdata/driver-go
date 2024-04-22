@@ -53,7 +53,7 @@ func (rs *Rows) ColumnTypeScanType(i int) reflect.Type {
 func (rs *Rows) Close() error {
 	rs.blockPtr = nil
 	rs.block = nil
-	return nil
+	return rs.freeResult()
 }
 
 func (rs *Rows) Next(dest []driver.Value) error {
@@ -142,5 +142,30 @@ func (rs *Rows) fetchBlock() error {
 	rs.block = respBytes
 	rs.blockPtr = pointer.AddUintptr(unsafe.Pointer(&rs.block[0]), 16)
 	rs.blockOffset = 0
+	return nil
+}
+
+func (rs *Rows) freeResult() error {
+	reqID := rs.conn.generateReqID()
+	req := &WSFreeResultRequest{
+		ReqID: reqID,
+		ID:    rs.resultID,
+	}
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return err
+	}
+	action := &client.WSAction{
+		Action: WSFreeResult,
+		Args:   args,
+	}
+	rs.buf.Reset()
+	envelope := rs.conn.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		rs.conn.client.PutEnvelope(envelope)
+		return err
+	}
+	rs.conn.sendTextWithoutResp(envelope)
 	return nil
 }
