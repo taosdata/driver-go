@@ -44,19 +44,25 @@ func (p *TMQRawDataParser) getTypeSkip(t int8) (int, error) {
 }
 
 func (p *TMQRawDataParser) skipHead() error {
-	t := p.parseInt8()
-	skip, err := p.getTypeSkip(t)
-	if err != nil {
-		return err
+	v := p.parseInt8()
+	if v >= 100 {
+		skip := p.parseInt32()
+		p.skip(int(skip))
+		return nil
+	} else {
+		skip, err := p.getTypeSkip(v)
+		if err != nil {
+			return err
+		}
+		p.skip(skip)
+		v = p.parseInt8()
+		skip, err = p.getTypeSkip(v)
+		if err != nil {
+			return err
+		}
+		p.skip(skip)
+		return nil
 	}
-	p.skip(skip)
-	t = p.parseInt8()
-	skip, err = p.getTypeSkip(t)
-	if err != nil {
-		return err
-	}
-	p.skip(skip)
-	return nil
 }
 
 func (p *TMQRawDataParser) skip(count int) {
