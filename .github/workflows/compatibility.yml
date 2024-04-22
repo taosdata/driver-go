@@ -1,0 +1,134 @@
+name: compatibility
+
+on:
+  pull_request:
+    branches:
+      - '3.1'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        td_version: [ 'main', '3.0' ]
+    name: Build ${{ matrix.td_version }}
+    outputs:
+      commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
+    steps:
+      - name: checkout TDengine by pr
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v3
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: ${{ matrix.td_version }}
+
+      - name: get_commit_id
+        id: get_commit_id
+        run: |
+          cd TDengine
+          echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+
+      - name: Cache server by pr
+        if: github.event_name == 'pull_request'
+        id: cache-server-pr
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ matrix.td_version }}-${{ steps.get_commit_id.outputs.commit_id }}
+
+      - name: prepare install
+        if: >
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
+        run: sudo apt install -y libgeos-dev
+
+      - name: install TDengine
+        if: >
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
+        run: |
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 
+          make -j 4
+
+      - name: package
+        if: >
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
+        run: |
+          mkdir -p ./release
+          cp ./TDengine/debug/build/bin/taos ./release/
+          cp ./TDengine/debug/build/bin/taosd ./release/
+          cp ./TDengine/tools/taosadapter/taosadapter ./release/
+          cp ./TDengine/debug/build/lib/libtaos.so.3.9.9.9 ./release/
+          cp ./TDengine/debug/build/lib/librocksdb.so.8.1.1 ./release/ ||:
+          cp ./TDengine/include/client/taos.h ./release/
+          cat >./release/install.sh<<EOF 
+          chmod +x ./taos
+          chmod +x ./taosd
+          chmod +x ./taosadapter
+          cp ./taos /bin/
+          cp ./taosd /bin/
+          cp ./taosadapter /bin/
+          cp ./libtaos.so.3.9.9.9 /usr/lib
+          cp ./librocksdb.so.8.1.1 /usr/lib ||:
+          ln -sf /usr/lib/libtaos.so.3.9.9.9 /usr/lib/libtaos.so.1
+          ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
+          ln -sf /usr/lib/librocksdb.so.8.1.1 /usr/lib/librocksdb.so.8 ||:
+          ln -sf /usr/lib/librocksdb.so.8 /usr/lib/librocksdb.so ||:
+          cp ./taos.h /usr/include
+          EOF
+          tar -zcvf server.tar.gz ./release
+
+  test:
+    runs-on: ubuntu-22.04
+    needs: build
+    strategy:
+      matrix:
+        go: [ '1.14', 'stable' ]
+        td_version: [ 'main', '3.0' ]
+    name: Go ${{ matrix.td_version }} ${{ matrix.go }}
+    steps:
+      - name: get cache server by pr
+        if: github.event_name == 'pull_request'
+        id: get-cache-server-pr
+        uses: actions/cache@v3
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ matrix.td_version }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.td_version }}-
+
+
+      - name: prepare install
+        run: sudo apt install -y libgeos-dev
+
+      - name: install
+        run: |
+          tar -zxvf server.tar.gz
+          cd release && sudo sh install.sh
+
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: shell
+        run: |
+          cat >start.sh<<EOF 
+          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
+          EOF
+
+      - name: taosd
+        run: nohup sudo sh ./start.sh &
+
+      - name: start taosadapter
+        run:  sudo taosadapter &
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: go.sum
+
+      - name: Test
+        run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
