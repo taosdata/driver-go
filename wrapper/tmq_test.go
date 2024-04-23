@@ -1074,7 +1074,7 @@ func TestTMQModify(t *testing.T) {
 	h2 := cgo.NewHandle(c2)
 	targetConn, err := TaosConnect("", "root", "taosdata", "tmq_test_db_modify_target", 0)
 	assert.NoError(t, err)
-	defer TaosFreeResult(targetConn)
+	defer TaosClose(targetConn)
 	result = TaosQuery(conn, "create table stb (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -1170,70 +1170,41 @@ func TestTMQModify(t *testing.T) {
 		}
 		d, err := query(targetConn, "describe stb")
 		assert.NoError(t, err)
-		if len(d[0]) == 4 {
-			assert.Equal(t, [][]driver.Value{
-				{"ts", "TIMESTAMP", int32(8), ""},
-				{"c1", "BOOL", int32(1), ""},
-				{"c2", "TINYINT", int32(1), ""},
-				{"c3", "SMALLINT", int32(2), ""},
-				{"c4", "INT", int32(4), ""},
-				{"c5", "BIGINT", int32(8), ""},
-				{"c6", "TINYINT UNSIGNED", int32(1), ""},
-				{"c7", "SMALLINT UNSIGNED", int32(2), ""},
-				{"c8", "INT UNSIGNED", int32(4), ""},
-				{"c9", "BIGINT UNSIGNED", int32(8), ""},
-				{"c10", "FLOAT", int32(4), ""},
-				{"c11", "DOUBLE", int32(8), ""},
-				{"c12", "VARCHAR", int32(20), ""},
-				{"c13", "NCHAR", int32(20), ""},
-				{"tts", "TIMESTAMP", int32(8), "TAG"},
-				{"tc1", "BOOL", int32(1), "TAG"},
-				{"tc2", "TINYINT", int32(1), "TAG"},
-				{"tc3", "SMALLINT", int32(2), "TAG"},
-				{"tc4", "INT", int32(4), "TAG"},
-				{"tc5", "BIGINT", int32(8), "TAG"},
-				{"tc6", "TINYINT UNSIGNED", int32(1), "TAG"},
-				{"tc7", "SMALLINT UNSIGNED", int32(2), "TAG"},
-				{"tc8", "INT UNSIGNED", int32(4), "TAG"},
-				{"tc9", "BIGINT UNSIGNED", int32(8), "TAG"},
-				{"tc10", "FLOAT", int32(4), "TAG"},
-				{"tc11", "DOUBLE", int32(8), "TAG"},
-				{"tc12", "VARCHAR", int32(20), "TAG"},
-				{"tc13", "NCHAR", int32(20), "TAG"},
-			}, d)
-		} else {
-			assert.Equal(t, [][]driver.Value{
-				{"ts", "TIMESTAMP", int32(8), "", ""},
-				{"c1", "BOOL", int32(1), "", ""},
-				{"c2", "TINYINT", int32(1), "", ""},
-				{"c3", "SMALLINT", int32(2), "", ""},
-				{"c4", "INT", int32(4), "", ""},
-				{"c5", "BIGINT", int32(8), "", ""},
-				{"c6", "TINYINT UNSIGNED", int32(1), "", ""},
-				{"c7", "SMALLINT UNSIGNED", int32(2), "", ""},
-				{"c8", "INT UNSIGNED", int32(4), "", ""},
-				{"c9", "BIGINT UNSIGNED", int32(8), "", ""},
-				{"c10", "FLOAT", int32(4), "", ""},
-				{"c11", "DOUBLE", int32(8), "", ""},
-				{"c12", "VARCHAR", int32(20), "", ""},
-				{"c13", "NCHAR", int32(20), "", ""},
-				{"tts", "TIMESTAMP", int32(8), "TAG", ""},
-				{"tc1", "BOOL", int32(1), "TAG", ""},
-				{"tc2", "TINYINT", int32(1), "TAG", ""},
-				{"tc3", "SMALLINT", int32(2), "TAG", ""},
-				{"tc4", "INT", int32(4), "TAG", ""},
-				{"tc5", "BIGINT", int32(8), "TAG", ""},
-				{"tc6", "TINYINT UNSIGNED", int32(1), "TAG", ""},
-				{"tc7", "SMALLINT UNSIGNED", int32(2), "TAG", ""},
-				{"tc8", "INT UNSIGNED", int32(4), "TAG", ""},
-				{"tc9", "BIGINT UNSIGNED", int32(8), "TAG", ""},
-				{"tc10", "FLOAT", int32(4), "TAG", ""},
-				{"tc11", "DOUBLE", int32(8), "TAG", ""},
-				{"tc12", "VARCHAR", int32(20), "TAG", ""},
-				{"tc13", "NCHAR", int32(20), "TAG", ""},
-			}, d)
+		expect := [][]driver.Value{
+			{"ts", "TIMESTAMP", int32(8), ""},
+			{"c1", "BOOL", int32(1), ""},
+			{"c2", "TINYINT", int32(1), ""},
+			{"c3", "SMALLINT", int32(2), ""},
+			{"c4", "INT", int32(4), ""},
+			{"c5", "BIGINT", int32(8), ""},
+			{"c6", "TINYINT UNSIGNED", int32(1), ""},
+			{"c7", "SMALLINT UNSIGNED", int32(2), ""},
+			{"c8", "INT UNSIGNED", int32(4), ""},
+			{"c9", "BIGINT UNSIGNED", int32(8), ""},
+			{"c10", "FLOAT", int32(4), ""},
+			{"c11", "DOUBLE", int32(8), ""},
+			{"c12", "VARCHAR", int32(20), ""},
+			{"c13", "NCHAR", int32(20), ""},
+			{"tts", "TIMESTAMP", int32(8), "TAG"},
+			{"tc1", "BOOL", int32(1), "TAG"},
+			{"tc2", "TINYINT", int32(1), "TAG"},
+			{"tc3", "SMALLINT", int32(2), "TAG"},
+			{"tc4", "INT", int32(4), "TAG"},
+			{"tc5", "BIGINT", int32(8), "TAG"},
+			{"tc6", "TINYINT UNSIGNED", int32(1), "TAG"},
+			{"tc7", "SMALLINT UNSIGNED", int32(2), "TAG"},
+			{"tc8", "INT UNSIGNED", int32(4), "TAG"},
+			{"tc9", "BIGINT UNSIGNED", int32(8), "TAG"},
+			{"tc10", "FLOAT", int32(4), "TAG"},
+			{"tc11", "DOUBLE", int32(8), "TAG"},
+			{"tc12", "VARCHAR", int32(20), "TAG"},
+			{"tc13", "NCHAR", int32(20), "TAG"},
 		}
-
+		for rowIndex, values := range d {
+			for i := 0; i < 4; i++ {
+				assert.Equal(t, expect[rowIndex][i], values[i])
+			}
+		}
 	})
 
 	TMQUnsubscribe(tmq)
