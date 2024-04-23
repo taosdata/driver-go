@@ -16,6 +16,10 @@ func NewColumnType(size int) *ColumnType {
 	return &ColumnType{size: size, value: make([]*types.ColumnType, size)}
 }
 
+func NewColumnTypeWithValue(value []*types.ColumnType) *ColumnType {
+	return &ColumnType{size: len(value), value: value, column: len(value)}
+}
+
 func (c *ColumnType) AddBool() *ColumnType {
 	if c.column >= c.size {
 		return c

@@ -18,7 +18,7 @@ func main() {
 	defer db.Close()
 	prepareEnv(db)
 	consumer, err := tmq.NewConsumer(&tmqcommon.ConfigMap{
-		"ws.url":                "ws://127.0.0.1:6041/rest/tmq",
+		"ws.url":                "ws://127.0.0.1:6041",
 		"ws.message.channelLen": uint(0),
 		"ws.message.timeout":    common.DefaultMessageTimeout,
 		"ws.message.writeWait":  common.DefaultWriteWait,

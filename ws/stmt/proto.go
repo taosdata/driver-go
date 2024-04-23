@@ -15,6 +15,10 @@ const (
 	STMTAddBatch     = "add_batch"
 	STMTExec         = "exec"
 	STMTClose        = "close"
+	STMTUseResult    = "use_result"
+	WSFetch          = "fetch"
+	WSFetchBlock     = "fetch_block"
+	WSFreeResult     = "free_result"
 )
 
 type ConnectReq struct {
@@ -133,4 +137,51 @@ type ExecResp struct {
 type CloseReq struct {
 	ReqID  uint64 `json:"req_id"`
 	StmtID uint64 `json:"stmt_id"`
+}
+
+type UseResultReq struct {
+	ReqID  uint64 `json:"req_id"`
+	StmtID uint64 `json:"stmt_id"`
+}
+
+type UseResultResp struct {
+	Code          int      `json:"code"`
+	Message       string   `json:"message"`
+	Action        string   `json:"action"`
+	ReqID         uint64   `json:"req_id"`
+	Timing        int64    `json:"timing"`
+	StmtID        uint64   `json:"stmt_id"`
+	ResultID      uint64   `json:"result_id"`
+	FieldsCount   int      `json:"fields_count"`
+	FieldsNames   []string `json:"fields_names"`
+	FieldsTypes   []uint8  `json:"fields_types"`
+	FieldsLengths []int64  `json:"fields_lengths"`
+	Precision     int      `json:"precision"`
+}
+
+type WSFetchReq struct {
+	ReqID uint64 `json:"req_id"`
+	ID    uint64 `json:"id"`
+}
+
+type WSFetchResp struct {
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	Action    string `json:"action"`
+	ReqID     uint64 `json:"req_id"`
+	Timing    int64  `json:"timing"`
+	ID        uint64 `json:"id"`
+	Completed bool   `json:"completed"`
+	Lengths   []int  `json:"lengths"`
+	Rows      int    `json:"rows"`
+}
+
+type WSFetchBlockReq struct {
+	ReqID uint64 `json:"req_id"`
+	ID    uint64 `json:"id"`
+}
+
+type WSFreeResultRequest struct {
+	ReqID uint64 `json:"req_id"`
+	ID    uint64 `json:"id"`
 }

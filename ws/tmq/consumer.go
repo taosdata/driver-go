@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,26 +23,27 @@ import (
 )
 
 type Consumer struct {
-	client               *client.Client
-	requestID            uint64
-	err                  error
-	latestMessageID      uint64
-	listLock             sync.RWMutex
-	sendChanList         *list.List
-	messageTimeout       time.Duration
-	url                  string
-	user                 string
-	password             string
-	groupID              string
-	clientID             string
-	offsetRest           string
-	autoCommit           string
-	autoCommitIntervalMS string
-	snapshotEnable       string
-	withTableName        string
-	closeOnce            sync.Once
-	closeChan            chan struct{}
-	topics               []string
+	client             *client.Client
+	requestID          uint64
+	err                error
+	dataParser         *parser.TMQRawDataParser
+	listLock           sync.RWMutex
+	sendChanList       *list.List
+	messageTimeout     time.Duration
+	autoCommit         bool
+	autoCommitInterval time.Duration
+	nextAutoCommitTime time.Time
+	url                string
+	user               string
+	password           string
+	groupID            string
+	clientID           string
+	offsetRest         string
+	snapshotEnable     string
+	withTableName      string
+	closeOnce          sync.Once
+	closeChan          chan struct{}
+	topics             []string
 }
 
 type IndexedChan struct {
@@ -63,37 +66,60 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
-	ws, _, err := common.DefaultDialer.Dial(config.Url, nil)
+	autoCommit := true
+	if config.AutoCommit == "false" {
+		autoCommit = false
+	}
+	autoCommitInterval := time.Second * 5
+	if config.AutoCommitIntervalMS != "" {
+		interval, err := strconv.ParseUint(config.AutoCommitIntervalMS, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		autoCommitInterval = time.Millisecond * time.Duration(interval)
+	}
+
+	dialer := common.DefaultDialer
+	dialer.EnableCompression = config.EnableCompression
+	u, err := url.Parse(config.Url)
 	if err != nil {
 		return nil, err
 	}
+	u.Path = "/rest/tmq"
+	ws, _, err := dialer.Dial(u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	ws.EnableWriteCompression(config.EnableCompression)
 	wsClient := client.NewClient(ws, config.ChanLength)
-	tmq := &Consumer{
-		client:               wsClient,
-		requestID:            0,
-		sendChanList:         list.New(),
-		messageTimeout:       config.MessageTimeout,
-		url:                  config.Url,
-		user:                 config.User,
-		password:             config.Password,
-		groupID:              config.GroupID,
-		clientID:             config.ClientID,
-		offsetRest:           config.OffsetRest,
-		autoCommit:           config.AutoCommit,
-		autoCommitIntervalMS: config.AutoCommitIntervalMS,
-		snapshotEnable:       config.SnapshotEnable,
-		withTableName:        config.WithTableName,
-		closeChan:            make(chan struct{}),
+
+	consumer := &Consumer{
+		client:             wsClient,
+		requestID:          0,
+		sendChanList:       list.New(),
+		messageTimeout:     config.MessageTimeout,
+		url:                config.Url,
+		user:               config.User,
+		password:           config.Password,
+		groupID:            config.GroupID,
+		clientID:           config.ClientID,
+		offsetRest:         config.OffsetRest,
+		autoCommit:         autoCommit,
+		autoCommitInterval: autoCommitInterval,
+		snapshotEnable:     config.SnapshotEnable,
+		withTableName:      config.WithTableName,
+		closeChan:          make(chan struct{}),
+		dataParser:         parser.NewTMQRawDataParser(),
 	}
 	if config.WriteWait > 0 {
 		wsClient.WriteWait = config.WriteWait
 	}
-	wsClient.BinaryMessageHandler = tmq.handleBinaryMessage
-	wsClient.TextMessageHandler = tmq.handleTextMessage
-	wsClient.ErrorHandler = tmq.handleError
+	wsClient.BinaryMessageHandler = consumer.handleBinaryMessage
+	wsClient.TextMessageHandler = consumer.handleTextMessage
+	wsClient.ErrorHandler = consumer.handleError
 	go wsClient.WritePump()
 	go wsClient.ReadPump()
-	return tmq, nil
+	return consumer, nil
 }
 
 func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
@@ -153,6 +179,10 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	enableCompression, err := m.Get("ws.message.enableCompression", false)
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -195,6 +225,10 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 		return nil, err
 	}
 	err = config.setWithTableName(withTableName)
+	if err != nil {
+		return nil, err
+	}
+	err = config.setEnableCompression(enableCompression)
 	if err != nil {
 		return nil, err
 	}
@@ -284,8 +318,7 @@ func (c *Consumer) findOutChanByID(index uint64) *list.Element {
 const (
 	TMQSubscribe          = "subscribe"
 	TMQPoll               = "poll"
-	TMQFetch              = "fetch"
-	TMQFetchBlock         = "fetch_block"
+	TMQFetchRaw           = "fetch_raw"
 	TMQFetchJsonMeta      = "fetch_json_meta"
 	TMQCommit             = "commit"
 	TMQUnsubscribe        = "unsubscribe"
@@ -294,7 +327,6 @@ const (
 	TMQCommitOffset       = "commit_offset"
 	TMQCommitted          = "committed"
 	TMQPosition           = "position"
-	TMQListTopics         = "list_topics"
 )
 
 var ClosedErr = errors.New("connection closed")
@@ -338,17 +370,16 @@ func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) err
 	}
 	reqID := c.generateReqID()
 	req := &SubscribeReq{
-		ReqID:                reqID,
-		User:                 c.user,
-		Password:             c.password,
-		GroupID:              c.groupID,
-		ClientID:             c.clientID,
-		OffsetRest:           c.offsetRest,
-		Topics:               topics,
-		AutoCommit:           c.autoCommit,
-		AutoCommitIntervalMS: c.autoCommitIntervalMS,
-		SnapshotEnable:       c.snapshotEnable,
-		WithTableName:        c.withTableName,
+		ReqID:          reqID,
+		User:           c.user,
+		Password:       c.password,
+		GroupID:        c.groupID,
+		ClientID:       c.clientID,
+		OffsetRest:     c.offsetRest,
+		Topics:         topics,
+		AutoCommit:     "false",
+		SnapshotEnable: c.snapshotEnable,
+		WithTableName:  c.withTableName,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -384,7 +415,17 @@ func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) err
 // Poll messages
 func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 	if c.err != nil {
-		panic(c.err)
+		return tmq.NewTMQErrorWithErr(c.err)
+	}
+	if c.autoCommit {
+		if c.nextAutoCommitTime.IsZero() {
+			c.nextAutoCommitTime = time.Now().Add(c.autoCommitInterval)
+		} else {
+			if time.Now().After(c.nextAutoCommitTime) {
+				c.doCommit()
+				c.nextAutoCommitTime = time.Now().Add(c.autoCommitInterval)
+			}
+		}
 	}
 	reqID := c.generateReqID()
 	req := &PollReq{
@@ -417,7 +458,6 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 	if resp.Code != 0 {
 		panic(taosErrors.NewError(resp.Code, resp.Message))
 	}
-	c.latestMessageID = resp.MessageID
 	if resp.HaveMessage {
 		switch resp.MessageType {
 		case common.TMQ_RES_DATA:
@@ -527,88 +567,8 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 }
 
 func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
-	var tmqData []*tmq.Data
-	for {
-		reqID := c.generateReqID()
-		req := &FetchReq{
-			ReqID:     reqID,
-			MessageID: messageID,
-		}
-		args, err := client.JsonI.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		action := &client.WSAction{
-			Action: TMQFetch,
-			Args:   args,
-		}
-		envelope := c.client.GetEnvelope()
-		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-		if err != nil {
-			c.client.PutEnvelope(envelope)
-			return nil, err
-		}
-		respBytes, err := c.sendText(reqID, envelope)
-		if err != nil {
-			return nil, err
-		}
-		var resp FetchResp
-		err = client.JsonI.Unmarshal(respBytes, &resp)
-		if err != nil {
-			return nil, err
-		}
-		if resp.Code != 0 {
-			return nil, taosErrors.NewError(resp.Code, resp.Message)
-		}
-		if resp.Completed {
-			break
-		}
-		// fetch block
-		{
-			req := &FetchBlockReq{
-				ReqID:     reqID,
-				MessageID: messageID,
-			}
-			args, err := client.JsonI.Marshal(req)
-			if err != nil {
-				return nil, err
-			}
-			action := &client.WSAction{
-				Action: TMQFetchBlock,
-				Args:   args,
-			}
-			envelope := c.client.GetEnvelope()
-			err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-			if err != nil {
-				c.client.PutEnvelope(envelope)
-				return nil, err
-			}
-			respBytes, err := c.sendText(reqID, envelope)
-			if err != nil {
-				return nil, err
-			}
-			block := respBytes[24:]
-			p := unsafe.Pointer(&block[0])
-			data := parser.ReadBlock(p, resp.Rows, resp.FieldsTypes, resp.Precision)
-			tmqData = append(tmqData, &tmq.Data{
-				TableName: resp.TableName,
-				Data:      data,
-			})
-		}
-	}
-	return tmqData, nil
-}
-
-func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {
-	return c.doCommit(c.latestMessageID)
-}
-
-func (c *Consumer) doCommit(messageID uint64) ([]tmq.TopicPartition, error) {
-	if c.err != nil {
-		return nil, c.err
-	}
 	reqID := c.generateReqID()
-	req := &CommitReq{
+	req := &TMQFetchRawMetaReq{
 		ReqID:     reqID,
 		MessageID: messageID,
 	}
@@ -617,7 +577,7 @@ func (c *Consumer) doCommit(messageID uint64) ([]tmq.TopicPartition, error) {
 		return nil, err
 	}
 	action := &client.WSAction{
-		Action: TMQCommit,
+		Action: TMQFetchRaw,
 		Args:   args,
 	}
 	envelope := c.client.GetEnvelope()
@@ -630,19 +590,68 @@ func (c *Consumer) doCommit(messageID uint64) ([]tmq.TopicPartition, error) {
 	if err != nil {
 		return nil, err
 	}
-	var resp CommitResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
+	blockInfo, err := c.dataParser.Parse(unsafe.Pointer(&respBytes[38]))
 	if err != nil {
 		return nil, err
 	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
+	tmqData := make([]*tmq.Data, len(blockInfo))
+	for i := 0; i < len(blockInfo); i++ {
+		tmqData[i] = &tmq.Data{
+			TableName: blockInfo[i].TableName,
+			Data:      parser.ReadBlockSimple(blockInfo[i].RawBlock, blockInfo[i].Precision),
+		}
+	}
+	return tmqData, nil
+}
+
+func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {
+	err := c.doCommit()
+	if err != nil {
+		return nil, err
 	}
 	partitions, err := c.Assignment()
 	if err != nil {
 		return nil, err
 	}
 	return c.Committed(partitions, 0)
+}
+
+func (c *Consumer) doCommit() error {
+	if c.err != nil {
+		return c.err
+	}
+	reqID := c.generateReqID()
+	req := &CommitReq{
+		ReqID:     reqID,
+		MessageID: 0,
+	}
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return err
+	}
+	action := &client.WSAction{
+		Action: TMQCommit,
+		Args:   args,
+	}
+	envelope := c.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		c.client.PutEnvelope(envelope)
+		return err
+	}
+	respBytes, err := c.sendText(reqID, envelope)
+	if err != nil {
+		return err
+	}
+	var resp CommitResp
+	err = client.JsonI.Unmarshal(respBytes, &resp)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return taosErrors.NewError(resp.Code, resp.Message)
+	}
+	return nil
 }
 
 func (c *Consumer) Unsubscribe() error {

@@ -6,8 +6,6 @@ on:
       - 'main'
       - '3.0'
 
-env:
-  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   build:
@@ -29,8 +27,6 @@ jobs:
           cd TDengine
           echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Cache server
         id: cache-server
@@ -43,8 +39,6 @@ jobs:
         if: steps.cache-server.outputs.cache-hit != 'true'
         run: sudo apt install -y libgeos-dev
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: install TDengine
         if: steps.cache-server.outputs.cache-hit != 'true'
@@ -52,7 +46,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake .. -DBUILD_JDBC=false -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
           make -j 4
 
       - name: package
@@ -87,7 +81,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        go: [ '1.14', '1.19' ]
+        go: [ '1.14', 'stable' ]
     name: Go ${{ matrix.go }}
     steps:
       - name: get cache server
@@ -99,11 +93,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ github.ref_name }}-
 
-      - name: checkout
-        uses: actions/checkout@v3
-        with:
-          path: 'driver-go'
-
       - name: prepare install
         run: sudo apt install -y libgeos-dev
 
@@ -111,6 +100,9 @@ jobs:
         run: |
           tar -zxvf server.tar.gz
           cd release && sudo sh install.sh
+
+      - name: checkout
+        uses: actions/checkout@v3
 
       - name: shell
         run: |
@@ -128,7 +120,15 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
-          cache-dependency-path: driver-go/go.sum
+          cache-dependency-path: go.sum
 
       - name: Test
-        run: cd ./driver-go && go test -v ./...
+        run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.go }} == 'stable'
+        uses: codecov/codecov-action@v4-beta
+        with:
+          files: ./coverage.txt
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}

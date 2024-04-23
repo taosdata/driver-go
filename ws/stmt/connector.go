@@ -3,8 +3,10 @@ package stmt
 import (
 	"container/list"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,10 +46,18 @@ func NewConnector(config *Config) (*Connector, error) {
 	if config.WriteWait > 0 {
 		writeTimeout = config.WriteWait
 	}
-	ws, _, err := common.DefaultDialer.Dial(config.Url, nil)
+	dialer := common.DefaultDialer
+	dialer.EnableCompression = config.EnableCompression
+	u, err := url.Parse(config.Url)
 	if err != nil {
 		return nil, err
 	}
+	u.Path = "/ws"
+	ws, _, err := dialer.Dial(u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	ws.EnableWriteCompression(config.EnableCompression)
 	defer func() {
 		if connector == nil {
 			ws.Close()
@@ -121,6 +131,7 @@ func NewConnector(config *Config) (*Connector, error) {
 	}
 
 	wsClient.TextMessageHandler = connector.handleTextMessage
+	wsClient.BinaryMessageHandler = connector.handleBinaryMessage
 	wsClient.ErrorHandler = connector.handleError
 	go wsClient.WritePump()
 	go wsClient.ReadPump()
@@ -141,6 +152,17 @@ func (c *Connector) handleTextMessage(message []byte) {
 		return iter.Error == nil
 	})
 	client.JsonI.ReturnIterator(iter)
+	c.listLock.Lock()
+	element := c.findOutChanByID(reqID)
+	if element != nil {
+		element.Value.(*IndexedChan).channel <- message
+		c.sendChanList.Remove(element)
+	}
+	c.listLock.Unlock()
+}
+
+func (c *Connector) handleBinaryMessage(message []byte) {
+	reqID := binary.LittleEndian.Uint64(message[8:16])
 	c.listLock.Lock()
 	element := c.findOutChanByID(reqID)
 	if element != nil {

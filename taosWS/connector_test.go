@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,11 +13,78 @@ import (
 	"github.com/taosdata/driver-go/v3/types"
 )
 
+func generateCreateTableSql(db string, withJson bool) string {
+	createSql := fmt.Sprintf("create table if not exists %s.alltype(ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20),"+
+		"c14 varbinary(100),"+
+		"c15 geometry(100)"+
+		")",
+		db)
+	if withJson {
+		createSql += " tags(t json)"
+	}
+	return createSql
+}
+
+func generateValues() (value []interface{}, scanValue []interface{}, insertSql string) {
+	rand.Seed(time.Now().UnixNano())
+	v1 := true
+	v2 := int8(rand.Int())
+	v3 := int16(rand.Int())
+	v4 := rand.Int31()
+	v5 := int64(rand.Int31())
+	v6 := uint8(rand.Uint32())
+	v7 := uint16(rand.Uint32())
+	v8 := rand.Uint32()
+	v9 := uint64(rand.Uint32())
+	v10 := rand.Float32()
+	v11 := rand.Float64()
+	v12 := "test_binary"
+	v13 := "test_nchar"
+	v14 := []byte("test_varbinary")
+	v15 := []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}
+	ts := time.Now().Round(time.Millisecond)
+	var (
+		cts time.Time
+		c1  bool
+		c2  int8
+		c3  int16
+		c4  int32
+		c5  int64
+		c6  uint8
+		c7  uint16
+		c8  uint32
+		c9  uint64
+		c10 float32
+		c11 float64
+		c12 string
+		c13 string
+		c14 []byte
+		c15 []byte
+	)
+	return []interface{}{
+			ts, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15,
+		}, []interface{}{cts, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15},
+		fmt.Sprintf(`values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar','test_varbinary','point(100 100)')`, ts.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11)
+}
+
 // @author: xftan
 // @date: 2023/10/13 11:22
 // @description: test all type query
 func TestAllTypeQuery(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	database := "ws_test"
 	db, err := sql.Open("taosWS", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -26,57 +95,25 @@ func TestAllTypeQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists ws_test")
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists ws_test")
+	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var (
-		v1  = true
-		v2  = int8(rand.Int())
-		v3  = int16(rand.Int())
-		v4  = rand.Int31()
-		v5  = int64(rand.Int31())
-		v6  = uint8(rand.Uint32())
-		v7  = uint16(rand.Uint32())
-		v8  = rand.Uint32()
-		v9  = uint64(rand.Uint32())
-		v10 = rand.Float32()
-		v11 = rand.Float64()
-		v12 = "test_binary"
-		v13 = "test_nchar"
-	)
-
-	_, err = db.Exec("create table if not exists ws_test.alltype(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)" +
-		")" +
-		"tags(t json)",
-	)
+	_, err = db.Exec(generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now().Round(time.Millisecond)
-	_, err = db.Exec(fmt.Sprintf(`insert into ws_test.t1 using ws_test.alltype tags('{"a":"b"}') values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar')`, now.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11))
+	colValues, scanValues, insertSql := generateValues()
+	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Query(fmt.Sprintf("select * from ws_test.alltype where ts = '%s'", now.Format(time.RFC3339Nano)))
+	rows, err := db.Query(fmt.Sprintf("select * from %s.alltype where ts = '%s'", database, colValues[0].(time.Time).Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 	columns, err := rows.Columns()
 	assert.NoError(t, err)
@@ -84,71 +121,27 @@ func TestAllTypeQuery(t *testing.T) {
 	cTypes, err := rows.ColumnTypes()
 	assert.NoError(t, err)
 	t.Log(cTypes)
-	for rows.Next() {
-		var (
-			ts  time.Time
-			c1  bool
-			c2  int8
-			c3  int16
-			c4  int32
-			c5  int64
-			c6  uint8
-			c7  uint16
-			c8  uint32
-			c9  uint64
-			c10 float32
-			c11 float64
-			c12 string
-			c13 string
-			tt  types.RawMessage
-		)
-		err := rows.Scan(
-			&ts,
-			&c1,
-			&c2,
-			&c3,
-			&c4,
-			&c5,
-			&c6,
-			&c7,
-			&c8,
-			&c9,
-			&c10,
-			&c11,
-			&c12,
-			&c13,
-			&tt,
-		)
-		assert.Equal(t, now.UTC(), ts.UTC())
-		assert.Equal(t, v1, c1)
-		assert.Equal(t, v2, c2)
-		assert.Equal(t, v3, c3)
-		assert.Equal(t, v4, c4)
-		assert.Equal(t, v5, c5)
-		assert.Equal(t, v6, c6)
-		assert.Equal(t, v7, c7)
-		assert.Equal(t, v8, c8)
-		assert.Equal(t, v9, c9)
-		assert.Equal(t, v10, c10)
-		assert.Equal(t, v11, c11)
-		assert.Equal(t, v12, c12)
-		assert.Equal(t, v13, c13)
-		assert.Equal(t, types.RawMessage(`{"a":"b"}`), tt)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if ts.IsZero() {
-			t.Fatal(ts)
-		}
-
+	var tt types.RawMessage
+	dest := make([]interface{}, len(scanValues)+1)
+	for i := range scanValues {
+		dest[i] = reflect.ValueOf(&scanValues[i]).Interface()
 	}
+	dest[len(scanValues)] = &tt
+	for rows.Next() {
+		err := rows.Scan(dest...)
+		assert.NoError(t, err)
+	}
+	for i, v := range colValues {
+		assert.Equal(t, v, scanValues[i])
+	}
+	assert.Equal(t, types.RawMessage(`{"a":"b"}`), tt)
 }
 
 // @author: xftan
 // @date: 2023/10/13 11:22
 // @description: test null value
 func TestAllTypeQueryNull(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	database := "ws_test_null"
 	db, err := sql.Open("taosWS", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -159,42 +152,29 @@ func TestAllTypeQueryNull(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists ws_test_null")
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists ws_test_null")
+	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	_, err = db.Exec("create table if not exists ws_test_null.alltype(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)" +
-		")" +
-		"tags(t json)",
-	)
+	_, err = db.Exec(generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now().Round(time.Millisecond)
-	_, err = db.Exec(fmt.Sprintf(`insert into ws_test_null.t1 using ws_test_null.alltype tags('null') values('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)`, now.Format(time.RFC3339Nano)))
+	colValues, _, _ := generateValues()
+	builder := &strings.Builder{}
+	for i := 1; i < len(colValues); i++ {
+		builder.WriteString(",null")
+	}
+	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Query(fmt.Sprintf("select * from ws_test_null.alltype where ts = '%s'", now.Format(time.RFC3339Nano)))
+	rows, err := db.Query(fmt.Sprintf("select * from %s.alltype where ts = '%s'", database, colValues[0].(time.Time).Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 	columns, err := rows.Columns()
 	assert.NoError(t, err)
@@ -202,72 +182,32 @@ func TestAllTypeQueryNull(t *testing.T) {
 	cTypes, err := rows.ColumnTypes()
 	assert.NoError(t, err)
 	t.Log(cTypes)
+	values := make([]interface{}, len(cTypes))
+	values[0] = new(time.Time)
+	for i := 1; i < len(colValues); i++ {
+		var v interface{}
+		values[i] = &v
+	}
+	var tt types.RawMessage
+	values[len(colValues)] = &tt
 	for rows.Next() {
-		var (
-			ts  time.Time
-			c1  *bool
-			c2  *int8
-			c3  *int16
-			c4  *int32
-			c5  *int64
-			c6  *uint8
-			c7  *uint16
-			c8  *uint32
-			c9  *uint64
-			c10 *float32
-			c11 *float64
-			c12 *string
-			c13 *string
-			tt  *string
-		)
-		err := rows.Scan(
-			&ts,
-			&c1,
-			&c2,
-			&c3,
-			&c4,
-			&c5,
-			&c6,
-			&c7,
-			&c8,
-			&c9,
-			&c10,
-			&c11,
-			&c12,
-			&c13,
-			&tt,
-		)
-		assert.Equal(t, now.UTC(), ts.UTC())
-		assert.Nil(t, c1)
-		assert.Nil(t, c2)
-		assert.Nil(t, c3)
-		assert.Nil(t, c4)
-		assert.Nil(t, c5)
-		assert.Nil(t, c6)
-		assert.Nil(t, c7)
-		assert.Nil(t, c8)
-		assert.Nil(t, c9)
-		assert.Nil(t, c10)
-		assert.Nil(t, c11)
-		assert.Nil(t, c12)
-		assert.Nil(t, c13)
-		assert.Nil(t, tt)
+		err := rows.Scan(values...)
 		if err != nil {
-
 			t.Fatal(err)
 		}
-		if ts.IsZero() {
-			t.Fatal(ts)
-		}
-
 	}
+	assert.Equal(t, *values[0].(*time.Time), colValues[0].(time.Time))
+	for i := 1; i < len(values)-1; i++ {
+		assert.Nil(t, *values[i].(*interface{}))
+	}
+	assert.Equal(t, types.RawMessage(`{"a":"b"}`), *(values[len(values)-1]).(*types.RawMessage))
 }
 
 // @author: xftan
 // @date: 2023/10/13 11:24
 // @description: test compression
 func TestAllTypeQueryCompression(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	database := "ws_test_compression"
 	db, err := sql.Open("taosWS", dataSourceNameWithCompression)
 	if err != nil {
 		t.Fatal(err)
@@ -278,57 +218,25 @@ func TestAllTypeQueryCompression(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists ws_test")
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists ws_test")
+	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var (
-		v1  = true
-		v2  = int8(rand.Int())
-		v3  = int16(rand.Int())
-		v4  = rand.Int31()
-		v5  = int64(rand.Int31())
-		v6  = uint8(rand.Uint32())
-		v7  = uint16(rand.Uint32())
-		v8  = rand.Uint32()
-		v9  = uint64(rand.Uint32())
-		v10 = rand.Float32()
-		v11 = rand.Float64()
-		v12 = "test_binary"
-		v13 = "test_nchar"
-	)
-
-	_, err = db.Exec("create table if not exists ws_test.alltype(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)" +
-		")" +
-		"tags(t json)",
-	)
+	_, err = db.Exec(generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now().Round(time.Millisecond)
-	_, err = db.Exec(fmt.Sprintf(`insert into ws_test.t1 using ws_test.alltype tags('{"a":"b"}') values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar')`, now.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11))
+	colValues, scanValues, insertSql := generateValues()
+	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Query(fmt.Sprintf("select * from ws_test.alltype where ts = '%s'", now.Format(time.RFC3339Nano)))
+	rows, err := db.Query(fmt.Sprintf("select * from %s.alltype where ts = '%s'", database, colValues[0].(time.Time).Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 	columns, err := rows.Columns()
 	assert.NoError(t, err)
@@ -336,70 +244,27 @@ func TestAllTypeQueryCompression(t *testing.T) {
 	cTypes, err := rows.ColumnTypes()
 	assert.NoError(t, err)
 	t.Log(cTypes)
-	for rows.Next() {
-		var (
-			ts  time.Time
-			c1  bool
-			c2  int8
-			c3  int16
-			c4  int32
-			c5  int64
-			c6  uint8
-			c7  uint16
-			c8  uint32
-			c9  uint64
-			c10 float32
-			c11 float64
-			c12 string
-			c13 string
-			tt  types.RawMessage
-		)
-		err := rows.Scan(
-			&ts,
-			&c1,
-			&c2,
-			&c3,
-			&c4,
-			&c5,
-			&c6,
-			&c7,
-			&c8,
-			&c9,
-			&c10,
-			&c11,
-			&c12,
-			&c13,
-			&tt,
-		)
-		assert.Equal(t, now.UTC(), ts.UTC())
-		assert.Equal(t, v1, c1)
-		assert.Equal(t, v2, c2)
-		assert.Equal(t, v3, c3)
-		assert.Equal(t, v4, c4)
-		assert.Equal(t, v5, c5)
-		assert.Equal(t, v6, c6)
-		assert.Equal(t, v7, c7)
-		assert.Equal(t, v8, c8)
-		assert.Equal(t, v9, c9)
-		assert.Equal(t, v10, c10)
-		assert.Equal(t, v11, c11)
-		assert.Equal(t, v12, c12)
-		assert.Equal(t, v13, c13)
-		assert.Equal(t, types.RawMessage(`{"a":"b"}`), tt)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if ts.IsZero() {
-			t.Fatal(ts)
-		}
+	var tt types.RawMessage
+	dest := make([]interface{}, len(scanValues)+1)
+	for i := range scanValues {
+		dest[i] = reflect.ValueOf(&scanValues[i]).Interface()
 	}
+	dest[len(scanValues)] = &tt
+	for rows.Next() {
+		err := rows.Scan(dest...)
+		assert.NoError(t, err)
+	}
+	for i, v := range colValues {
+		assert.Equal(t, v, scanValues[i])
+	}
+	assert.Equal(t, types.RawMessage(`{"a":"b"}`), tt)
 }
 
 // @author: xftan
 // @date: 2023/10/13 11:24
 // @description: test all type query without json
 func TestAllTypeQueryWithoutJson(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	database := "ws_test_without_json"
 	db, err := sql.Open("taosWS", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -410,56 +275,25 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists ws_test_without_json")
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists ws_test_without_json")
+	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var (
-		v1  = false
-		v2  = int8(rand.Int())
-		v3  = int16(rand.Int())
-		v4  = rand.Int31()
-		v5  = int64(rand.Int31())
-		v6  = uint8(rand.Uint32())
-		v7  = uint16(rand.Uint32())
-		v8  = rand.Uint32()
-		v9  = uint64(rand.Uint32())
-		v10 = rand.Float32()
-		v11 = rand.Float64()
-		v12 = "test_binary"
-		v13 = "test_nchar"
-	)
-
-	_, err = db.Exec("create table if not exists ws_test_without_json.all_type(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)" +
-		")",
-	)
+	_, err = db.Exec(generateCreateTableSql(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now().Round(time.Millisecond)
-	_, err = db.Exec(fmt.Sprintf(`insert into ws_test_without_json.all_type values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar')`, now.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11))
+	colValues, scanValues, insertSql := generateValues()
+	_, err = db.Exec(fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Query(fmt.Sprintf("select * from ws_test_without_json.all_type where ts = '%s'", now.Format(time.RFC3339Nano)))
+	rows, err := db.Query(fmt.Sprintf("select * from %s.alltype where ts = '%s'", database, colValues[0].(time.Time).Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 	columns, err := rows.Columns()
 	assert.NoError(t, err)
@@ -467,60 +301,16 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 	cTypes, err := rows.ColumnTypes()
 	assert.NoError(t, err)
 	t.Log(cTypes)
+	dest := make([]interface{}, len(scanValues))
+	for i := range scanValues {
+		dest[i] = reflect.ValueOf(&scanValues[i]).Interface()
+	}
 	for rows.Next() {
-		var (
-			ts  time.Time
-			c1  bool
-			c2  int8
-			c3  int16
-			c4  int32
-			c5  int64
-			c6  uint8
-			c7  uint16
-			c8  uint32
-			c9  uint64
-			c10 float32
-			c11 float64
-			c12 string
-			c13 string
-		)
-		err := rows.Scan(
-			&ts,
-			&c1,
-			&c2,
-			&c3,
-			&c4,
-			&c5,
-			&c6,
-			&c7,
-			&c8,
-			&c9,
-			&c10,
-			&c11,
-			&c12,
-			&c13,
-		)
-		assert.Equal(t, now.UTC(), ts.UTC())
-		assert.Equal(t, v1, c1)
-		assert.Equal(t, v2, c2)
-		assert.Equal(t, v3, c3)
-		assert.Equal(t, v4, c4)
-		assert.Equal(t, v5, c5)
-		assert.Equal(t, v6, c6)
-		assert.Equal(t, v7, c7)
-		assert.Equal(t, v8, c8)
-		assert.Equal(t, v9, c9)
-		assert.Equal(t, v10, c10)
-		assert.Equal(t, v11, c11)
-		assert.Equal(t, v12, c12)
-		assert.Equal(t, v13, c13)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if ts.IsZero() {
-			t.Fatal(ts)
-		}
-
+		err := rows.Scan(dest...)
+		assert.NoError(t, err)
+	}
+	for i, v := range colValues {
+		assert.Equal(t, v, scanValues[i])
 	}
 }
 
@@ -528,7 +318,7 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 // @date: 2023/10/13 11:24
 // @description: test all type query with null without json
 func TestAllTypeQueryNullWithoutJson(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	database := "ws_test_without_json_null"
 	db, err := sql.Open("taosWS", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -539,41 +329,30 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists ws_test_without_json_null")
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists ws_test_without_json_null")
+	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	_, err = db.Exec("create table if not exists ws_test_without_json_null.all_type(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)" +
-		")",
-	)
+	_, err = db.Exec(generateCreateTableSql(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now().Round(time.Millisecond)
-	_, err = db.Exec(fmt.Sprintf(`insert into ws_test_without_json_null.all_type values('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)`, now.Format(time.RFC3339Nano)))
+	colValues, _, _ := generateValues()
+	builder := &strings.Builder{}
+	for i := 1; i < len(colValues); i++ {
+		builder.WriteString(",null")
+	}
+	insertSql := fmt.Sprintf(`insert into %s.alltype values('%s'%s)`, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String())
+	_, err = db.Exec(insertSql)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Query(fmt.Sprintf("select * from ws_test_without_json_null.all_type where ts = '%s'", now.Format(time.RFC3339Nano)))
+	rows, err := db.Query(fmt.Sprintf("select * from %s.alltype where ts = '%s'", database, colValues[0].(time.Time).Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 	columns, err := rows.Columns()
 	assert.NoError(t, err)
@@ -581,61 +360,21 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 	cTypes, err := rows.ColumnTypes()
 	assert.NoError(t, err)
 	t.Log(cTypes)
+	values := make([]interface{}, len(cTypes))
+	values[0] = new(time.Time)
+	for i := 1; i < len(colValues); i++ {
+		var v interface{}
+		values[i] = &v
+	}
 	for rows.Next() {
-		var (
-			ts  time.Time
-			c1  *bool
-			c2  *int8
-			c3  *int16
-			c4  *int32
-			c5  *int64
-			c6  *uint8
-			c7  *uint16
-			c8  *uint32
-			c9  *uint64
-			c10 *float32
-			c11 *float64
-			c12 *string
-			c13 *string
-		)
-		err := rows.Scan(
-			&ts,
-			&c1,
-			&c2,
-			&c3,
-			&c4,
-			&c5,
-			&c6,
-			&c7,
-			&c8,
-			&c9,
-			&c10,
-			&c11,
-			&c12,
-			&c13,
-		)
-		assert.Equal(t, now.UTC(), ts.UTC())
-		assert.Nil(t, c1)
-		assert.Nil(t, c2)
-		assert.Nil(t, c3)
-		assert.Nil(t, c4)
-		assert.Nil(t, c5)
-		assert.Nil(t, c6)
-		assert.Nil(t, c7)
-		assert.Nil(t, c8)
-		assert.Nil(t, c9)
-		assert.Nil(t, c10)
-		assert.Nil(t, c11)
-		assert.Nil(t, c12)
-		assert.Nil(t, c13)
+		err := rows.Scan(values...)
 		if err != nil {
-
 			t.Fatal(err)
 		}
-		if ts.IsZero() {
-			t.Fatal(ts)
-		}
-
+	}
+	assert.Equal(t, *values[0].(*time.Time), colValues[0].(time.Time))
+	for i := 1; i < len(values)-1; i++ {
+		assert.Nil(t, *values[i].(*interface{}))
 	}
 }
 

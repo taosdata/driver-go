@@ -196,3 +196,8 @@ type PositionResp struct {
 	Timing   int64   `json:"timing"`
 	Position []int64 `json:"position"`
 }
+
+type TMQFetchRawMetaReq struct {
+	ReqID     uint64 `json:"req_id"`
+	MessageID uint64 `json:"message_id"`
+}

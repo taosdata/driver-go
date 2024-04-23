@@ -20,6 +20,15 @@ func NewParam(size int) *Param {
 	}
 }
 
+func NewParamsWithRowValue(value []driver.Value) []*Param {
+	params := make([]*Param, len(value))
+	for i, d := range value {
+		params[i] = NewParam(1)
+		params[i].AddValue(d)
+	}
+	return params
+}
+
 func (p *Param) SetBool(offset int, value bool) {
 	if offset >= p.size {
 		return

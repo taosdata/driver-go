@@ -18,12 +18,12 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
-func prepareEnv() error {
+func prepareEnv(db string) error {
 	var err error
 	steps := []string{
-		"drop database if exists test_ws_stmt",
-		"create database test_ws_stmt",
-		"create table test_ws_stmt.all_json(ts timestamp," +
+		"drop database if exists " + db,
+		"create database " + db,
+		"create table " + db + ".all_json(ts timestamp," +
 			"c1 bool," +
 			"c2 tinyint," +
 			"c3 smallint," +
@@ -39,7 +39,7 @@ func prepareEnv() error {
 			"c13 nchar(20)" +
 			")" +
 			"tags(t json)",
-		"create table test_ws_stmt.all_all(" +
+		"create table " + db + ".all_all(" +
 			"ts timestamp," +
 			"c1 bool," +
 			"c2 tinyint," +
@@ -80,11 +80,11 @@ func prepareEnv() error {
 	return nil
 }
 
-func cleanEnv() error {
+func cleanEnv(db string) error {
 	var err error
 	time.Sleep(2 * time.Second)
 	steps := []string{
-		"drop database if exists test_ws_stmt",
+		"drop database if exists " + db,
 	}
 	for _, step := range steps {
 		err = doRequest(step)
@@ -151,19 +151,20 @@ func query(payload string) (*common.TDEngineRestfulResp, error) {
 // @date: 2023/10/13 11:35
 // @description: test stmt over websocket
 func TestStmt(t *testing.T) {
-	err := prepareEnv()
+	err := prepareEnv("test_ws_stmt")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer cleanEnv()
+	defer cleanEnv("test_ws_stmt")
 	now := time.Now()
-	config := NewConfig("ws://127.0.0.1:6041/rest/stmt", 0)
+	config := NewConfig("ws://127.0.0.1:6041", 0)
 	config.SetConnectUser("root")
 	config.SetConnectPass("taosdata")
 	config.SetConnectDB("test_ws_stmt")
 	config.SetMessageTimeout(common.DefaultMessageTimeout)
 	config.SetWriteWait(common.DefaultWriteWait)
+	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
 	})
@@ -613,4 +614,406 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 		return nil, iter.Error
 	}
 	return &result, nil
+}
+
+func TestSTMTQuery(t *testing.T) {
+	err := prepareEnv("test_ws_stmt_query")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer cleanEnv("test_ws_stmt_query")
+	now := time.Now()
+	config := NewConfig("ws://127.0.0.1:6041", 0)
+	config.SetConnectUser("root")
+	config.SetConnectPass("taosdata")
+	config.SetConnectDB("test_ws_stmt_query")
+	config.SetMessageTimeout(common.DefaultMessageTimeout)
+	config.SetWriteWait(common.DefaultWriteWait)
+	config.SetEnableCompression(true)
+	config.SetErrorHandler(func(connector *Connector, err error) {
+		t.Log(err)
+	})
+	config.SetCloseHandler(func() {
+		t.Log("stmt websocket closed")
+	})
+	connector, err := NewConnector(config)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer connector.Close()
+	{
+		stmt, err := connector.Init()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer stmt.Close()
+		err = stmt.Prepare("insert into ? using all_json tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.SetTableName("tb1")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.SetTags(param.NewParam(1).AddJson([]byte(`{"tb":1}`)), param.NewColumnType(1).AddJson(0))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		params := []*param.Param{
+			param.NewParam(3).AddTimestamp(now, 0).AddTimestamp(now.Add(time.Second), 0).AddTimestamp(now.Add(time.Second*2), 0),
+			param.NewParam(3).AddBool(true).AddNull().AddBool(true),
+			param.NewParam(3).AddTinyint(1).AddNull().AddTinyint(1),
+			param.NewParam(3).AddSmallint(1).AddNull().AddSmallint(1),
+			param.NewParam(3).AddInt(1).AddNull().AddInt(1),
+			param.NewParam(3).AddBigint(1).AddNull().AddBigint(1),
+			param.NewParam(3).AddUTinyint(1).AddNull().AddUTinyint(1),
+			param.NewParam(3).AddUSmallint(1).AddNull().AddUSmallint(1),
+			param.NewParam(3).AddUInt(1).AddNull().AddUInt(1),
+			param.NewParam(3).AddUBigint(1).AddNull().AddUBigint(1),
+			param.NewParam(3).AddFloat(1).AddNull().AddFloat(1),
+			param.NewParam(3).AddDouble(1).AddNull().AddDouble(1),
+			param.NewParam(3).AddBinary([]byte("test_binary")).AddNull().AddBinary([]byte("test_binary")),
+			param.NewParam(3).AddNchar("test_nchar").AddNull().AddNchar("test_nchar"),
+		}
+		paramTypes := param.NewColumnType(14).
+			AddTimestamp().
+			AddBool().
+			AddTinyint().
+			AddSmallint().
+			AddInt().
+			AddBigint().
+			AddUTinyint().
+			AddUSmallint().
+			AddUInt().
+			AddUBigint().
+			AddFloat().
+			AddDouble().
+			AddBinary(0).
+			AddNchar(0)
+		err = stmt.BindParam(params, paramTypes)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.AddBatch()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.Exec()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		affected := stmt.GetAffectedRows()
+		if !assert.Equal(t, 3, affected) {
+			return
+		}
+		err = stmt.Prepare("select * from all_json where ts >=? order by ts")
+		assert.NoError(t, err)
+		queryTime := now.Format(time.RFC3339Nano)
+		params = []*param.Param{param.NewParam(1).AddBinary([]byte(queryTime))}
+		paramTypes = param.NewColumnType(1).AddBinary(len(queryTime))
+		err = stmt.BindParam(params, paramTypes)
+		assert.NoError(t, err)
+		err = stmt.AddBatch()
+		assert.NoError(t, err)
+		err = stmt.Exec()
+		assert.NoError(t, err)
+		rows, err := stmt.UseResult()
+		assert.NoError(t, err)
+		columns := rows.Columns()
+		assert.Equal(t, 15, len(columns))
+		expectColumns := []string{
+			"ts",
+			"c1",
+			"c2",
+			"c3",
+			"c4",
+			"c5",
+			"c6",
+			"c7",
+			"c8",
+			"c9",
+			"c10",
+			"c11",
+			"c12",
+			"c13",
+			"t",
+		}
+		for i := 0; i < 14; i++ {
+			assert.Equal(t, columns[i], expectColumns[i])
+			rows.ColumnTypeDatabaseTypeName(i)
+			rows.ColumnTypeLength(i)
+			rows.ColumnTypeScanType(i)
+		}
+		var result [][]driver.Value
+		for {
+			values := make([]driver.Value, 15)
+			err = rows.Next(values)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				assert.NoError(t, err)
+			}
+			result = append(result, values)
+		}
+		assert.Equal(t, 3, len(result))
+		row1 := result[0]
+		assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row1[1])
+		assert.Equal(t, int8(1), row1[2])
+		assert.Equal(t, int16(1), row1[3])
+		assert.Equal(t, int32(1), row1[4])
+		assert.Equal(t, int64(1), row1[5])
+		assert.Equal(t, uint8(1), row1[6])
+		assert.Equal(t, uint16(1), row1[7])
+		assert.Equal(t, uint32(1), row1[8])
+		assert.Equal(t, uint64(1), row1[9])
+		assert.Equal(t, float32(1), row1[10])
+		assert.Equal(t, float64(1), row1[11])
+		assert.Equal(t, "test_binary", row1[12])
+		assert.Equal(t, "test_nchar", row1[13])
+		assert.Equal(t, []byte(`{"tb":1}`), row1[14])
+		row2 := result[1]
+		assert.Equal(t, now.Add(time.Second).UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
+		for i := 1; i < 14; i++ {
+			assert.Nil(t, row2[i])
+		}
+		assert.Equal(t, []byte(`{"tb":1}`), row2[14])
+		row3 := result[2]
+		assert.Equal(t, now.Add(time.Second*2).UnixNano()/1e6, row3[0].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row3[1])
+		assert.Equal(t, int8(1), row3[2])
+		assert.Equal(t, int16(1), row3[3])
+		assert.Equal(t, int32(1), row3[4])
+		assert.Equal(t, int64(1), row3[5])
+		assert.Equal(t, uint8(1), row3[6])
+		assert.Equal(t, uint16(1), row3[7])
+		assert.Equal(t, uint32(1), row3[8])
+		assert.Equal(t, uint64(1), row3[9])
+		assert.Equal(t, float32(1), row3[10])
+		assert.Equal(t, float64(1), row3[11])
+		assert.Equal(t, "test_binary", row3[12])
+		assert.Equal(t, "test_nchar", row3[13])
+		assert.Equal(t, []byte(`{"tb":1}`), row3[14])
+	}
+	{
+		stmt, err := connector.Init()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer stmt.Close()
+		err = stmt.Prepare("insert into ? using all_all tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		err = stmt.SetTableName("tb1")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		err = stmt.SetTableName("tb2")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.SetTags(
+			param.NewParam(14).
+				AddTimestamp(now, 0).
+				AddBool(true).
+				AddTinyint(2).
+				AddSmallint(2).
+				AddInt(2).
+				AddBigint(2).
+				AddUTinyint(2).
+				AddUSmallint(2).
+				AddUInt(2).
+				AddUBigint(2).
+				AddFloat(2).
+				AddDouble(2).
+				AddBinary([]byte("tb2")).
+				AddNchar("tb2"),
+			param.NewColumnType(14).
+				AddTimestamp().
+				AddBool().
+				AddTinyint().
+				AddSmallint().
+				AddInt().
+				AddBigint().
+				AddUTinyint().
+				AddUSmallint().
+				AddUInt().
+				AddUBigint().
+				AddFloat().
+				AddDouble().
+				AddBinary(0).
+				AddNchar(0),
+		)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		params := []*param.Param{
+			param.NewParam(3).AddTimestamp(now, 0).AddTimestamp(now.Add(time.Second), 0).AddTimestamp(now.Add(time.Second*2), 0),
+			param.NewParam(3).AddBool(true).AddNull().AddBool(true),
+			param.NewParam(3).AddTinyint(1).AddNull().AddTinyint(1),
+			param.NewParam(3).AddSmallint(1).AddNull().AddSmallint(1),
+			param.NewParam(3).AddInt(1).AddNull().AddInt(1),
+			param.NewParam(3).AddBigint(1).AddNull().AddBigint(1),
+			param.NewParam(3).AddUTinyint(1).AddNull().AddUTinyint(1),
+			param.NewParam(3).AddUSmallint(1).AddNull().AddUSmallint(1),
+			param.NewParam(3).AddUInt(1).AddNull().AddUInt(1),
+			param.NewParam(3).AddUBigint(1).AddNull().AddUBigint(1),
+			param.NewParam(3).AddFloat(1).AddNull().AddFloat(1),
+			param.NewParam(3).AddDouble(1).AddNull().AddDouble(1),
+			param.NewParam(3).AddBinary([]byte("test_binary")).AddNull().AddBinary([]byte("test_binary")),
+			param.NewParam(3).AddNchar("test_nchar").AddNull().AddNchar("test_nchar"),
+		}
+		paramTypes := param.NewColumnType(14).
+			AddTimestamp().
+			AddBool().
+			AddTinyint().
+			AddSmallint().
+			AddInt().
+			AddBigint().
+			AddUTinyint().
+			AddUSmallint().
+			AddUInt().
+			AddUBigint().
+			AddFloat().
+			AddDouble().
+			AddBinary(0).
+			AddNchar(0)
+		err = stmt.BindParam(params, paramTypes)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.AddBatch()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = stmt.Exec()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		affected := stmt.GetAffectedRows()
+		if !assert.Equal(t, 3, affected) {
+			return
+		}
+		err = stmt.Prepare("select * from all_all where ts >=? order by ts")
+		assert.NoError(t, err)
+		queryTime := now.Format(time.RFC3339Nano)
+		params = []*param.Param{param.NewParam(1).AddBinary([]byte(queryTime))}
+		paramTypes = param.NewColumnType(1).AddBinary(len(queryTime))
+		err = stmt.BindParam(params, paramTypes)
+		assert.NoError(t, err)
+		err = stmt.AddBatch()
+		assert.NoError(t, err)
+		err = stmt.Exec()
+		assert.NoError(t, err)
+		rows, err := stmt.UseResult()
+		assert.NoError(t, err)
+		columns := rows.Columns()
+		assert.Equal(t, 28, len(columns))
+		var result [][]driver.Value
+		for {
+			values := make([]driver.Value, 28)
+			err = rows.Next(values)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				assert.NoError(t, err)
+			}
+			result = append(result, values)
+		}
+		assert.Equal(t, 3, len(result))
+		row1 := result[0]
+		assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row1[1])
+		assert.Equal(t, int8(1), row1[2])
+		assert.Equal(t, int16(1), row1[3])
+		assert.Equal(t, int32(1), row1[4])
+		assert.Equal(t, int64(1), row1[5])
+		assert.Equal(t, uint8(1), row1[6])
+		assert.Equal(t, uint16(1), row1[7])
+		assert.Equal(t, uint32(1), row1[8])
+		assert.Equal(t, uint64(1), row1[9])
+		assert.Equal(t, float32(1), row1[10])
+		assert.Equal(t, float64(1), row1[11])
+		assert.Equal(t, "test_binary", row1[12])
+		assert.Equal(t, "test_nchar", row1[13])
+		assert.Equal(t, now.UnixNano()/1e6, row1[14].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row1[15])
+		assert.Equal(t, int8(2), row1[16])
+		assert.Equal(t, int16(2), row1[17])
+		assert.Equal(t, int32(2), row1[18])
+		assert.Equal(t, int64(2), row1[19])
+		assert.Equal(t, uint8(2), row1[20])
+		assert.Equal(t, uint16(2), row1[21])
+		assert.Equal(t, uint32(2), row1[22])
+		assert.Equal(t, uint64(2), row1[23])
+		assert.Equal(t, float32(2), row1[24])
+		assert.Equal(t, float64(2), row1[25])
+		assert.Equal(t, "tb2", row1[26])
+		assert.Equal(t, "tb2", row1[27])
+		row2 := result[1]
+		assert.Equal(t, now.Add(time.Second).UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
+		for i := 1; i < 14; i++ {
+			assert.Nil(t, row2[i])
+		}
+		assert.Equal(t, now.UnixNano()/1e6, row1[14].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row1[15])
+		assert.Equal(t, int8(2), row1[16])
+		assert.Equal(t, int16(2), row1[17])
+		assert.Equal(t, int32(2), row1[18])
+		assert.Equal(t, int64(2), row1[19])
+		assert.Equal(t, uint8(2), row1[20])
+		assert.Equal(t, uint16(2), row1[21])
+		assert.Equal(t, uint32(2), row1[22])
+		assert.Equal(t, uint64(2), row1[23])
+		assert.Equal(t, float32(2), row1[24])
+		assert.Equal(t, float64(2), row1[25])
+		assert.Equal(t, "tb2", row1[26])
+		assert.Equal(t, "tb2", row1[27])
+		row3 := result[2]
+		assert.Equal(t, now.Add(time.Second*2).UnixNano()/1e6, row3[0].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row3[1])
+		assert.Equal(t, int8(1), row3[2])
+		assert.Equal(t, int16(1), row3[3])
+		assert.Equal(t, int32(1), row3[4])
+		assert.Equal(t, int64(1), row3[5])
+		assert.Equal(t, uint8(1), row3[6])
+		assert.Equal(t, uint16(1), row3[7])
+		assert.Equal(t, uint32(1), row3[8])
+		assert.Equal(t, uint64(1), row3[9])
+		assert.Equal(t, float32(1), row3[10])
+		assert.Equal(t, float64(1), row3[11])
+		assert.Equal(t, "test_binary", row3[12])
+		assert.Equal(t, "test_nchar", row3[13])
+		assert.Equal(t, now.UnixNano()/1e6, row3[14].(time.Time).UnixNano()/1e6)
+		assert.Equal(t, true, row3[15])
+		assert.Equal(t, int8(2), row3[16])
+		assert.Equal(t, int16(2), row3[17])
+		assert.Equal(t, int32(2), row3[18])
+		assert.Equal(t, int64(2), row3[19])
+		assert.Equal(t, uint8(2), row3[20])
+		assert.Equal(t, uint16(2), row3[21])
+		assert.Equal(t, uint32(2), row3[22])
+		assert.Equal(t, uint64(2), row3[23])
+		assert.Equal(t, float32(2), row3[24])
+		assert.Equal(t, float64(2), row3[25])
+		assert.Equal(t, "tb2", row3[26])
+		assert.Equal(t, "tb2", row3[27])
+	}
 }
