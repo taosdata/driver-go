@@ -10,19 +10,20 @@ English | [简体中文](README-CN.md)
 
 v2 is not compatible with v3 version and corresponds to the TDengine version as follows:
 
-| **driver-go version** | **TDengine version** | **major features**                          |
-|-----------------------|----------------------|---------------------------------------------|
-| v3.5.3                | 3.2.3.0+ / 3.1.1.27+ | refactor taosWS                             |
-| v3.5.2                | 3.2.3.0+ / 3.1.1.27+ | websocket compression and optimize tmq poll |
-| v3.5.1                | 3.2.1.0+ / 3.1.1.13+ | native stmt query and geometry support      |
-| v3.5.0                | 3.0.5.0+             | tmq: get assignment and seek offset         |
-| v3.3.1                | 3.0.4.1+             | schemaless insert over websocket            |
-| v3.1.0                | 3.0.2.2+             | provide tmq apis close to kafka             |
-| v3.0.4                | 3.0.2.2+             | add request id                              |
-| v3.0.3                | 3.0.1.5+             | statement insert over websocket             |
-| v3.0.2                | 3.0.1.5+             | bulk pulling over websocket                 |
-| v3.0.1                | 3.0.0.0+             | tmq over websocket                          |
-| v3.0.0                | 3.0.0.0+             | adapt to TDengine 3.0 query and insert      |
+| **driver-go version** | **TDengine version** | **major features**                            |
+|-----------------------|----------------------|-----------------------------------------------|
+| v3.5.4                | 3.2.3.0+ / 3.1.1.27+ | compatible with TDengine 3.3.0.0 tmq raw data |
+| v3.5.3                | 3.2.3.0+ / 3.1.1.27+ | refactor taosWS                               |
+| v3.5.2                | 3.2.3.0+ / 3.1.1.27+ | websocket compression and optimize tmq poll   |
+| v3.5.1                | 3.2.1.0+ / 3.1.1.13+ | native stmt query and geometry support        |
+| v3.5.0                | 3.0.5.0+             | tmq: get assignment and seek offset           |
+| v3.3.1                | 3.0.4.1+             | schemaless insert over websocket              |
+| v3.1.0                | 3.0.2.2+             | provide tmq apis close to kafka               |
+| v3.0.4                | 3.0.2.2+             | add request id                                |
+| v3.0.3                | 3.0.1.5+             | statement insert over websocket               |
+| v3.0.2                | 3.0.1.5+             | bulk pulling over websocket                   |
+| v3.0.1                | 3.0.0.0+             | tmq over websocket                            |
+| v3.0.0                | 3.0.0.0+             | adapt to TDengine 3.0 query and insert        |
 
 ## Install
 
