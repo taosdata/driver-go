@@ -145,6 +145,12 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
 
+      - name: copy taos cfg
+        run: |
+          sudo mkdir -p /etc/taos
+          sudo cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
+          sudo cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+
       - name: shell
         run: |
           cat >start.sh<<EOF 

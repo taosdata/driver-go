@@ -23,17 +23,23 @@ const (
 )
 
 type Schemaless struct {
-	client       *client.Client
-	sendList     *list.List
-	url          string
-	user         string
-	password     string
-	db           string
-	readTimeout  time.Duration
-	lock         sync.Mutex
-	once         sync.Once
-	closeChan    chan struct{}
-	errorHandler func(error)
+	client              *client.Client
+	sendList            *list.List
+	url                 string
+	user                string
+	password            string
+	db                  string
+	readTimeout         time.Duration
+	writeTimeout        time.Duration
+	lock                sync.Mutex
+	once                sync.Once
+	closeChan           chan struct{}
+	errorHandler        func(error)
+	dialer              *websocket.Dialer
+	chanLength          uint
+	autoReconnect       bool
+	reconnectIntervalMs int
+	reconnectRetryCount int
 }
 
 func NewSchemaless(config *Config) (*Schemaless, error) {
@@ -47,21 +53,28 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 	wsUrl.Path = "/ws"
 	dialer := common.DefaultDialer
 	dialer.EnableCompression = config.enableCompression
-	ws, _, err := dialer.Dial(wsUrl.String(), nil)
-	ws.EnableWriteCompression(config.enableCompression)
+	conn, _, err := dialer.Dial(wsUrl.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("dial ws error: %s", err)
 	}
-
+	conn.EnableWriteCompression(config.enableCompression)
 	s := Schemaless{
-		client:       client.NewClient(ws, config.chanLength),
+		client:       client.NewClient(conn, config.chanLength),
 		sendList:     list.New(),
-		url:          config.url,
+		url:          wsUrl.String(),
 		user:         config.user,
 		password:     config.password,
 		db:           config.db,
 		closeChan:    make(chan struct{}),
 		errorHandler: config.errorHandler,
+		dialer:       &dialer,
+		chanLength:   config.chanLength,
+	}
+
+	if config.autoReconnect {
+		s.autoReconnect = true
+		s.reconnectIntervalMs = config.reconnectIntervalMs
+		s.reconnectRetryCount = config.reconnectRetryCount
 	}
 
 	if config.readTimeout > 0 {
@@ -69,19 +82,57 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 	}
 
 	if config.writeTimeout > 0 {
-		s.client.WriteWait = config.writeTimeout
+		s.writeTimeout = config.writeTimeout
 	}
-	s.client.ErrorHandler = s.handleError
-	s.client.TextMessageHandler = s.handleTextMessage
 
-	go s.client.ReadPump()
-	go s.client.WritePump()
-
-	if err = s.connect(); err != nil {
+	if err = connect(conn, s.user, s.password, s.db, s.writeTimeout, s.readTimeout); err != nil {
 		return nil, fmt.Errorf("connect ws error: %s", err)
 	}
+	s.initClient(s.client)
 
 	return &s, nil
+}
+
+func (s *Schemaless) initClient(c *client.Client) {
+	if s.writeTimeout > 0 {
+		c.WriteWait = s.writeTimeout
+	}
+	c.ErrorHandler = s.handleError
+	c.TextMessageHandler = s.handleTextMessage
+
+	go c.ReadPump()
+	go c.WritePump()
+}
+
+func (s *Schemaless) reconnect() error {
+	reconnected := false
+	for i := 0; i < s.reconnectRetryCount; i++ {
+		time.Sleep(time.Duration(s.reconnectIntervalMs) * time.Millisecond)
+		conn, _, err := s.dialer.Dial(s.url, nil)
+		if err != nil {
+			continue
+		}
+		conn.EnableWriteCompression(s.dialer.EnableCompression)
+		if err = connect(conn, s.user, s.password, s.db, s.writeTimeout, s.readTimeout); err != nil {
+			conn.Close()
+			continue
+		}
+		if s.client != nil {
+			s.client.Close()
+		}
+		c := client.NewClient(conn, s.chanLength)
+		s.initClient(c)
+		s.client = c
+		reconnected = true
+		break
+	}
+	if !reconnected {
+		if s.client != nil {
+			s.client.Close()
+		}
+		return errors.New("reconnect failed")
+	}
+	return nil
 }
 
 func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl int, reqID int64) error {
@@ -102,15 +153,25 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 		return err
 	}
 	action := &client.WSAction{Action: insertAction, Args: args}
-	envelope := s.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := s.sendText(uint64(reqID), envelope)
 	if err != nil {
-		return err
+		if !s.autoReconnect {
+			return err
+		}
+		err = s.reconnect()
+		if err != nil {
+			return err
+		}
+		respBytes, err = s.sendText(uint64(reqID), envelope)
+		if err != nil {
+			return err
+		}
 	}
 	var resp schemalessResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
@@ -133,13 +194,16 @@ func (s *Schemaless) Close() {
 	})
 }
 
-func (s *Schemaless) connect() error {
-	reqID := uint64(common.GetReqID())
+var (
+	ConnectTimeoutErr = errors.New("schemaless connect timeout")
+)
+
+func connect(ws *websocket.Conn, user string, password string, db string, writeTimeout time.Duration, readTimeout time.Duration) error {
 	req := &wsConnectReq{
-		ReqID:    reqID,
-		User:     s.user,
-		Password: s.password,
-		DB:       s.db,
+		ReqID:    0,
+		User:     user,
+		Password: password,
+		DB:       db,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -149,14 +213,29 @@ func (s *Schemaless) connect() error {
 		Action: connAction,
 		Args:   args,
 	}
-	envelope := s.client.GetEnvelope()
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	connectAction, err := client.JsonI.Marshal(action)
 	if err != nil {
-		s.client.PutEnvelope(envelope)
 		return err
 	}
-
-	respBytes, err := s.sendText(reqID, envelope)
+	ws.SetWriteDeadline(time.Now().Add(writeTimeout))
+	err = ws.WriteMessage(websocket.TextMessage, connectAction)
+	if err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
+	var respBytes []byte
+	go func() {
+		_, respBytes, err = ws.ReadMessage()
+		close(done)
+	}()
+	select {
+	case <-done:
+		cancel()
+	case <-ctx.Done():
+		cancel()
+		return ConnectTimeoutErr
+	}
 	if err != nil {
 		return err
 	}
@@ -182,7 +261,20 @@ func (s *Schemaless) send(reqID uint64, envelope *client.Envelope) ([]byte, erro
 		channel: make(chan []byte, 1),
 	}
 	element := s.addMessageOutChan(channel)
-	s.client.Send(envelope)
+	err := s.client.Send(envelope)
+	if err != nil {
+		s.lock.Lock()
+		s.sendList.Remove(element)
+		s.lock.Unlock()
+		return nil, err
+	}
+	err = <-envelope.ErrorChan
+	if err != nil {
+		s.lock.Lock()
+		s.sendList.Remove(element)
+		s.lock.Unlock()
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.readTimeout)
 	defer cancel()
 	select {
@@ -259,5 +351,4 @@ func (s *Schemaless) handleError(err error) {
 	if s.errorHandler != nil {
 		s.errorHandler(err)
 	}
-	s.Close()
 }

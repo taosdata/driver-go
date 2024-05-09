@@ -23,6 +23,7 @@ type Rows struct {
 	resultID      uint64
 	block         []byte
 	conn          *Connector
+	client        *client.Client
 	fieldsCount   int
 	fieldsNames   []string
 	fieldsTypes   []uint8
@@ -88,10 +89,10 @@ func (rs *Rows) taosFetchBlock() error {
 		Args:   args,
 	}
 	rs.buf.Reset()
-	envelope := rs.conn.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		rs.conn.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := rs.conn.sendText(reqID, envelope)
@@ -129,10 +130,10 @@ func (rs *Rows) fetchBlock() error {
 		Args:   args,
 	}
 	rs.buf.Reset()
-	envelope := rs.conn.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		rs.conn.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := rs.conn.sendText(rs.resultID, envelope)
@@ -160,10 +161,10 @@ func (rs *Rows) freeResult() error {
 		Args:   args,
 	}
 	rs.buf.Reset()
-	envelope := rs.conn.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		rs.conn.client.PutEnvelope(envelope)
 		return err
 	}
 	rs.conn.sendTextWithoutResp(envelope)

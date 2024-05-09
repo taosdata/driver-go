@@ -1,10 +1,15 @@
 package tmq
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -818,4 +823,135 @@ func TestMeta(t *testing.T) {
 			t.Log(e)
 		}
 	}
+}
+
+func newTaosadapter(port string) *exec.Cmd {
+	command := "taosadapter"
+	if runtime.GOOS == "windows" {
+		command = "C:\\TDengine\\taosadapter.exe"
+
+	}
+	return exec.Command(command, "--port", port)
+}
+
+func startTaosadapter(cmd *exec.Cmd, port string) error {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond * 100)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		time.Sleep(time.Second)
+		return nil
+	}
+	return errors.New("taosadapter start failed")
+}
+
+func stopTaosadapter(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return
+	}
+	cmd.Process.Signal(syscall.SIGINT)
+	cmd.Process.Wait()
+	cmd.Process = nil
+}
+
+func prepareSubReconnectEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_sub_reconnect_topic",
+		"drop database if exists test_ws_tmq_sub_reconnect",
+		"create database test_ws_tmq_sub_reconnect vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_sub_reconnect_topic as database test_ws_tmq_sub_reconnect",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanSubReconnectEnv() error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_ws_tmq_sub_reconnect_topic",
+		"drop database if exists test_ws_tmq_sub_reconnect",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestSubscribeReconnect(t *testing.T) {
+	port := "36043"
+	cmd := newTaosadapter(port)
+	err := startTaosadapter(cmd, port)
+	assert.NoError(t, err)
+	defer func() {
+		stopTaosadapter(cmd)
+	}()
+	prepareSubReconnectEnv()
+	defer cleanSubReconnectEnv()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:" + port,
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      time.Second * 10,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
+		"ws.autoReconnect":        true,
+		"ws.reconnectIntervalMs":  3000,
+		"ws.reconnectRetryCount":  3,
+	})
+	assert.NoError(t, err)
+	stopTaosadapter(cmd)
+	go func() {
+		time.Sleep(time.Second * 3)
+		startTaosadapter(cmd, port)
+	}()
+	err = consumer.Subscribe("test_ws_tmq_sub_reconnect_topic", nil)
+	assert.NoError(t, err)
+	doRequest("create table test_ws_tmq_sub_reconnect.st(ts timestamp,v int) tags (cn binary(20))")
+	doRequest("create table test_ws_tmq_sub_reconnect.t1 using test_ws_tmq_sub_reconnect.st tags ('t1')")
+	doRequest("insert into test_ws_tmq_sub_reconnect.t1 values (now,1)")
+	stopTaosadapter(cmd)
+	go func() {
+		time.Sleep(time.Second * 3)
+		startTaosadapter(cmd, port)
+	}()
+	haveMessage := false
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			t.Log(e)
+			assert.Equal(t, "test_ws_tmq_sub_reconnect", e.DBName())
+			haveMessage = true
+			break
+		}
+	}
+	assert.True(t, haveMessage)
 }
