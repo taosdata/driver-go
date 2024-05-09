@@ -20,6 +20,9 @@ type config struct {
 	SnapshotEnable       string
 	WithTableName        string
 	EnableCompression    bool
+	AutoReconnect        bool
+	ReconnectIntervalMs  int
+	ReconnectRetryCount  int
 }
 
 func newConfig(url string, chanLength uint) *config {
@@ -83,4 +86,16 @@ func (c *config) setWithTableName(withTableName string) {
 
 func (c *config) setEnableCompression(enableCompression bool) {
 	c.EnableCompression = enableCompression
+}
+
+func (c *config) setAutoReconnect(autoReconnect bool) {
+	c.AutoReconnect = autoReconnect
+}
+
+func (c *config) setReconnectIntervalMs(reconnectIntervalMs int) {
+	c.ReconnectIntervalMs = reconnectIntervalMs
+}
+
+func (c *config) setReconnectRetryCount(reconnectRetryCount int) {
+	c.ReconnectRetryCount = reconnectRetryCount
 }

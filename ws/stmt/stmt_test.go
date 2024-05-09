@@ -2,11 +2,16 @@ package stmt
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1016,4 +1021,85 @@ func TestSTMTQuery(t *testing.T) {
 		assert.Equal(t, "tb2", row3[26])
 		assert.Equal(t, "tb2", row3[27])
 	}
+}
+
+func newTaosadapter(port string) *exec.Cmd {
+	command := "taosadapter"
+	if runtime.GOOS == "windows" {
+		command = "C:\\TDengine\\taosadapter.exe"
+
+	}
+	return exec.Command(command, "--port", port)
+}
+
+func startTaosadapter(cmd *exec.Cmd, port string) error {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond * 100)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		time.Sleep(time.Second)
+		return nil
+	}
+	return errors.New("taosadapter start failed")
+}
+
+func stopTaosadapter(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return
+	}
+	cmd.Process.Signal(syscall.SIGINT)
+	cmd.Process.Wait()
+	cmd.Process = nil
+}
+
+func TestSTMTReconnect(t *testing.T) {
+	port := "36042"
+	cmd := newTaosadapter(port)
+	err := startTaosadapter(cmd, port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		stopTaosadapter(cmd)
+	}()
+	config := NewConfig("ws://127.0.0.1:"+port, 0)
+	config.SetConnectUser("root")
+	config.SetConnectPass("taosdata")
+	config.SetMessageTimeout(10 * time.Second)
+	config.SetWriteWait(common.DefaultWriteWait)
+	config.SetEnableCompression(true)
+	config.SetErrorHandler(func(connector *Connector, err error) {
+		t.Log(err)
+	})
+	config.SetCloseHandler(func() {
+		t.Log("stmt websocket closed")
+	})
+	config.SetAutoReconnect(true)
+	config.SetReconnectRetryCount(3)
+	config.SetReconnectIntervalMs(2000)
+	connector, err := NewConnector(config)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	stmt, err := connector.Init()
+	assert.NoError(t, err)
+	stmt.Close()
+	stopTaosadapter(cmd)
+	go func() {
+		time.Sleep(time.Second * 3)
+		startTaosadapter(cmd, port)
+	}()
+	stmt, err = connector.Init()
+	assert.NoError(t, err)
+	stmt.Close()
 }

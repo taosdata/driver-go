@@ -23,27 +23,33 @@ import (
 )
 
 type Consumer struct {
-	client             *client.Client
-	requestID          uint64
-	err                error
-	dataParser         *parser.TMQRawDataParser
-	listLock           sync.RWMutex
-	sendChanList       *list.List
-	messageTimeout     time.Duration
-	autoCommit         bool
-	autoCommitInterval time.Duration
-	nextAutoCommitTime time.Time
-	url                string
-	user               string
-	password           string
-	groupID            string
-	clientID           string
-	offsetRest         string
-	snapshotEnable     string
-	withTableName      string
-	closeOnce          sync.Once
-	closeChan          chan struct{}
-	topics             []string
+	client              *client.Client
+	requestID           uint64
+	err                 error
+	dataParser          *parser.TMQRawDataParser
+	listLock            sync.RWMutex
+	sendChanList        *list.List
+	messageTimeout      time.Duration
+	autoCommit          bool
+	autoCommitInterval  time.Duration
+	nextAutoCommitTime  time.Time
+	url                 string
+	user                string
+	password            string
+	groupID             string
+	clientID            string
+	offsetRest          string
+	snapshotEnable      string
+	withTableName       string
+	closeOnce           sync.Once
+	closeChan           chan struct{}
+	topics              []string
+	autoReconnect       bool
+	reconnectIntervalMs int
+	reconnectRetryCount int
+	chanLength          uint
+	writeWait           time.Duration
+	dialer              *websocket.Dialer
 }
 
 type IndexedChan struct {
@@ -94,32 +100,73 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	wsClient := client.NewClient(ws, config.ChanLength)
 
 	consumer := &Consumer{
-		client:             wsClient,
-		requestID:          0,
-		sendChanList:       list.New(),
-		messageTimeout:     config.MessageTimeout,
-		url:                config.Url,
-		user:               config.User,
-		password:           config.Password,
-		groupID:            config.GroupID,
-		clientID:           config.ClientID,
-		offsetRest:         config.OffsetRest,
-		autoCommit:         autoCommit,
-		autoCommitInterval: autoCommitInterval,
-		snapshotEnable:     config.SnapshotEnable,
-		withTableName:      config.WithTableName,
-		closeChan:          make(chan struct{}),
-		dataParser:         parser.NewTMQRawDataParser(),
+		client:              wsClient,
+		requestID:           0,
+		sendChanList:        list.New(),
+		messageTimeout:      config.MessageTimeout,
+		url:                 u.String(),
+		user:                config.User,
+		password:            config.Password,
+		groupID:             config.GroupID,
+		clientID:            config.ClientID,
+		offsetRest:          config.OffsetRest,
+		autoCommit:          autoCommit,
+		autoCommitInterval:  autoCommitInterval,
+		snapshotEnable:      config.SnapshotEnable,
+		withTableName:       config.WithTableName,
+		closeChan:           make(chan struct{}),
+		dataParser:          parser.NewTMQRawDataParser(),
+		autoReconnect:       config.AutoReconnect,
+		reconnectIntervalMs: config.ReconnectIntervalMs,
+		reconnectRetryCount: config.ReconnectRetryCount,
+		chanLength:          config.ChanLength,
+		writeWait:           config.WriteWait,
+		dialer:              &dialer,
 	}
-	if config.WriteWait > 0 {
-		wsClient.WriteWait = config.WriteWait
-	}
-	wsClient.BinaryMessageHandler = consumer.handleBinaryMessage
-	wsClient.TextMessageHandler = consumer.handleTextMessage
-	wsClient.ErrorHandler = consumer.handleError
-	go wsClient.WritePump()
-	go wsClient.ReadPump()
+	consumer.initClient(consumer.client)
 	return consumer, nil
+}
+
+func (c *Consumer) initClient(client *client.Client) {
+	if c.writeWait > 0 {
+		client.WriteWait = c.writeWait
+	}
+	client.BinaryMessageHandler = c.handleBinaryMessage
+	client.TextMessageHandler = c.handleTextMessage
+	client.ErrorHandler = c.handleError
+	go client.WritePump()
+	go client.ReadPump()
+}
+
+func (c *Consumer) reconnect() error {
+	reconnected := false
+	for i := 0; i < c.reconnectRetryCount; i++ {
+		time.Sleep(time.Duration(c.reconnectIntervalMs) * time.Millisecond)
+		conn, _, err := c.dialer.Dial(c.url, nil)
+		if err != nil {
+			continue
+		}
+		conn.EnableWriteCompression(c.dialer.EnableCompression)
+		cl := client.NewClient(conn, c.chanLength)
+		c.initClient(cl)
+		if c.client != nil {
+			c.client.Close()
+		}
+		c.client = cl
+		if len(c.topics) > 0 {
+			err = c.doSubscribe(c.topics, false)
+			if err != nil {
+				c.client.Close()
+				continue
+			}
+		}
+		reconnected = true
+		break
+	}
+	if !reconnected {
+		return errors.New("reconnect failed")
+	}
+	return nil
 }
 
 func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
@@ -183,6 +230,18 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	autoReconnect, err := m.Get("ws.autoReconnect", false)
+	if err != nil {
+		return nil, err
+	}
+	reconnectIntervalMs, err := m.Get("ws.reconnectIntervalMs", int(2000))
+	if err != nil {
+		return nil, err
+	}
+	reconnectRetryCount, err := m.Get("ws.reconnectRetryCount", int(3))
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -202,6 +261,9 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	config.setSnapshotEnable(enableSnapshot.(string))
 	config.setWithTableName(withTableName.(string))
 	config.setEnableCompression(enableCompression.(bool))
+	config.setAutoReconnect(autoReconnect.(bool))
+	config.setReconnectIntervalMs(reconnectIntervalMs.(int))
+	config.setReconnectRetryCount(reconnectRetryCount.(int))
 	return config, nil
 }
 
@@ -240,8 +302,9 @@ func (c *Consumer) handleBinaryMessage(message []byte) {
 }
 
 func (c *Consumer) handleError(err error) {
-	c.err = &WSError{err: err}
-	c.Close()
+	if !c.autoReconnect {
+		c.err = &WSError{err: err}
+	}
 }
 
 func (c *Consumer) generateReqID() uint64 {
@@ -303,7 +366,6 @@ var ClosedErr = errors.New("connection closed")
 
 func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	if !c.client.IsRunning() {
-		c.client.PutEnvelope(envelope)
 		return nil, ClosedErr
 	}
 	channel := &IndexedChan{
@@ -312,7 +374,20 @@ func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, er
 	}
 	element := c.addMessageOutChan(channel)
 	envelope.Type = websocket.TextMessage
-	c.client.Send(envelope)
+	err := c.client.Send(envelope)
+	if err != nil {
+		c.listLock.Lock()
+		c.sendChanList.Remove(element)
+		c.listLock.Unlock()
+		return nil, err
+	}
+	err = <-envelope.ErrorChan
+	if err != nil {
+		c.listLock.Lock()
+		c.sendChanList.Remove(element)
+		c.listLock.Unlock()
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.messageTimeout)
 	defer cancel()
 	select {
@@ -335,6 +410,10 @@ func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error {
 }
 
 func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error {
+	return c.doSubscribe(topics, c.autoReconnect)
+}
+
+func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 	if c.err != nil {
 		return c.err
 	}
@@ -359,15 +438,25 @@ func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) err
 		Action: TMQSubscribe,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
 	if err != nil {
-		return err
+		if !reconnect {
+			return err
+		}
+		err = c.reconnect()
+		if err != nil {
+			return err
+		}
+		respBytes, err = c.sendText(reqID, envelope)
+		if err != nil {
+			return err
+		}
 	}
 	var resp SubscribeResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
@@ -410,15 +499,25 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 		Action: TMQPoll,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return tmq.NewTMQErrorWithErr(err)
 	}
 	respBytes, err := c.sendText(reqID, envelope)
 	if err != nil {
-		return tmq.NewTMQErrorWithErr(err)
+		if !c.autoReconnect {
+			return tmq.NewTMQErrorWithErr(err)
+		}
+		err = c.reconnect()
+		if err != nil {
+			return tmq.NewTMQErrorWithErr(err)
+		}
+		respBytes, err = c.sendText(reqID, envelope)
+		if err != nil {
+			return tmq.NewTMQErrorWithErr(err)
+		}
 	}
 	var resp PollResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
@@ -510,10 +609,10 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 		Action: TMQFetchJsonMeta,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return nil, err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
@@ -550,10 +649,10 @@ func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 		Action: TMQFetchRaw,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return nil, err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
@@ -603,10 +702,10 @@ func (c *Consumer) doCommit() error {
 		Action: TMQCommit,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
@@ -640,10 +739,10 @@ func (c *Consumer) Unsubscribe() error {
 		Action: TMQUnsubscribe,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
@@ -679,10 +778,10 @@ func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
 			Action: TMQGetTopicAssignment,
 			Args:   args,
 		}
-		envelope := c.client.GetEnvelope()
+		envelope := client.GlobalEnvelopePool.Get()
+		defer client.GlobalEnvelopePool.Put(envelope)
 		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 		if err != nil {
-			c.client.PutEnvelope(envelope)
 			return nil, err
 		}
 		respBytes, err := c.sendText(reqID, envelope)
@@ -729,10 +828,10 @@ func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) erro
 		Action: TMQSeek,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
@@ -771,10 +870,10 @@ func (c *Consumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) (of
 		Action: TMQCommitted,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return nil, err
 	}
 	respBytes, err := c.sendText(reqID, envelope)
@@ -803,6 +902,8 @@ func (c *Consumer) CommitOffsets(offsets []tmq.TopicPartition) ([]tmq.TopicParti
 	if c.err != nil {
 		return nil, c.err
 	}
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	for i := 0; i < len(offsets); i++ {
 		reqID := c.generateReqID()
 		req := &CommitOffsetReq{
@@ -819,10 +920,9 @@ func (c *Consumer) CommitOffsets(offsets []tmq.TopicPartition) ([]tmq.TopicParti
 			Action: TMQCommitOffset,
 			Args:   args,
 		}
-		envelope := c.client.GetEnvelope()
+		envelope.Reset()
 		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 		if err != nil {
-			c.client.PutEnvelope(envelope)
 			return nil, err
 		}
 		respBytes, err := c.sendText(reqID, envelope)
@@ -862,10 +962,10 @@ func (c *Consumer) Position(partitions []tmq.TopicPartition) (offsets []tmq.Topi
 		Action: TMQPosition,
 		Args:   args,
 	}
-	envelope := c.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		c.client.PutEnvelope(envelope)
 		return nil, err
 	}
 	respBytes, err := c.sendText(reqID, envelope)

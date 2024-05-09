@@ -31,10 +31,10 @@ func (s *Stmt) Prepare(sql string) error {
 		Action: STMTPrepare,
 		Args:   args,
 	}
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := s.connector.sendText(reqID, envelope)
@@ -67,10 +67,10 @@ func (s *Stmt) SetTableName(name string) error {
 		Action: STMTSetTableName,
 		Args:   args,
 	}
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := s.connector.sendText(reqID, envelope)
@@ -103,7 +103,8 @@ func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
 	binary.LittleEndian.PutUint64(reqData, reqID)
 	binary.LittleEndian.PutUint64(reqData[8:], s.id)
 	binary.LittleEndian.PutUint64(reqData[16:], SetTagsMessage)
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	envelope.Msg.Grow(24 + len(block))
 	envelope.Msg.Write(reqData)
 	envelope.Msg.Write(block)
@@ -132,13 +133,13 @@ func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) erro
 	binary.LittleEndian.PutUint64(reqData, reqID)
 	binary.LittleEndian.PutUint64(reqData[8:], s.id)
 	binary.LittleEndian.PutUint64(reqData[16:], BindMessage)
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	envelope.Msg.Grow(24 + len(block))
 	envelope.Msg.Write(reqData)
 	envelope.Msg.Write(block)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(reqData)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := s.connector.sendBinary(reqID, envelope)
@@ -170,10 +171,10 @@ func (s *Stmt) AddBatch() error {
 		Action: STMTAddBatch,
 		Args:   args,
 	}
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := s.connector.sendText(reqID, envelope)
@@ -205,10 +206,10 @@ func (s *Stmt) Exec() error {
 		Action: STMTExec,
 		Args:   args,
 	}
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return err
 	}
 	respBytes, err := s.connector.sendText(reqID, envelope)
@@ -245,10 +246,10 @@ func (s *Stmt) UseResult() (*Rows, error) {
 		Action: STMTUseResult,
 		Args:   args,
 	}
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return nil, err
 	}
 	respBytes, err := s.connector.sendText(reqID, envelope)
@@ -266,6 +267,7 @@ func (s *Stmt) UseResult() (*Rows, error) {
 	return &Rows{
 		buf:           &bytes.Buffer{},
 		conn:          s.connector,
+		client:        s.connector.client,
 		resultID:      resp.ResultID,
 		fieldsCount:   resp.FieldsCount,
 		fieldsNames:   resp.FieldsNames,
@@ -289,10 +291,10 @@ func (s *Stmt) Close() error {
 		Action: STMTClose,
 		Args:   args,
 	}
-	envelope := s.connector.client.GetEnvelope()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
 	if err != nil {
-		s.connector.client.PutEnvelope(envelope)
 		return err
 	}
 	s.connector.sendTextWithoutResp(envelope)
