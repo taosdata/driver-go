@@ -46,3 +46,29 @@ func Test_formatBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestBadConnection(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			// bad connection should not panic
+			t.Fatalf("panic: %v", r)
+		}
+	}()
+
+	cfg, err := parseDSN(dataSourceName)
+	if err != nil {
+		t.Fatalf("parseDSN error: %v", err)
+	}
+	conn, err := newTaosConn(cfg)
+	if err != nil {
+		t.Fatalf("newTaosConn error: %v", err)
+	}
+
+	// to test bad connection, we manually close the connection
+	conn.Close()
+
+	_, err = conn.Query("select 1", nil)
+	if err == nil {
+		t.Fatalf("query should fail")
+	}
+}
