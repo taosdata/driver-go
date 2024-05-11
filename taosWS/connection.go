@@ -50,6 +50,7 @@ type taosConn struct {
 	writeTimeout time.Duration
 	cfg          *config
 	endpoint     string
+	closed       atomic.Bool // set when conn is closed,
 }
 
 func (tc *taosConn) generateReqID() uint64 {
@@ -100,6 +101,10 @@ func (tc *taosConn) Begin() (driver.Tx, error) {
 }
 
 func (tc *taosConn) Close() (err error) {
+	if tc.closed.Swap(true) {
+		return nil
+	}
+
 	if tc.client != nil {
 		err = tc.client.Close()
 	}
@@ -110,6 +115,9 @@ func (tc *taosConn) Close() (err error) {
 }
 
 func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
+	if tc.closed.Load() {
+		return nil, driver.ErrBadConn
+	}
 	stmtID, err := tc.stmtInit()
 	if err != nil {
 		return nil, err
@@ -410,6 +418,9 @@ func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 }
 
 func (tc *taosConn) execCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if tc.closed.Load() {
+		return nil, driver.ErrBadConn
+	}
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
@@ -463,6 +474,9 @@ func (tc *taosConn) QueryContext(ctx context.Context, query string, args []drive
 }
 
 func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if tc.closed.Load() {
+		return nil, driver.ErrBadConn
+	}
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
@@ -521,6 +535,9 @@ func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.Name
 }
 
 func (tc *taosConn) Ping(ctx context.Context) (err error) {
+	if tc.closed.Load() {
+		return driver.ErrBadConn
+	}
 	return nil
 }
 
