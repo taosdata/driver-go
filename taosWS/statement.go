@@ -28,6 +28,9 @@ type Stmt struct {
 }
 
 func (stmt *Stmt) Close() error {
+	if stmt.conn == nil || stmt.conn.closed.Load() {
+		return driver.ErrBadConn
+	}
 	err := stmt.conn.stmtClose(stmt.stmtID)
 	stmt.buffer.Reset()
 	stmt.conn = nil
@@ -42,6 +45,9 @@ func (stmt *Stmt) NumInput() int {
 }
 
 func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
+	if stmt.conn.closed.Load() {
+		return nil, driver.ErrBadConn
+	}
 	if stmt.conn == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -68,6 +74,9 @@ func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
+	if stmt.conn.closed.Load() {
+		return nil, driver.ErrBadConn
+	}
 	if stmt.conn == nil {
 		return nil, driver.ErrBadConn
 	}
