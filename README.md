@@ -12,6 +12,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 
 | **driver-go version** | **TDengine version** | **major features**                            |
 |-----------------------|----------------------|-----------------------------------------------|
+| v3.5.5                | 3.2.3.0+ / 3.1.1.27+ | support skip http ssl check                   |
 | v3.5.4                | 3.2.3.0+ / 3.1.1.27+ | compatible with TDengine 3.3.0.0 tmq raw data |
 | v3.5.3                | 3.2.3.0+ / 3.1.1.27+ | refactor taosWS                               |
 | v3.5.2                | 3.2.3.0+ / 3.1.1.27+ | websocket compression and optimize tmq poll   |
@@ -352,6 +353,7 @@ Parameters:
 
 - `disableCompression` Whether to accept compressed data, default is `true` Do not accept compressed data, set to `false` if the transferred data is compressed using gzip.
 - `readBufferSize` The default size of the buffer for reading data is 4K (4096), which can be adjusted upwards when there is a lot of data in the query result.
+- `skipVerify` Whether to skip the verification of the server certificate, the default is `false`, and the server certificate is verified by default. If the server certificate is not verified, set to `true`.
 
 ### Usage restrictions
 
