@@ -3,6 +3,7 @@ package parser
 import (
 	"database/sql/driver"
 	"math"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -108,28 +109,9 @@ type rawConvertFunc func(pStart unsafe.Pointer, row int, arg ...interface{}) dri
 
 type rawConvertVarDataFunc func(pHeader, pStart unsafe.Pointer, row int) driver.Value
 
-var rawConvertFuncMap = map[uint8]rawConvertFunc{
-	uint8(common.TSDB_DATA_TYPE_BOOL):      rawConvertBool,
-	uint8(common.TSDB_DATA_TYPE_TINYINT):   rawConvertTinyint,
-	uint8(common.TSDB_DATA_TYPE_SMALLINT):  rawConvertSmallint,
-	uint8(common.TSDB_DATA_TYPE_INT):       rawConvertInt,
-	uint8(common.TSDB_DATA_TYPE_BIGINT):    rawConvertBigint,
-	uint8(common.TSDB_DATA_TYPE_UTINYINT):  rawConvertUTinyint,
-	uint8(common.TSDB_DATA_TYPE_USMALLINT): rawConvertUSmallint,
-	uint8(common.TSDB_DATA_TYPE_UINT):      rawConvertUInt,
-	uint8(common.TSDB_DATA_TYPE_UBIGINT):   rawConvertUBigint,
-	uint8(common.TSDB_DATA_TYPE_FLOAT):     rawConvertFloat,
-	uint8(common.TSDB_DATA_TYPE_DOUBLE):    rawConvertDouble,
-	uint8(common.TSDB_DATA_TYPE_TIMESTAMP): rawConvertTime,
-}
+var rawConvertFuncSlice = [15]rawConvertFunc{}
 
-var rawConvertVarDataMap = map[uint8]rawConvertVarDataFunc{
-	uint8(common.TSDB_DATA_TYPE_BINARY):    rawConvertBinary,
-	uint8(common.TSDB_DATA_TYPE_NCHAR):     rawConvertNchar,
-	uint8(common.TSDB_DATA_TYPE_JSON):      rawConvertJson,
-	uint8(common.TSDB_DATA_TYPE_VARBINARY): rawConvertVarBinary,
-	uint8(common.TSDB_DATA_TYPE_GEOMETRY):  rawConvertGeometry,
-}
+var rawConvertVarDataSlice = [21]rawConvertVarDataFunc{}
 
 func ItemIsNull(pHeader unsafe.Pointer, row int) bool {
 	offset := CharOffset(row)
@@ -196,20 +178,23 @@ func rawConvertTime(pStart unsafe.Pointer, row int, arg ...interface{}) driver.V
 }
 
 func rawConvertVarBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
+	return rawGetBytes(pHeader, pStart, row)
+}
+
+func rawGetBytes(pHeader, pStart unsafe.Pointer, row int) []byte {
 	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
 	if offset == -1 {
 		return nil
 	}
 	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
 	clen := *((*uint16)(currentRow))
-	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
-
-	binaryVal := make([]byte, clen)
-
-	for index := uint16(0); index < clen; index++ {
-		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
+	if clen == 0 {
+		return make([]byte, 0)
 	}
-	return binaryVal[:]
+	currentRow = pointer.AddUintptr(currentRow, 2)
+	result := make([]byte, clen)
+	Copy(currentRow, result, 0, int(clen))
+	return result
 }
 
 func rawConvertGeometry(pHeader, pStart unsafe.Pointer, row int) driver.Value {
@@ -217,20 +202,11 @@ func rawConvertGeometry(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 }
 
 func rawConvertBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
-	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
-	if offset == -1 {
+	result := rawGetBytes(pHeader, pStart, row)
+	if result == nil {
 		return nil
 	}
-	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
-	clen := *((*uint16)(currentRow))
-	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
-
-	binaryVal := make([]byte, clen)
-
-	for index := uint16(0); index < clen; index++ {
-		binaryVal[index] = *((*byte)(unsafe.Pointer(uintptr(currentRow) + uintptr(index))))
-	}
-	return string(binaryVal[:])
+	return *(*string)(unsafe.Pointer(&result))
 }
 
 func rawConvertNchar(pHeader, pStart unsafe.Pointer, row int) driver.Value {
@@ -240,31 +216,22 @@ func rawConvertNchar(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 	}
 	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
 	clen := *((*uint16)(currentRow)) / 4
-	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
-
-	binaryVal := make([]rune, clen)
-
-	for index := uint16(0); index < clen; index++ {
-		binaryVal[index] = *((*rune)(unsafe.Pointer(uintptr(currentRow) + uintptr(index*4))))
+	if clen == 0 {
+		return ""
 	}
-	return string(binaryVal)
+	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
+	utf8Bytes := make([]byte, clen*utf8.UTFMax)
+	index := 0
+	utf32Slice := (*[1 << 30]rune)(currentRow)[:clen:clen]
+	for _, runeValue := range utf32Slice {
+		index += utf8.EncodeRune(utf8Bytes[index:], runeValue)
+	}
+	utf8Bytes = utf8Bytes[:index]
+	return *(*string)(unsafe.Pointer(&utf8Bytes))
 }
 
 func rawConvertJson(pHeader, pStart unsafe.Pointer, row int) driver.Value {
-	offset := *((*int32)(pointer.AddUintptr(pHeader, uintptr(row*4))))
-	if offset == -1 {
-		return nil
-	}
-	currentRow := pointer.AddUintptr(pStart, uintptr(offset))
-	clen := *((*uint16)(currentRow))
-	currentRow = pointer.AddUintptr(currentRow, 2)
-
-	binaryVal := make([]byte, clen)
-
-	for index := uint16(0); index < clen; index++ {
-		binaryVal[index] = *((*byte)(pointer.AddUintptr(currentRow, uintptr(index))))
-	}
-	return binaryVal[:]
+	return rawConvertVarBinary(pHeader, pStart, row)
 }
 
 func ReadBlockSimple(block unsafe.Pointer, precision int) [][]driver.Value {
@@ -290,7 +257,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 	for column := 0; column < colCount; column++ {
 		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
-			convertF := rawConvertVarDataMap[colTypes[column]]
+			convertF := rawConvertVarDataSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, Int32Size*uintptr(blockSize))
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
@@ -299,7 +266,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 				r[row][column] = convertF(pHeader, pStart, row)
 			}
 		} else {
-			convertF := rawConvertFuncMap[colTypes[column]]
+			convertF := rawConvertFuncSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
@@ -326,11 +293,11 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 	for column := 0; column < colCount; column++ {
 		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
-			convertF := rawConvertVarDataMap[colTypes[column]]
+			convertF := rawConvertVarDataSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, Int32Size*uintptr(blockSize))
 			dest[column] = convertF(pHeader, pStart, row)
 		} else {
-			convertF := rawConvertFuncMap[colTypes[column]]
+			convertF := rawConvertFuncSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
 			if ItemIsNull(pHeader, row) {
 				dest[column] = nil
@@ -352,7 +319,7 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 	for column := 0; column < colCount; column++ {
 		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
 		if IsVarDataType(colTypes[column]) {
-			convertF := rawConvertVarDataMap[colTypes[column]]
+			convertF := rawConvertVarDataSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, uintptr(4*blockSize))
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
@@ -361,7 +328,7 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 				r[row][column] = convertF(pHeader, pStart, row)
 			}
 		} else {
-			convertF := rawConvertFuncMap[colTypes[column]]
+			convertF := rawConvertFuncSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
@@ -381,12 +348,33 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 
 func ItemRawBlock(colType uint8, pHeader, pStart unsafe.Pointer, row int, precision int, timeFormat FormatTimeFunc) driver.Value {
 	if IsVarDataType(colType) {
-		return rawConvertVarDataMap[colType](pHeader, pStart, row)
+		return rawConvertVarDataSlice[colType](pHeader, pStart, row)
 	} else {
 		if ItemIsNull(pHeader, row) {
 			return nil
 		} else {
-			return rawConvertFuncMap[colType](pStart, row, precision, timeFormat)
+			return rawConvertFuncSlice[colType](pStart, row, precision, timeFormat)
 		}
 	}
+}
+
+func init() {
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_BOOL)] = rawConvertBool
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_TINYINT)] = rawConvertTinyint
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_SMALLINT)] = rawConvertSmallint
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_INT)] = rawConvertInt
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_BIGINT)] = rawConvertBigint
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_UTINYINT)] = rawConvertUTinyint
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_USMALLINT)] = rawConvertUSmallint
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_UINT)] = rawConvertUInt
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_UBIGINT)] = rawConvertUBigint
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_FLOAT)] = rawConvertFloat
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_DOUBLE)] = rawConvertDouble
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_TIMESTAMP)] = rawConvertTime
+
+	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_BINARY)] = rawConvertBinary
+	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_NCHAR)] = rawConvertNchar
+	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_JSON)] = rawConvertJson
+	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_VARBINARY)] = rawConvertVarBinary
+	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_GEOMETRY)] = rawConvertGeometry
 }
