@@ -1,6 +1,7 @@
 package stmt
 
 import (
+	"bytes"
 	"encoding/binary"
 
 	"github.com/taosdata/driver-go/v3/common/param"
@@ -228,6 +229,50 @@ func (s *Stmt) Exec() error {
 
 func (s *Stmt) GetAffectedRows() int {
 	return s.lastAffected
+}
+
+func (s *Stmt) UseResult() (*Rows, error) {
+	reqID := s.connector.generateReqID()
+	req := &UseResultReq{
+		ReqID:  reqID,
+		StmtID: s.id,
+	}
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	action := &client.WSAction{
+		Action: STMTUseResult,
+		Args:   args,
+	}
+	envelope := s.connector.client.GetEnvelope()
+	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	if err != nil {
+		s.connector.client.PutEnvelope(envelope)
+		return nil, err
+	}
+	respBytes, err := s.connector.sendText(reqID, envelope)
+	if err != nil {
+		return nil, err
+	}
+	var resp UseResultResp
+	err = client.JsonI.Unmarshal(respBytes, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Code != 0 {
+		return nil, taosErrors.NewError(resp.Code, resp.Message)
+	}
+	return &Rows{
+		buf:           &bytes.Buffer{},
+		conn:          s.connector,
+		resultID:      resp.ResultID,
+		fieldsCount:   resp.FieldsCount,
+		fieldsNames:   resp.FieldsNames,
+		fieldsTypes:   resp.FieldsTypes,
+		fieldsLengths: resp.FieldsLengths,
+		precision:     resp.Precision,
+	}, nil
 }
 
 func (s *Stmt) Close() error {
