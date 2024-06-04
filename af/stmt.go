@@ -2,9 +2,11 @@ package af
 
 import "C"
 import (
+	"database/sql/driver"
 	"fmt"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/af/async"
 	"github.com/taosdata/driver-go/v3/af/locker"
 	"github.com/taosdata/driver-go/v3/common/param"
 	taosError "github.com/taosdata/driver-go/v3/errors"
@@ -36,22 +38,22 @@ func (s *Stmt) Prepare(sql string) error {
 	code := wrapper.TaosStmtPrepare(s.stmt, sql)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	isInsert, code := wrapper.TaosStmtIsInsert(s.stmt)
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	s.isInsert = isInsert
+	return nil
+}
+
+func (s *Stmt) NumParams() (int, error) {
 	numParams, code := wrapper.TaosStmtNumParams(s.stmt)
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return 0, s.stmtErr(code)
 	}
-	s.paramCount = numParams
-	return nil
+	return numParams, nil
 }
 
 func (s *Stmt) SetTableNameWithTags(tableName string, tags *param.Param) error {
@@ -59,8 +61,7 @@ func (s *Stmt) SetTableNameWithTags(tableName string, tags *param.Param) error {
 	code := wrapper.TaosStmtSetTBNameTags(s.stmt, tableName, tags.GetValues())
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	return nil
 }
@@ -70,36 +71,33 @@ func (s *Stmt) SetTableName(tableName string) error {
 	code := wrapper.TaosStmtSetTBName(s.stmt, tableName)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	return nil
 }
 
 func (s *Stmt) BindRow(row *param.Param) error {
-	if s.paramCount == 0 {
-		locker.Lock()
-		code := wrapper.TaosStmtBindParam(s.stmt, nil)
-		locker.Unlock()
-		if code != 0 {
-			errStr := wrapper.TaosStmtErrStr(s.stmt)
-			return taosError.NewError(code, errStr)
+	if s.isInsert {
+		if s.paramCount == 0 {
+			paramCount, err := s.NumParams()
+			if err != nil {
+				return err
+			}
+			s.paramCount = paramCount
 		}
-		return nil
 	}
 	if row == nil {
 		return fmt.Errorf("row param got nil")
 	}
 	value := row.GetValues()
-	if len(value) != s.paramCount {
+	if s.isInsert && len(value) != s.paramCount {
 		return fmt.Errorf("row param count error : expect %d got %d", s.paramCount, len(value))
 	}
 	locker.Lock()
 	code := wrapper.TaosStmtBindParam(s.stmt, value)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	return nil
 }
@@ -116,8 +114,7 @@ func (s *Stmt) AddBatch() error {
 	code := wrapper.TaosStmtAddBatch(s.stmt)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	return nil
 }
@@ -127,10 +124,31 @@ func (s *Stmt) Execute() error {
 	code := wrapper.TaosStmtExecute(s.stmt)
 	locker.Unlock()
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	return nil
+}
+
+func (s *Stmt) UseResult() (driver.Rows, error) {
+	locker.Lock()
+	res := wrapper.TaosStmtUseResult(s.stmt)
+	locker.Unlock()
+	numFields := wrapper.TaosNumFields(res)
+	rowsHeader, err := wrapper.ReadColumn(res, numFields)
+	h := async.GetHandler()
+	if err != nil {
+		async.PutHandler(h)
+		return nil, err
+	}
+	precision := wrapper.TaosResultPrecision(res)
+	rs := &rows{
+		handler:    h,
+		rowsHeader: rowsHeader,
+		result:     res,
+		precision:  precision,
+		isStmt:     true,
+	}
+	return rs, nil
 }
 
 func (s *Stmt) Close() error {
@@ -139,8 +157,12 @@ func (s *Stmt) Close() error {
 	locker.Unlock()
 	s.stmt = nil
 	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(s.stmt)
-		return taosError.NewError(code, errStr)
+		return s.stmtErr(code)
 	}
 	return nil
+}
+
+func (s *Stmt) stmtErr(code int) error {
+	errStr := wrapper.TaosStmtErrStr(s.stmt)
+	return taosError.NewError(code, errStr)
 }

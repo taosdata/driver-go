@@ -1,6 +1,10 @@
 package errors
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 // @author: xftan
 // @date: 2023/10/13 11:20
@@ -31,4 +35,14 @@ func TestNewError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestError(t *testing.T) {
+	invalidError := ErrTscInvalidConnection.Error()
+	assert.Equal(t, "[0x20b] Invalid connection", invalidError)
+	unknownError := &TaosError{
+		Code:   0xffff,
+		ErrStr: "unknown error",
+	}
+	assert.Equal(t, "unknown error", unknownError.Error())
 }
