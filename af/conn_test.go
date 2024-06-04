@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
 	param2 "github.com/taosdata/driver-go/v3/common/param"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 func TestMain(m *testing.M) {
@@ -924,4 +926,50 @@ func TestConnector_QueryWithReqID(t *testing.T) {
 	if v[0].(int64) != 1 {
 		t.Fatal("result is error")
 	}
+}
+
+func TestNewConnector(t *testing.T) {
+	tc, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	conn, err := NewConnector(tc)
+	assert.NoError(t, err)
+	assert.Equal(t, tc, conn.taos)
+	_, err = NewConnector(nil)
+	assert.Error(t, err)
+}
+
+func TestSelectDB(t *testing.T) {
+	db, err := Open("", "", "", "", 0)
+	assert.NoError(t, err)
+	_, err = db.Exec("create database if not exists test_af precision 'us'  keep 36500")
+	assert.NoError(t, err)
+	rows, err := db.Query("select database()")
+	assert.NoError(t, err)
+	dest := make([]driver.Value, 1)
+	err = rows.Next(dest)
+	assert.NoError(t, err)
+	err = rows.Close()
+	assert.NoError(t, err)
+	assert.Nil(t, dest[0])
+	err = db.SelectDB("test_af")
+	assert.NoError(t, err)
+	rows, err = db.Query("select database()")
+	assert.NoError(t, err)
+	dest = make([]driver.Value, 1)
+	err = rows.Next(dest)
+	assert.NoError(t, err)
+	err = rows.Close()
+	assert.NoError(t, err)
+	assert.Equal(t, "test_af", dest[0])
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
+func TestGetTableVGroupID(t *testing.T) {
+	db := testDatabase(t)
+	_, err := db.Exec("create table test_vg (ts timestamp,v int)")
+	assert.NoError(t, err)
+	vgID, err := db.GetTableVGroupID("test_af", "test_vg")
+	assert.NoError(t, err)
+	t.Log(vgID)
 }

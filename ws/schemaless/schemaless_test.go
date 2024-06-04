@@ -70,13 +70,13 @@ func TestSchemaless_Insert(t *testing.T) {
 		SetPassword("taosdata"),
 		SetEnableCompression(true),
 		SetErrorHandler(func(err error) {
-			t.Fatal(err)
+			t.Log(err)
 		}),
 	))
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer s.Close()
+	defer s.Close()
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

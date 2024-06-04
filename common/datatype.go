@@ -1,7 +1,6 @@
 package common
 
 import (
-	"errors"
 	"reflect"
 )
 
@@ -287,13 +286,4 @@ var NameTypeMap = map[string]int{
 	TSDB_DATA_TYPE_JSON_Str:      TSDB_DATA_TYPE_JSON,
 	TSDB_DATA_TYPE_VARBINARY_Str: TSDB_DATA_TYPE_VARBINARY,
 	TSDB_DATA_TYPE_GEOMETRY_Str:  TSDB_DATA_TYPE_GEOMETRY,
-}
-
-var NotSupportType = errors.New("not support type")
-
-func GetColType(colType int) (*DBType, error) {
-	if colType > len(allType) || colType < 0 {
-		return nil, NotSupportType
-	}
-	return allType[colType], nil
 }

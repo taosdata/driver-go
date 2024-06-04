@@ -3,14 +3,15 @@ package taosWS
 import (
 	"bytes"
 	"database/sql/driver"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"reflect"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
-	"github.com/taosdata/driver-go/v3/common/pointer"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -86,65 +87,12 @@ func (rs *rows) Next(dest []driver.Value) error {
 
 func (rs *rows) taosFetchBlock() error {
 	reqID := rs.conn.generateReqID()
-	req := &WSFetchReq{
-		ReqID: reqID,
-		ID:    rs.resultID,
-	}
-	args, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &WSAction{
-		Action: WSFetch,
-		Args:   args,
-	}
 	rs.buf.Reset()
-
-	err = jsonI.NewEncoder(rs.buf).Encode(action)
-	if err != nil {
-		return err
-	}
-	err = rs.conn.writeText(rs.buf.Bytes())
-	if err != nil {
-		return err
-	}
-	var resp WSFetchResp
-	err = rs.conn.readTo(&resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	if resp.Completed {
-		rs.blockSize = 0
-		return nil
-	} else {
-		rs.blockSize = resp.Rows
-		return rs.fetchBlock()
-	}
-}
-
-func (rs *rows) fetchBlock() error {
-	reqID := rs.conn.generateReqID()
-	req := &WSFetchBlockReq{
-		ReqID: reqID,
-		ID:    rs.resultID,
-	}
-	args, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &WSAction{
-		Action: WSFetchBlock,
-		Args:   args,
-	}
-	rs.buf.Reset()
-	err = jsonI.NewEncoder(rs.buf).Encode(action)
-	if err != nil {
-		return err
-	}
-	err = rs.conn.writeText(rs.buf.Bytes())
+	WriteUint64(rs.buf, reqID)       // req id
+	WriteUint64(rs.buf, rs.resultID) // message id
+	WriteUint64(rs.buf, FetchRawBlockMessage)
+	WriteUint16(rs.buf, 1) // version
+	err := rs.conn.writeBinary(rs.buf.Bytes())
 	if err != nil {
 		return err
 	}
@@ -152,9 +100,40 @@ func (rs *rows) fetchBlock() error {
 	if err != nil {
 		return err
 	}
-	rs.block = respBytes
-	rs.blockPtr = pointer.AddUintptr(unsafe.Pointer(&rs.block[0]), 16)
-	rs.blockOffset = 0
+	if len(respBytes) < 51 {
+		return taosErrors.NewError(0xffff, "invalid fetch raw block response")
+	}
+	version := binary.LittleEndian.Uint16(respBytes[16:])
+	if version != 1 {
+		return taosErrors.NewError(0xffff, fmt.Sprintf("unsupported fetch raw block version: %d", version))
+	}
+	code := binary.LittleEndian.Uint32(respBytes[34:])
+	msgLen := int(binary.LittleEndian.Uint32(respBytes[38:]))
+	if len(respBytes) < 51+msgLen {
+		return taosErrors.NewError(0xffff, "invalid fetch raw block response")
+	}
+	errMsg := string(respBytes[42 : 42+msgLen])
+	if code != 0 {
+		return taosErrors.NewError(int(code), errMsg)
+	}
+	completed := respBytes[50+msgLen] == 1
+	if completed {
+		rs.blockSize = 0
+		return nil
+	} else {
+		if len(respBytes) < 55+msgLen {
+			return taosErrors.NewError(0xffff, "invalid fetch raw block response")
+		}
+		blockLength := binary.LittleEndian.Uint32(respBytes[51+msgLen:])
+		if len(respBytes) < 55+msgLen+int(blockLength) {
+			return taosErrors.NewError(0xffff, "invalid fetch raw block response")
+		}
+		rawBlock := respBytes[55+msgLen : 55+msgLen+int(blockLength)]
+		rs.block = rawBlock
+		rs.blockPtr = unsafe.Pointer(&rs.block[0])
+		rs.blockSize = int(parser.RawBlockGetNumOfRows(rs.blockPtr))
+		rs.blockOffset = 0
+	}
 	return nil
 }
 
