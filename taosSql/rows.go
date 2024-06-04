@@ -19,7 +19,6 @@ type rows struct {
 	block       unsafe.Pointer
 	blockOffset int
 	blockSize   int
-	lengthList  []int
 	result      unsafe.Pointer
 	precision   int
 	isStmt      bool
@@ -107,7 +106,6 @@ func (rs *rows) taosFetchBlock() error {
 	}
 	rs.blockSize = result.N
 	rs.block = wrapper.TaosGetRawBlock(result.Res)
-	rs.lengthList = wrapper.FetchLengths(rs.result, len(rs.rowsHeader.ColLength))
 	rs.blockOffset = 0
 	return nil
 }

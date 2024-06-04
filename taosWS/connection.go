@@ -38,6 +38,11 @@ const (
 	STMTUseResult    = "use_result"
 )
 
+const (
+	BinaryQueryMessage   uint64 = 6
+	FetchRawBlockMessage uint64 = 7
+)
+
 var (
 	NotQueryError    = errors.New("sql is an update statement not a query statement")
 	ReadTimeoutError = errors.New("read timeout")
@@ -347,6 +352,18 @@ func WriteUint64(buffer *bytes.Buffer, v uint64) {
 	buffer.WriteByte(byte(v >> 56))
 }
 
+func WriteUint32(buffer *bytes.Buffer, v uint32) {
+	buffer.WriteByte(byte(v))
+	buffer.WriteByte(byte(v >> 8))
+	buffer.WriteByte(byte(v >> 16))
+	buffer.WriteByte(byte(v >> 24))
+}
+
+func WriteUint16(buffer *bytes.Buffer, v uint16) {
+	buffer.WriteByte(byte(v))
+	buffer.WriteByte(byte(v >> 8))
+}
+
 func (tc *taosConn) stmtAddBatch(stmtID uint64) error {
 	reqID := tc.generateReqID()
 	req := &StmtAddBatchRequest{
@@ -467,45 +484,8 @@ func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 	return tc.execCtx(ctx, query, args)
 }
 
-func (tc *taosConn) execCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if tc.isClosed() {
-		return nil, driver.ErrBadConn
-	}
-	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
-			return nil, driver.ErrSkip
-		}
-		// try to interpolate the parameters to save extra round trips for preparing and closing a statement
-		prepared, err := common.InterpolateParams(query, args)
-		if err != nil {
-			return nil, err
-		}
-		query = prepared
-	}
-	reqID := tc.generateReqID()
-	req := &WSQueryReq{
-		ReqID: reqID,
-		SQL:   query,
-	}
-	reqArgs, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &WSAction{
-		Action: WSQuery,
-		Args:   reqArgs,
-	}
-	tc.buf.Reset()
-	err = jsonI.NewEncoder(tc.buf).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	err = tc.writeText(tc.buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	var resp WSQueryResp
-	err = tc.readTo(&resp)
+func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	resp, err := tc.doQuery(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}
@@ -523,45 +503,8 @@ func (tc *taosConn) QueryContext(ctx context.Context, query string, args []drive
 	return tc.queryCtx(ctx, query, args)
 }
 
-func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if tc.isClosed() {
-		return nil, driver.ErrBadConn
-	}
-	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
-			return nil, driver.ErrSkip
-		}
-		// try client-side prepare to reduce round trip
-		prepared, err := common.InterpolateParams(query, args)
-		if err != nil {
-			return nil, err
-		}
-		query = prepared
-	}
-	reqID := tc.generateReqID()
-	req := &WSQueryReq{
-		ReqID: reqID,
-		SQL:   query,
-	}
-	reqArgs, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &WSAction{
-		Action: WSQuery,
-		Args:   reqArgs,
-	}
-	tc.buf.Reset()
-	err = jsonI.NewEncoder(tc.buf).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	err = tc.writeText(tc.buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	var resp WSQueryResp
-	err = tc.readTo(&resp)
+func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	resp, err := tc.doQuery(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}
@@ -582,6 +525,42 @@ func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.Name
 		precision:     resp.Precision,
 	}
 	return rs, err
+}
+
+func (tc *taosConn) doQuery(_ context.Context, query string, args []driver.NamedValue) (*WSQueryResp, error) {
+	if tc.isClosed() {
+		return nil, driver.ErrBadConn
+	}
+	if len(args) != 0 {
+		if !tc.cfg.interpolateParams {
+			return nil, driver.ErrSkip
+		}
+		// try client-side prepare to reduce round trip
+		prepared, err := common.InterpolateParams(query, args)
+		if err != nil {
+			return nil, err
+		}
+		query = prepared
+	}
+	reqID := tc.generateReqID()
+	tc.buf.Reset()
+
+	WriteUint64(tc.buf, reqID) // req id
+	WriteUint64(tc.buf, 0)     // message id
+	WriteUint64(tc.buf, BinaryQueryMessage)
+	WriteUint16(tc.buf, 1)                  // version
+	WriteUint32(tc.buf, uint32(len(query))) // sql length
+	tc.buf.WriteString(query)
+	err := tc.writeBinary(tc.buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	var resp WSQueryResp
+	err = tc.readTo(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 func (tc *taosConn) Ping(ctx context.Context) (err error) {
