@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +38,11 @@ const (
 	STMTUseResult    = "use_result"
 )
 
+const (
+	BinaryQueryMessage   uint64 = 6
+	FetchRawBlockMessage uint64 = 7
+)
+
 var (
 	NotQueryError    = errors.New("sql is an update statement not a query statement")
 	ReadTimeoutError = errors.New("read timeout")
@@ -46,11 +52,21 @@ type taosConn struct {
 	buf          *bytes.Buffer
 	client       *websocket.Conn
 	requestID    uint64
+	writeLock    sync.Mutex
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	cfg          *config
+	messageChan  chan *message
+	messageError error
 	endpoint     string
-	closed       atomic.Bool // set when conn is closed,
+	closed       uint32
+	closeCh      chan struct{}
+}
+
+type message struct {
+	mt      int
+	message []byte
+	err     error
 }
 
 func (tc *taosConn) generateReqID() uint64 {
@@ -87,8 +103,12 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		writeTimeout: cfg.writeTimeout,
 		cfg:          cfg,
 		endpoint:     endpoint,
+		closeCh:      make(chan struct{}),
+		messageChan:  make(chan *message, 10),
 	}
 
+	go tc.ping()
+	go tc.read()
 	err = tc.connect()
 	if err != nil {
 		tc.Close()
@@ -96,15 +116,46 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	return tc, nil
 }
 
+func (tc *taosConn) ping() {
+	ticker := time.NewTicker(common.DefaultPingPeriod)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-tc.closeCh:
+			return
+		case <-ticker.C:
+			tc.writePing()
+		}
+	}
+}
+
+func (tc *taosConn) read() {
+	for {
+		mt, msg, err := tc.client.ReadMessage()
+		tc.messageChan <- &message{
+			mt:      mt,
+			message: msg,
+			err:     err,
+		}
+		if err != nil {
+			tc.messageError = NewBadConnError(err)
+			break
+		}
+		if tc.isClosed() {
+			break
+		}
+	}
+}
+
 func (tc *taosConn) Begin() (driver.Tx, error) {
 	return nil, &taosErrors.TaosError{Code: 0xffff, ErrStr: "websocket does not support transaction"}
 }
 
 func (tc *taosConn) Close() (err error) {
-	if tc.closed.Swap(true) {
-		return nil
+	if !tc.isClosed() {
+		atomic.StoreUint32(&tc.closed, 1)
+		close(tc.closeCh)
 	}
-
 	if tc.client != nil {
 		err = tc.client.Close()
 	}
@@ -114,8 +165,12 @@ func (tc *taosConn) Close() (err error) {
 	return err
 }
 
+func (tc *taosConn) isClosed() bool {
+	return atomic.LoadUint32(&tc.closed) != 0
+}
+
 func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
-	if tc.closed.Load() {
+	if tc.isClosed() {
 		return nil, driver.ErrBadConn
 	}
 	stmtID, err := tc.stmtInit()
@@ -297,6 +352,18 @@ func WriteUint64(buffer *bytes.Buffer, v uint64) {
 	buffer.WriteByte(byte(v >> 56))
 }
 
+func WriteUint32(buffer *bytes.Buffer, v uint32) {
+	buffer.WriteByte(byte(v))
+	buffer.WriteByte(byte(v >> 8))
+	buffer.WriteByte(byte(v >> 16))
+	buffer.WriteByte(byte(v >> 24))
+}
+
+func WriteUint16(buffer *bytes.Buffer, v uint16) {
+	buffer.WriteByte(byte(v))
+	buffer.WriteByte(byte(v >> 8))
+}
+
 func (tc *taosConn) stmtAddBatch(stmtID uint64) error {
 	reqID := tc.generateReqID()
 	req := &StmtAddBatchRequest{
@@ -417,45 +484,8 @@ func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 	return tc.execCtx(ctx, query, args)
 }
 
-func (tc *taosConn) execCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if tc.closed.Load() {
-		return nil, driver.ErrBadConn
-	}
-	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
-			return nil, driver.ErrSkip
-		}
-		// try to interpolate the parameters to save extra round trips for preparing and closing a statement
-		prepared, err := common.InterpolateParams(query, args)
-		if err != nil {
-			return nil, err
-		}
-		query = prepared
-	}
-	reqID := tc.generateReqID()
-	req := &WSQueryReq{
-		ReqID: reqID,
-		SQL:   query,
-	}
-	reqArgs, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &WSAction{
-		Action: WSQuery,
-		Args:   reqArgs,
-	}
-	tc.buf.Reset()
-	err = jsonI.NewEncoder(tc.buf).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	err = tc.writeText(tc.buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	var resp WSQueryResp
-	err = tc.readTo(&resp)
+func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	resp, err := tc.doQuery(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}
@@ -473,45 +503,8 @@ func (tc *taosConn) QueryContext(ctx context.Context, query string, args []drive
 	return tc.queryCtx(ctx, query, args)
 }
 
-func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if tc.closed.Load() {
-		return nil, driver.ErrBadConn
-	}
-	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
-			return nil, driver.ErrSkip
-		}
-		// try client-side prepare to reduce round trip
-		prepared, err := common.InterpolateParams(query, args)
-		if err != nil {
-			return nil, err
-		}
-		query = prepared
-	}
-	reqID := tc.generateReqID()
-	req := &WSQueryReq{
-		ReqID: reqID,
-		SQL:   query,
-	}
-	reqArgs, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &WSAction{
-		Action: WSQuery,
-		Args:   reqArgs,
-	}
-	tc.buf.Reset()
-	err = jsonI.NewEncoder(tc.buf).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	err = tc.writeText(tc.buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	var resp WSQueryResp
-	err = tc.readTo(&resp)
+func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	resp, err := tc.doQuery(ctx, query, args)
 	if err != nil {
 		return nil, err
 	}
@@ -534,11 +527,47 @@ func (tc *taosConn) queryCtx(_ context.Context, query string, args []driver.Name
 	return rs, err
 }
 
+func (tc *taosConn) doQuery(_ context.Context, query string, args []driver.NamedValue) (*WSQueryResp, error) {
+	if tc.isClosed() {
+		return nil, driver.ErrBadConn
+	}
+	if len(args) != 0 {
+		if !tc.cfg.interpolateParams {
+			return nil, driver.ErrSkip
+		}
+		// try client-side prepare to reduce round trip
+		prepared, err := common.InterpolateParams(query, args)
+		if err != nil {
+			return nil, err
+		}
+		query = prepared
+	}
+	reqID := tc.generateReqID()
+	tc.buf.Reset()
+
+	WriteUint64(tc.buf, reqID) // req id
+	WriteUint64(tc.buf, 0)     // message id
+	WriteUint64(tc.buf, BinaryQueryMessage)
+	WriteUint16(tc.buf, 1)                  // version
+	WriteUint32(tc.buf, uint32(len(query))) // sql length
+	tc.buf.WriteString(query)
+	err := tc.writeBinary(tc.buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	var resp WSQueryResp
+	err = tc.readTo(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func (tc *taosConn) Ping(ctx context.Context) (err error) {
-	if tc.closed.Load() {
+	if tc.isClosed() {
 		return driver.ErrBadConn
 	}
-	return nil
+	return tc.writePing()
 }
 
 func (tc *taosConn) connect() error {
@@ -577,14 +606,26 @@ func (tc *taosConn) connect() error {
 }
 
 func (tc *taosConn) writeText(data []byte) error {
-	return tc.write(data, websocket.TextMessage)
+	return tc.write(websocket.TextMessage, data)
 }
 
 func (tc *taosConn) writeBinary(data []byte) error {
-	return tc.write(data, websocket.BinaryMessage)
+	return tc.write(websocket.BinaryMessage, data)
 }
 
-func (tc *taosConn) write(data []byte, messageType int) error {
+func (tc *taosConn) writePing() error {
+	return tc.write(websocket.PingMessage, nil)
+}
+
+func (tc *taosConn) write(messageType int, data []byte) error {
+	tc.writeLock.Lock()
+	defer tc.writeLock.Unlock()
+	if tc.isClosed() {
+		return driver.ErrBadConn
+	}
+	if tc.messageError != nil {
+		return tc.messageError
+	}
 	tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
 	err := tc.client.WriteMessage(messageType, data)
 	if err != nil {
@@ -594,63 +635,50 @@ func (tc *taosConn) write(data []byte, messageType int) error {
 }
 
 func (tc *taosConn) readTo(to interface{}) error {
-	var outErr error
-	done := make(chan struct{})
-	go func() {
-		defer func() {
-			close(done)
-		}()
-		mt, respBytes, err := tc.client.ReadMessage()
-		if err != nil {
-			outErr = NewBadConnError(err)
-			return
-		}
-		if mt != websocket.TextMessage {
-			outErr = NewBadConnErrorWithCtx(fmt.Errorf("readTo: got wrong message type %d", mt), formatBytes(respBytes))
-			return
-		}
-		err = jsonI.Unmarshal(respBytes, to)
-		if err != nil {
-			outErr = NewBadConnErrorWithCtx(err, string(respBytes))
-			return
-		}
-	}()
-	ctx, cancel := context.WithTimeout(context.Background(), tc.readTimeout)
-	defer cancel()
-	select {
-	case <-done:
-		return outErr
-	case <-ctx.Done():
-		return NewBadConnError(ReadTimeoutError)
+	mt, respBytes, err := tc.readResponse()
+	if err != nil {
+		return err
 	}
+	if mt != websocket.TextMessage {
+		return NewBadConnErrorWithCtx(fmt.Errorf("readTo: got wrong message type %d", mt), formatBytes(respBytes))
+	}
+	err = jsonI.Unmarshal(respBytes, to)
+	if err != nil {
+		return NewBadConnErrorWithCtx(err, string(respBytes))
+	}
+	return nil
 }
 
 func (tc *taosConn) readBytes() ([]byte, error) {
-	var respBytes []byte
-	var outErr error
-	done := make(chan struct{})
-	go func() {
-		defer func() {
-			close(done)
-		}()
-		mt, message, err := tc.client.ReadMessage()
-		if err != nil {
-			outErr = NewBadConnError(err)
-			return
-		}
-		if mt != websocket.BinaryMessage {
-			outErr = NewBadConnErrorWithCtx(fmt.Errorf("readBytes: got wrong message type %d", mt), string(respBytes))
-			return
-		}
-		respBytes = message
-	}()
+	mt, respBytes, err := tc.readResponse()
+	if err != nil {
+		return nil, err
+	}
+	if mt != websocket.BinaryMessage {
+		return nil, NewBadConnErrorWithCtx(fmt.Errorf("readBytes: got wrong message type %d", mt), string(respBytes))
+	}
+	return respBytes, err
+}
+
+func (tc *taosConn) readResponse() (int, []byte, error) {
+	if tc.isClosed() {
+		return 0, nil, driver.ErrBadConn
+	}
+	if tc.messageError != nil {
+		return 0, nil, tc.messageError
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), tc.readTimeout)
 	defer cancel()
 	select {
-	case <-done:
-		return respBytes, outErr
+	case <-tc.closeCh:
+		return 0, nil, driver.ErrBadConn
+	case msg := <-tc.messageChan:
+		if msg.err != nil {
+			return 0, nil, NewBadConnError(msg.err)
+		}
+		return msg.mt, msg.message, nil
 	case <-ctx.Done():
-		return nil, NewBadConnError(ReadTimeoutError)
+		return 0, nil, NewBadConnError(ReadTimeoutError)
 	}
 }
 
