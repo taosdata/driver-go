@@ -178,7 +178,11 @@ func rawConvertTime(pStart unsafe.Pointer, row int, arg ...interface{}) driver.V
 }
 
 func rawConvertVarBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
-	return rawGetBytes(pHeader, pStart, row)
+	result := rawGetBytes(pHeader, pStart, row)
+	if result == nil {
+		return nil
+	}
+	return result
 }
 
 func rawGetBytes(pHeader, pStart unsafe.Pointer, row int) []byte {
