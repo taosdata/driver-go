@@ -909,7 +909,7 @@ func TestSubscribeReconnect(t *testing.T) {
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:" + port,
 		"ws.message.channelLen":   uint(0),
-		"ws.message.timeout":      time.Second * 10,
+		"ws.message.timeout":      time.Second * 5,
 		"ws.message.writeWait":    common.DefaultWriteWait,
 		"td.connect.user":         "root",
 		"td.connect.pass":         "taosdata",
@@ -925,10 +925,21 @@ func TestSubscribeReconnect(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	stopTaosadapter(cmd)
+	time.Sleep(time.Second)
+	startChan := make(chan struct{})
 	go func() {
 		time.Sleep(time.Second * 3)
-		startTaosadapter(cmd, port)
+		err = startTaosadapter(cmd, port)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		startChan <- struct{}{}
 	}()
+	err = consumer.Subscribe("test_ws_tmq_sub_reconnect_topic", nil)
+	assert.Error(t, err)
+	<-startChan
+	time.Sleep(time.Second)
 	err = consumer.Subscribe("test_ws_tmq_sub_reconnect_topic", nil)
 	assert.NoError(t, err)
 	doRequest("create table test_ws_tmq_sub_reconnect.st(ts timestamp,v int) tags (cn binary(20))")
@@ -938,7 +949,14 @@ func TestSubscribeReconnect(t *testing.T) {
 	go func() {
 		time.Sleep(time.Second * 3)
 		startTaosadapter(cmd, port)
+		startChan <- struct{}{}
 	}()
+	time.Sleep(time.Second)
+	event := consumer.Poll(500)
+	assert.NotNil(t, event)
+	_, ok := event.(tmq.Error)
+	assert.True(t, ok)
+	<-startChan
 	haveMessage := false
 	for i := 0; i < 10; i++ {
 		event := consumer.Poll(500)
@@ -951,6 +969,8 @@ func TestSubscribeReconnect(t *testing.T) {
 			assert.Equal(t, "test_ws_tmq_sub_reconnect", e.DBName())
 			haveMessage = true
 			break
+		default:
+			t.Log(e)
 		}
 	}
 	assert.True(t, haveMessage)

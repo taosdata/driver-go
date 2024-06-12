@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"sync"
@@ -365,9 +366,6 @@ const (
 var ClosedErr = errors.New("connection closed")
 
 func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	if !c.client.IsRunning() {
-		return nil, ClosedErr
-	}
 	channel := &IndexedChan{
 		index:   reqID,
 		channel: make(chan []byte, 1),
@@ -449,12 +447,17 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 		if !reconnect {
 			return err
 		}
-		err = c.reconnect()
-		if err != nil {
-			return err
-		}
-		respBytes, err = c.sendText(reqID, envelope)
-		if err != nil {
+		var opError *net.OpError
+		if errors.Is(err, ClosedErr) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+			err = c.reconnect()
+			if err != nil {
+				return err
+			}
+			respBytes, err = c.sendText(reqID, envelope)
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
 	}
@@ -510,12 +513,17 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 		if !c.autoReconnect {
 			return tmq.NewTMQErrorWithErr(err)
 		}
-		err = c.reconnect()
-		if err != nil {
-			return tmq.NewTMQErrorWithErr(err)
-		}
-		respBytes, err = c.sendText(reqID, envelope)
-		if err != nil {
+		var opError *net.OpError
+		if errors.Is(err, ClosedErr) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+			err = c.reconnect()
+			if err != nil {
+				return tmq.NewTMQErrorWithErr(err)
+			}
+			respBytes, err = c.sendText(reqID, envelope)
+			if err != nil {
+				return tmq.NewTMQErrorWithErr(err)
+			}
+		} else {
 			return tmq.NewTMQErrorWithErr(err)
 		}
 	}

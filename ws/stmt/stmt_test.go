@@ -1074,8 +1074,8 @@ func TestSTMTReconnect(t *testing.T) {
 	config := NewConfig("ws://127.0.0.1:"+port, 0)
 	config.SetConnectUser("root")
 	config.SetConnectPass("taosdata")
-	config.SetMessageTimeout(10 * time.Second)
-	config.SetWriteWait(common.DefaultWriteWait)
+	config.SetMessageTimeout(3 * time.Second)
+	config.SetWriteWait(3 * time.Second)
 	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
@@ -1095,10 +1095,20 @@ func TestSTMTReconnect(t *testing.T) {
 	assert.NoError(t, err)
 	stmt.Close()
 	stopTaosadapter(cmd)
+	startChan := make(chan struct{})
 	go func() {
 		time.Sleep(time.Second * 3)
-		startTaosadapter(cmd, port)
+		err = startTaosadapter(cmd, port)
+		startChan <- struct{}{}
+		if err != nil {
+			t.Error(err)
+			return
+		}
 	}()
+	stmt, err = connector.Init()
+	assert.Error(t, err)
+	<-startChan
+	time.Sleep(time.Second)
 	stmt, err = connector.Init()
 	assert.NoError(t, err)
 	stmt.Close()

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -164,12 +165,17 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 		if !s.autoReconnect {
 			return err
 		}
-		err = s.reconnect()
-		if err != nil {
-			return err
-		}
-		respBytes, err = s.sendText(uint64(reqID), envelope)
-		if err != nil {
+		var opError *net.OpError
+		if errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+			err = s.reconnect()
+			if err != nil {
+				return err
+			}
+			respBytes, err = s.sendText(uint64(reqID), envelope)
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
 	}
