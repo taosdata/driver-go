@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -352,12 +353,17 @@ func (c *Connector) Init() (*Stmt, error) {
 		if !c.autoReconnect {
 			return nil, err
 		}
-		err = c.reconnect()
-		if err != nil {
-			return nil, err
-		}
-		respBytes, err = c.sendText(reqID, envelope)
-		if err != nil {
+		var opError *net.OpError
+		if errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+			err = c.reconnect()
+			if err != nil {
+				return nil, err
+			}
+			respBytes, err = c.sendText(reqID, envelope)
+			if err != nil {
+				return nil, err
+			}
+		} else {
 			return nil, err
 		}
 	}

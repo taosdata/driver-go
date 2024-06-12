@@ -14,6 +14,7 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/stretchr/testify/assert"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
@@ -198,8 +199,8 @@ func TestSchemalessReconnect(t *testing.T) {
 	}
 	s, err := NewSchemaless(NewConfig(fmt.Sprintf("ws://localhost:%s", port), 1,
 		SetDb("test_schemaless_reconnect"),
-		SetReadTimeout(10*time.Second),
-		SetWriteTimeout(10*time.Second),
+		SetReadTimeout(3*time.Second),
+		SetWriteTimeout(3*time.Second),
 		SetUser("root"),
 		SetPassword("taosdata"),
 		//SetEnableCompression(true),
@@ -214,10 +215,12 @@ func TestSchemalessReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	stopTaosadapter(cmd)
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
+	startChan := make(chan struct{})
 	go func() {
-		time.Sleep(time.Second * 3)
+		time.Sleep(time.Second * 10)
 		err = startTaosadapter(cmd, port)
+		startChan <- struct{}{}
 		if err != nil {
 			t.Error(err)
 			return
@@ -228,7 +231,11 @@ func TestSchemalessReconnect(t *testing.T) {
 		"measurement,host=host1 field1=2i,field2=2.0 1577837500000\n" +
 		"measurement,host=host1 field1=2i,field2=2.0 1577837600000"
 	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Error(t, err)
+	<-startChan
+	time.Sleep(time.Second)
+	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
+	assert.NoError(t, err)
+	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
+	assert.NoError(t, err)
 }
