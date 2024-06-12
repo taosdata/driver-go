@@ -61,12 +61,17 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	tc.header = map[string][]string{
 		"Connection": {"keep-alive"},
 	}
+	var raw_querys []string
+	for key, value := range cfg.params {
+		raw_querys = append(raw_querys, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
+	}
 	if cfg.token != "" {
-		tc.url.RawQuery = fmt.Sprintf("token=%s", cfg.token)
+		raw_querys = append(raw_querys, fmt.Sprintf("token=%s", cfg.token))
 	} else {
 		basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
 		tc.header["Authorization"] = []string{fmt.Sprintf("Basic %s", basic)}
 	}
+	tc.url.RawQuery = strings.Join(raw_querys, "&")
 	if !cfg.disableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
 	}
