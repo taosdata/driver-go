@@ -6,22 +6,27 @@ import (
 )
 
 type Config struct {
-	Url               string
-	ChanLength        uint
-	MessageTimeout    time.Duration
-	WriteWait         time.Duration
-	ErrorHandler      func(connector *Connector, err error)
-	CloseHandler      func()
-	User              string
-	Password          string
-	DB                string
-	EnableCompression bool
+	Url                 string
+	ChanLength          uint
+	MessageTimeout      time.Duration
+	WriteWait           time.Duration
+	ErrorHandler        func(connector *Connector, err error)
+	CloseHandler        func()
+	User                string
+	Password            string
+	DB                  string
+	EnableCompression   bool
+	AutoReconnect       bool
+	ReconnectIntervalMs int
+	ReconnectRetryCount int
 }
 
 func NewConfig(url string, chanLength uint) *Config {
 	return &Config{
-		Url:        url,
-		ChanLength: chanLength,
+		Url:                 url,
+		ChanLength:          chanLength,
+		ReconnectRetryCount: 3,
+		ReconnectIntervalMs: 2000,
 	}
 }
 func (c *Config) SetConnectUser(user string) error {
@@ -64,4 +69,16 @@ func (c *Config) SetCloseHandler(f func()) {
 
 func (c *Config) SetEnableCompression(enableCompression bool) {
 	c.EnableCompression = enableCompression
+}
+
+func (c *Config) SetAutoReconnect(reconnect bool) {
+	c.AutoReconnect = reconnect
+}
+
+func (c *Config) SetReconnectIntervalMs(reconnectIntervalMs int) {
+	c.ReconnectIntervalMs = reconnectIntervalMs
+}
+
+func (c *Config) SetReconnectRetryCount(reconnectRetryCount int) {
+	c.ReconnectRetryCount = reconnectRetryCount
 }
