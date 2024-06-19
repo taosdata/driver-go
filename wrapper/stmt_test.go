@@ -702,7 +702,6 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 		if errCode != int(taosError.SUCCESS) {
 			errStr := TaosErrorStr(res)
 			err := taosError.NewError(code, errStr)
-			TaosFreeResult(res)
 			return nil, err
 		}
 		if blockSize == 0 {
@@ -711,7 +710,6 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 		d := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
 		data = append(data, d...)
 	}
-	TaosFreeResult(res)
 	return data, nil
 }
 
@@ -804,7 +802,7 @@ func TestGetFields(t *testing.T) {
 	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
 	tags := StmtParseFields(tagCount, tagsP)
-	assert.Equal(t, []*stmtCommon.StmtField{
+	expectV1 := []*stmtCommon.StmtField{
 		{"ts", 9, 0, 0, 8},
 		{"c1", 1, 0, 0, 1},
 		{"c2", 2, 0, 0, 1},
@@ -819,8 +817,27 @@ func TestGetFields(t *testing.T) {
 		{"c11", 7, 0, 0, 8},
 		{"c12", 8, 0, 0, 22},
 		{"c13", 10, 0, 0, 82},
-	}, columns)
-	assert.Equal(t, []*stmtCommon.StmtField{
+	}
+	expectV3 := []*stmtCommon.StmtField{
+		{"ts", 9, 0, 0, 8},
+		{"c1", 1, 0, 0, 1},
+		{"c2", 2, 0, 0, 1},
+		{"c3", 3, 0, 0, 2},
+		{"c4", 4, 0, 0, 4},
+		{"c5", 5, 0, 0, 8},
+		{"c6", 11, 0, 0, 1},
+		{"c7", 12, 0, 0, 2},
+		{"c8", 13, 0, 0, 4},
+		{"c9", 14, 0, 0, 8},
+		{"c10", 6, 0, 0, 4},
+		{"c11", 7, 0, 0, 8},
+		{"c12", 8, 0, 0, 24},
+		{"c13", 10, 0, 0, 84},
+	}
+	if !assert.ObjectsAreEqual(expectV1, columns) {
+		assert.Equal(t, expectV3, columns)
+	}
+	expectV1 = []*stmtCommon.StmtField{
 		{"tts", 9, 0, 0, 8},
 		{"tc1", 1, 0, 0, 1},
 		{"tc2", 2, 0, 0, 1},
@@ -835,7 +852,26 @@ func TestGetFields(t *testing.T) {
 		{"tc11", 7, 0, 0, 8},
 		{"tc12", 8, 0, 0, 22},
 		{"tc13", 10, 0, 0, 82},
-	}, tags)
+	}
+	expectV3 = []*stmtCommon.StmtField{
+		{"tts", 9, 0, 0, 8},
+		{"tc1", 1, 0, 0, 1},
+		{"tc2", 2, 0, 0, 1},
+		{"tc3", 3, 0, 0, 2},
+		{"tc4", 4, 0, 0, 4},
+		{"tc5", 5, 0, 0, 8},
+		{"tc6", 11, 0, 0, 1},
+		{"tc7", 12, 0, 0, 2},
+		{"tc8", 13, 0, 0, 4},
+		{"tc9", 14, 0, 0, 8},
+		{"tc10", 6, 0, 0, 4},
+		{"tc11", 7, 0, 0, 8},
+		{"tc12", 8, 0, 0, 24},
+		{"tc13", 10, 0, 0, 84},
+	}
+	if !assert.ObjectsAreEqual(expectV1, tags) {
+		assert.Equal(t, expectV3, tags)
+	}
 }
 
 // @author: xftan
@@ -899,7 +935,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 	}
 	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
-	assert.Equal(t, []*stmtCommon.StmtField{
+	expectV1 := []*stmtCommon.StmtField{
 		{"ts", 9, 0, 0, 8},
 		{"c1", 1, 0, 0, 1},
 		{"c2", 2, 0, 0, 1},
@@ -914,7 +950,26 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		{"c11", 7, 0, 0, 8},
 		{"c12", 8, 0, 0, 22},
 		{"c13", 10, 0, 0, 82},
-	}, columns)
+	}
+	expectV3 := []*stmtCommon.StmtField{
+		{"ts", 9, 0, 0, 8},
+		{"c1", 1, 0, 0, 1},
+		{"c2", 2, 0, 0, 1},
+		{"c3", 3, 0, 0, 2},
+		{"c4", 4, 0, 0, 4},
+		{"c5", 5, 0, 0, 8},
+		{"c6", 11, 0, 0, 1},
+		{"c7", 12, 0, 0, 2},
+		{"c8", 13, 0, 0, 4},
+		{"c9", 14, 0, 0, 8},
+		{"c10", 6, 0, 0, 4},
+		{"c11", 7, 0, 0, 8},
+		{"c12", 8, 0, 0, 24},
+		{"c13", 10, 0, 0, 84},
+	}
+	if !assert.ObjectsAreEqual(expectV1, columns) {
+		assert.Equal(t, expectV3, columns)
+	}
 }
 
 func exec(conn unsafe.Pointer, sql string) error {

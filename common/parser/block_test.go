@@ -3,6 +3,7 @@ package parser
 import (
 	"database/sql/driver"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 	"unsafe"
@@ -124,6 +125,7 @@ func TestReadBlock(t *testing.T) {
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
 		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
 		tmpPHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(fileCount))
+		version := RawBlockGetVersion(block)
 		var tmpPStart unsafe.Pointer
 		for column := 0; column < fileCount; column++ {
 			colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
@@ -141,7 +143,7 @@ func TestReadBlock(t *testing.T) {
 		for row := 0; row < blockSize; row++ {
 			rowV := make([]driver.Value, fileCount)
 			for column := 0; column < fileCount; column++ {
-				v := ItemRawBlock(rh.ColTypes[column], pHeaderList[column], pStartList[column], row, precision, func(ts int64, precision int) driver.Value {
+				v := ItemRawBlock(version, rh.ColTypes[column], pHeaderList[column], pStartList[column], row, precision, func(ts int64, precision int) driver.Value {
 					return common.TimestampConvertToTime(ts, precision)
 				})
 				rowV[column] = v
@@ -269,6 +271,7 @@ func TestBlockTag(t *testing.T) {
 		nullBitMapOffset := uintptr(BitmapLen(blockSize))
 		lengthOffset := RawBlockGetColumnLengthOffset(fileCount)
 		tmpPHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(fileCount)) // length i32, group u64
+		version := RawBlockGetVersion(block)
 		var tmpPStart unsafe.Pointer
 		for column := 0; column < fileCount; column++ {
 			colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
@@ -286,7 +289,7 @@ func TestBlockTag(t *testing.T) {
 		for row := 0; row < blockSize; row++ {
 			rowV := make([]driver.Value, fileCount)
 			for column := 0; column < fileCount; column++ {
-				v := ItemRawBlock(rh.ColTypes[column], pHeaderList[column], pStartList[column], row, precision, func(ts int64, precision int) driver.Value {
+				v := ItemRawBlock(version, rh.ColTypes[column], pHeaderList[column], pStartList[column], row, precision, func(ts int64, precision int) driver.Value {
 					return common.TimestampConvertToTime(ts, precision)
 				})
 				rowV[column] = v
@@ -680,7 +683,11 @@ func TestParseBlock(t *testing.T) {
 		version := RawBlockGetVersion(block)
 		t.Log(version)
 		length := RawBlockGetLength(block)
-		assert.Equal(t, int32(447), length)
+		if version >= 3 {
+			assert.Equal(t, int32(459), length)
+		} else {
+			assert.Equal(t, int32(447), length)
+		}
 		rows := RawBlockGetNumOfRows(block)
 		assert.Equal(t, int32(2), rows)
 		columns := RawBlockGetNumOfCols(block)
@@ -691,80 +698,157 @@ func TestParseBlock(t *testing.T) {
 		assert.Equal(t, uint64(0), groupId)
 		infos := make([]RawBlockColInfo, columns)
 		RawBlockGetColInfo(block, infos)
-		assert.Equal(
-			t,
-			[]RawBlockColInfo{
-				{
-					ColType: 9,
-					Bytes:   8,
+		if version >= 3 {
+			assert.Equal(
+				t,
+				[]RawBlockColInfo{
+					{
+						ColType: 9,
+						Bytes:   8,
+					},
+					{
+						ColType: 1,
+						Bytes:   1,
+					},
+					{
+						ColType: 2,
+						Bytes:   1,
+					},
+					{
+						ColType: 3,
+						Bytes:   2,
+					},
+					{
+						ColType: 4,
+						Bytes:   4,
+					},
+					{
+						ColType: 5,
+						Bytes:   8,
+					},
+					{
+						ColType: 11,
+						Bytes:   1,
+					},
+					{
+						ColType: 12,
+						Bytes:   2,
+					},
+					{
+						ColType: 13,
+						Bytes:   4,
+					},
+					{
+						ColType: 14,
+						Bytes:   8,
+					},
+					{
+						ColType: 6,
+						Bytes:   4,
+					},
+					{
+						ColType: 7,
+						Bytes:   8,
+					},
+					{
+						ColType: 8,
+						Bytes:   24,
+					},
+					{
+						ColType: 10,
+						Bytes:   84,
+					},
+					{
+						ColType: 16,
+						Bytes:   24,
+					},
+					{
+						ColType: 20,
+						Bytes:   104,
+					},
+					{
+						ColType: 15,
+						Bytes:   16384,
+					},
 				},
-				{
-					ColType: 1,
-					Bytes:   1,
+				infos,
+			)
+		} else {
+			assert.Equal(
+				t,
+				[]RawBlockColInfo{
+					{
+						ColType: 9,
+						Bytes:   8,
+					},
+					{
+						ColType: 1,
+						Bytes:   1,
+					},
+					{
+						ColType: 2,
+						Bytes:   1,
+					},
+					{
+						ColType: 3,
+						Bytes:   2,
+					},
+					{
+						ColType: 4,
+						Bytes:   4,
+					},
+					{
+						ColType: 5,
+						Bytes:   8,
+					},
+					{
+						ColType: 11,
+						Bytes:   1,
+					},
+					{
+						ColType: 12,
+						Bytes:   2,
+					},
+					{
+						ColType: 13,
+						Bytes:   4,
+					},
+					{
+						ColType: 14,
+						Bytes:   8,
+					},
+					{
+						ColType: 6,
+						Bytes:   4,
+					},
+					{
+						ColType: 7,
+						Bytes:   8,
+					},
+					{
+						ColType: 8,
+						Bytes:   22,
+					},
+					{
+						ColType: 10,
+						Bytes:   82,
+					},
+					{
+						ColType: 16,
+						Bytes:   22,
+					},
+					{
+						ColType: 20,
+						Bytes:   102,
+					},
+					{
+						ColType: 15,
+						Bytes:   16384,
+					},
 				},
-				{
-					ColType: 2,
-					Bytes:   1,
-				},
-				{
-					ColType: 3,
-					Bytes:   2,
-				},
-				{
-					ColType: 4,
-					Bytes:   4,
-				},
-				{
-					ColType: 5,
-					Bytes:   8,
-				},
-				{
-					ColType: 11,
-					Bytes:   1,
-				},
-				{
-					ColType: 12,
-					Bytes:   2,
-				},
-				{
-					ColType: 13,
-					Bytes:   4,
-				},
-				{
-					ColType: 14,
-					Bytes:   8,
-				},
-				{
-					ColType: 6,
-					Bytes:   4,
-				},
-				{
-					ColType: 7,
-					Bytes:   8,
-				},
-				{
-					ColType: 8,
-					Bytes:   22,
-				},
-				{
-					ColType: 10,
-					Bytes:   82,
-				},
-				{
-					ColType: 16,
-					Bytes:   22,
-				},
-				{
-					ColType: 20,
-					Bytes:   102,
-				},
-				{
-					ColType: 15,
-					Bytes:   16384,
-				},
-			},
-			infos,
-		)
+				infos,
+			)
+		}
 		d := ReadBlockSimple(block, precision)
 		data = append(data, d...)
 	}
@@ -794,4 +878,183 @@ func TestParseBlock(t *testing.T) {
 		assert.Nil(t, row2[i])
 	}
 	assert.Equal(t, []byte(`{"a":1}`), row2[16].([]byte))
+}
+
+func TestParseDifferentVersion(t *testing.T) {
+	v1Data := []byte{
+		0x01, 0x00, 0x00, 0x00, //version
+		0xf8, 0x00, 0x00, 0x00, //length
+		0x01, 0x00, 0x00, 0x00, //rows
+		0x0e, 0x00, 0x00, 0x00, //columns
+		0x00, 0x00, 0x00, 0x00, //flagSegment
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //groupID
+		//types
+		0x09, 0x08, 0x00, 0x00, 0x00, //1
+		0x01, 0x01, 0x00, 0x00, 0x00, //2
+		0x02, 0x01, 0x00, 0x00, 0x00, //3
+		0x03, 0x02, 0x00, 0x00, 0x00, //4
+		0x04, 0x04, 0x00, 0x00, 0x00, //5
+		0x05, 0x08, 0x00, 0x00, 0x00, //6
+		0x0b, 0x01, 0x00, 0x00, 0x00, //7
+		0x0c, 0x02, 0x00, 0x00, 0x00, //8
+		0x0d, 0x04, 0x00, 0x00, 0x00, //9
+		0x0e, 0x08, 0x00, 0x00, 0x00, //10
+		0x06, 0x04, 0x00, 0x00, 0x00, //11
+		0x07, 0x08, 0x00, 0x00, 0x00, //12
+		0x08, 0x00, 0x00, 0x00, 0x00, //13
+		0x0a, 0x00, 0x00, 0x00, 0x00, //14
+		//lengths
+		0x08, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00,
+		0x04, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00,
+		0x04, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
+		0x04, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
+		0x05, 0x00, 0x00, 0x00,
+		0x12, 0x00, 0x00, 0x00,
+		0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //ts
+		0x00,
+		0x01, //bool
+		0x00,
+		0x7f, //i8
+		0x00,
+		0xff, 0x7f, //i16
+		0x00,
+		0xff, 0xff, 0xff, 0x7f, //i32
+		0x00,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, //i64
+		0x00,
+		0xff, //u8
+		0x00,
+		0xff, 0xff, //u16
+		0x00,
+		0xff, 0xff, 0xff, 0xff, //u32
+		0x00,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, //u64
+		0x00,
+		0xff, 0xff, 0x7f, 0x7f, //f32
+		0x00,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xef, 0x7f, //f64
+		0x00, 0x00, 0x00, 0x00,
+		0x03, 0x00, //binary
+		0x41, 0x42, 0x43,
+		0x00, 0x00, 0x00, 0x00,
+		0x10, 0x00, //nchar
+		0x9b, 0x6d, 0x00, 0x00, 0x1d, 0x60, 0x00, 0x00, 0x70, 0x65, 0x00, 0x00, 0x6e, 0x63, 0x00, 0x00,
+	}
+	v3Data := []byte{
+		0x03, 0x00, 0x00, 0x00, //version
+		0xfc, 0x00, 0x00, 0x00, //length
+		0x01, 0x00, 0x00, 0x00, //rows
+		0x0e, 0x00, 0x00, 0x00, //columns
+		0x00, 0x00, 0x00, 0x00, //flagSegment
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //groupID
+		//types
+		0x09, 0x08, 0x00, 0x00, 0x00, //1
+		0x01, 0x01, 0x00, 0x00, 0x00, //2
+		0x02, 0x01, 0x00, 0x00, 0x00, //3
+		0x03, 0x02, 0x00, 0x00, 0x00, //4
+		0x04, 0x04, 0x00, 0x00, 0x00, //5
+		0x05, 0x08, 0x00, 0x00, 0x00, //6
+		0x0b, 0x01, 0x00, 0x00, 0x00, //7
+		0x0c, 0x02, 0x00, 0x00, 0x00, //8
+		0x0d, 0x04, 0x00, 0x00, 0x00, //9
+		0x0e, 0x08, 0x00, 0x00, 0x00, //10
+		0x06, 0x04, 0x00, 0x00, 0x00, //11
+		0x07, 0x08, 0x00, 0x00, 0x00, //12
+		0x08, 0x00, 0x00, 0x00, 0x00, //13
+		0x0a, 0x00, 0x00, 0x00, 0x00, //14
+		//lengths
+		0x08, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00,
+		0x04, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00,
+		0x04, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
+		0x04, 0x00, 0x00, 0x00,
+		0x08, 0x00, 0x00, 0x00,
+		0x07, 0x00, 0x00, 0x00,
+		0x14, 0x00, 0x00, 0x00,
+		0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //ts
+		0x00,
+		0x01, //bool
+		0x00,
+		0x7f, //i8
+		0x00,
+		0xff, 0x7f, //i16
+		0x00,
+		0xff, 0xff, 0xff, 0x7f, //i32
+		0x00,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, //i64
+		0x00,
+		0xff, //u8
+		0x00,
+		0xff, 0xff, //u16
+		0x00,
+		0xff, 0xff, 0xff, 0xff, //u32
+		0x00,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, //u64
+		0x00,
+		0xff, 0xff, 0x7f, 0x7f, //f32
+		0x00,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xef, 0x7f, //f64
+		0x00, 0x00, 0x00, 0x00,
+		0x03, 0x00, 0x00, 0x00, //binary
+		0x41, 0x42, 0x43,
+		0x00, 0x00, 0x00, 0x00,
+		0x10, 0x00, 0x00, 0x00, //nchar
+		0x9b, 0x6d, 0x00, 0x00, 0x1d, 0x60, 0x00, 0x00, 0x70, 0x65, 0x00, 0x00, 0x6e, 0x63, 0x00, 0x00,
+	}
+	expect := [][]driver.Value{
+		{
+			time.Unix(0, 0),
+			true,
+			int8(127),
+			int16(32767),
+			int32(2147483647),
+			int64(9223372036854775807),
+			uint8(255),
+			uint16(65535),
+			uint32(4294967295),
+			uint64(18446744073709551615),
+			float32(math.MaxFloat32),
+			float64(math.MaxFloat64),
+			"ABC",
+			"涛思数据",
+		},
+	}
+	tests := []struct {
+		name string
+		args []byte
+		want [][]driver.Value
+	}{
+		{
+			name: "version 1",
+			args: v1Data,
+			want: expect,
+		},
+		{
+			name: "version 3",
+			args: v3Data,
+			want: expect,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := ReadBlockSimple(unsafe.Pointer(&tt.args[0]), 0)
+			assert.Equal(t, tt.want, data)
+		})
+	}
 }

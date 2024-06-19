@@ -94,7 +94,11 @@ func TestFetchLengths(t *testing.T) {
 	_ = rows
 	lengthList := FetchLengths(res, count)
 	TaosFreeResult(res)
-	assert.Equal(t, []int{8, 4, 12, 42}, lengthList)
+	expectV1 := []int{8, 4, 12, 42}
+	expectV3 := []int{8, 4, 14, 44}
+	if !assert.ObjectsAreEqual(expectV1, lengthList) {
+		assert.Equal(t, expectV3, lengthList)
+	}
 }
 
 // @author: xftan
