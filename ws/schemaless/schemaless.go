@@ -48,10 +48,10 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 	dialer := common.DefaultDialer
 	dialer.EnableCompression = config.enableCompression
 	ws, _, err := dialer.Dial(wsUrl.String(), nil)
-	ws.EnableWriteCompression(config.enableCompression)
 	if err != nil {
 		return nil, fmt.Errorf("dial ws error: %s", err)
 	}
+	ws.EnableWriteCompression(config.enableCompression)
 
 	s := Schemaless{
 		client:       client.NewClient(ws, config.chanLength),
