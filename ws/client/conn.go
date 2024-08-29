@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,7 +34,7 @@ type EnvelopePool struct {
 func (ep *EnvelopePool) Get() *Envelope {
 	epv := ep.p.Get()
 	if epv == nil {
-		return &Envelope{Msg: new(bytes.Buffer)}
+		return &Envelope{Msg: new(bytes.Buffer), ErrorChan: make(chan error, 1)}
 	}
 	return epv.(*Envelope)
 }
@@ -44,13 +45,23 @@ func (ep *EnvelopePool) Put(epv *Envelope) {
 }
 
 type Envelope struct {
-	Type int
-	Msg  *bytes.Buffer
+	Type      int
+	Msg       *bytes.Buffer
+	ErrorChan chan error
 }
 
 func (e *Envelope) Reset() {
-	e.Msg.Reset()
+	if e.Msg.Cap() > 64*1024 {
+		e.Msg = new(bytes.Buffer)
+	} else {
+		e.Msg.Reset()
+	}
+	if len(e.ErrorChan) > 0 {
+		e.ErrorChan = make(chan error, 1)
+	}
 }
+
+var ClosedError = errors.New("websocket closed")
 
 type Client struct {
 	conn                 *websocket.Conn
@@ -63,9 +74,10 @@ type Client struct {
 	TextMessageHandler   func(message []byte)
 	BinaryMessageHandler func(message []byte)
 	ErrorHandler         func(err error)
-	SendMessageHandler   func(envelope *Envelope)
-	once                 sync.Once
-	errHandlerOnce       sync.Once
+	//SendMessageHandler   func(envelope *Envelope)
+	once           sync.Once
+	errHandlerOnce sync.Once
+	err            error
 }
 
 func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
@@ -80,9 +92,9 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 		TextMessageHandler:   func(message []byte) {},
 		BinaryMessageHandler: func(message []byte) {},
 		ErrorHandler:         func(err error) {},
-		SendMessageHandler: func(envelope *Envelope) {
-			GlobalEnvelopePool.Put(envelope)
-		},
+		//SendMessageHandler: func(envelope *Envelope) {
+		//	GlobalEnvelopePool.Put(envelope)
+		//},
 	}
 }
 
@@ -117,41 +129,61 @@ func (c *Client) WritePump() {
 	defer func() {
 		ticker.Stop()
 	}()
+
 	for {
 		select {
 		case message, ok := <-c.sendChan:
 			if !ok {
-				return
+				if message == nil {
+					return
+				}
+				message.ErrorChan <- ClosedError
+				continue
 			}
 			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
 			if err != nil {
+				message.ErrorChan <- err
 				c.handleError(err)
-				return
+				c.Close()
+				for message := range c.sendChan {
+					if message == nil {
+						return
+					}
+					message.ErrorChan <- ClosedError
+				}
 			}
-			c.SendMessageHandler(message)
+			message.ErrorChan <- nil
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.handleError(err)
-				return
+				c.Close()
+				for message := range c.sendChan {
+					if message == nil {
+						return
+					}
+					message.ErrorChan <- ClosedError
+				}
 			}
 		}
 	}
 }
 
-func (c *Client) Send(envelope *Envelope) {
+func (c *Client) Send(envelope *Envelope) error {
 	if !c.IsRunning() {
-		return
+		return ClosedError
 	}
+	var err error
 	defer func() {
 		// maybe closed
 		if recover() != nil {
-
+			err = ClosedError
 			return
 		}
 	}()
 	c.sendChan <- envelope
+	return err
 }
 
 func (c *Client) GetEnvelope() *Envelope {
@@ -168,8 +200,8 @@ func (c *Client) IsRunning() bool {
 
 func (c *Client) Close() {
 	c.once.Do(func() {
-		close(c.sendChan)
 		atomic.StoreUint32(&c.status, StatusStop)
+		close(c.sendChan)
 		if c.conn != nil {
 			c.conn.Close()
 		}
