@@ -82,8 +82,8 @@ func TaosQuery(taosConnect unsafe.Pointer, sql string) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_query(taosConnect, cSql))
 }
 
-// TasoQueryWithReqID TAOS_RES *taos_query_with_reqid(TAOS *taos, const char *sql, int64_t reqID);
-func TasoQueryWithReqID(taosConn unsafe.Pointer, sql string, reqID int64) unsafe.Pointer {
+// TaosQueryWithReqID TAOS_RES *taos_query_with_reqid(TAOS *taos, const char *sql, int64_t reqID);
+func TaosQueryWithReqID(taosConn unsafe.Pointer, sql string, reqID int64) unsafe.Pointer {
 	cSql := C.CString(sql)
 	defer C.free(unsafe.Pointer(cSql))
 	return unsafe.Pointer(C.taos_query_with_reqid(taosConn, cSql, (C.int64_t)(reqID)))
@@ -269,11 +269,11 @@ func TaosSetConnMode(conn unsafe.Pointer, mode int, value int) int {
 
 // TaosGetCurrentDB DLL_EXPORT int taos_get_current_db(TAOS *taos, char *database, int len, int *required)
 func TaosGetCurrentDB(conn unsafe.Pointer) (db string, err error) {
-	cDb := C.CString(db)
+	cDb := (*C.char)(C.malloc(195))
 	defer C.free(unsafe.Pointer(cDb))
 	var required int
 
-	code := C.taos_get_current_db(conn, cDb, C.int(193), (*C.int)(unsafe.Pointer(&required)))
+	code := C.taos_get_current_db(conn, cDb, C.int(195), (*C.int)(unsafe.Pointer(&required)))
 	if code != 0 {
 		err = errors.NewError(int(code), TaosErrorStr(nil))
 	}
