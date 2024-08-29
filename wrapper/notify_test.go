@@ -2,7 +2,6 @@ package wrapper
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -26,6 +25,7 @@ func TestNotify(t *testing.T) {
 	exec(conn, "drop user t_notify")
 	err = exec(conn, "create user t_notify pass 'notify'")
 	assert.NoError(t, err)
+
 	conn2, err := TaosConnect("", "t_notify", "notify", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -40,6 +40,22 @@ func TestNotify(t *testing.T) {
 		errStr := TaosErrorStr(nil)
 		t.Error(errCode, errStr)
 	}
+	notifyWhitelist := make(chan int64, 1)
+	handlerWhiteList := cgo.NewHandle(notifyWhitelist)
+	errCode = TaosSetNotifyCB(conn2, handlerWhiteList, common.TAOS_NOTIFY_WHITELIST_VER)
+	if errCode != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errCode, errStr)
+	}
+
+	notifyDropUser := make(chan struct{}, 1)
+	handlerDropUser := cgo.NewHandle(notifyDropUser)
+	errCode = TaosSetNotifyCB(conn2, handlerDropUser, common.TAOS_NOTIFY_USER_DROPPED)
+	if errCode != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errCode, errStr)
+	}
+
 	err = exec(conn, "alter user t_notify pass 'test'")
 	assert.NoError(t, err)
 	timeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -47,51 +63,36 @@ func TestNotify(t *testing.T) {
 	now := time.Now()
 	select {
 	case version := <-notify:
-		fmt.Println(time.Now().Sub(now))
-		t.Log(version)
+		t.Log(time.Now().Sub(now))
+		t.Log("password changed", version)
 	case <-timeout.Done():
 		t.Error("wait for notify callback timeout")
 	}
-	{
-		notify := make(chan int64, 1)
-		handler := cgo.NewHandle(notify)
-		errCode := TaosSetNotifyCB(conn2, handler, common.TAOS_NOTIFY_WHITELIST_VER)
-		if errCode != 0 {
-			errStr := TaosErrorStr(nil)
-			t.Error(errCode, errStr)
-		}
-		err = exec(conn, "ALTER USER t_notify ADD HOST '192.168.1.98/0','192.168.1.98/32'")
-		assert.NoError(t, err)
-		timeout, cancel = context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		now := time.Now()
-		select {
-		case version := <-notify:
-			fmt.Println(time.Now().Sub(now))
-			t.Log(version)
-		case <-timeout.Done():
-			t.Error("wait for notify callback timeout")
-		}
+
+	err = exec(conn, "ALTER USER t_notify ADD HOST '192.168.1.98/0','192.168.1.98/32'")
+	assert.NoError(t, err)
+	timeoutWhiteList, cancelWhitelist := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelWhitelist()
+	now = time.Now()
+	select {
+	case version := <-notifyWhitelist:
+		t.Log(time.Now().Sub(now))
+		t.Log("whitelist changed", version)
+	case <-timeoutWhiteList.Done():
+		t.Error("wait for notifyWhitelist callback timeout")
 	}
-	{
-		notify := make(chan struct{}, 1)
-		handler := cgo.NewHandle(notify)
-		errCode := TaosSetNotifyCB(conn2, handler, common.TAOS_NOTIFY_USER_DROPPED)
-		if errCode != 0 {
-			errStr := TaosErrorStr(nil)
-			t.Error(errCode, errStr)
-		}
-		err = exec(conn, "drop USER t_notify")
-		assert.NoError(t, err)
-		timeout, cancel = context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		now := time.Now()
-		select {
-		case _ = <-notify:
-			fmt.Println(time.Now().Sub(now))
-			t.Log("user dropped")
-		case <-timeout.Done():
-			t.Error("wait for notify callback timeout")
-		}
+
+	err = exec(conn, "drop USER t_notify")
+	assert.NoError(t, err)
+	timeoutDropUser, cancelDropUser := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelDropUser()
+	now = time.Now()
+	select {
+	case _ = <-notifyDropUser:
+		t.Log(time.Now().Sub(now))
+		t.Log("user dropped")
+	case <-timeoutDropUser.Done():
+		t.Error("wait for notifyDropUser callback timeoutDropUser")
 	}
+
 }
