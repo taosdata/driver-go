@@ -30,6 +30,7 @@ type config struct {
 	disableCompression bool
 	readBufferSize     int
 	token              string // cloud platform token
+	skipVerify         bool
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -154,6 +155,11 @@ func parseDSNParams(cfg *config, params string) (err error) {
 			}
 		case "token":
 			cfg.token = value
+		case "skipVerify":
+			cfg.skipVerify, err = strconv.ParseBool(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
+			}
 		default:
 			// lazy init
 			if cfg.params == nil {

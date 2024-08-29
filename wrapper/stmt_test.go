@@ -702,7 +702,6 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 		if errCode != int(taosError.SUCCESS) {
 			errStr := TaosErrorStr(res)
 			err := taosError.NewError(code, errStr)
-			TaosFreeResult(res)
 			return nil, err
 		}
 		if blockSize == 0 {
@@ -711,7 +710,6 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 		d := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
 		data = append(data, d...)
 	}
-	TaosFreeResult(res)
 	return data, nil
 }
 

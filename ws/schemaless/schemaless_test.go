@@ -1,14 +1,20 @@
 package schemaless
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/stretchr/testify/assert"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
@@ -132,4 +138,104 @@ func before() error {
 
 func after() error {
 	return doRequest("drop database  test_schemaless_ws")
+}
+
+func newTaosadapter(port string) *exec.Cmd {
+	command := "taosadapter"
+	if runtime.GOOS == "windows" {
+		command = "C:\\TDengine\\taosadapter.exe"
+
+	}
+	return exec.Command(command, "--port", port, "--logLevel", "debug")
+}
+
+func startTaosadapter(cmd *exec.Cmd, port string) error {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 30; i++ {
+		time.Sleep(time.Millisecond * 100)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		time.Sleep(time.Second)
+		return nil
+	}
+	return errors.New("taosadapter start failed")
+}
+
+func stopTaosadapter(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return
+	}
+	cmd.Process.Signal(syscall.SIGINT)
+	cmd.Process.Wait()
+	cmd.Process = nil
+	time.Sleep(time.Second)
+}
+
+func TestSchemalessReconnect(t *testing.T) {
+	port := "36041"
+	cmd := newTaosadapter(port)
+	err := startTaosadapter(cmd, port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		stopTaosadapter(cmd)
+	}()
+	err = doRequest("drop database if exists test_schemaless_reconnect")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = doRequest("create database if not exists test_schemaless_reconnect")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewSchemaless(NewConfig(fmt.Sprintf("ws://localhost:%s", port), 1,
+		SetDb("test_schemaless_reconnect"),
+		SetReadTimeout(3*time.Second),
+		SetWriteTimeout(3*time.Second),
+		SetUser("root"),
+		SetPassword("taosdata"),
+		//SetEnableCompression(true),
+		SetErrorHandler(func(err error) {
+			t.Log(err)
+		}),
+		SetAutoReconnect(true),
+		SetReconnectIntervalMs(2000),
+		SetReconnectRetryCount(3),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopTaosadapter(cmd)
+	time.Sleep(time.Second * 3)
+	startChan := make(chan struct{})
+	go func() {
+		time.Sleep(time.Second * 10)
+		err = startTaosadapter(cmd, port)
+		startChan <- struct{}{}
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	data := "measurement,host=host1 field1=2i,field2=2.0 1577837300000\n" +
+		"measurement,host=host1 field1=2i,field2=2.0 1577837400000\n" +
+		"measurement,host=host1 field1=2i,field2=2.0 1577837500000\n" +
+		"measurement,host=host1 field1=2i,field2=2.0 1577837600000"
+	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
+	assert.Error(t, err)
+	<-startChan
+	time.Sleep(time.Second)
+	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
+	assert.NoError(t, err)
+	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
+	assert.NoError(t, err)
 }
