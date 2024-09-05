@@ -313,3 +313,57 @@ func (conn *Connector) GetTableVGroupID(db, table string) (vgID int, err error) 
 	}
 	return
 }
+
+// InfluxDBInsertLinesWithReqID Insert data using influxdb line format
+func (conn *Connector) InfluxDBInsertLinesWithReqID(lines string, precision string, reqID int64, ttl int, tbNameKey string) error {
+	locker.Lock()
+	_, result := wrapper.TaosSchemalessInsertRawTTLWithReqIDTBNameKey(conn.taos, lines, wrapper.InfluxDBLineProtocol, precision, ttl, reqID, tbNameKey)
+	locker.Unlock()
+	defer func() {
+		locker.Lock()
+		wrapper.TaosFreeResult(result)
+		locker.Unlock()
+	}()
+	code := wrapper.TaosError(result)
+	if code != 0 {
+		errStr := wrapper.TaosErrorStr(result)
+		return errors.NewError(code, errStr)
+	}
+	return nil
+}
+
+// OpenTSDBInsertTelnetLinesWithReqID Insert data using opentsdb telnet format
+func (conn *Connector) OpenTSDBInsertTelnetLinesWithReqID(lines string, reqID int64, ttl int, tbNameKey string) error {
+	locker.Lock()
+	_, result := wrapper.TaosSchemalessInsertRawTTLWithReqIDTBNameKey(conn.taos, lines, wrapper.OpenTSDBTelnetLineProtocol, "", ttl, reqID, tbNameKey)
+	locker.Unlock()
+	defer func() {
+		locker.Lock()
+		wrapper.TaosFreeResult(result)
+		locker.Unlock()
+	}()
+	code := wrapper.TaosError(result)
+	if code != 0 {
+		errStr := wrapper.TaosErrorStr(result)
+		return errors.NewError(code, errStr)
+	}
+	return nil
+}
+
+// OpenTSDBInsertJsonPayloadWithReqID Insert data using opentsdb json format
+func (conn *Connector) OpenTSDBInsertJsonPayloadWithReqID(payload string, reqID int64, ttl int, tbNameKey string) error {
+	locker.Lock()
+	_, result := wrapper.TaosSchemalessInsertRawTTLWithReqIDTBNameKey(conn.taos, payload, wrapper.OpenTSDBJsonFormatProtocol, "", ttl, reqID, tbNameKey)
+	locker.Unlock()
+	defer func() {
+		locker.Lock()
+		wrapper.TaosFreeResult(result)
+		locker.Unlock()
+	}()
+	code := wrapper.TaosError(result)
+	if code != 0 {
+		errStr := wrapper.TaosErrorStr(result)
+		return errors.NewError(code, errStr)
+	}
+	return nil
+}
