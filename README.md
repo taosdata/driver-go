@@ -12,6 +12,7 @@ v2 is not compatible with v3 version and corresponds to the TDengine version as 
 
 | **driver-go version** | **TDengine version** | **major features**                            |
 |-----------------------|----------------------|-----------------------------------------------|
+| v3.5.7                | 3.3.2.0+ / 3.1.2.0+  | taosWS and taosRestful support request id     |
 | v3.5.6                | 3.3.2.0+ / 3.1.2.0+  | WebSocket performance improvements            |
 | v3.5.5                | 3.2.3.0+ / 3.1.1.27+ | support skip http ssl check                   |
 | v3.5.4                | 3.2.3.0+ / 3.1.1.27+ | compatible with TDengine 3.3.0.0 tmq raw data |
