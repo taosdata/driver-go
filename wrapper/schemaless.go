@@ -184,6 +184,31 @@ func TaosSchemalessInsertRawTTLWithReqID(taosConnect unsafe.Pointer, lines strin
 	return rows, result
 }
 
+// TaosSchemalessInsertRawTTLWithReqIDTBNameKey TAOS_RES *taos_schemaless_insert_raw_ttl_with_reqid_tbname_key(TAOS *taos, char *lines, int len, int32_t *totalRows, int protocol, int precision, int32_t ttl, int64_t reqid, char *tbnameKey);
+func TaosSchemalessInsertRawTTLWithReqIDTBNameKey(taosConnect unsafe.Pointer, lines string, protocol int, precision string, ttl int, reqID int64, tbNameKey string) (int32, unsafe.Pointer) {
+	cLine := C.CString(lines)
+	defer C.free(unsafe.Pointer(cLine))
+	cTBNameKey := (*C.char)(nil)
+	if tbNameKey != "" {
+		cTBNameKey = C.CString(tbNameKey)
+		defer C.free(unsafe.Pointer(cTBNameKey))
+	}
+	var rows int32
+	pTotalRows := unsafe.Pointer(&rows)
+	result := C.taos_schemaless_insert_raw_ttl_with_reqid_tbname_key(
+		taosConnect,
+		cLine,
+		(C.int)(len(lines)),
+		(*C.int32_t)(pTotalRows),
+		(C.int)(protocol),
+		(C.int)(exchange(precision)),
+		(C.int32_t)(ttl),
+		(C.int64_t)(reqID),
+		cTBNameKey,
+	)
+	return rows, result
+}
+
 func exchange(ts string) int {
 	switch ts {
 	case "":

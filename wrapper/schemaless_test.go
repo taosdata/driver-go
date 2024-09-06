@@ -674,3 +674,71 @@ func TestTaosSchemalessInsertRawTTLWithReqID(t *testing.T) {
 		})
 	}
 }
+
+func TestTaosSchemalessInsertRawTTLWithReqIDTBNameKey(t *testing.T) {
+	conn := prepareEnv()
+	defer wrapper.TaosClose(conn)
+	//defer cleanEnv(conn)
+	cases := []struct {
+		name      string
+		row       string
+		rows      int32
+		precision string
+		ttl       int
+		reqID     int64
+		tbNameKey string
+	}{
+		{
+			name:      "1",
+			row:       "measurement,host=host1 field1=2i,field2=1.0 1577836800000000000",
+			rows:      1,
+			precision: "",
+			ttl:       1000,
+			reqID:     1,
+			tbNameKey: "host",
+		},
+		{
+			name:      "2",
+			row:       "measurement,host=host1 field1=2i,field2=2.0 1577836900000000000",
+			rows:      1,
+			precision: "ns",
+			ttl:       1200,
+			reqID:     2,
+			tbNameKey: "host",
+		},
+		{
+			name: "3",
+			row: "measurement,host=host1 field1=2i,field2=3.0 1577837200000\n" +
+				"measurement,host=host1 field1=2i,field2=4.0 1577837300000",
+			rows:      2,
+			precision: "ms",
+			ttl:       1400,
+			reqID:     3,
+			tbNameKey: "host",
+		},
+		{
+			name:      "no table name key",
+			row:       "measurement,host=host1 field1=2i,field2=2.0 1577836900000000000",
+			rows:      1,
+			precision: "ns",
+			ttl:       1200,
+			reqID:     2,
+			tbNameKey: "",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rows, result := wrapper.TaosSchemalessInsertRawTTLWithReqIDTBNameKey(conn, c.row, wrapper.InfluxDBLineProtocol, c.precision, c.ttl, c.reqID, c.tbNameKey)
+			if rows != c.rows {
+				t.Fatal("rows miss")
+			}
+			code := wrapper.TaosError(result)
+			if code != 0 {
+				errStr := wrapper.TaosErrorStr(result)
+				t.Fatal(errors.NewError(code, errStr))
+			}
+			wrapper.TaosFreeResult(result)
+		})
+	}
+}
