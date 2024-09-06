@@ -86,7 +86,7 @@ func (rs *rows) Next(dest []driver.Value) error {
 }
 
 func (rs *rows) taosFetchBlock() error {
-	reqID := rs.conn.generateReqID()
+	reqID := uint64(common.GetReqID())
 	rs.buf.Reset()
 	WriteUint64(rs.buf, reqID)       // req id
 	WriteUint64(rs.buf, rs.resultID) // message id
@@ -139,7 +139,7 @@ func (rs *rows) taosFetchBlock() error {
 
 func (rs *rows) freeResult() error {
 	tc := rs.conn
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &WSFreeResultReq{
 		ReqID: reqID,
 		ID:    rs.resultID,

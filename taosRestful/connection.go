@@ -27,6 +27,7 @@ type taosConn struct {
 	cfg            *config
 	client         *http.Client
 	url            *url.URL
+	baseRawQuery   string
 	header         map[string][]string
 	readBufferSize int
 }
@@ -69,7 +70,7 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		"Connection": {"keep-alive"},
 	}
 	if cfg.token != "" {
-		tc.url.RawQuery = fmt.Sprintf("token=%s", cfg.token)
+		tc.baseRawQuery = fmt.Sprintf("token=%s", cfg.token)
 	} else {
 		basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
 		tc.header["Authorization"] = []string{fmt.Sprintf("Basic %s", basic)}
@@ -191,6 +192,18 @@ func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.
 }
 
 func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (*common.TDEngineRestfulResp, error) {
+	reqIDValue, err := common.GetReqIDFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if reqIDValue == 0 {
+		reqIDValue = common.GetReqID()
+	}
+	if tc.baseRawQuery != "" {
+		tc.url.RawQuery = fmt.Sprintf("%s&req_id=%d", tc.baseRawQuery, reqIDValue)
+	} else {
+		tc.url.RawQuery = fmt.Sprintf("req_id=%d", reqIDValue)
+	}
 	body := ioutil.NopCloser(strings.NewReader(sql))
 	req := &http.Request{
 		Method:     http.MethodPost,

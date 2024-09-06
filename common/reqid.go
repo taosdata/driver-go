@@ -1,6 +1,8 @@
 package common
 
 import (
+	"context"
+	"fmt"
 	"math/bits"
 	"os"
 	"sync/atomic"
@@ -77,4 +79,18 @@ func murmurHash32(data []byte, seed uint32) uint32 {
 	h1 ^= h1 >> 16
 
 	return h1
+}
+
+func GetReqIDFromCtx(ctx context.Context) (int64, error) {
+	var reqIDValue int64
+	var ok bool
+	reqID := ctx.Value(ReqIDKey)
+	if reqID != nil {
+		reqIDValue, ok = reqID.(int64)
+		if !ok {
+			return 0, fmt.Errorf("invalid taos_req_id: %v, should be int64, got %T", reqID, reqID)
+		}
+		return reqIDValue, nil
+	}
+	return 0, nil
 }
