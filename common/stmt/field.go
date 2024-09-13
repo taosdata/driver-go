@@ -1,6 +1,7 @@
 package stmt
 
 import (
+	"database/sql/driver"
 	"fmt"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -53,4 +54,17 @@ func (s *StmtField) GetType() (*types.ColumnType, error) {
 		return &types.ColumnType{Type: types.TaosGeometryType}, nil
 	}
 	return nil, fmt.Errorf("unsupported type: %d, name %s", s.FieldType, s.Name)
+}
+
+const (
+	TAOS_FIELD_COL = iota + 1
+	TAOS_FIELD_TAG
+	TAOS_FIELD_QUERY
+	TAOS_FIELD_TBNAME
+)
+
+type TaosStmt2BindData struct {
+	TableName string
+	Tags      []driver.Value   // row format
+	Cols      [][]driver.Value // column format
 }
