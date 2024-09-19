@@ -233,6 +233,11 @@ func (conn *Connector) Stmt() *Stmt {
 	return NewStmt(conn.taos)
 }
 
+// Stmt2 Prepare stmt2
+func (conn *Connector) Stmt2(reqID int64, singleTableBindOnce bool) *Stmt2 {
+	return NewStmt2(conn.taos, reqID, singleTableBindOnce)
+}
+
 // InsertStmtWithReqID Prepare batch insert stmt with reqID
 func (conn *Connector) InsertStmtWithReqID(reqID int64) *insertstmt.InsertStmt {
 	return insertstmt.NewInsertStmtWithReqID(conn.taos, reqID)

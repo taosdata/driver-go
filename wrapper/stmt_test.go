@@ -33,7 +33,7 @@ func TestStmt(t *testing.T) {
 			return
 		}
 	}()
-	err = exec(conn, "create database if not exists test_wrapper precision 'us' keep 36500")
+	err = exec(conn, "create database if not exists test_wrapper precision 'ms' keep 36500")
 	if err != nil {
 		t.Error(err)
 		return
@@ -886,8 +886,9 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	code, _, _ = TaosStmtGetTagFields(stmt)
-	assert.Equal(t, 0x22A, code&0xffff)
+	code, num, _ := TaosStmtGetTagFields(stmt)
+	assert.Equal(t, 0, code)
+	assert.Equal(t, 0, num)
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
