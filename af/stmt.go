@@ -78,7 +78,7 @@ func (s *Stmt) SetTableName(tableName string) error {
 
 func (s *Stmt) BindRow(row *param.Param) error {
 	if s.isInsert {
-		if s.paramCount == 0 {
+		if s.paramCount == 0 || s.paramCount != len(row.GetValues()) {
 			paramCount, err := s.NumParams()
 			if err != nil {
 				return err
