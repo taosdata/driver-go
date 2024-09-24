@@ -1209,3 +1209,132 @@ func TestTaosStmtGetParam(t *testing.T) {
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
 }
+
+func TestStmtJson(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt_json")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	err = exec(conn, "create database if not exists test_stmt_json precision 'ms' keep 36500")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "use test_stmt_json")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "create table test_json_stb(ts timestamp, v int) tags (t json)")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	stmt := TaosStmtInitWithReqID(conn, 0xbb123)
+	defer func() {
+		code := TaosStmtClose(stmt)
+		if code != 0 {
+			errStr := TaosStmtErrStr(stmt)
+			err = taosError.NewError(code, errStr)
+			t.Error(err)
+			return
+		}
+	}()
+	prepareInsertSql := "insert into ? using test_json_stb tags(?) values (?,?)"
+	code := TaosStmtPrepare(stmt, prepareInsertSql)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code = TaosStmtSetTBNameTags(stmt, "ctb1", param.NewParam(1).AddJson([]byte(`{"a":1,"b":"xx"}`)).GetValues())
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	args := param.NewParam(2).AddTimestamp(now, common.PrecisionMilliSecond).AddInt(1).GetValues()
+	code = TaosStmtBindParam(stmt, args)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+
+	code = TaosStmtAddBatch(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code = TaosStmtExecute(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	affected := TaosStmtAffectedRowsOnce(stmt)
+	assert.Equal(t, 1, affected)
+
+	code = TaosStmtPrepare(stmt, "select * from test_json_stb where t->'a' = ?")
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code = TaosStmtBindParam(stmt, param.NewParam(1).AddBigint(1).GetValues())
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code = TaosStmtExecute(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	res := TaosStmtUseResult(stmt)
+
+	fileCount := TaosNumFields(res)
+	rh, err := ReadColumn(res, fileCount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	precision := TaosResultPrecision(res)
+	var result [][]driver.Value
+	for {
+		columns, errCode, block := TaosFetchRawBlock(res)
+		if errCode != 0 {
+			errStr := TaosErrorStr(res)
+			err = taosError.NewError(errCode, errStr)
+			t.Error(err)
+			return
+		}
+		if columns == 0 {
+			break
+		}
+		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		result = append(result, r...)
+	}
+	t.Log(result)
+}
