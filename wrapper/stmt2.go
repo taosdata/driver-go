@@ -132,8 +132,11 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 	binds := C.malloc(C.size_t(len(multiBind)) * C.sizeof_struct_TAOS_STMT2_BIND)
 	*needFreePointer = append(*needFreePointer, unsafe.Pointer(binds))
 	bindsSlice := (*[1 << 30]C.TAOS_STMT2_BIND)(unsafe.Pointer(binds))[:len(multiBind):len(multiBind)]
+	rowLen := len(multiBind[0])
 	for columnIndex, columnData := range multiBind {
-		rowLen := len(multiBind[0])
+		if len(multiBind[columnIndex]) != rowLen {
+			return nil, fmt.Errorf("data length not match, column %d data length: %d, expect: %d", columnIndex, len(multiBind[columnIndex]), rowLen)
+		}
 		bindsSlice[columnIndex].num = C.int(rowLen)
 		nullList := unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
 		*needFreePointer = append(*needFreePointer, nullList)
@@ -644,6 +647,55 @@ func TaosStmt2BindBinary(stmt2 unsafe.Pointer, data []byte, colIdx int32) error 
 	tableNamesOffset := binary.LittleEndian.Uint32(data[stmt.TableNamesOffsetPosition:])
 	tagsOffset := binary.LittleEndian.Uint32(data[stmt.TagsOffsetPosition:])
 	colsOffset := binary.LittleEndian.Uint32(data[stmt.ColsOffsetPosition:])
+	// check table names
+	if tableNamesOffset > 0 {
+		tableNameEnd := tableNamesOffset + count*2
+		// table name lengths out of range
+		if tableNameEnd >= totalLength {
+			return fmt.Errorf("table name lengths out of range, total length: %d, tableNamesLengthEnd: %d", totalLength, tableNameEnd)
+		}
+		for i := uint32(0); i < count; i++ {
+			tableNameLength := binary.LittleEndian.Uint16(data[tableNamesOffset+i*2:])
+			tableNameEnd += uint32(tableNameLength)
+		}
+		if tableNameEnd > totalLength {
+			return fmt.Errorf("table names out of range, total length: %d, tableNameTotalLength: %d", totalLength, tableNameEnd)
+		}
+	}
+	// check tags
+	if tagsOffset > 0 {
+		if tagCount == 0 {
+			return fmt.Errorf("tag count is zero, but tags offset is not zero")
+		}
+		tagsEnd := tagsOffset + count*4
+		if tagsEnd >= totalLength {
+			return fmt.Errorf("tags lengths out of range, total length: %d, tagsLengthEnd: %d", totalLength, tagsEnd)
+		}
+		for i := uint32(0); i < count; i++ {
+			tagLength := binary.LittleEndian.Uint32(data[tagsOffset+i*4:])
+			tagsEnd += tagLength
+		}
+		if tagsEnd > totalLength {
+			return fmt.Errorf("tags out of range, total length: %d, tagsTotalLength: %d", totalLength, tagsEnd)
+		}
+	}
+	// check cols
+	if colsOffset > 0 {
+		if colCount == 0 {
+			return fmt.Errorf("col count is zero, but cols offset is not zero")
+		}
+		colsEnd := colsOffset + count*4
+		if colsEnd >= totalLength {
+			return fmt.Errorf("cols lengths out of range, total length: %d, colsLengthEnd: %d", totalLength, colsEnd)
+		}
+		for i := uint32(0); i < count; i++ {
+			colLength := binary.LittleEndian.Uint32(data[colsOffset+i*4:])
+			colsEnd += colLength
+		}
+		if colsEnd > totalLength {
+			return fmt.Errorf("cols out of range, total length: %d, colsTotalLength: %d", totalLength, colsEnd)
+		}
+	}
 	cBindv := C.TAOS_STMT2_BINDV{}
 	cBindv.count = C.int(count)
 	if tableNamesOffset > 0 {
@@ -662,9 +714,6 @@ func TaosStmt2BindBinary(stmt2 unsafe.Pointer, data []byte, colIdx int32) error 
 		cBindv.tbnames = nil
 	}
 	if tagsOffset > 0 {
-		if tagCount == 0 {
-			return fmt.Errorf("tag count is zero, but tags offset is not zero")
-		}
 		tags, err := generateStmt2Binds(count, tagCount, dataP, tagsOffset, &freePointer)
 		if err != nil {
 			return err
@@ -674,9 +723,6 @@ func TaosStmt2BindBinary(stmt2 unsafe.Pointer, data []byte, colIdx int32) error 
 		cBindv.tags = nil
 	}
 	if colsOffset > 0 {
-		if colCount == 0 {
-			return fmt.Errorf("col count is zero, but cols offset is not zero")
-		}
 		cols, err := generateStmt2Binds(count, colCount, dataP, colsOffset, &freePointer)
 		if err != nil {
 			return err

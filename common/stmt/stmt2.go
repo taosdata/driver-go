@@ -29,9 +29,9 @@ const (
 	BindDataIsNullOffset      = BindDataNumOffset + 4
 )
 
-func MarshalStmt2Binary(t []*TaosStmt2BindData, isInsert bool, colType, tagType []*StmtField) ([]byte, error) {
+func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, colType, tagType []*StmtField) ([]byte, error) {
 	// count
-	count := len(t)
+	count := len(bindData)
 	if count == 0 {
 		return nil, fmt.Errorf("empty data")
 	}
@@ -42,7 +42,7 @@ func MarshalStmt2Binary(t []*TaosStmt2BindData, isInsert bool, colType, tagType 
 	colCount := len(colType)
 	if isInsert {
 		for i := 0; i < count; i++ {
-			data := t[i]
+			data := bindData[i]
 			if data.TableName != "" {
 				needTableNames = true
 			}
@@ -64,7 +64,7 @@ func MarshalStmt2Binary(t []*TaosStmt2BindData, isInsert bool, colType, tagType 
 			return nil, fmt.Errorf("query only need one data")
 		}
 
-		data := t[0]
+		data := bindData[0]
 		if data.TableName != "" {
 			return nil, fmt.Errorf("query not need table name")
 		}
@@ -115,7 +115,7 @@ func MarshalStmt2Binary(t []*TaosStmt2BindData, isInsert bool, colType, tagType 
 	if needCols {
 		colDataLength = make([]uint32, count)
 	}
-	for index, data := range t {
+	for index, data := range bindData {
 		// table name
 		if needTableNames {
 			if data.TableName != "" {
@@ -127,45 +127,37 @@ func MarshalStmt2Binary(t []*TaosStmt2BindData, isInsert bool, colType, tagType 
 
 		// tag
 		if needTags {
-			if len(data.Tags) > 0 {
-				length := 0
-				for i := 0; i < len(data.Tags); i++ {
-					tag := data.Tags[i]
-					tagDataBuffer, err := generateBindColData([]driver.Value{tag}, tagType[i], tmpBuf)
-					if err != nil {
-						return nil, err
-					}
-					length += len(tagDataBuffer)
-					tagBuf.Write(tagDataBuffer)
+			length := 0
+			for i := 0; i < len(data.Tags); i++ {
+				tag := data.Tags[i]
+				tagDataBuffer, err := generateBindColData([]driver.Value{tag}, tagType[i], tmpBuf)
+				if err != nil {
+					return nil, err
 				}
-				tagDataLength[index] = uint32(length)
-			} else {
-				tagDataLength[index] = 0
+				length += len(tagDataBuffer)
+				tagBuf.Write(tagDataBuffer)
 			}
+			tagDataLength[index] = uint32(length)
 		}
 		// col
 		if needCols {
-			if len(data.Cols) > 0 {
-				length := 0
-				for i := 0; i < len(data.Cols); i++ {
-					col := data.Cols[i]
-					var colDataBuffer []byte
-					var err error
-					if isInsert {
-						colDataBuffer, err = generateBindColData(col, colType[i], tmpBuf)
-					} else {
-						colDataBuffer, err = generateBindQueryData(col[0])
-					}
-					if err != nil {
-						return nil, err
-					}
-					length += len(colDataBuffer)
-					colBuf.Write(colDataBuffer)
+			length := 0
+			for i := 0; i < len(data.Cols); i++ {
+				col := data.Cols[i]
+				var colDataBuffer []byte
+				var err error
+				if isInsert {
+					colDataBuffer, err = generateBindColData(col, colType[i], tmpBuf)
+				} else {
+					colDataBuffer, err = generateBindQueryData(col[0])
 				}
-				colDataLength[index] = uint32(length)
-			} else {
-				colDataLength[index] = 0
+				if err != nil {
+					return nil, err
+				}
+				length += len(colDataBuffer)
+				colBuf.Write(colDataBuffer)
 			}
+			colDataLength[index] = uint32(length)
 		}
 	}
 	tableTotalLength := tableNameBuf.Len()

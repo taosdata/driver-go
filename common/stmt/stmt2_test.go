@@ -9,6 +9,8 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 )
 
+type customInt int
+
 func TestMarshalBinary(t *testing.T) {
 	type args struct {
 		t        []*TaosStmt2BindData
@@ -1771,6 +1773,483 @@ func TestMarshalBinary(t *testing.T) {
 				0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			},
 			wantErr: false,
+		},
+		{
+			name: "empty",
+			args: args{
+				t:        nil,
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong tag count",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Tags: []driver.Value{int32(1)},
+					},
+				},
+				isInsert: true,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong col count",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: [][]driver.Value{
+							{
+								int32(1),
+							},
+						},
+					},
+				},
+				isInsert: true,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query has tag type",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: [][]driver.Value{
+							{
+								int32(1),
+							},
+						},
+					},
+				},
+				isInsert: false,
+				tagType: []*StmtField{{
+					FieldType: common.TSDB_DATA_TYPE_INT,
+				}},
+				colType: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query has col type",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: [][]driver.Value{
+							{
+								int32(1),
+							},
+						},
+					},
+				},
+				isInsert: false,
+				tagType:  nil,
+				colType: []*StmtField{{
+					FieldType: common.TSDB_DATA_TYPE_INT,
+				}},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query has multi data",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: [][]driver.Value{
+							{
+								int32(1),
+							},
+						},
+					},
+					{
+						Cols: [][]driver.Value{
+							{
+								int32(1),
+							},
+						},
+					},
+				},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query has tablename",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						TableName: "table1",
+					},
+				},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query has tag",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Tags: []driver.Value{int32(1)},
+					},
+				},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query without data",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{},
+				},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "query with multi rows",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: [][]driver.Value{
+							{
+								int32(1),
+								int32(1),
+							},
+						},
+					},
+				},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong bool",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{int32(1)},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_BOOL}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong tinyint",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_TINYINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong smallint",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_SMALLINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong int",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_INT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong bigint",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_BIGINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong tinyint unsigned",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_UTINYINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong smallint unsigned",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_USMALLINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong int unsigned",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_UINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong bigint unsigned",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_UBIGINT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong float",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_FLOAT}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong double",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_DOUBLE}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong binary",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_BINARY}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "wrong timestamp",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{true},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP}},
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "insert nil timestamp",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: [][]driver.Value{
+							{
+								time.Unix(1726803356, 466000000),
+								nil,
+							},
+						},
+					},
+				},
+				isInsert: true,
+				tagType:  nil,
+				colType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP}},
+			},
+			want: []byte{
+				// total Length
+				0x43, 0x00, 0x00, 0x00,
+				// tableCount
+				0x01, 0x00, 0x00, 0x00,
+				// TagCount
+				0x00, 0x00, 0x00, 0x00,
+				// ColCount
+				0x01, 0x00, 0x00, 0x00,
+				// TableNamesOffset
+				0x00, 0x00, 0x00, 0x00,
+				// TagsOffset
+				0x00, 0x00, 0x00, 0x00,
+				// ColOffset
+				0x1c, 0x00, 0x00, 0x00,
+				// cols
+				// col length
+				0x23, 0x00, 0x00, 0x00,
+				//table 0 cols
+				//col 0
+				//total length
+				0x23, 0x00, 0x00, 0x00,
+				//type
+				0x09, 0x00, 0x00, 0x00,
+				//num
+				0x02, 0x00, 0x00, 0x00,
+				//is null
+				0x00,
+				0x01,
+				// haveLength
+				0x00,
+				// buffer length
+				0x10, 0x00, 0x00, 0x00,
+				0x32, 0x2b, 0x80, 0x0d, 0x92, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			},
+			wantErr: false,
+		},
+		{
+			name: "query bool false",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Cols: [][]driver.Value{
+						{false},
+					},
+				}},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want: []byte{
+				// total Length
+				0x33, 0x00, 0x00, 0x00,
+				// tableCount
+				0x01, 0x00, 0x00, 0x00,
+				// TagCount
+				0x00, 0x00, 0x00, 0x00,
+				// ColCount
+				0x01, 0x00, 0x00, 0x00,
+				// TableNamesOffset
+				0x00, 0x00, 0x00, 0x00,
+				// TagsOffset
+				0x00, 0x00, 0x00, 0x00,
+				// ColOffset
+				0x1c, 0x00, 0x00, 0x00,
+				// cols
+				// col length
+				0x13, 0x00, 0x00, 0x00,
+				//table 0 cols
+				//col 0
+				//total length
+				0x13, 0x00, 0x00, 0x00,
+				//type
+				0x01, 0x00, 0x00, 0x00,
+				//num
+				0x01, 0x00, 0x00, 0x00,
+				//is null
+				0x00,
+				// haveLength
+				0x00,
+				// buffer length
+				0x01, 0x00, 0x00, 0x00,
+				0x00,
+			},
+			wantErr: false,
+		},
+		{
+			name: "query unsupported type",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Cols: [][]driver.Value{
+						{customInt(1)},
+					},
+				}},
+				isInsert: false,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "insert unsupported type",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Cols: [][]driver.Value{
+						{int32(1)},
+					},
+				}},
+				isInsert: true,
+				tagType:  nil,
+				colType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_NULL}},
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
