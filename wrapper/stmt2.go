@@ -49,8 +49,8 @@ func TaosStmt2BindParam(stmt unsafe.Pointer, isInsert bool, params []*stmt.TaosS
 	}
 	cBindv := C.TAOS_STMT2_BINDV{}
 	cBindv.count = C.int(count)
-	tbNames := C.malloc(C.size_t(count) * C.size_t(PointerSize))
-	needFreePointer := []unsafe.Pointer{unsafe.Pointer(tbNames)}
+	tbNames := unsafe.Pointer(C.malloc(C.size_t(count) * C.size_t(PointerSize)))
+	needFreePointer := []unsafe.Pointer{tbNames}
 	defer func() {
 		for _, p := range needFreePointer {
 			if p != nil {
@@ -58,27 +58,28 @@ func TaosStmt2BindParam(stmt unsafe.Pointer, isInsert bool, params []*stmt.TaosS
 			}
 		}
 	}()
-	tbNamesSlice := (*[1 << 30]*C.char)(unsafe.Pointer(tbNames))[:count:count]
 	tagList := C.malloc(C.size_t(count) * C.size_t(PointerSize))
 	needFreePointer = append(needFreePointer, unsafe.Pointer(tagList))
-	tagArray := (*[1 << 30]*C.TAOS_STMT2_BIND)(unsafe.Pointer(tagList))[:count:count]
 	colList := C.malloc(C.size_t(count) * C.size_t(PointerSize))
 	needFreePointer = append(needFreePointer, unsafe.Pointer(colList))
-	colArray := (*[1 << 30]*C.TAOS_STMT2_BIND)(unsafe.Pointer(colList))[:count:count]
-
+	var currentTbNameP unsafe.Pointer
+	var currentTagP unsafe.Pointer
+	var currentColP unsafe.Pointer
 	for i, param := range params {
 		//parse table name
+		currentTbNameP = pointer.AddUintptr(tbNames, uintptr(i)*PointerSize)
 		if param.TableName != "" {
 			if !isInsert {
 				return taosError.NewError(0xffff, "table name is not allowed in query statement")
 			}
 			tbName := C.CString(param.TableName)
-			tbNamesSlice[i] = tbName
 			needFreePointer = append(needFreePointer, unsafe.Pointer(tbName))
+			*(**C.char)(currentTbNameP) = tbName
 		} else {
-			tbNamesSlice[i] = nil
+			*(**C.char)(currentTbNameP) = nil
 		}
 		//parse tags
+		currentTagP = pointer.AddUintptr(tagList, uintptr(i)*PointerSize)
 		if len(param.Tags) > 0 {
 			if !isInsert {
 				return taosError.NewError(0xffff, "tag is not allowed in query statement")
@@ -92,11 +93,12 @@ func TaosStmt2BindParam(stmt unsafe.Pointer, isInsert bool, params []*stmt.TaosS
 			if err != nil {
 				return taosError.NewError(0xffff, fmt.Sprintf("generate tags Bindv struct error: %s", err.Error()))
 			}
-			tagArray[i] = &(tags[0])
+			*(**C.TAOS_STMT2_BIND)(currentTagP) = &(tags[0])
 		} else {
-			tagArray[i] = nil
+			*(**C.TAOS_STMT2_BIND)(currentTagP) = nil
 		}
 		// parse cols
+		currentColP = pointer.AddUintptr(colList, uintptr(i)*PointerSize)
 		if len(param.Cols) > 0 {
 			var err error
 			var cols []C.TAOS_STMT2_BIND
@@ -108,9 +110,9 @@ func TaosStmt2BindParam(stmt unsafe.Pointer, isInsert bool, params []*stmt.TaosS
 			if err != nil {
 				return taosError.NewError(0xffff, fmt.Sprintf("generate cols Bindv struct error: %s", err.Error()))
 			}
-			colArray[i] = &(cols[0])
+			*(**C.TAOS_STMT2_BIND)(currentColP) = &(cols[0])
 		} else {
-			colArray[i] = nil
+			*(**C.TAOS_STMT2_BIND)(currentColP) = nil
 		}
 	}
 	cBindv.bind_cols = (**C.TAOS_STMT2_BIND)(unsafe.Pointer(colList))
@@ -129,15 +131,14 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 	if len(multiBind) != len(fieldTypes) {
 		return nil, fmt.Errorf("data and type length not match, data length: %d, type length: %d", len(multiBind), len(fieldTypes))
 	}
-	binds := C.malloc(C.size_t(len(multiBind)) * C.sizeof_struct_TAOS_STMT2_BIND)
-	*needFreePointer = append(*needFreePointer, unsafe.Pointer(binds))
-	bindsSlice := (*[1 << 30]C.TAOS_STMT2_BIND)(unsafe.Pointer(binds))[:len(multiBind):len(multiBind)]
+	binds := make([]C.TAOS_STMT2_BIND, len(multiBind))
 	rowLen := len(multiBind[0])
 	for columnIndex, columnData := range multiBind {
 		if len(multiBind[columnIndex]) != rowLen {
 			return nil, fmt.Errorf("data length not match, column %d data length: %d, expect: %d", columnIndex, len(multiBind[columnIndex]), rowLen)
 		}
-		bindsSlice[columnIndex].num = C.int(rowLen)
+		bind := C.TAOS_STMT2_BIND{}
+		bind.num = C.int(rowLen)
 		nullList := unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
 		*needFreePointer = append(*needFreePointer, nullList)
 		lengthList := unsafe.Pointer(C.calloc(C.size_t(C.uint(rowLen)), C.size_t(C.uint(4))))
@@ -150,7 +151,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_BOOL:
 			//1
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BOOL
+			bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -175,7 +176,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_TINYINT:
 			//1
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_TINYINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_TINYINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -196,7 +197,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_SMALLINT:
 			//2
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_SMALLINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_SMALLINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -217,7 +218,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_INT:
 			//4
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_INT
+			bind.buffer_type = C.TSDB_DATA_TYPE_INT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -238,7 +239,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_BIGINT:
 			//8
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BIGINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -259,7 +260,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_UTINYINT:
 			//1
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UTINYINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -280,7 +281,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_USMALLINT:
 			//2
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_USMALLINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -301,7 +302,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_UINT:
 			//4
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -322,7 +323,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_UBIGINT:
 			//8
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UBIGINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -343,7 +344,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_FLOAT:
 			//4
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_FLOAT
+			bind.buffer_type = C.TSDB_DATA_TYPE_FLOAT
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -364,7 +365,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_DOUBLE:
 			//8
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_DOUBLE
+			bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -385,7 +386,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 				}
 			}
 		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_NCHAR:
-			bindsSlice[columnIndex].buffer_type = C.int(columnType)
+			bind.buffer_type = C.int(columnType)
 			colOffset := make([]int, rowLen)
 			totalLen := 0
 			for i, rowData := range columnData {
@@ -429,7 +430,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 		case common.TSDB_DATA_TYPE_TIMESTAMP:
 			//8
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8 * rowLen))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
+			bind.buffer_type = C.TSDB_DATA_TYPE_TIMESTAMP
 			for i, rowData := range columnData {
 				currentNull := unsafe.Pointer(uintptr(nullList) + uintptr(i))
 				if rowData == nil {
@@ -451,25 +452,25 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 				}
 			}
 		}
-		bindsSlice[columnIndex].buffer = p
-		bindsSlice[columnIndex].length = (*C.int32_t)(lengthList)
-		bindsSlice[columnIndex].is_null = (*C.char)(nullList)
+		bind.buffer = p
+		bind.length = (*C.int32_t)(lengthList)
+		bind.is_null = (*C.char)(nullList)
+		binds[columnIndex] = bind
 	}
 
-	return bindsSlice, nil
+	return binds, nil
 
 }
 
 func generateTaosStmt2BindsQuery(multiBind [][]driver.Value, needFreePointer *[]unsafe.Pointer) ([]C.TAOS_STMT2_BIND, error) {
-	binds := C.malloc(C.size_t(len(multiBind)) * C.sizeof_struct_TAOS_STMT2_BIND)
-	*needFreePointer = append(*needFreePointer, unsafe.Pointer(binds))
-	bindsSlice := (*[1 << 30]C.TAOS_STMT2_BIND)(unsafe.Pointer(binds))[:len(multiBind):len(multiBind)]
+	binds := make([]C.TAOS_STMT2_BIND, len(multiBind))
 	for columnIndex, columnData := range multiBind {
 		if len(columnData) != 1 {
 			return nil, fmt.Errorf("bind query data length must be 1, but column %d got %d", columnIndex, len(columnData))
 		}
+		bind := C.TAOS_STMT2_BIND{}
 		data := columnData[0]
-		bindsSlice[columnIndex].num = C.int(1)
+		bind.num = C.int(1)
 		nullList := unsafe.Pointer(C.malloc(C.size_t(C.uint(1))))
 		*needFreePointer = append(*needFreePointer, nullList)
 		var lengthList unsafe.Pointer
@@ -485,7 +486,7 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value, needFreePointer *[]
 		switch rowData := data.(type) {
 		case bool:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(1))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BOOL
+			bind.buffer_type = C.TSDB_DATA_TYPE_BOOL
 			if rowData {
 				*(*C.int8_t)(p) = C.int8_t(1)
 			} else {
@@ -494,68 +495,68 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value, needFreePointer *[]
 
 		case int8:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(1))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_TINYINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_TINYINT
 			*(*C.int8_t)(p) = C.int8_t(rowData)
 
 		case int16:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_SMALLINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_SMALLINT
 			*(*C.int16_t)(p) = C.int16_t(rowData)
 
 		case int32:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_INT
+			bind.buffer_type = C.TSDB_DATA_TYPE_INT
 			*(*C.int32_t)(p) = C.int32_t(rowData)
 
 		case int64:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BIGINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
 			*(*C.int64_t)(p) = C.int64_t(rowData)
 
 		case int:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BIGINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_BIGINT
 			*(*C.int64_t)(p) = C.int64_t(int64(rowData))
 
 		case uint8:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(1))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UTINYINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UTINYINT
 			*(*C.uint8_t)(p) = C.uint8_t(rowData)
 
 		case uint16:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(2))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_USMALLINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_USMALLINT
 			*(*C.uint16_t)(p) = C.uint16_t(rowData)
 
 		case uint32:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UINT
 			*(*C.uint32_t)(p) = C.uint32_t(rowData)
 
 		case uint64:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UBIGINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
 			*(*C.uint64_t)(p) = C.uint64_t(rowData)
 
 		case uint:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_UBIGINT
+			bind.buffer_type = C.TSDB_DATA_TYPE_UBIGINT
 			*(*C.uint64_t)(p) = C.uint64_t(uint64(rowData))
 
 		case float32:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(4))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_FLOAT
+			bind.buffer_type = C.TSDB_DATA_TYPE_FLOAT
 			*(*C.float)(p) = C.float(rowData)
 
 		case float64:
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(8))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_DOUBLE
+			bind.buffer_type = C.TSDB_DATA_TYPE_DOUBLE
 			*(*C.double)(p) = C.double(rowData)
 
 		case []byte:
 			valueLength := len(rowData)
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(valueLength))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BINARY
+			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
 			C.memcpy(p, unsafe.Pointer(&rowData[0]), C.size_t(valueLength))
 			lengthList = unsafe.Pointer(C.calloc(C.size_t(C.uint(1)), C.size_t(C.uint(4))))
 			*(*C.int32_t)(lengthList) = C.int32_t(valueLength)
@@ -563,7 +564,7 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value, needFreePointer *[]
 		case string:
 			valueLength := len(rowData)
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(valueLength))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BINARY
+			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
 			x := *(*[]byte)(unsafe.Pointer(&rowData))
 			C.memcpy(p, unsafe.Pointer(&x[0]), C.size_t(valueLength))
 			lengthList = unsafe.Pointer(C.calloc(C.size_t(C.uint(1)), C.size_t(C.uint(4))))
@@ -573,7 +574,7 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value, needFreePointer *[]
 			value := rowData.AppendFormat(buffer, time.RFC3339Nano)
 			valueLength := len(value)
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(valueLength))))
-			bindsSlice[columnIndex].buffer_type = C.TSDB_DATA_TYPE_BINARY
+			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
 			x := *(*[]byte)(unsafe.Pointer(&value))
 			C.memcpy(p, unsafe.Pointer(&x[0]), C.size_t(valueLength))
 			lengthList = unsafe.Pointer(C.calloc(C.size_t(C.uint(1)), C.size_t(C.uint(4))))
@@ -581,11 +582,12 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value, needFreePointer *[]
 		default:
 			return nil, fmt.Errorf("data type error, expect bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, []byte, string, time.Time, but got %T, value: %v", data, data)
 		}
-		bindsSlice[columnIndex].buffer = p
-		bindsSlice[columnIndex].length = (*C.int32_t)(lengthList)
-		bindsSlice[columnIndex].is_null = (*C.char)(nullList)
+		bind.buffer = p
+		bind.length = (*C.int32_t)(lengthList)
+		bind.is_null = (*C.char)(nullList)
+		binds[columnIndex] = bind
 	}
-	return bindsSlice, nil
+	return binds, nil
 }
 
 // TaosStmt2Exec int taos_stmt2_exec(TAOS_STMT2 *stmt, int *affected_rows);
@@ -699,15 +701,16 @@ func TaosStmt2BindBinary(stmt2 unsafe.Pointer, data []byte, colIdx int32) error 
 	cBindv := C.TAOS_STMT2_BINDV{}
 	cBindv.count = C.int(count)
 	if tableNamesOffset > 0 {
-		tableNameP := pointer.AddUintptr(dataP, uintptr(tableNamesOffset))
+		tableNameLengthP := pointer.AddUintptr(dataP, uintptr(tableNamesOffset))
 		cTableNames := C.malloc(C.size_t(uintptr(count) * PointerSize))
-		tableNameList := (*[1 << 30]*C.char)(unsafe.Pointer(cTableNames))[:count:count]
 		freePointer = append(freePointer, cTableNames)
-		tableNameLength := (*[1 << 30]uint16)(tableNameP)[:count:count]
-		tableDataP := pointer.AddUintptr(tableNameP, uintptr(count)*2)
+		tableDataP := pointer.AddUintptr(tableNameLengthP, uintptr(count)*2)
+		var tableNamesArrayP unsafe.Pointer
 		for i := uint32(0); i < count; i++ {
-			tableNameList[i] = (*C.char)(tableDataP)
-			tableDataP = pointer.AddUintptr(tableDataP, uintptr(tableNameLength[i]))
+			tableNamesArrayP = pointer.AddUintptr(cTableNames, uintptr(i)*PointerSize)
+			*(**C.char)(tableNamesArrayP) = (*C.char)(tableDataP)
+			tableNameLength := *(*uint16)(pointer.AddUintptr(tableNameLengthP, uintptr(i*2)))
+			tableDataP = pointer.AddUintptr(tableDataP, uintptr(tableNameLength))
 		}
 		cBindv.tbnames = (**C.char)(cTableNames)
 	} else {
@@ -742,20 +745,19 @@ func TaosStmt2BindBinary(stmt2 unsafe.Pointer, data []byte, colIdx int32) error 
 func generateStmt2Binds(count uint32, fieldCount uint32, dataP unsafe.Pointer, fieldsOffset uint32, freePointer *[]unsafe.Pointer) (**C.TAOS_STMT2_BIND, error) {
 	bindsCList := C.malloc(C.size_t(uintptr(fieldCount) * PointerSize))
 	*freePointer = append(*freePointer, bindsCList)
-	bindsArray := (*[1 << 30]*C.TAOS_STMT2_BIND)(unsafe.Pointer(bindsCList))[:count:count]
 	// dataLength [count]uint32
 	baseLengthPointer := pointer.AddUintptr(dataP, uintptr(fieldsOffset))
 	// dataBuffer
 	dataPointer := pointer.AddUintptr(baseLengthPointer, uintptr(count)*4)
+	var bindsPointer unsafe.Pointer
 	for tableIndex := uint32(0); tableIndex < count; tableIndex++ {
+		bindsPointer = pointer.AddUintptr(bindsCList, uintptr(tableIndex)*PointerSize)
 		lengthPointer := pointer.AddUintptr(baseLengthPointer, uintptr(tableIndex)*4)
 		length := *(*uint32)(lengthPointer)
 		if length == 0 {
-			bindsArray[tableIndex] = nil
+			*(**C.TAOS_STMT2_BIND)(bindsPointer) = nil
 		} else {
-			binds := C.malloc(C.size_t(fieldCount) * C.sizeof_struct_TAOS_STMT2_BIND)
-			*freePointer = append(*freePointer, binds)
-			bindsSlice := (*[1 << 30]C.TAOS_STMT2_BIND)(unsafe.Pointer(binds))[:fieldCount:fieldCount]
+			binds := make([]C.TAOS_STMT2_BIND, fieldCount)
 			var bindDataP unsafe.Pointer
 			var bindDataTotalLength uint32
 			var num int32
@@ -803,10 +805,10 @@ func generateStmt2Binds(count uint32, fieldCount uint32, dataP unsafe.Pointer, f
 				if bindDataLen != uintptr(bindDataTotalLength) {
 					return nil, fmt.Errorf("bind data length not match, expect %d, but get %d, tableIndex:%d", bindDataTotalLength, bindDataLen, tableIndex)
 				}
-				bindsSlice[fieldIndex] = bind
+				binds[fieldIndex] = bind
 				dataPointer = bindDataP
 			}
-			bindsArray[tableIndex] = (*C.TAOS_STMT2_BIND)(binds)
+			*(**C.TAOS_STMT2_BIND)(bindsPointer) = (*C.TAOS_STMT2_BIND)(&binds[0])
 		}
 	}
 	return (**C.TAOS_STMT2_BIND)(bindsCList), nil
