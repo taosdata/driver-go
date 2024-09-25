@@ -16,7 +16,7 @@ jobs:
       commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
     steps:
       - name: checkout TDengine
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
@@ -31,7 +31,7 @@ jobs:
 
       - name: Cache server
         id: cache-server
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ steps.get_commit_id.outputs.commit_id }}
@@ -87,7 +87,7 @@ jobs:
     steps:
       - name: get cache server
         id: get-cache-server
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ needs.build.outputs.commit_id }}
@@ -103,7 +103,7 @@ jobs:
           cd release && sudo sh install.sh
 
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: copy taos cfg
         run: |
