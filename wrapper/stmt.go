@@ -713,6 +713,9 @@ func StmtParseFields(num int, fields unsafe.Pointer) []*stmt.StmtField {
 	if num == 0 {
 		return nil
 	}
+	if fields == nil {
+		return nil
+	}
 	result := make([]*stmt.StmtField, num)
 	buf := bytes.NewBufferString("")
 	for i := 0; i < num; i++ {

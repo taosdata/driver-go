@@ -886,8 +886,17 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	code, _, _ = TaosStmtGetTagFields(stmt)
-	assert.Equal(t, 0x22A, code&0xffff)
+	code, num, _ := TaosStmtGetTagFields(stmt)
+	if code == 0 {
+		assert.Equal(t, 0, num)
+	} else if code&0xffff == 0x22A {
+		t.Log("get fields failed, no tags")
+	} else {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
