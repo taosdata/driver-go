@@ -533,7 +533,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 		return tmq.NewTMQErrorWithErr(err)
 	}
 	if resp.Code != 0 {
-		tmq.NewTMQErrorWithErr(taosErrors.NewError(resp.Code, resp.Message))
+		return tmq.NewTMQErrorWithErr(taosErrors.NewError(resp.Code, resp.Message))
 	}
 	if resp.HaveMessage {
 		switch resp.MessageType {
