@@ -2338,6 +2338,21 @@ func TestMarshalBinary(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "nil",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						Cols: nil,
+					},
+				},
+				isInsert: true,
+				tagType:  nil,
+				colType:  []*StmtField{},
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
