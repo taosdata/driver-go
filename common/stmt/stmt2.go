@@ -77,7 +77,7 @@ func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, colType, t
 		colCount = len(data.Cols)
 		for j := 0; j < colCount; j++ {
 			if len(data.Cols[j]) != 1 {
-				return nil, fmt.Errorf("query col data must be one column, col:%d, count:%d", j, len(data.Cols[j]))
+				return nil, fmt.Errorf("query col data must be one row, col:%d, count:%d", j, len(data.Cols[j]))
 			}
 		}
 	}
@@ -121,6 +121,9 @@ func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, colType, t
 		// table name
 		if needTableNames {
 			if data.TableName != "" {
+				if len(data.TableName) > math.MaxUint16-1 {
+					return nil, fmt.Errorf("table name too long, index:%d, length:%d", index, len(data.TableName))
+				}
 				tableNameBuf.WriteString(data.TableName)
 			}
 			tableNameBuf.WriteByte(0)

@@ -2,6 +2,7 @@ package stmt
 
 import (
 	"database/sql/driver"
+	"math"
 	"testing"
 	"time"
 
@@ -12,6 +13,10 @@ import (
 type customInt int
 
 func TestMarshalBinary(t *testing.T) {
+	largeTableName := ""
+	for i := 0; i < math.MaxUint16; i++ {
+		largeTableName += "a"
+	}
 	type args struct {
 		t        []*TaosStmt2BindData
 		isInsert bool
@@ -70,6 +75,21 @@ func TestMarshalBinary(t *testing.T) {
 				0x74, 0x65, 0x73, 0x74, 0x32, 0x00,
 			},
 			wantErr: false,
+		},
+		{
+			name: "wrong TableName length",
+			args: args{
+				t: []*TaosStmt2BindData{
+					{
+						TableName: largeTableName,
+					},
+				},
+				isInsert: true,
+				tagType:  nil,
+				colType:  nil,
+			},
+			want:    nil,
+			wantErr: true,
 		},
 		{
 			name: "TestSetTableNameAndTags",
