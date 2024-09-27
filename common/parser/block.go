@@ -3,7 +3,6 @@ package parser
 import (
 	"database/sql/driver"
 	"math"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -224,14 +223,12 @@ func rawConvertNchar(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 		return ""
 	}
 	currentRow = unsafe.Pointer(uintptr(currentRow) + 2)
-	utf8Bytes := make([]byte, clen*utf8.UTFMax)
-	index := 0
-	utf32Slice := (*[1 << 30]rune)(currentRow)[:clen:clen]
-	for _, runeValue := range utf32Slice {
-		index += utf8.EncodeRune(utf8Bytes[index:], runeValue)
+	binaryVal := make([]rune, clen)
+
+	for index := uint16(0); index < clen; index++ {
+		binaryVal[index] = *((*rune)(unsafe.Pointer(uintptr(currentRow) + uintptr(index*4))))
 	}
-	utf8Bytes = utf8Bytes[:index]
-	return *(*string)(unsafe.Pointer(&utf8Bytes))
+	return string(binaryVal)
 }
 
 func rawConvertJson(pHeader, pStart unsafe.Pointer, row int) driver.Value {
