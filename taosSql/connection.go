@@ -79,12 +79,10 @@ func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 }
 
 func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	var reqIDValue int64
-	reqID := ctx.Value(common.ReqIDKey)
-	if reqID != nil {
-		reqIDValue, _ = reqID.(int64)
+	reqIDValue, err := common.GetReqIDFromCtx(ctx)
+	if err != nil {
+		return nil, err
 	}
-
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
 			return nil, driver.ErrSkip
@@ -132,10 +130,9 @@ func (tc *taosConn) QueryContext(ctx context.Context, query string, args []drive
 }
 
 func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	var reqIDValue int64
-	reqID := ctx.Value(common.ReqIDKey)
-	if reqID != nil {
-		reqIDValue, _ = reqID.(int64)
+	reqIDValue, err := common.GetReqIDFromCtx(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {

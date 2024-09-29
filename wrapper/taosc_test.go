@@ -558,7 +558,7 @@ func TestTaosGetTablesVgID(t *testing.T) {
 	var code int
 	now := time.Now()
 	vgs1, code = TaosGetTablesVgID(conn, dbName, []string{"d0", "d1"})
-	fmt.Println(time.Since(now))
+	t.Log(time.Since(now))
 	if code != 0 {
 		t.Fatal("fail")
 	}

@@ -51,7 +51,6 @@ var (
 type taosConn struct {
 	buf          *bytes.Buffer
 	client       *websocket.Conn
-	requestID    uint64
 	writeLock    sync.Mutex
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -67,10 +66,6 @@ type message struct {
 	mt      int
 	message []byte
 	err     error
-}
-
-func (tc *taosConn) generateReqID() uint64 {
-	return atomic.AddUint64(&tc.requestID, 1)
 }
 
 func newTaosConn(cfg *config) (*taosConn, error) {
@@ -98,7 +93,6 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	tc := &taosConn{
 		buf:          &bytes.Buffer{},
 		client:       ws,
-		requestID:    0,
 		readTimeout:  cfg.readTimeout,
 		writeTimeout: cfg.writeTimeout,
 		cfg:          cfg,
@@ -131,6 +125,9 @@ func (tc *taosConn) ping() {
 
 func (tc *taosConn) read() {
 	for {
+		if tc.client == nil || tc.isClosed() {
+			break
+		}
 		mt, msg, err := tc.client.ReadMessage()
 		tc.messageChan <- &message{
 			mt:      mt,
@@ -170,10 +167,28 @@ func (tc *taosConn) isClosed() bool {
 }
 
 func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
+	return tc.PrepareContext(context.Background(), query)
+}
+
+func getReqID(ctx context.Context) (uint64, error) {
+	reqID, err := common.GetReqIDFromCtx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if reqID == 0 {
+		return uint64(common.GetReqID()), nil
+	}
+	return uint64(reqID), nil
+}
+func (tc *taosConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if tc.isClosed() {
 		return nil, driver.ErrBadConn
 	}
-	stmtID, err := tc.stmtInit()
+	reqID, err := getReqID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	stmtID, err := tc.stmtInit(reqID)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +206,7 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	return stmt, nil
 }
 
-func (tc *taosConn) stmtInit() (uint64, error) {
-	reqID := tc.generateReqID()
+func (tc *taosConn) stmtInit(reqID uint64) (uint64, error) {
 	req := &StmtInitReq{
 		ReqID: reqID,
 	}
@@ -225,7 +239,7 @@ func (tc *taosConn) stmtInit() (uint64, error) {
 }
 
 func (tc *taosConn) stmtPrepare(stmtID uint64, sql string) (bool, error) {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &StmtPrepareRequest{
 		ReqID:  reqID,
 		StmtID: stmtID,
@@ -260,7 +274,7 @@ func (tc *taosConn) stmtPrepare(stmtID uint64, sql string) (bool, error) {
 }
 
 func (tc *taosConn) stmtClose(stmtID uint64) error {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &StmtCloseRequest{
 		ReqID:  reqID,
 		StmtID: stmtID,
@@ -286,7 +300,7 @@ func (tc *taosConn) stmtClose(stmtID uint64) error {
 }
 
 func (tc *taosConn) stmtGetColFields(stmtID uint64) ([]*stmtCommon.StmtField, error) {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &StmtGetColFieldsRequest{
 		ReqID:  reqID,
 		StmtID: stmtID,
@@ -320,7 +334,7 @@ func (tc *taosConn) stmtGetColFields(stmtID uint64) ([]*stmtCommon.StmtField, er
 }
 
 func (tc *taosConn) stmtBindParam(stmtID uint64, block []byte) error {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	tc.buf.Reset()
 	WriteUint64(tc.buf, reqID)
 	WriteUint64(tc.buf, stmtID)
@@ -365,7 +379,7 @@ func WriteUint16(buffer *bytes.Buffer, v uint16) {
 }
 
 func (tc *taosConn) stmtAddBatch(stmtID uint64) error {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &StmtAddBatchRequest{
 		ReqID:  reqID,
 		StmtID: stmtID,
@@ -399,7 +413,7 @@ func (tc *taosConn) stmtAddBatch(stmtID uint64) error {
 }
 
 func (tc *taosConn) stmtExec(stmtID uint64) (int, error) {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &StmtExecRequest{
 		ReqID:  reqID,
 		StmtID: stmtID,
@@ -433,7 +447,7 @@ func (tc *taosConn) stmtExec(stmtID uint64) (int, error) {
 }
 
 func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
-	reqID := tc.generateReqID()
+	reqID := uint64(common.GetReqID())
 	req := &StmtUseResultRequest{
 		ReqID:  reqID,
 		StmtID: stmtID,
@@ -527,9 +541,13 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 	return rs, err
 }
 
-func (tc *taosConn) doQuery(_ context.Context, query string, args []driver.NamedValue) (*WSQueryResp, error) {
+func (tc *taosConn) doQuery(ctx context.Context, query string, args []driver.NamedValue) (*WSQueryResp, error) {
 	if tc.isClosed() {
 		return nil, driver.ErrBadConn
+	}
+	reqID, err := getReqID(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if len(args) != 0 {
 		if !tc.cfg.interpolateParams {
@@ -542,7 +560,6 @@ func (tc *taosConn) doQuery(_ context.Context, query string, args []driver.Named
 		}
 		query = prepared
 	}
-	reqID := tc.generateReqID()
 	tc.buf.Reset()
 
 	WriteUint64(tc.buf, reqID) // req id
@@ -551,7 +568,7 @@ func (tc *taosConn) doQuery(_ context.Context, query string, args []driver.Named
 	WriteUint16(tc.buf, 1)                  // version
 	WriteUint32(tc.buf, uint32(len(query))) // sql length
 	tc.buf.WriteString(query)
-	err := tc.writeBinary(tc.buf.Bytes())
+	err = tc.writeBinary(tc.buf.Bytes())
 	if err != nil {
 		return nil, err
 	}

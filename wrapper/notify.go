@@ -1,7 +1,5 @@
 package wrapper
 
-import "C"
-
 /*
 #include <stdio.h>
 #include <stdlib.h>

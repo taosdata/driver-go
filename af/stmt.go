@@ -135,11 +135,10 @@ func (s *Stmt) UseResult() (driver.Rows, error) {
 	locker.Unlock()
 	numFields := wrapper.TaosNumFields(res)
 	rowsHeader, err := wrapper.ReadColumn(res, numFields)
-	h := async.GetHandler()
 	if err != nil {
-		async.PutHandler(h)
 		return nil, err
 	}
+	h := async.GetHandler()
 	precision := wrapper.TaosResultPrecision(res)
 	rs := &rows{
 		handler:    h,
