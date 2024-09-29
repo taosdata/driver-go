@@ -141,6 +141,8 @@ func TestConsumer(t *testing.T) {
 		"enable.auto.commit":      "true",
 		"auto.commit.interval.ms": "5000",
 		"msg.with.table.name":     "true",
+		"session.timeout.ms":      "12000",
+		"max.poll.interval.ms":    "300000",
 	})
 	if err != nil {
 		t.Error(err)
