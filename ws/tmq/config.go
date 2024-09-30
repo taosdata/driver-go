@@ -23,6 +23,8 @@ type config struct {
 	AutoReconnect        bool
 	ReconnectIntervalMs  int
 	ReconnectRetryCount  int
+	SessionTimeoutMS     string
+	MaxPollIntervalMS    string
 }
 
 func newConfig(url string, chanLength uint) *config {
@@ -98,4 +100,12 @@ func (c *config) setReconnectIntervalMs(reconnectIntervalMs int) {
 
 func (c *config) setReconnectRetryCount(reconnectRetryCount int) {
 	c.ReconnectRetryCount = reconnectRetryCount
+}
+
+func (c *config) setSessionTimeoutMS(sessionTimeoutMS string) {
+	c.SessionTimeoutMS = sessionTimeoutMS
+}
+
+func (c *config) setMaxPollIntervalMS(maxPollIntervalMS string) {
+	c.MaxPollIntervalMS = maxPollIntervalMS
 }

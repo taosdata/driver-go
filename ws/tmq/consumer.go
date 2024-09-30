@@ -42,6 +42,8 @@ type Consumer struct {
 	offsetRest          string
 	snapshotEnable      string
 	withTableName       string
+	sessionTimeoutMS    string
+	maxPollIntervalMS   string
 	closeOnce           sync.Once
 	closeChan           chan struct{}
 	topics              []string
@@ -243,6 +245,14 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	sessionTimeoutMS, err := m.Get("session.timeout.ms", "")
+	if err != nil {
+		return nil, err
+	}
+	maxPollIntervalMS, err := m.Get("max.poll.interval.ms", "")
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -265,6 +275,8 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	config.setAutoReconnect(autoReconnect.(bool))
 	config.setReconnectIntervalMs(reconnectIntervalMs.(int))
 	config.setReconnectRetryCount(reconnectRetryCount.(int))
+	config.setSessionTimeoutMS(sessionTimeoutMS.(string))
+	config.setMaxPollIntervalMS(maxPollIntervalMS.(string))
 	return config, nil
 }
 
@@ -417,16 +429,18 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 	}
 	reqID := c.generateReqID()
 	req := &SubscribeReq{
-		ReqID:          reqID,
-		User:           c.user,
-		Password:       c.password,
-		GroupID:        c.groupID,
-		ClientID:       c.clientID,
-		OffsetRest:     c.offsetRest,
-		Topics:         topics,
-		AutoCommit:     "false",
-		SnapshotEnable: c.snapshotEnable,
-		WithTableName:  c.withTableName,
+		ReqID:             reqID,
+		User:              c.user,
+		Password:          c.password,
+		GroupID:           c.groupID,
+		ClientID:          c.clientID,
+		OffsetRest:        c.offsetRest,
+		Topics:            topics,
+		AutoCommit:        "false",
+		SnapshotEnable:    c.snapshotEnable,
+		WithTableName:     c.withTableName,
+		SessionTimeoutMS:  c.sessionTimeoutMS,
+		MaxPollIntervalMS: c.maxPollIntervalMS,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
