@@ -2373,6 +2373,52 @@ func TestMarshalBinary(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "int64 timestamp",
+			args: args{
+				t: []*TaosStmt2BindData{{
+					Tags: []driver.Value{int64(1726803356466)},
+				}},
+				isInsert: true,
+				tagType:  []*StmtField{{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP}},
+				colType:  nil,
+			},
+			want: []byte{
+				// total Length
+				0x3a, 0x00, 0x00, 0x00,
+				// tableCount
+				0x01, 0x00, 0x00, 0x00,
+				// TagCount
+				0x01, 0x00, 0x00, 0x00,
+				// ColCount
+				0x00, 0x00, 0x00, 0x00,
+				// TableNamesOffset
+				0x00, 0x00, 0x00, 0x00,
+				// TagsOffset
+				0x1c, 0x00, 0x00, 0x00,
+				// ColOffset
+				0x00, 0x00, 0x00, 0x00,
+				// tags
+				// table length
+				0x1a, 0x00, 0x00, 0x00,
+				//table 0 tags
+				//tag 0
+				//total length
+				0x1a, 0x00, 0x00, 0x00,
+				//type
+				0x09, 0x00, 0x00, 0x00,
+				//num
+				0x01, 0x00, 0x00, 0x00,
+				//is null
+				0x00,
+				// haveLength
+				0x00,
+				// buffer length
+				0x08, 0x00, 0x00, 0x00,
+				0x32, 0x2b, 0x80, 0x0d, 0x92, 0x01, 0x00, 0x00,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2384,4 +2430,8 @@ func TestMarshalBinary(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestT(t *testing.T) {
+
 }

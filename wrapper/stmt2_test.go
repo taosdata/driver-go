@@ -1127,6 +1127,26 @@ func TestStmt2BindData(t *testing.T) {
 				{next2S, []byte("中文")},
 			},
 		},
+
+		{
+			name:   "timestamp",
+			tbType: "ts timestamp, v timestamp",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						now,
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, now},
+			},
+		},
 	}
 	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
