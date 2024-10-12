@@ -346,12 +346,15 @@ func generateBindColData(data []driver.Value, colType *StmtField, tmpBuffer *byt
 					isNull[i] = 1
 					writeUint64(tmpBuffer, 0)
 				} else {
-					v, ok := data[i].(time.Time)
-					if !ok {
-						return nil, fmt.Errorf("data type not match, expect time.Time, but get %T, value:%v", data[i], data[i])
+					switch v := data[i].(type) {
+					case int64:
+						writeUint64(tmpBuffer, uint64(v))
+					case time.Time:
+						ts := common.TimeToTimestamp(v, precision)
+						writeUint64(tmpBuffer, uint64(ts))
+					default:
+						return nil, fmt.Errorf("data type not match, expect int64 or time.Time, but get %T, value:%v", data[i], data[i])
 					}
-					ts := common.TimeToTimestamp(v, precision)
-					writeUint64(tmpBuffer, uint64(ts))
 				}
 			}
 		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_JSON:
