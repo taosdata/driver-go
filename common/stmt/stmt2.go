@@ -95,9 +95,6 @@ func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, colType, t
 		needCols = true
 		binary.LittleEndian.PutUint32(header[ColCountPosition:], uint32(colCount))
 	}
-	if needTableNames {
-		binary.LittleEndian.PutUint32(header[TableNamesOffsetPosition:], uint32(colCount))
-	}
 	if !needTableNames && !needTags && !needCols {
 		return nil, fmt.Errorf("no data")
 	}
