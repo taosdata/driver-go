@@ -173,7 +173,7 @@ jobs:
         run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
-        if: ${{ matrix.go }} == 'stable'
+        if: ${{ matrix.go == 'stable'}}
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
