@@ -764,6 +764,7 @@ func TestSTMTQuery(t *testing.T) {
 			err = rows.Next(values)
 			if err != nil {
 				if err == io.EOF {
+					rows.Close()
 					break
 				}
 				assert.NoError(t, err)
@@ -936,6 +937,7 @@ func TestSTMTQuery(t *testing.T) {
 			err = rows.Next(values)
 			if err != nil {
 				if err == io.EOF {
+					rows.Close()
 					break
 				}
 				assert.NoError(t, err)

@@ -239,3 +239,33 @@ func TestSchemalessReconnect(t *testing.T) {
 	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
 	assert.NoError(t, err)
 }
+
+func TestWrongNewSchemaless(t *testing.T) {
+	s, err := NewSchemaless(NewConfig("://localhost:6041", 1,
+		SetUser("root"),
+		SetPassword("taosdata"),
+	))
+	assert.Error(t, err)
+	assert.Nil(t, s)
+
+	s, err = NewSchemaless(NewConfig("wrong://localhost:6041", 1,
+		SetUser("root"),
+		SetPassword("taosdata"),
+	))
+	assert.Error(t, err)
+	assert.Nil(t, s)
+
+	s, err = NewSchemaless(NewConfig("ws://localhost:6041", 1,
+		SetUser("root"),
+		SetPassword("wrongpassword"),
+	))
+	assert.Error(t, err)
+	assert.Nil(t, s)
+
+	s, err = NewSchemaless(NewConfig("ws://localhost:9999", 1,
+		SetUser("root"),
+		SetPassword("taosdata"),
+	))
+	assert.Error(t, err)
+	assert.Nil(t, s)
+}

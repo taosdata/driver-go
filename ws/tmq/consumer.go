@@ -65,7 +65,7 @@ type WSError struct {
 }
 
 func (e *WSError) Error() string {
-	return fmt.Sprintf("websocket close with error %s", e.err)
+	return fmt.Sprintf("websocket close with error %v", e.err)
 }
 
 // NewConsumer create a tmq consumer
