@@ -1,0 +1,4 @@
+ignore:
+  - "bench"
+  - "benchmark"
+  - "examples"
