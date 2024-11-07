@@ -126,14 +126,48 @@ func TestStmt2BindData(t *testing.T) {
 			},
 		},
 		{
+			name:   "gouint null 3 cols",
+			tbType: "ts timestamp, v bigint unsigned",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+						next1S,
+						next2S,
+					},
+					{
+						uint(1),
+						nil,
+						uint(2),
+					},
+				},
+			}},
+			expectValue: [][]driver.Value{
+				{now, uint64(1)},
+				{next1S, nil},
+				{next2S, uint64(2)},
+			},
+		},
+		{
 			name:   "bool",
 			tbType: "ts timestamp, v bool",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
-				Cols: [][]driver.Value{{now}, {bool(true)}},
+				Cols: [][]driver.Value{{now}, {true}},
 			}},
 
 			expectValue: [][]driver.Value{{now, true}},
+		},
+		{
+			name:   "bool false",
+			tbType: "ts timestamp, v bool",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{{now}, {false}},
+			}},
+
+			expectValue: [][]driver.Value{{now, false}},
 		},
 		{
 			name:   "bool null",
