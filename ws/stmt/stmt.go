@@ -6,7 +6,6 @@ import (
 
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/serializer"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -43,13 +42,7 @@ func (s *Stmt) Prepare(sql string) error {
 	}
 	var resp PrepareResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Stmt) SetTableName(name string) error {
@@ -79,13 +72,7 @@ func (s *Stmt) SetTableName(name string) error {
 	}
 	var resp SetTableNameResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
@@ -114,13 +101,7 @@ func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
 	}
 	var resp SetTagsResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) error {
@@ -148,13 +129,7 @@ func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) erro
 	}
 	var resp BindResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Stmt) AddBatch() error {
@@ -183,11 +158,9 @@ func (s *Stmt) AddBatch() error {
 	}
 	var resp AddBatchResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return nil
 }
@@ -218,11 +191,9 @@ func (s *Stmt) Exec() error {
 	}
 	var resp ExecResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
 	}
 	s.lastAffected = resp.Affected
 	return nil
@@ -258,11 +229,9 @@ func (s *Stmt) UseResult() (*Rows, error) {
 	}
 	var resp UseResultResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return &Rows{
 		buf:           &bytes.Buffer{},

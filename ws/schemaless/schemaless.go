@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -181,13 +180,7 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 	}
 	var resp schemalessResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Schemaless) Close() {
@@ -247,13 +240,7 @@ func connect(ws *websocket.Conn, user string, password string, db string, writeT
 	}
 	var resp wsConnectResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Schemaless) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {

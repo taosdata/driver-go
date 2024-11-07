@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
 func TestEnvelopePool(t *testing.T) {
@@ -95,4 +97,26 @@ func TestClient(t *testing.T) {
 	case <-timeout.C:
 		t.Error("timeout")
 	}
+}
+
+func TestHandleResponseError(t *testing.T) {
+	t.Run("Error not nil", func(t *testing.T) {
+		err := errors.New("some error")
+		result := HandleResponseError(err, 0, "ignored message")
+		assert.Equal(t, err, result, "Expected the original error to be returned")
+	})
+
+	t.Run("Error nil and non-zero code", func(t *testing.T) {
+		code := 123
+		msg := "some error message"
+		expectedErr := taosErrors.NewError(code, msg)
+
+		result := HandleResponseError(nil, code, msg)
+		assert.EqualError(t, result, expectedErr.Error(), "Expected a new error to be returned based on code and message")
+	})
+
+	t.Run("Error nil and zero code", func(t *testing.T) {
+		result := HandleResponseError(nil, 0, "ignored message")
+		assert.Nil(t, result, "Expected nil to be returned when there is no error and code is zero")
+	})
 }
