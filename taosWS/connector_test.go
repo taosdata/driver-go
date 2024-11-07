@@ -1,6 +1,7 @@
 package taosWS
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math/rand"
@@ -455,4 +456,15 @@ func TestBatch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConnect(t *testing.T) {
+	conn := connector{
+		cfg: &config{},
+	}
+	db, err := conn.Connect(context.Background())
+	assert.NoError(t, err)
+	db.Close()
+	driver := conn.Driver()
+	assert.Equal(t, &TDengineDriver{}, driver)
 }
