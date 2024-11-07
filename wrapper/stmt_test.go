@@ -1219,6 +1219,9 @@ func TestTaosStmtGetParam(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
+
+	_, _, err = TaosStmtGetParam(stmt, 4) // invalid index
+	assert.Error(t, err)
 }
 
 func TestStmtJson(t *testing.T) {
