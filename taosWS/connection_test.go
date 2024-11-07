@@ -1,6 +1,7 @@
 package taosWS
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,7 +68,7 @@ func TestBadConnection(t *testing.T) {
 	// to test bad connection, we manually close the connection
 	conn.Close()
 
-	_, err = conn.Query("select 1", nil)
+	_, err = conn.QueryContext(context.Background(), "select 1", nil)
 	if err == nil {
 		t.Fatalf("query should fail")
 	}

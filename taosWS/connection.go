@@ -24,9 +24,6 @@ var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const (
 	WSConnect    = "conn"
-	WSQuery      = "query"
-	WSFetch      = "fetch"
-	WSFetchBlock = "fetch_block"
 	WSFreeResult = "free_result"
 
 	STMTInit         = "init"
@@ -490,9 +487,6 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 	}
 	return rs, nil
 }
-func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	return tc.execCtx(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
-}
 
 func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (result driver.Result, err error) {
 	return tc.execCtx(ctx, query, args)
@@ -507,10 +501,6 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return driver.RowsAffected(resp.AffectedRows), nil
-}
-
-func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
 }
 
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {

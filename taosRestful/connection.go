@@ -97,10 +97,6 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	return nil, &taosErrors.TaosError{Code: 0xffff, ErrStr: "restful does not support stmt"}
 }
 
-func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	return tc.ExecContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
-}
-
 func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (result driver.Result, err error) {
 	return tc.execCtx(ctx, query, args)
 }
@@ -125,32 +121,6 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 		return nil, errors.New("wrong result")
 	}
 	return driver.RowsAffected(result.Data[0][0].(int32)), nil
-}
-
-func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
-			return nil, driver.ErrSkip
-		}
-		// try client-side prepare to reduce round trip
-		prepared, err := common.InterpolateParams(query, common.ValueArgsToNamedValueArgs(args))
-		if err != nil {
-			return nil, err
-		}
-		query = prepared
-	}
-	result, err := tc.taosQuery(context.TODO(), query, tc.readBufferSize)
-	if err != nil {
-		return nil, err
-	}
-	if result == nil {
-		return nil, errors.New("wrong result")
-	}
-	// Read Result
-	rs := &rows{
-		result: result,
-	}
-	return rs, err
 }
 
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {

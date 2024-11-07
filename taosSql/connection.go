@@ -66,10 +66,6 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	return stmt, nil
 }
 
-func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	return tc.ExecContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
-}
-
 func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Result, err error) {
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
@@ -116,10 +112,6 @@ func (tc *taosConn) processExecResult(result *handler.AsyncResult) (driver.Resul
 	}
 	affectRows := wrapper.TaosAffectedRows(res)
 	return driver.RowsAffected(affectRows), nil
-}
-
-func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
 }
 
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
