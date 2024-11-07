@@ -1032,11 +1032,25 @@ func TestStmtConvertExec(t *testing.T) {
 			expectValue: []byte("中文"),
 		},
 		{
+			name:        "varbinary_err",
+			tbType:      "ts timestamp,v varbinary(24)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []int{1}},
+			expectError: true,
+		},
+		{
 			name:        "geometry",
 			tbType:      "ts timestamp,v geometry(100)",
 			pos:         "?,?",
 			bind:        []interface{}{now, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}},
 			expectValue: []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+		},
+		{
+			name:        "geometry_err",
+			tbType:      "ts timestamp,v geometry(100)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []int{1}},
+			expectError: true,
 		},
 	}
 	for _, tt := range tests {
