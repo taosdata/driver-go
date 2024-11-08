@@ -493,3 +493,9 @@ func TestMeta(t *testing.T) {
 		}
 	}
 }
+
+func Test_tmqError(t *testing.T) {
+	err := tmqError(-1)
+	expectError := &errors.TaosError{Code: 65535, ErrStr: "fail"}
+	assert.Equal(t, expectError, err)
+}
