@@ -97,3 +97,19 @@ func TestHandleResponseError(t *testing.T) {
 		assert.Nil(t, result, "Expected nil to be returned when there is no error and code is zero")
 	})
 }
+
+func TestBegin(t *testing.T) {
+	cfg, err := parseDSN(dataSourceName)
+	if err != nil {
+		t.Fatalf("parseDSN error: %v", err)
+	}
+	conn, err := newTaosConn(cfg)
+	if err != nil {
+		t.Fatalf("newTaosConn error: %v", err)
+	}
+	defer conn.Close()
+
+	tx, err := conn.Begin()
+	assert.Error(t, err)
+	assert.Nil(t, tx)
+}
