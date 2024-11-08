@@ -2175,11 +2175,13 @@ func TestWrongStmt(t *testing.T) {
 
 	p, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	assert.NoError(t, err)
-	code := wrapper.TaosStmtPrepare(p, "")
-	err = checkStmtError(code, p)
+	defer wrapper.TaosClose(p)
+	stmt := wrapper.TaosStmtInit(p)
+	code := wrapper.TaosStmtPrepare(stmt, "")
+	err = checkStmtError(code, stmt)
 	assert.NoError(t, err)
-	code = wrapper.TaosStmtExecute(p)
+	code = wrapper.TaosStmtExecute(stmt)
 	assert.NotEqual(t, 0, code)
-	err = checkStmtError(code, p)
+	err = checkStmtError(code, stmt)
 	assert.Error(t, err)
 }
