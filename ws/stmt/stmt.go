@@ -158,11 +158,7 @@ func (s *Stmt) AddBatch() error {
 	}
 	var resp AddBatchResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
-		return err
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (s *Stmt) Exec() error {
