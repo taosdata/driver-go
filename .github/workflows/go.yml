@@ -74,7 +74,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 
+          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DBUILD_DEPENDENCY_TESTS=0 -DVERNUMBER=3.9.9.9 
           make -j 4
 
       - name: package
@@ -173,8 +173,8 @@ jobs:
         run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
-        if: ${{ matrix.go }} == 'stable'
-        uses: codecov/codecov-action@v4-beta
+        if: ${{ matrix.go == 'stable'}}
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
         env:

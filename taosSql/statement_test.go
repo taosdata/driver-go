@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 // @author: xftan
@@ -2156,4 +2157,31 @@ func TestStmtConvertQuery(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWrongStmt(t *testing.T) {
+	d := &TDengineDriver{}
+	conn, err := d.Open(dataSourceName)
+	assert.NoError(t, err)
+	defer conn.Close()
+	c := conn.(*taosConn)
+	cPointer := c.taos
+	c.taos = nil
+	defer func() {
+		c.taos = cPointer
+	}()
+	_, err = c.Prepare("")
+	assert.Error(t, err)
+
+	p, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer wrapper.TaosClose(p)
+	stmt := wrapper.TaosStmtInit(p)
+	code := wrapper.TaosStmtPrepare(stmt, "")
+	err = checkStmtError(code, stmt)
+	assert.NoError(t, err)
+	code = wrapper.TaosStmtExecute(stmt)
+	assert.NotEqual(t, 0, code)
+	err = checkStmtError(code, stmt)
+	assert.Error(t, err)
 }

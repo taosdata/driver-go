@@ -680,7 +680,7 @@ func TestParseBlock(t *testing.T) {
 		version := RawBlockGetVersion(block)
 		t.Log(version)
 		length := RawBlockGetLength(block)
-		assert.Equal(t, int32(447), length)
+		assert.Equal(t, int32(448), length)
 		rows := RawBlockGetNumOfRows(block)
 		assert.Equal(t, int32(2), rows)
 		columns := RawBlockGetNumOfCols(block)

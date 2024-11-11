@@ -24,9 +24,6 @@ var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 const (
 	WSConnect    = "conn"
-	WSQuery      = "query"
-	WSFetch      = "fetch"
-	WSFetchBlock = "fetch_block"
 	WSFreeResult = "free_result"
 
 	STMTInit         = "init"
@@ -229,11 +226,9 @@ func (tc *taosConn) stmtInit(reqID uint64) (uint64, error) {
 	}
 	var resp StmtInitResp
 	err = tc.readTo(&resp)
+	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return 0, err
-	}
-	if resp.Code != 0 {
-		return 0, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return resp.StmtID, nil
 }
@@ -264,11 +259,9 @@ func (tc *taosConn) stmtPrepare(stmtID uint64, sql string) (bool, error) {
 	}
 	var resp StmtPrepareResponse
 	err = tc.readTo(&resp)
+	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return false, err
-	}
-	if resp.Code != 0 {
-		return false, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return resp.IsInsert, nil
 }
@@ -324,11 +317,9 @@ func (tc *taosConn) stmtGetColFields(stmtID uint64) ([]*stmtCommon.StmtField, er
 	}
 	var resp StmtGetColFieldsResponse
 	err = tc.readTo(&resp)
+	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return resp.Fields, nil
 }
@@ -346,13 +337,7 @@ func (tc *taosConn) stmtBindParam(stmtID uint64, block []byte) error {
 	}
 	var resp StmtBindResponse
 	err = tc.readTo(&resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return handleResponseError(err, resp.Code, resp.Message)
 }
 
 func WriteUint64(buffer *bytes.Buffer, v uint64) {
@@ -403,13 +388,7 @@ func (tc *taosConn) stmtAddBatch(stmtID uint64) error {
 	}
 	var resp StmtAddBatchResponse
 	err = tc.readTo(&resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return handleResponseError(err, resp.Code, resp.Message)
 }
 
 func (tc *taosConn) stmtExec(stmtID uint64) (int, error) {
@@ -437,11 +416,9 @@ func (tc *taosConn) stmtExec(stmtID uint64) (int, error) {
 	}
 	var resp StmtExecResponse
 	err = tc.readTo(&resp)
+	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return 0, err
-	}
-	if resp.Code != 0 {
-		return 0, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return resp.Affected, nil
 }
@@ -471,11 +448,9 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 	}
 	var resp StmtUseResultResponse
 	err = tc.readTo(&resp)
+	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	rs := &rows{
 		buf:           &bytes.Buffer{},
@@ -489,9 +464,6 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 		isStmt:        true,
 	}
 	return rs, nil
-}
-func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	return tc.execCtx(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
 }
 
 func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (result driver.Result, err error) {
@@ -507,10 +479,6 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return driver.RowsAffected(resp.AffectedRows), nil
-}
-
-func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
 }
 
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
@@ -613,13 +581,7 @@ func (tc *taosConn) connect() error {
 	}
 	var resp WSConnectResp
 	err = tc.readTo(&resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return handleResponseError(err, resp.Code, resp.Message)
 }
 
 func (tc *taosConn) writeText(data []byte) error {
@@ -713,4 +675,14 @@ func formatBytes(bs []byte) string {
 	}
 	buffer.WriteByte(']')
 	return buffer.String()
+}
+
+func handleResponseError(err error, code int, msg string) error {
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return taosErrors.NewError(code, msg)
+	}
+	return nil
 }

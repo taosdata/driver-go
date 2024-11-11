@@ -48,19 +48,21 @@ func TestStmtExec(t *testing.T) {
 		"c10 float," +
 		"c11 double," +
 		"c12 binary(20)," +
-		"c13 nchar(20)" +
+		"c13 nchar(20)," +
+		"c14 varbinary(20)," +
+		"c15 geometry(100)" +
 		")")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	stmt, err := db.Prepare("insert into test_stmt_driver_ws.ct values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	stmt, err := db.Prepare("insert into test_stmt_driver_ws.ct values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	result, err := stmt.Exec(time.Now(), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, "binary", "nchar")
+	result, err := stmt.Exec(time.Now(), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, "binary", "nchar", "varbinary", []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40})
 	if err != nil {
 		t.Error(err)
 		return
@@ -99,19 +101,21 @@ func TestStmtQuery(t *testing.T) {
 		"c10 float," +
 		"c11 double," +
 		"c12 binary(20)," +
-		"c13 nchar(20)" +
+		"c13 nchar(20)," +
+		"c14 varbinary(20)," +
+		"c15 geometry(100)" +
 		")")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	stmt, err := db.Prepare("insert into test_stmt_driver_ws_q.ct values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	stmt, err := db.Prepare("insert into test_stmt_driver_ws_q.ct values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	now := time.Now()
-	result, err := stmt.Exec(now, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, "binary", "nchar")
+	result, err := stmt.Exec(now, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, "binary", "nchar", "varbinary", []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40})
 	if err != nil {
 		t.Error(err)
 		return
@@ -138,7 +142,7 @@ func TestStmtQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	assert.Equal(t, []string{"ts", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10", "c11", "c12", "c13"}, columns)
+	assert.Equal(t, []string{"ts", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10", "c11", "c12", "c13", "c14", "c15"}, columns)
 	count := 0
 	for rows.Next() {
 		count += 1
@@ -157,6 +161,8 @@ func TestStmtQuery(t *testing.T) {
 			c11 float64
 			c12 string
 			c13 string
+			c14 string
+			c15 []byte
 		)
 		err = rows.Scan(&ts,
 			&c1,
@@ -171,7 +177,9 @@ func TestStmtQuery(t *testing.T) {
 			&c10,
 			&c11,
 			&c12,
-			&c13)
+			&c13,
+			&c14,
+			&c15)
 		assert.NoError(t, err)
 		assert.Equal(t, now.UnixNano()/1e6, ts.UnixNano()/1e6)
 		assert.Equal(t, true, c1)
@@ -187,6 +195,8 @@ func TestStmtQuery(t *testing.T) {
 		assert.Equal(t, float64(11), c11)
 		assert.Equal(t, "binary", c12)
 		assert.Equal(t, "nchar", c13)
+		assert.Equal(t, "varbinary", c14)
+		assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, c15)
 	}
 	assert.Equal(t, 1, count)
 }
@@ -1007,6 +1017,41 @@ func TestStmtConvertExec(t *testing.T) {
 			bind:        []interface{}{now, "1970-01-01T00:00:00.001Z"},
 			expectValue: time.Unix(0, 1e6),
 		},
+		{
+			name:        "varbinary_string_chinese",
+			tbType:      "ts timestamp,v varbinary(24)",
+			pos:         "?,?",
+			bind:        []interface{}{now, "中文"},
+			expectValue: []byte("中文"),
+		},
+		{
+			name:        "varbinary_bytes_chinese",
+			tbType:      "ts timestamp,v varbinary(24)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []byte("中文")},
+			expectValue: []byte("中文"),
+		},
+		{
+			name:        "varbinary_err",
+			tbType:      "ts timestamp,v varbinary(24)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []int{1}},
+			expectError: true,
+		},
+		{
+			name:        "geometry",
+			tbType:      "ts timestamp,v geometry(100)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}},
+			expectValue: []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+		},
+		{
+			name:        "geometry_err",
+			tbType:      "ts timestamp,v geometry(100)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []int{1}},
+			expectError: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1076,20 +1121,23 @@ func TestStmtConvertExec(t *testing.T) {
 					t.Error(err)
 					return
 				}
-				v, err := values[0].(driver.Valuer).Value()
-				if err != nil {
-					t.Error(err)
+				value, ok := values[0].(driver.Valuer)
+				if ok {
+					v, err := value.Value()
+					if err != nil {
+						t.Error(err)
+					}
+					data = append(data, v)
+				} else {
+					data = append(data, *values[0].(*[]byte))
 				}
-				data = append(data, v)
+
 			}
 			if len(data) != 1 {
 				t.Errorf("expect %d got %d", 1, len(data))
 				return
 			}
-			if data[0] != tt.expectValue {
-				t.Errorf("expect %v got %v", tt.expectValue, data[0])
-				return
-			}
+			assert.Equal(t, tt.expectValue, data[0], "expect %v got %v", tt.expectValue, data[0])
 		})
 	}
 }

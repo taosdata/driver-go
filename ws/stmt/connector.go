@@ -15,7 +15,6 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -161,13 +160,7 @@ func connect(ws *websocket.Conn, user string, password string, db string, writeT
 	}
 	var resp ConnectResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (c *Connector) handleTextMessage(message []byte) {
@@ -369,11 +362,9 @@ func (c *Connector) Init() (*Stmt, error) {
 	}
 	var resp InitResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	return &Stmt{
 		id:        resp.StmtID,

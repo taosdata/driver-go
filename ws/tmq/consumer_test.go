@@ -731,6 +731,58 @@ func Test_configMapToConfigWrong(t *testing.T) {
 			},
 			wantErr: "ws.message.writeWait cannot be less than 1 second",
 		},
+		{
+			name: "ws.autoReconnect",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":           "ws://127.0.0.1:6041",
+					"ws.autoReconnect": 123,
+				},
+			},
+			wantErr: "ws.autoReconnect expects type bool, not int",
+		},
+		//ws.reconnectIntervalMs
+		{
+			name: "ws.reconnectIntervalMs",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":                 "ws://127.0.0.1:6041",
+					"ws.reconnectIntervalMs": "not int",
+				},
+			},
+			wantErr: "ws.reconnectIntervalMs expects type int, not string",
+		},
+		//ws.reconnectRetryCount
+		{
+			name: "ws.reconnectRetryCount",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":                 "ws://127.0.0.1:6041",
+					"ws.reconnectRetryCount": "not int",
+				},
+			},
+			wantErr: "ws.reconnectRetryCount expects type int, not string",
+		},
+		{
+			name: "session.timeout.ms",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":             "ws://127.0.0.1:6041",
+					"session.timeout.ms": 123,
+				},
+			},
+			wantErr: "session.timeout.ms expects type string, not int",
+		},
+		{
+			name: "max.poll.interval.ms",
+			args: args{
+				m: &tmq.ConfigMap{
+					"ws.url":               "ws://127.0.0.1:6041",
+					"max.poll.interval.ms": 123,
+				},
+			},
+			wantErr: "max.poll.interval.ms expects type string, not int",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -976,4 +1028,55 @@ func TestSubscribeReconnect(t *testing.T) {
 		}
 	}
 	assert.True(t, haveMessage)
+}
+
+func TestWSError_Error(t *testing.T) {
+	// Test scenario where an error is provided
+	expectedErr := errors.New("connection lost")
+	wsErr := &WSError{err: expectedErr}
+
+	// Call the Error() method and check if the format is correct
+	actualError := wsErr.Error()
+
+	// The expected error string format
+	expectedError := "websocket close with error connection lost"
+
+	// Assert that the error string is formatted correctly
+	assert.Equal(t, expectedError, actualError, "Error string should match the expected format")
+
+	// Test scenario where no error is provided (nil error)
+	wsErrNil := &WSError{}
+	actualErrorNil := wsErrNil.Error()
+
+	// Expected format when error is nil (shouldn't panic)
+	expectedErrorNil := "websocket close with error <nil>"
+
+	// Assert that the error string handles nil properly
+	assert.Equal(t, expectedErrorNil, actualErrorNil, "Error string should handle nil error correctly")
+}
+
+func TestWrongConsumer(t *testing.T) {
+	consumer, err := NewConsumer(&tmq.ConfigMap{})
+	assert.Error(t, err)
+	assert.Nil(t, consumer)
+
+	consumer, err = NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:6041",
+		"auto.commit.interval.ms": "abc",
+	})
+	assert.Error(t, err)
+	assert.Nil(t, consumer)
+
+	consumer, err = NewConsumer(&tmq.ConfigMap{
+		"ws.url": ":xxx",
+	})
+	assert.Error(t, err)
+	assert.Nil(t, consumer)
+
+	consumer, err = NewConsumer(&tmq.ConfigMap{
+		"ws.url": "ws://127.0.0.1:9999",
+	})
+	assert.Error(t, err)
+	assert.Nil(t, consumer)
+
 }

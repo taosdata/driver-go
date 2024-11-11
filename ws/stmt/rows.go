@@ -11,7 +11,6 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/common/pointer"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -101,11 +100,9 @@ func (rs *Rows) taosFetchBlock() error {
 	}
 	var resp WSFetchResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
 	}
 	if resp.Completed {
 		rs.blockSize = 0

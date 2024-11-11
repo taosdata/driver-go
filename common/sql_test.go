@@ -2,6 +2,7 @@ package common
 
 import (
 	"database/sql/driver"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -91,6 +92,44 @@ func TestInterpolateParams(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("InterpolateParams() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValueArgsToNamedValueArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		args []driver.Value
+		want []driver.NamedValue
+	}{
+		{
+			name: "empty args",
+			args: []driver.Value{},
+			want: []driver.NamedValue{},
+		},
+		{
+			name: "single arg",
+			args: []driver.Value{int64(1)},
+			want: []driver.NamedValue{
+				{Ordinal: 1, Value: int64(1)},
+			},
+		},
+		{
+			name: "multiple args",
+			args: []driver.Value{int64(1), "test", nil},
+			want: []driver.NamedValue{
+				{Ordinal: 1, Value: int64(1)},
+				{Ordinal: 2, Value: "test"},
+				{Ordinal: 3, Value: nil},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ValueArgsToNamedValueArgs(tt.args); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ValueArgsToNamedValueArgs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
