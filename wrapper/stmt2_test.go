@@ -1193,17 +1193,18 @@ func TestStmt2BindData(t *testing.T) {
 				return
 			}
 			assert.True(t, isInsert)
-			code, count, cfields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_COL)
+			code, count, cfields := TaosStmt2GetFields(insertStmt)
 			if code != 0 {
 				errStr := TaosStmt2Error(insertStmt)
 				err = taosError.NewError(code, errStr)
 				t.Error(err)
 				return
 			}
+
 			defer TaosStmt2FreeFields(insertStmt, cfields)
 			assert.Equal(t, 2, count)
-			fields := StmtParseFields(count, cfields)
-			err = TaosStmt2BindParam(insertStmt, true, tc.params, fields, nil, -1)
+			fields := Stmt2ParseAllFields(count, cfields)
+			err = TaosStmt2BindParam(insertStmt, true, tc.params, fields, -1)
 			if err != nil {
 				t.Error(err)
 				return
@@ -2367,7 +2368,7 @@ func TestStmt2BindBinary(t *testing.T) {
 				return
 			}
 			assert.True(t, isInsert)
-			code, count, cfields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_COL)
+			code, count, cfields := TaosStmt2GetFields(insertStmt)
 			if code != 0 {
 				errStr := TaosStmt2Error(insertStmt)
 				err = taosError.NewError(code, errStr)
@@ -2376,8 +2377,8 @@ func TestStmt2BindBinary(t *testing.T) {
 			}
 			defer TaosStmt2FreeFields(insertStmt, cfields)
 			assert.Equal(t, 2, count)
-			fields := StmtParseFields(count, cfields)
-			bs, err := stmt.MarshalStmt2Binary(tc.params, true, fields, nil)
+			fields := Stmt2ParseAllFields(count, cfields)
+			bs, err := stmt.MarshalStmt2Binary(tc.params, true, fields)
 			if err != nil {
 				t.Error("marshal binary error:", err)
 				return
@@ -2496,21 +2497,11 @@ func TestStmt2AllType(t *testing.T) {
 	params := []*stmt.TaosStmt2BindData{{
 		TableName: "ctb1",
 	}}
-	err = TaosStmt2BindParam(insertStmt, true, params, nil, nil, -1)
+	err = TaosStmt2BindParam(insertStmt, true, params, nil, -1)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
-	code, count, cTablefields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_TBNAME)
-	if code != 0 {
-		errStr := TaosStmt2Error(insertStmt)
-		err = taosError.NewError(code, errStr)
-		t.Error(err)
-		return
-	}
-	assert.Equal(t, 1, count)
-	assert.Equal(t, unsafe.Pointer(nil), cTablefields)
 
 	isInsert, code := TaosStmt2IsInsert(insertStmt)
 	if code != 0 {
@@ -2520,28 +2511,17 @@ func TestStmt2AllType(t *testing.T) {
 		return
 	}
 	assert.True(t, isInsert)
-	code, count, cColFields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_COL)
+	code, count, cFields := TaosStmt2GetFields(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
 		err = taosError.NewError(code, errStr)
 		t.Error(err)
 		return
 	}
-	defer TaosStmt2FreeFields(insertStmt, cColFields)
-	assert.Equal(t, 16, count)
-	colFields := StmtParseFields(count, cColFields)
-	t.Log(colFields)
-	code, count, cTagfields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_TAG)
-	if code != 0 {
-		errStr := TaosStmt2Error(insertStmt)
-		err = taosError.NewError(code, errStr)
-		t.Error(err)
-		return
-	}
-	defer TaosStmt2FreeFields(insertStmt, cTagfields)
-	assert.Equal(t, 16, count)
-	tagFields := StmtParseFields(count, cTagfields)
-	t.Log(tagFields)
+	defer TaosStmt2FreeFields(insertStmt, cFields)
+	assert.Equal(t, 32, count)
+	fields := Stmt2ParseAllFields(count, cFields)
+	t.Log(fields)
 	now := time.Now()
 	//colTypes := []int8{
 	//	common.TSDB_DATA_TYPE_TIMESTAMP,
@@ -2681,7 +2661,7 @@ func TestStmt2AllType(t *testing.T) {
 		},
 	}}
 
-	err = TaosStmt2BindParam(insertStmt, true, params2, colFields, tagFields, -1)
+	err = TaosStmt2BindParam(insertStmt, true, params2, fields, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -2787,7 +2767,7 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 	params := []*stmt.TaosStmt2BindData{{
 		TableName: "ctb1",
 	}}
-	bs, err := stmt.MarshalStmt2Binary(params, true, nil, nil)
+	bs, err := stmt.MarshalStmt2Binary(params, true, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -2798,16 +2778,6 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 		return
 	}
 
-	code, count, cTablefields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_TBNAME)
-	if code != 0 {
-		errStr := TaosStmt2Error(insertStmt)
-		err = taosError.NewError(code, errStr)
-		t.Error(err)
-		return
-	}
-	assert.Equal(t, 1, count)
-	assert.Equal(t, unsafe.Pointer(nil), cTablefields)
-
 	isInsert, code := TaosStmt2IsInsert(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
@@ -2816,28 +2786,18 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 		return
 	}
 	assert.True(t, isInsert)
-	code, count, cColFields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_COL)
+
+	code, count, cFields := TaosStmt2GetFields(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
 		err = taosError.NewError(code, errStr)
 		t.Error(err)
 		return
 	}
-	defer TaosStmt2FreeFields(insertStmt, cColFields)
-	assert.Equal(t, 16, count)
-	colFields := StmtParseFields(count, cColFields)
-	t.Log(colFields)
-	code, count, cTagfields := TaosStmt2GetFields(insertStmt, stmt.TAOS_FIELD_TAG)
-	if code != 0 {
-		errStr := TaosStmt2Error(insertStmt)
-		err = taosError.NewError(code, errStr)
-		t.Error(err)
-		return
-	}
-	defer TaosStmt2FreeFields(insertStmt, cTagfields)
-	assert.Equal(t, 16, count)
-	tagFields := StmtParseFields(count, cTagfields)
-	t.Log(tagFields)
+	defer TaosStmt2FreeFields(insertStmt, cFields)
+	assert.Equal(t, 32, count)
+	fields := Stmt2ParseAllFields(count, cFields)
+	t.Log(fields)
 	now := time.Now()
 	//colTypes := []int8{
 	//	common.TSDB_DATA_TYPE_TIMESTAMP,
@@ -2976,7 +2936,7 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 			},
 		},
 	}}
-	bs, err = stmt.MarshalStmt2Binary(params2, true, colFields, tagFields)
+	bs, err = stmt.MarshalStmt2Binary(params2, true, fields)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3060,13 +3020,15 @@ func TestStmt2Query(t *testing.T) {
 	}
 	assert.True(t, isInsert)
 	now := time.Now().Round(time.Millisecond)
-	colTypes := []*stmt.StmtField{
+	colTypes := []*stmt.Stmt2AllField{
 		{
 			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
 			Precision: common.PrecisionMilliSecond,
+			BindType:  stmt.TAOS_FIELD_COL,
 		},
 		{
 			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  stmt.TAOS_FIELD_COL,
 		},
 	}
 	params := []*stmt.TaosStmt2BindData{
@@ -3097,7 +3059,7 @@ func TestStmt2Query(t *testing.T) {
 			},
 		},
 	}
-	err = TaosStmt2BindParam(stmt2, true, params, colTypes, nil, -1)
+	err = TaosStmt2BindParam(stmt2, true, params, colTypes, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3145,7 +3107,7 @@ func TestStmt2Query(t *testing.T) {
 		},
 	}
 
-	err = TaosStmt2BindParam(stmt2, false, params, nil, nil, -1)
+	err = TaosStmt2BindParam(stmt2, false, params, nil, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3254,13 +3216,15 @@ func TestStmt2QueryBytes(t *testing.T) {
 	}
 	assert.True(t, isInsert)
 	now := time.Now().Round(time.Millisecond)
-	colTypes := []*stmt.StmtField{
+	colTypes := []*stmt.Stmt2AllField{
 		{
 			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
 			Precision: common.PrecisionMilliSecond,
+			BindType:  stmt.TAOS_FIELD_COL,
 		},
 		{
 			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  stmt.TAOS_FIELD_COL,
 		},
 	}
 	params := []*stmt.TaosStmt2BindData{
@@ -3291,7 +3255,7 @@ func TestStmt2QueryBytes(t *testing.T) {
 			},
 		},
 	}
-	bs, err := stmt.MarshalStmt2Binary(params, true, colTypes, nil)
+	bs, err := stmt.MarshalStmt2Binary(params, true, colTypes)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3343,7 +3307,7 @@ func TestStmt2QueryBytes(t *testing.T) {
 			},
 		},
 	}
-	bs, err = stmt.MarshalStmt2Binary(params, false, nil, nil)
+	bs, err = stmt.MarshalStmt2Binary(params, false, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3458,23 +3422,23 @@ func TestStmt2QueryAllType(t *testing.T) {
 	handler := cgo.NewHandle(caller)
 	stmt2 := TaosStmt2Init(conn, 0xcc123, false, false, handler)
 	prepareInsertSql := "insert into t values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	colTypes := []*stmt.StmtField{
-		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond},
-		{FieldType: common.TSDB_DATA_TYPE_BOOL},
-		{FieldType: common.TSDB_DATA_TYPE_TINYINT},
-		{FieldType: common.TSDB_DATA_TYPE_SMALLINT},
-		{FieldType: common.TSDB_DATA_TYPE_INT},
-		{FieldType: common.TSDB_DATA_TYPE_BIGINT},
-		{FieldType: common.TSDB_DATA_TYPE_UTINYINT},
-		{FieldType: common.TSDB_DATA_TYPE_USMALLINT},
-		{FieldType: common.TSDB_DATA_TYPE_UINT},
-		{FieldType: common.TSDB_DATA_TYPE_UBIGINT},
-		{FieldType: common.TSDB_DATA_TYPE_FLOAT},
-		{FieldType: common.TSDB_DATA_TYPE_DOUBLE},
-		{FieldType: common.TSDB_DATA_TYPE_BINARY},
-		{FieldType: common.TSDB_DATA_TYPE_VARBINARY},
-		{FieldType: common.TSDB_DATA_TYPE_GEOMETRY},
-		{FieldType: common.TSDB_DATA_TYPE_NCHAR},
+	colTypes := []*stmt.Stmt2AllField{
+		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_BOOL, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_TINYINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_SMALLINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_INT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_BIGINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_UTINYINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_USMALLINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_UINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_UBIGINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_FLOAT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_DOUBLE, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_BINARY, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_VARBINARY, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_GEOMETRY, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_NCHAR, BindType: stmt.TAOS_FIELD_COL},
 	}
 
 	now := time.Now()
@@ -3578,7 +3542,7 @@ func TestStmt2QueryAllType(t *testing.T) {
 		return
 	}
 	assert.True(t, isInsert)
-	err = TaosStmt2BindParam(stmt2, true, params2, colTypes, nil, -1)
+	err = TaosStmt2BindParam(stmt2, true, params2, colTypes, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3636,7 +3600,7 @@ func TestStmt2QueryAllType(t *testing.T) {
 			},
 		},
 	}
-	err = TaosStmt2BindParam(stmt2, false, params, nil, nil, -1)
+	err = TaosStmt2BindParam(stmt2, false, params, nil, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3732,23 +3696,23 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 	handler := cgo.NewHandle(caller)
 	stmt2 := TaosStmt2Init(conn, 0xcc123, false, false, handler)
 	prepareInsertSql := "insert into t values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	colTypes := []*stmt.StmtField{
-		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond},
-		{FieldType: common.TSDB_DATA_TYPE_BOOL},
-		{FieldType: common.TSDB_DATA_TYPE_TINYINT},
-		{FieldType: common.TSDB_DATA_TYPE_SMALLINT},
-		{FieldType: common.TSDB_DATA_TYPE_INT},
-		{FieldType: common.TSDB_DATA_TYPE_BIGINT},
-		{FieldType: common.TSDB_DATA_TYPE_UTINYINT},
-		{FieldType: common.TSDB_DATA_TYPE_USMALLINT},
-		{FieldType: common.TSDB_DATA_TYPE_UINT},
-		{FieldType: common.TSDB_DATA_TYPE_UBIGINT},
-		{FieldType: common.TSDB_DATA_TYPE_FLOAT},
-		{FieldType: common.TSDB_DATA_TYPE_DOUBLE},
-		{FieldType: common.TSDB_DATA_TYPE_BINARY},
-		{FieldType: common.TSDB_DATA_TYPE_VARBINARY},
-		{FieldType: common.TSDB_DATA_TYPE_GEOMETRY},
-		{FieldType: common.TSDB_DATA_TYPE_NCHAR},
+	colTypes := []*stmt.Stmt2AllField{
+		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_BOOL, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_TINYINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_SMALLINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_INT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_BIGINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_UTINYINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_USMALLINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_UINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_UBIGINT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_FLOAT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_DOUBLE, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_BINARY, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_VARBINARY, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_GEOMETRY, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_NCHAR, BindType: stmt.TAOS_FIELD_COL},
 	}
 
 	now := time.Now()
@@ -3852,7 +3816,7 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 		return
 	}
 	assert.True(t, isInsert)
-	bs, err := stmt.MarshalStmt2Binary(params2, true, colTypes, nil)
+	bs, err := stmt.MarshalStmt2Binary(params2, true, colTypes)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3915,7 +3879,7 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 			},
 		},
 	}
-	bs, err = stmt.MarshalStmt2Binary(params, false, nil, nil)
+	bs, err = stmt.MarshalStmt2Binary(params, false, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4024,14 +3988,12 @@ func TestStmt2Json(t *testing.T) {
 			{int32(1)},
 		},
 	}}
-	colTypes := []*stmt.StmtField{
-		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond},
-		{FieldType: common.TSDB_DATA_TYPE_INT},
+	types := []*stmt.Stmt2AllField{
+		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_INT, BindType: stmt.TAOS_FIELD_COL},
+		{FieldType: common.TSDB_DATA_TYPE_JSON, BindType: stmt.TAOS_FIELD_TAG},
 	}
-	tagTypes := []*stmt.StmtField{
-		{FieldType: common.TSDB_DATA_TYPE_JSON},
-	}
-	err = TaosStmt2BindParam(stmt2, true, params, colTypes, tagTypes, -1)
+	err = TaosStmt2BindParam(stmt2, true, params, types, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4058,7 +4020,7 @@ func TestStmt2Json(t *testing.T) {
 			{int32(1)},
 		},
 	}}
-	err = TaosStmt2BindParam(stmt2, false, params, nil, nil, -1)
+	err = TaosStmt2BindParam(stmt2, false, params, nil, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4185,21 +4147,21 @@ func TestStmt2BindMultiTables(t *testing.T) {
 			Tags: []driver.Value{int32(3)},
 		},
 	}
-	colType := []*stmt.StmtField{
+	fields := []*stmt.Stmt2AllField{
 		{
 			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
 			Precision: common.PrecisionMilliSecond,
+			BindType:  stmt.TAOS_FIELD_COL,
 		},
 		{
 			FieldType: common.TSDB_DATA_TYPE_BIGINT,
+			BindType:  stmt.TAOS_FIELD_COL,
 		},
-	}
-	tagType := []*stmt.StmtField{
 		{
 			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  stmt.TAOS_FIELD_TAG,
 		},
 	}
-
 	isInsert, code := TaosStmt2IsInsert(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
@@ -4209,7 +4171,7 @@ func TestStmt2BindMultiTables(t *testing.T) {
 	}
 	assert.True(t, isInsert)
 
-	err = TaosStmt2BindParam(insertStmt, true, binds, colType, tagType, -1)
+	err = TaosStmt2BindParam(insertStmt, true, binds, fields, -1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4288,6 +4250,18 @@ func TestTaosStmt2BindBinaryParse(t *testing.T) {
 		args    args
 		wantErr assert.ErrorAssertionFunc
 	}{
+		{
+			name: "wrong data length",
+			args: args{
+				sql: "insert into ? values (?,?)",
+				data: []byte{
+					// total Length
+					0x00, 0x00, 0x00, 0x00,
+				},
+				colIdx: -1,
+			},
+			wantErr: assert.Error,
+		},
 		{
 			name: "normal table name",
 			args: args{
@@ -4902,40 +4876,6 @@ func TestTaosStmt2BindBinaryParse(t *testing.T) {
 			wantErr: assert.Error,
 		},
 		{
-			name: "wrong param count",
-			args: args{
-				sql: "insert into test1 values (?,?)",
-				data: []byte{
-					// total Length
-					0x3A, 0x00, 0x00, 0x00,
-					// tableCount
-					0x01, 0x00, 0x00, 0x00,
-					// TagCount
-					0x00, 0x00, 0x00, 0x00,
-					// ColCount
-					0x01, 0x00, 0x00, 0x00,
-					// TableNamesOffset
-					0x00, 0x00, 0x00, 0x00,
-					// TagsOffset
-					0x00, 0x00, 0x00, 0x00,
-					// ColOffset
-					0x1c, 0x00, 0x00, 0x00,
-					// cols
-					0x1a, 0x00, 0x00, 0x00,
-
-					0x1a, 0x00, 0x00, 0x00,
-					0x09, 0x00, 0x00, 0x00,
-					0x01, 0x00, 0x00, 0x00,
-					0x00,
-					0x00,
-					0x08, 0x00, 0x00, 0x00,
-					0xba, 0x08, 0x32, 0x27, 0x92, 0x01, 0x00, 0x00,
-				},
-				colIdx: -1,
-			},
-			wantErr: assert.Error,
-		},
-		{
 			name: "bind binary",
 			args: args{
 				sql: "insert into test2 values (?,?)",
@@ -5072,5 +5012,838 @@ func TestTaosStmt2BindBinaryParse(t *testing.T) {
 			}
 			tt.wantErr(t, TaosStmt2BindBinary(stmt2, tt.args.data, tt.args.colIdx), fmt.Sprintf("TaosStmt2BindBinary(%v, %v, %v)", stmt2, tt.args.data, tt.args.colIdx))
 		})
+	}
+}
+
+func TestTaosStmt2GetStbFields(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt2_stb_fields")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	err = exec(conn, "create database test_stmt2_stb_fields precision 'ns'")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "use test_stmt2_stb_fields")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "create table if not exists all_stb("+
+		"ts timestamp, "+
+		"v1 bool, "+
+		"v2 tinyint, "+
+		"v3 smallint, "+
+		"v4 int, "+
+		"v5 bigint, "+
+		"v6 tinyint unsigned, "+
+		"v7 smallint unsigned, "+
+		"v8 int unsigned, "+
+		"v9 bigint unsigned, "+
+		"v10 float, "+
+		"v11 double, "+
+		"v12 binary(20), "+
+		"v13 varbinary(20), "+
+		"v14 geometry(100), "+
+		"v15 nchar(20))"+
+		"tags("+
+		"tts timestamp, "+
+		"tv1 bool, "+
+		"tv2 tinyint, "+
+		"tv3 smallint, "+
+		"tv4 int, "+
+		"tv5 bigint, "+
+		"tv6 tinyint unsigned, "+
+		"tv7 smallint unsigned, "+
+		"tv8 int unsigned, "+
+		"tv9 bigint unsigned, "+
+		"tv10 float, "+
+		"tv11 double, "+
+		"tv12 binary(20), "+
+		"tv13 varbinary(20), "+
+		"tv14 geometry(100), "+
+		"tv15 nchar(20))")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "create table if not exists commontb("+
+		"ts timestamp, "+
+		"v1 bool, "+
+		"v2 tinyint, "+
+		"v3 smallint, "+
+		"v4 int, "+
+		"v5 bigint, "+
+		"v6 tinyint unsigned, "+
+		"v7 smallint unsigned, "+
+		"v8 int unsigned, "+
+		"v9 bigint unsigned, "+
+		"v10 float, "+
+		"v11 double, "+
+		"v12 binary(20), "+
+		"v13 varbinary(20), "+
+		"v14 geometry(100), "+
+		"v15 nchar(20))")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	expectMap := map[string]*stmt.Stmt2AllField{
+		"tts": {
+			Name:      "tts",
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: common.PrecisionNanoSecond,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv1": {
+			Name:      "tv1",
+			FieldType: common.TSDB_DATA_TYPE_BOOL,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv2": {
+			Name:      "tv2",
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv3": {
+			Name:      "tv3",
+			FieldType: common.TSDB_DATA_TYPE_SMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv4": {
+			Name:      "tv4",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv5": {
+			Name:      "tv5",
+			FieldType: common.TSDB_DATA_TYPE_BIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv6": {
+			Name:      "tv6",
+			FieldType: common.TSDB_DATA_TYPE_UTINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv7": {
+			Name:      "tv7",
+			FieldType: common.TSDB_DATA_TYPE_USMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv8": {
+			Name:      "tv8",
+			FieldType: common.TSDB_DATA_TYPE_UINT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv9": {
+			Name:      "tv9",
+			FieldType: common.TSDB_DATA_TYPE_UBIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv10": {
+			Name:      "tv10",
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv11": {
+			Name:      "tv11",
+			FieldType: common.TSDB_DATA_TYPE_DOUBLE,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv12": {
+			Name:      "tv12",
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv13": {
+			Name:      "tv13",
+			FieldType: common.TSDB_DATA_TYPE_VARBINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv14": {
+			Name:      "tv14",
+			FieldType: common.TSDB_DATA_TYPE_GEOMETRY,
+			Bytes:     102,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv15": {
+			Name:      "tv15",
+			FieldType: common.TSDB_DATA_TYPE_NCHAR,
+			Bytes:     82,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"ts": {
+			Name:      "ts",
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: common.PrecisionNanoSecond,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v1": {
+			Name:      "v1",
+			FieldType: common.TSDB_DATA_TYPE_BOOL,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v2": {
+			Name:      "v2",
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v3": {
+			Name:      "v3",
+			FieldType: common.TSDB_DATA_TYPE_SMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v4": {
+			Name:      "v4",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v5": {
+			Name:      "v5",
+			FieldType: common.TSDB_DATA_TYPE_BIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v6": {
+			Name:      "v6",
+			FieldType: common.TSDB_DATA_TYPE_UTINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v7": {
+			Name:      "v7",
+			FieldType: common.TSDB_DATA_TYPE_USMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v8": {
+			Name:      "v8",
+			FieldType: common.TSDB_DATA_TYPE_UINT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v9": {
+			Name:      "v9",
+			FieldType: common.TSDB_DATA_TYPE_UBIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v10": {
+			Name:      "v10",
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v11": {
+			Name:      "v11",
+			FieldType: common.TSDB_DATA_TYPE_DOUBLE,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v12": {
+			Name:      "v12",
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v13": {
+			Name:      "v13",
+			FieldType: common.TSDB_DATA_TYPE_VARBINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v14": {
+			Name:      "v14",
+			FieldType: common.TSDB_DATA_TYPE_GEOMETRY,
+			Bytes:     102,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v15": {
+			Name:      "v15",
+			FieldType: common.TSDB_DATA_TYPE_NCHAR,
+			Bytes:     82,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"tbname": {
+			Name:      "tbname",
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			Bytes:     271,
+			BindType:  stmt.TAOS_FIELD_TBNAME,
+		},
+	}
+	tests := []struct {
+		name   string
+		sql    string
+		expect []string
+	}{
+		{
+			name:   "with subTableName",
+			sql:    "insert into tb1 using all_stb tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			expect: []string{"tts", "tv1", "tv2", "tv3", "tv4", "tv5", "tv6", "tv7", "tv8", "tv9", "tv10", "tv11", "tv12", "tv13", "tv14", "tv15", "ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"},
+		},
+		{
+			name:   "using stb",
+			sql:    "insert into ? using all_stb tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			expect: []string{"tbname", "tts", "tv1", "tv2", "tv3", "tv4", "tv5", "tv6", "tv7", "tv8", "tv9", "tv10", "tv11", "tv12", "tv13", "tv14", "tv15", "ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"},
+		},
+		{
+			name:   "tbname as value",
+			sql:    "insert into all_stb (tbname,tts,tv1,tv2,tv3,tv4,tv5,tv6,tv7,tv8,tv9,tv10,tv11,tv12,tv13,tv14,tv15,ts,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			expect: []string{"tbname", "tts", "tv1", "tv2", "tv3", "tv4", "tv5", "tv6", "tv7", "tv8", "tv9", "tv10", "tv11", "tv12", "tv13", "tv14", "tv15", "ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"},
+		},
+		{
+			name:   "tbname as value random",
+			sql:    "insert into all_stb (ts,v1,v2,v3,v4,v5,v6,tts,tv1,tv2,tv3,tv4,tv5,tv6,tv7,tv8,tv9,tv10,tv11,tv12,tv13,tv14,tbname,tv15,v7,v8,v9,v10,v11,v12,v13,v14,v15) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			expect: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "tts", "tv1", "tv2", "tv3", "tv4", "tv5", "tv6", "tv7", "tv8", "tv9", "tv10", "tv11", "tv12", "tv13", "tv14", "tbname", "tv15", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"},
+		},
+		{
+			name:   "common table",
+			sql:    "insert into commontb values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			expect: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"},
+		},
+	}
+	for _, tt := range tests {
+		caller := NewStmtCallBackTest()
+		handler := cgo.NewHandle(caller)
+		stmt2 := TaosStmt2Init(conn, 0xed123, false, false, handler)
+		defer TaosStmt2Close(stmt2)
+		code := TaosStmt2Prepare(stmt2, tt.sql)
+		if code != 0 {
+			errStr := TaosStmt2Error(stmt2)
+			err := taosError.NewError(code, errStr)
+			t.Error(err)
+			return
+		}
+		code, count, fields := TaosStmt2GetFields(stmt2)
+		if code != 0 {
+			errStr := TaosStmt2Error(stmt2)
+			err := taosError.NewError(code, errStr)
+			t.Error(err)
+			return
+		}
+		fs := Stmt2ParseAllFields(count, fields)
+		TaosStmt2FreeFields(stmt2, fields)
+		expect := make([]*stmt.Stmt2AllField, len(tt.expect))
+		for i := 0; i < len(tt.expect); i++ {
+			assert.Equal(t, expectMap[tt.expect[i]].Name, fs[i].Name)
+			assert.Equal(t, expectMap[tt.expect[i]].FieldType, fs[i].FieldType)
+			assert.Equal(t, expectMap[tt.expect[i]].Bytes, fs[i].Bytes)
+			assert.Equal(t, expectMap[tt.expect[i]].BindType, fs[i].BindType)
+			if expectMap[tt.expect[i]].FieldType == common.TSDB_DATA_TYPE_TIMESTAMP {
+				assert.Equal(t, expectMap[tt.expect[i]].Precision, fs[i].Precision)
+			}
+			expect[i] = expectMap[tt.expect[i]]
+		}
+	}
+
+	caller := NewStmtCallBackTest()
+	handler := cgo.NewHandle(caller)
+	stmt2 := TaosStmt2Init(conn, 0xfd123, false, false, handler)
+	defer TaosStmt2Close(stmt2)
+	code := TaosStmt2Prepare(stmt2, "select * from commontb where ts = ? and v1 = ?")
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err := taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	code, count, fields := TaosStmt2GetFields(stmt2)
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err := taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	TaosStmt2FreeFields(stmt2, fields)
+	assert.Equal(t, 2, count)
+}
+
+func TestWrongParseStmt2StbFields(t *testing.T) {
+	fs := Stmt2ParseAllFields(0, nil)
+	assert.Nil(t, fs)
+	fs = Stmt2ParseAllFields(2, nil)
+	assert.Nil(t, fs)
+}
+
+func TestStmt2BindTbnameAsValue(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt2_bind_tbname_as_value")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	err = exec(conn, "create database if not exists test_stmt2_bind_tbname_as_value precision 'ns' keep 36500")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "use test_stmt2_bind_tbname_as_value")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "create table if not exists all_stb("+
+		"ts timestamp, "+
+		"v1 bool, "+
+		"v2 tinyint, "+
+		"v3 smallint, "+
+		"v4 int, "+
+		"v5 bigint, "+
+		"v6 tinyint unsigned, "+
+		"v7 smallint unsigned, "+
+		"v8 int unsigned, "+
+		"v9 bigint unsigned, "+
+		"v10 float, "+
+		"v11 double, "+
+		"v12 binary(20), "+
+		"v13 varbinary(20), "+
+		"v14 geometry(100), "+
+		"v15 nchar(20))"+
+		"tags("+
+		"tts timestamp, "+
+		"tv1 bool, "+
+		"tv2 tinyint, "+
+		"tv3 smallint, "+
+		"tv4 int, "+
+		"tv5 bigint, "+
+		"tv6 tinyint unsigned, "+
+		"tv7 smallint unsigned, "+
+		"tv8 int unsigned, "+
+		"tv9 bigint unsigned, "+
+		"tv10 float, "+
+		"tv11 double, "+
+		"tv12 binary(20), "+
+		"tv13 varbinary(20), "+
+		"tv14 geometry(100), "+
+		"tv15 nchar(20))")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	caller := NewStmtCallBackTest()
+	handler := cgo.NewHandle(caller)
+	insertStmt := TaosStmt2Init(conn, 0xff1234, false, false, handler)
+	prepareInsertSql := "insert into all_stb (ts ,v1 ,v2 ,v3 ,v4 ,v5 ,v6 ,v7 ,v8 ,v9 ,v10,v11,v12,v13,v14,v15,tbname,tts,tv1 ,tv2 ,tv3 ,tv4 ,tv5 ,tv6 ,tv7 ,tv8 ,tv9 ,tv10,tv11,tv12,tv13,tv14,tv15)  values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	code := TaosStmt2Prepare(insertStmt, prepareInsertSql)
+	if code != 0 {
+		errStr := TaosStmt2Error(insertStmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+
+	isInsert, code := TaosStmt2IsInsert(insertStmt)
+	if code != 0 {
+		errStr := TaosStmt2Error(insertStmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	assert.True(t, isInsert)
+
+	code, count, cFields := TaosStmt2GetFields(insertStmt)
+	if code != 0 {
+		errStr := TaosStmt2Error(insertStmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	defer TaosStmt2FreeFields(insertStmt, cFields)
+	assert.Equal(t, 33, count)
+	fields := Stmt2ParseAllFields(count, cFields)
+	assert.Equal(t, 33, len(fields))
+	expectMap := map[string]*stmt.Stmt2AllField{
+		"tts": {
+			Name:      "tts",
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: common.PrecisionNanoSecond,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv1": {
+			Name:      "tv1",
+			FieldType: common.TSDB_DATA_TYPE_BOOL,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv2": {
+			Name:      "tv2",
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv3": {
+			Name:      "tv3",
+			FieldType: common.TSDB_DATA_TYPE_SMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv4": {
+			Name:      "tv4",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv5": {
+			Name:      "tv5",
+			FieldType: common.TSDB_DATA_TYPE_BIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv6": {
+			Name:      "tv6",
+			FieldType: common.TSDB_DATA_TYPE_UTINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv7": {
+			Name:      "tv7",
+			FieldType: common.TSDB_DATA_TYPE_USMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv8": {
+			Name:      "tv8",
+			FieldType: common.TSDB_DATA_TYPE_UINT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv9": {
+			Name:      "tv9",
+			FieldType: common.TSDB_DATA_TYPE_UBIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv10": {
+			Name:      "tv10",
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv11": {
+			Name:      "tv11",
+			FieldType: common.TSDB_DATA_TYPE_DOUBLE,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv12": {
+			Name:      "tv12",
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv13": {
+			Name:      "tv13",
+			FieldType: common.TSDB_DATA_TYPE_VARBINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv14": {
+			Name:      "tv14",
+			FieldType: common.TSDB_DATA_TYPE_GEOMETRY,
+			Bytes:     102,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"tv15": {
+			Name:      "tv15",
+			FieldType: common.TSDB_DATA_TYPE_NCHAR,
+			Bytes:     82,
+			BindType:  stmt.TAOS_FIELD_TAG,
+		},
+		"ts": {
+			Name:      "ts",
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: common.PrecisionNanoSecond,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v1": {
+			Name:      "v1",
+			FieldType: common.TSDB_DATA_TYPE_BOOL,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v2": {
+			Name:      "v2",
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v3": {
+			Name:      "v3",
+			FieldType: common.TSDB_DATA_TYPE_SMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v4": {
+			Name:      "v4",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v5": {
+			Name:      "v5",
+			FieldType: common.TSDB_DATA_TYPE_BIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v6": {
+			Name:      "v6",
+			FieldType: common.TSDB_DATA_TYPE_UTINYINT,
+			Bytes:     1,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v7": {
+			Name:      "v7",
+			FieldType: common.TSDB_DATA_TYPE_USMALLINT,
+			Bytes:     2,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v8": {
+			Name:      "v8",
+			FieldType: common.TSDB_DATA_TYPE_UINT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v9": {
+			Name:      "v9",
+			FieldType: common.TSDB_DATA_TYPE_UBIGINT,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v10": {
+			Name:      "v10",
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			Bytes:     4,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v11": {
+			Name:      "v11",
+			FieldType: common.TSDB_DATA_TYPE_DOUBLE,
+			Bytes:     8,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v12": {
+			Name:      "v12",
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v13": {
+			Name:      "v13",
+			FieldType: common.TSDB_DATA_TYPE_VARBINARY,
+			Bytes:     22,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v14": {
+			Name:      "v14",
+			FieldType: common.TSDB_DATA_TYPE_GEOMETRY,
+			Bytes:     102,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"v15": {
+			Name:      "v15",
+			FieldType: common.TSDB_DATA_TYPE_NCHAR,
+			Bytes:     82,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+		"tbname": {
+			Name:      "tbname",
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			Bytes:     271,
+			BindType:  stmt.TAOS_FIELD_TBNAME,
+		},
+	}
+
+	for i := 0; i < 33; i++ {
+		expect := expectMap[fields[i].Name]
+		assert.Equal(t, expect, fields[i])
+	}
+
+	now := time.Now()
+	params2 := []*stmt.TaosStmt2BindData{{
+		TableName: "ctb1",
+		Tags: []driver.Value{
+			// TIMESTAMP
+			now,
+			// BOOL
+			true,
+			// TINYINT
+			int8(1),
+			// SMALLINT
+			int16(1),
+			// INT
+			int32(1),
+			// BIGINT
+			int64(1),
+			// UTINYINT
+			uint8(1),
+			// USMALLINT
+			uint16(1),
+			// UINT
+			uint32(1),
+			// UBIGINT
+			uint64(1),
+			// FLOAT
+			float32(1.2),
+			// DOUBLE
+			float64(1.2),
+			// BINARY
+			[]byte("binary"),
+			// VARBINARY
+			[]byte("varbinary"),
+			// GEOMETRY
+			[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+			// NCHAR
+			"nchar",
+		},
+		Cols: [][]driver.Value{
+			{
+				now,
+				now.Add(time.Second),
+				now.Add(time.Second * 2),
+			},
+			{
+				true,
+				nil,
+				false,
+			},
+			{
+				int8(11),
+				nil,
+				int8(12),
+			},
+			{
+				int16(11),
+				nil,
+				int16(12),
+			},
+			{
+				int32(11),
+				nil,
+				int32(12),
+			},
+			{
+				int64(11),
+				nil,
+				int64(12),
+			},
+			{
+				uint8(11),
+				nil,
+				uint8(12),
+			},
+			{
+				uint16(11),
+				nil,
+				uint16(12),
+			},
+			{
+				uint32(11),
+				nil,
+				uint32(12),
+			},
+			{
+				uint64(11),
+				nil,
+				uint64(12),
+			},
+			{
+				float32(11.2),
+				nil,
+				float32(12.2),
+			},
+			{
+				float64(11.2),
+				nil,
+				float64(12.2),
+			},
+			{
+				[]byte("binary1"),
+				nil,
+				[]byte("binary2"),
+			},
+			{
+				[]byte("varbinary1"),
+				nil,
+				[]byte("varbinary2"),
+			},
+			{
+				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+				nil,
+				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+			},
+			{
+				"nchar1",
+				nil,
+				"nchar2",
+			},
+		},
+	}}
+	bs, err := stmt.MarshalStmt2Binary(params2, true, fields)
+	assert.NoError(t, err)
+	err = TaosStmt2BindBinary(insertStmt, bs, -1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	code = TaosStmt2Exec(insertStmt)
+	if code != 0 {
+		errStr := TaosStmt2Error(insertStmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	r := <-caller.ExecResult
+	if r.n != 0 {
+		errStr := TaosStmt2Error(insertStmt)
+		err = taosError.NewError(r.n, errStr)
+		t.Error(err)
+		return
+	}
+	assert.Equal(t, 3, r.affected)
+
+	code = TaosStmt2Close(insertStmt)
+	if code != 0 {
+		errStr := TaosStmt2Error(insertStmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
 	}
 }
