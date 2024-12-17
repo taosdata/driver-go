@@ -1,6 +1,7 @@
 package wrapper
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"fmt"
 	"testing"
@@ -5845,5 +5846,16 @@ func TestStmt2BindTbnameAsValue(t *testing.T) {
 		err = taosError.NewError(code, errStr)
 		t.Error(err)
 		return
+	}
+}
+
+func TestToUnsafeBytes(t *testing.T) {
+	s := "str"
+	if !bytes.Equal([]byte("str"), ToUnsafeBytes(s)) {
+		t.Fatalf(`[]bytes(%s) doesnt equal to %s `, s, s)
+	}
+	s = ""
+	if !bytes.Equal([]byte(""), ToUnsafeBytes(s)) {
+		t.Fatalf(`[]bytes(%s) doesnt equal to %s `, s, s)
 	}
 }
