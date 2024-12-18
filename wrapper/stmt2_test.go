@@ -5849,6 +5849,66 @@ func TestStmt2BindTbnameAsValue(t *testing.T) {
 	}
 }
 
+func TestStmt2BindError(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer TaosClose(conn)
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt2_bind_error")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	err = exec(conn, "create database if not exists test_stmt2_bind_error precision 'ns' keep 36500")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = exec(conn, "use test_stmt2_bind_error")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	caller := NewStmtCallBackTest()
+	handler := cgo.NewHandle(caller)
+	stmt2 := TaosStmt2Init(conn, 0xff1234, false, false, handler)
+	defer func() {
+		code := TaosStmt2Close(stmt2)
+		if code != 0 {
+			errStr := TaosStmt2Error(stmt2)
+			err = taosError.NewError(code, errStr)
+			t.Error(err)
+			return
+		}
+	}()
+	fields := []*stmt.Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			BindType:  stmt.TAOS_FIELD_COL,
+			Precision: TSDB_SML_TIMESTAMP_NANO_SECONDS,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  stmt.TAOS_FIELD_COL,
+		},
+	}
+	params := []*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{time.Now()},
+				{int32(1)},
+			},
+		},
+	}
+	// without prepare
+	err = TaosStmt2BindParam(stmt2, false, params, fields, -1)
+	assert.Error(t, err)
+}
+
 func TestToUnsafeBytes(t *testing.T) {
 	s := "str"
 	if !bytes.Equal([]byte("str"), ToUnsafeBytes(s)) {
