@@ -581,8 +581,22 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 		params     []*param2.Param
 		bindType   *param2.ColumnType
 	}{
-		{"set_table_name_sub_int", "1,'int'", "ts timestamp, `value` int", "?, ?", []*param2.Param{param2.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param2.NewParam(1).AddInt(1)}, param2.NewColumnType(2).AddTimestamp().AddInt()},
-		{"set_table_name_sub_nchar", "2,'nchar'", "ts timestamp, `value` nchar(8)", "?, ?", []*param2.Param{param2.NewParam(1).AddTimestamp(time.Now(), common.PrecisionMicroSecond), param2.NewParam(1).AddNchar("ttt")}, param2.NewColumnType(2).AddTimestamp().AddNchar(1)},
+		{
+			sTableName: "set_table_name_sub_int",
+			tags:       "1,'int'",
+			tbType:     "ts timestamp, `value` int",
+			pos:        "?, ?",
+			params:     []*param2.Param{param2.NewParam(1).AddTimestamp(now, common.PrecisionMicroSecond), param2.NewParam(1).AddInt(1)},
+			bindType:   param2.NewColumnType(2).AddTimestamp().AddInt(),
+		},
+		{
+			sTableName: "set_table_name_sub_nchar",
+			tags:       "2,'nchar'",
+			tbType:     "ts timestamp, `value` nchar(8)",
+			pos:        "?, ?",
+			params:     []*param2.Param{param2.NewParam(1).AddTimestamp(time.Now(), common.PrecisionMicroSecond), param2.NewParam(1).AddNchar("ttt")},
+			bindType:   param2.NewColumnType(2).AddTimestamp().AddNchar(5),
+		},
 	} {
 		tbName := fmt.Sprintf("test_fast_insert_with_sub_table_name_%02d", i)
 		tbType := tc.tbType

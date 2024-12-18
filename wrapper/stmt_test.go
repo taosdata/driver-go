@@ -898,7 +898,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		return
 	}
 	code, num, _ := TaosStmtGetTagFields(stmt)
-	assert.Equal(t, 0, code)
+	assert.NotEqual(t, 0, code)
 	assert.Equal(t, 0, num)
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {

@@ -28,6 +28,7 @@ func TestWhitelistCallback_Success(t *testing.T) {
 		192, 168, 1, 1, 24, // 192.168.1.1/24
 		0, 0, 0,
 		10, 0, 0, 1, 16, // 10.0.0.1/16
+		0, 0, 0,
 	}
 
 	// Create a channel to receive the result
