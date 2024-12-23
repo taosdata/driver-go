@@ -11,52 +11,239 @@ import (
 // @description: test parse dsn
 func TestParseDsn(t *testing.T) {
 	tcs := []struct {
-		name       string
-		dsn        string
-		errs       string
-		user       string
-		passwd     string
-		net        string
-		addr       string
-		port       int
-		dbName     string
-		token      string
-		skipVerify bool
-	}{{},
-		{name: "invalid", dsn: "abcd", errs: "invalid DSN: missing the slash separating the database name"},
-		{name: "normal", dsn: "user:passwd@http(fqdn:6041)/dbname", user: "user", passwd: "passwd", net: "http", addr: "fqdn", port: 6041, dbName: "dbname"},
-		{name: "invalid addr", dsn: "user:passwd@http()/dbname", errs: "invalid DSN: network address not terminated (missing closing brace)"},
-		{name: "default addr", dsn: "user:passwd@http(:)/dbname", user: "user", passwd: "passwd", net: "http", dbName: "dbname"},
-		{name: "0port", dsn: "user:passwd@http(:0)/dbname", user: "user", passwd: "passwd", net: "http", dbName: "dbname"},
-		{name: "no db", dsn: "user:passwd@https(:0)/", user: "user", passwd: "passwd", net: "https"},
-		{name: "params", dsn: "user:passwd@https(:0)/?interpolateParams=false&test=1", user: "user", passwd: "passwd", net: "https"},
-		{name: "token", dsn: "user:passwd@https(:0)/?interpolateParams=false&token=token", user: "user", passwd: "passwd", net: "https", token: "token"},
-		{name: "skipVerify", dsn: "user:passwd@https(:0)/?interpolateParams=false&token=token&skipVerify=true", user: "user", passwd: "passwd", net: "https", token: "token", skipVerify: true},
+		name string
+		dsn  string
+		errs string
+		want *Config
+	}{
 		{
-			name:       "skipVerify",
-			dsn:        "user:passwd@https(:0)/?interpolateParams=false&token=token&skipVerify=true",
-			user:       "user",
-			passwd:     "passwd",
-			net:        "https",
-			token:      "token",
-			skipVerify: true,
+			name: "invalid",
+			dsn:  "abcd",
+			errs: "invalid DSN: missing the slash separating the database name",
 		},
 		{
-			name:   "special char",
-			dsn:    "!%40%23%24%25%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.:!%40%23%24%25%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.@https(:)/dbname",
-			user:   "!@#$%^&*()-_+=[]{}:;><?|~,.",
-			passwd: "!@#$%^&*()-_+=[]{}:;><?|~,.",
-			net:    "https",
-			dbName: "dbname",
+			name: "normal",
+			dsn:  "user:passwd@http(fqdn:6041)/dbname",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "http",
+				Addr:               "fqdn",
+				Port:               6041,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
+		},
+		{
+			name: "invalid addr",
+			dsn:  "user:passwd@http()/dbname",
+			errs: "invalid DSN: network address not terminated (missing closing brace)",
+		},
+		{
+			name: "default addr",
+			dsn:  "user:passwd@http(:)/dbname",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "http",
+				Addr:               "",
+				Port:               0,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
+		},
+		{
+			name: "0port",
+			dsn:  "user:passwd@http(:0)/dbname",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "http",
+				Addr:               "",
+				Port:               0,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
+		},
+		{
+			name: "no db",
+			dsn:  "user:passwd@https(:0)/",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
+		},
+		{
+			name: "params",
+			dsn:  "user:passwd@https(:0)/?interpolateParams=false&test=1",
+			want: &Config{
+				User:   "user",
+				Passwd: "passwd",
+				Net:    "https",
+				Addr:   "",
+				Port:   0,
+				DbName: "",
+				Params: map[string]string{
+					"test": "1",
+				},
+				InterpolateParams:  false,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
+		},
+		{
+			name: "token",
+			dsn:  "user:passwd@https(:0)/?interpolateParams=false&token=token",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "",
+				Params:             nil,
+				InterpolateParams:  false,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "token",
+				SkipVerify:         false,
+			},
+		},
+		{
+			name: "skipVerify",
+			dsn:  "user:passwd@https(:0)/?interpolateParams=false&token=token&skipVerify=true",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "",
+				Params:             nil,
+				InterpolateParams:  false,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "token",
+				SkipVerify:         true,
+			},
+		},
+		{
+			name: "skipVerify",
+			dsn:  "user:passwd@https(:0)/?interpolateParams=false&token=token&skipVerify=true",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "",
+				Params:             nil,
+				InterpolateParams:  false,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "token",
+				SkipVerify:         true,
+			},
+		},
+		{
+			name: "readBufferSize",
+			dsn:  "user:passwd@https(:0)/?interpolateParams=false&token=token&skipVerify=true&readBufferSize=8192",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "",
+				Params:             nil,
+				InterpolateParams:  false,
+				DisableCompression: true,
+				ReadBufferSize:     8192,
+				Token:              "token",
+				SkipVerify:         true,
+			},
+		},
+		{
+			name: "disableCompression",
+			dsn:  "user:passwd@https(:0)/?interpolateParams=false&token=token&skipVerify=true&readBufferSize=8192&disableCompression=false",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "",
+				Params:             nil,
+				InterpolateParams:  false,
+				DisableCompression: false,
+				ReadBufferSize:     8192,
+				Token:              "token",
+				SkipVerify:         true,
+			},
+		},
+		{
+			name: "special char",
+			dsn:  "!%40%23%24%25%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.:!%40%23%24%25%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.@https(:)/dbname",
+			want: &Config{
+				User:               "!@#$%^&*()-_+=[]{}:;><?|~,.",
+				Passwd:             "!@#$%^&*()-_+=[]{}:;><?|~,.",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
 		},
 		//encodeURIComponent('!q@w#a$1%3^&*()-_+=[]{}:;><?|~,.')
 		{
-			name:   "special char2",
-			dsn:    "!q%40w%23a%241%253%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.:!q%40w%23a%241%253%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.@https(:)/dbname",
-			user:   "!q@w#a$1%3^&*()-_+=[]{}:;><?|~,.",
-			passwd: "!q@w#a$1%3^&*()-_+=[]{}:;><?|~,.",
-			net:    "https",
-			dbName: "dbname",
+			name: "special char2",
+			dsn:  "!q%40w%23a%241%253%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.:!q%40w%23a%241%253%5E%26*()-_%2B%3D%5B%5D%7B%7D%3A%3B%3E%3C%3F%7C~%2C.@https(:)/dbname",
+			want: &Config{
+				User:               "!q@w#a$1%3^&*()-_+=[]{}:;><?|~,.",
+				Passwd:             "!q@w#a$1%3^&*()-_+=[]{}:;><?|~,.",
+				Net:                "https",
+				Addr:               "",
+				Port:               0,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
 		},
 	}
 	for _, tc := range tcs {
@@ -69,16 +256,7 @@ func TestParseDsn(t *testing.T) {
 				return
 			}
 
-			if cfg.User != tc.user ||
-				cfg.DbName != tc.dbName ||
-				cfg.Passwd != tc.passwd ||
-				cfg.Net != tc.net ||
-				cfg.Addr != tc.addr ||
-				cfg.Port != tc.port ||
-				cfg.Token != tc.token ||
-				cfg.SkipVerify != tc.skipVerify {
-				t.Fatal(cfg)
-			}
+			assert.Equal(t, tc.want, cfg)
 		})
 	}
 }
