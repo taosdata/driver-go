@@ -1,6 +1,7 @@
 package taosWS
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -294,4 +295,17 @@ func TestNewConnector(t *testing.T) {
 	if err := db.Ping(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestOpen(t *testing.T) {
+	tdDriver := &TDengineDriver{}
+	conn, err := tdDriver.Open(dataSourceName)
+	assert.NoError(t, err)
+	defer func() {
+		err := conn.Close()
+		assert.NoError(t, err)
+	}()
+	pinger := conn.(driver.Pinger)
+	err = pinger.Ping(context.Background())
+	assert.NoError(t, err)
 }
