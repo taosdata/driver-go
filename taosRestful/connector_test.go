@@ -533,7 +533,7 @@ func TestSSL(t *testing.T) {
 
 func TestConnect(t *testing.T) {
 	conn := connector{
-		cfg: &config{},
+		cfg: &Config{},
 	}
 	db, err := conn.Connect(context.Background())
 	assert.NoError(t, err)

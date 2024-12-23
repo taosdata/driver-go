@@ -289,3 +289,18 @@ func TestChinese(t *testing.T) {
 	}
 	assert.Equal(t, 1, counter)
 }
+
+func TestNewConnector(t *testing.T) {
+	cfg, err := ParseDSN(dataSourceName)
+	assert.NoError(t, err)
+	conn, err := NewConnector(cfg)
+	assert.NoError(t, err)
+	db := sql.OpenDB(conn)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
+	if err := db.Ping(); err != nil {
+		t.Fatal(err)
+	}
+}

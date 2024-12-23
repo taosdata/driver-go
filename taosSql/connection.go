@@ -13,7 +13,7 @@ import (
 
 type taosConn struct {
 	taos unsafe.Pointer
-	cfg  *config
+	cfg  *Config
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {
@@ -82,7 +82,7 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 		return nil, err
 	}
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try to interpolate the parameters to save extra round trips for preparing and closing a statement
@@ -129,7 +129,7 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		return nil, err
 	}
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try client-side prepare to reduce round trip
