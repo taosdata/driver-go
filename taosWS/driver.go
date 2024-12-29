@@ -13,7 +13,7 @@ type TDengineDriver struct{}
 // Open new Connection.
 // the DSN string is formatted
 func (d TDengineDriver) Open(dsn string) (driver.Conn, error) {
-	cfg, err := parseDSN(dsn)
+	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -25,4 +25,20 @@ func (d TDengineDriver) Open(dsn string) (driver.Conn, error) {
 
 func init() {
 	sql.Register("taosWS", &TDengineDriver{})
+}
+
+// NewConnector returns new driver.Connector.
+func NewConnector(cfg *Config) (driver.Connector, error) {
+	return &connector{cfg: cfg}, nil
+}
+
+// OpenConnector implements driver.DriverContext.
+func (d TDengineDriver) OpenConnector(dsn string) (driver.Connector, error) {
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		return nil, err
+	}
+	return &connector{
+		cfg: cfg,
+	}, nil
 }

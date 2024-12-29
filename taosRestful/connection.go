@@ -24,7 +24,7 @@ import (
 var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type taosConn struct {
-	cfg            *config
+	cfg            *Config
 	client         *http.Client
 	url            *url.URL
 	baseRawQuery   string
@@ -32,8 +32,8 @@ type taosConn struct {
 	readBufferSize int
 }
 
-func newTaosConn(cfg *config) (*taosConn, error) {
-	readBufferSize := cfg.readBufferSize
+func newTaosConn(cfg *Config) (*taosConn, error) {
+	readBufferSize := cfg.ReadBufferSize
 	if readBufferSize <= 0 {
 		readBufferSize = 4 << 10
 	}
@@ -47,9 +47,9 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		DisableCompression:    cfg.disableCompression,
+		DisableCompression:    cfg.DisableCompression,
 	}
-	if cfg.skipVerify {
+	if cfg.SkipVerify {
 		transport.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
@@ -58,24 +58,24 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 		Transport: transport,
 	}
 	path := "/rest/sql"
-	if len(cfg.dbName) != 0 {
-		path = fmt.Sprintf("%s/%s", path, cfg.dbName)
+	if len(cfg.DbName) != 0 {
+		path = fmt.Sprintf("%s/%s", path, cfg.DbName)
 	}
 	tc.url = &url.URL{
-		Scheme: cfg.net,
-		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
+		Scheme: cfg.Net,
+		Host:   fmt.Sprintf("%s:%d", cfg.Addr, cfg.Port),
 		Path:   path,
 	}
 	tc.header = map[string][]string{
 		"Connection": {"keep-alive"},
 	}
-	if cfg.token != "" {
-		tc.baseRawQuery = fmt.Sprintf("token=%s", cfg.token)
+	if cfg.Token != "" {
+		tc.baseRawQuery = fmt.Sprintf("token=%s", cfg.Token)
 	} else {
-		basic := base64.StdEncoding.EncodeToString([]byte(cfg.user + ":" + cfg.passwd))
+		basic := base64.StdEncoding.EncodeToString([]byte(cfg.User + ":" + cfg.Passwd))
 		tc.header["Authorization"] = []string{fmt.Sprintf("Basic %s", basic)}
 	}
-	if !cfg.disableCompression {
+	if !cfg.DisableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
 	}
 	return tc, nil
@@ -103,7 +103,7 @@ func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver
 
 func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try to interpolate the parameters to save extra round trips for preparing and closing a statement
@@ -129,7 +129,7 @@ func (tc *taosConn) QueryContext(ctx context.Context, query string, args []drive
 
 func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try client-side prepare to reduce round trip
@@ -202,7 +202,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	}
 	respBody := resp.Body
 	defer ioutil.ReadAll(respBody)
-	if !tc.cfg.disableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
+	if !tc.cfg.DisableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
 		respBody, err = gzip.NewReader(resp.Body)
 		if err != nil {
 			return nil, err

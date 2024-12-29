@@ -51,7 +51,7 @@ type taosConn struct {
 	writeLock    sync.Mutex
 	readTimeout  time.Duration
 	writeTimeout time.Duration
-	cfg          *config
+	cfg          *Config
 	messageChan  chan *message
 	messageError error
 	endpoint     string
@@ -65,23 +65,23 @@ type message struct {
 	err     error
 }
 
-func newTaosConn(cfg *config) (*taosConn, error) {
+func newTaosConn(cfg *Config) (*taosConn, error) {
 	endpointUrl := &url.URL{
-		Scheme: cfg.net,
-		Host:   fmt.Sprintf("%s:%d", cfg.addr, cfg.port),
+		Scheme: cfg.Net,
+		Host:   fmt.Sprintf("%s:%d", cfg.Addr, cfg.Port),
 		Path:   "/ws",
 	}
-	if cfg.token != "" {
-		endpointUrl.RawQuery = fmt.Sprintf("token=%s", cfg.token)
+	if cfg.Token != "" {
+		endpointUrl.RawQuery = fmt.Sprintf("token=%s", cfg.Token)
 	}
 	endpoint := endpointUrl.String()
 	dialer := common.DefaultDialer
-	dialer.EnableCompression = cfg.enableCompression
+	dialer.EnableCompression = cfg.EnableCompression
 	ws, _, err := dialer.Dial(endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	ws.EnableWriteCompression(cfg.enableCompression)
+	ws.EnableWriteCompression(cfg.EnableCompression)
 	ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 	ws.SetPongHandler(func(string) error {
 		ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
@@ -90,8 +90,8 @@ func newTaosConn(cfg *config) (*taosConn, error) {
 	tc := &taosConn{
 		buf:          &bytes.Buffer{},
 		client:       ws,
-		readTimeout:  cfg.readTimeout,
-		writeTimeout: cfg.writeTimeout,
+		readTimeout:  cfg.ReadTimeout,
+		writeTimeout: cfg.WriteTimeout,
 		cfg:          cfg,
 		endpoint:     endpoint,
 		closeCh:      make(chan struct{}),
@@ -518,7 +518,7 @@ func (tc *taosConn) doQuery(ctx context.Context, query string, args []driver.Nam
 		return nil, err
 	}
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try client-side prepare to reduce round trip
@@ -558,9 +558,9 @@ func (tc *taosConn) Ping(ctx context.Context) (err error) {
 func (tc *taosConn) connect() error {
 	req := &WSConnectReq{
 		ReqID:    0,
-		User:     tc.cfg.user,
-		Password: tc.cfg.passwd,
-		DB:       tc.cfg.dbName,
+		User:     tc.cfg.User,
+		Password: tc.cfg.Passwd,
+		DB:       tc.cfg.DbName,
 	}
 	args, err := jsonI.Marshal(req)
 	if err != nil {

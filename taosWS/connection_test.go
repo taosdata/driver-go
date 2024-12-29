@@ -58,9 +58,9 @@ func TestBadConnection(t *testing.T) {
 		}
 	}()
 
-	cfg, err := parseDSN(dataSourceName)
+	cfg, err := ParseDSN(dataSourceName)
 	if err != nil {
-		t.Fatalf("parseDSN error: %v", err)
+		t.Fatalf("ParseDSN error: %v", err)
 	}
 	conn, err := newTaosConn(cfg)
 	if err != nil {
@@ -99,9 +99,9 @@ func TestHandleResponseError(t *testing.T) {
 }
 
 func TestBegin(t *testing.T) {
-	cfg, err := parseDSN(dataSourceName)
+	cfg, err := ParseDSN(dataSourceName)
 	if err != nil {
-		t.Fatalf("parseDSN error: %v", err)
+		t.Fatalf("ParseDSN error: %v", err)
 	}
 	conn, err := newTaosConn(cfg)
 	if err != nil {
