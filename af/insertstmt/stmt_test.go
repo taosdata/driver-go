@@ -99,6 +99,72 @@ func TestStmt(t *testing.T) {
 	assert.Equal(t, int(1), affected)
 
 }
+func TestStmtWithWithReqID(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer wrapper.TaosClose(conn)
+	s := NewInsertStmt(conn)
+	defer s.Close()
+	err = s.Prepare("insert into ? values(?,?,?)")
+	assert.NoError(t, err)
+}
+
+func TestPrepareError(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer wrapper.TaosClose(conn)
+	s := NewInsertStmt(conn)
+	stmtHandle := s.stmt
+	defer wrapper.TaosStmtClose(stmtHandle)
+	s.stmt = nil
+	err = s.Prepare("insert into ? values(?,?,?)")
+	assert.Error(t, err)
+	s.stmt = stmtHandle
+	err = s.Prepare("select * from information_schema.ins_databases where name = ?")
+	assert.Error(t, err)
+}
+
+func TestSetTableNameError(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer wrapper.TaosClose(conn)
+	s := NewInsertStmt(conn)
+	stmtHandle := s.stmt
+	defer wrapper.TaosStmtClose(stmtHandle)
+	s.stmt = nil
+	err = s.SetTableName("test")
+	assert.Error(t, err)
+
+	err = s.SetSubTableName("test")
+	assert.Error(t, err)
+
+	err = s.SetTableNameWithTags("test", param.NewParam(1).AddBinary([]byte("test")))
+	assert.Error(t, err)
+}
+
+func TestAddBatchError(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer wrapper.TaosClose(conn)
+	s := NewInsertStmt(conn)
+	stmtHandle := s.stmt
+	defer wrapper.TaosStmtClose(stmtHandle)
+	s.stmt = nil
+	err = s.AddBatch()
+	assert.Error(t, err)
+}
+
+func TestExecuteError(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer wrapper.TaosClose(conn)
+	s := NewInsertStmt(conn)
+	stmtHandle := s.stmt
+	defer wrapper.TaosStmtClose(stmtHandle)
+	s.stmt = nil
+	err = s.Execute()
+	assert.Error(t, err)
+}
 
 func exec(conn unsafe.Pointer, sql string) error {
 	res := wrapper.TaosQuery(conn, sql)

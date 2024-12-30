@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
+	errors2 "github.com/taosdata/driver-go/v3/errors"
 )
 
 const (
@@ -210,4 +211,14 @@ func (c *Client) Close() {
 
 func (c *Client) handleError(err error) {
 	c.errHandlerOnce.Do(func() { c.ErrorHandler(err) })
+}
+
+func HandleResponseError(err error, code int, msg string) error {
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return errors2.NewError(code, msg)
+	}
+	return nil
 }

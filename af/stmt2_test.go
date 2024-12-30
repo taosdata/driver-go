@@ -283,3 +283,49 @@ func TestStmt2(t *testing.T) {
 	assert.ErrorIs(t, err, io.EOF)
 
 }
+
+func TestStmt2_Prepare(t *testing.T) {
+	conn, err := Open("", "root", "taosdata", "", 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	stmt2 := conn.Stmt2(0x123456789, false)
+	if stmt2 == nil {
+		t.Errorf("Expected stmt to be not nil")
+		return
+	}
+	defer func() {
+		err = stmt2.Close()
+		assert.NoError(t, err)
+	}()
+	_, err = conn.Exec("create database if not exists stmt2_prepare_wrong_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		_, err = conn.Exec("drop database if exists stmt2_prepare_wrong_test")
+		assert.NoError(t, err)
+	}()
+	_, err = conn.Exec("use stmt2_prepare_wrong_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Prepare("insert into not_exist_table values(?,?,?)")
+	assert.Error(t, err)
+	_, err = conn.Exec("create table t (ts timestamp, b int, c int)")
+	assert.NoError(t, err)
+	err = stmt2.Prepare("")
+	assert.NoError(t, err)
+	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{time.Now()},
+				{int32(1)},
+				{int32(2)},
+			},
+		},
+	})
+	assert.Error(t, err)
+	err = stmt2.Prepare("insert into t values(?,?,?)")
+	assert.Error(t, err)
+}

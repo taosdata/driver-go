@@ -6,6 +6,12 @@ on:
       - 'main'
       - '3.0'
       - '3.1'
+  push:
+    branches:
+      - 'main'
+      - '3.0'
+      - '3.1'
+
   workflow_dispatch:
     inputs:
       tbBranch:
@@ -16,7 +22,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Build
     outputs:
       commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
@@ -28,6 +34,14 @@ jobs:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: ${{ github.base_ref }}
+
+      - name: checkout TDengine by push
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: ${{ github.ref_name }}
 
       - name: checkout TDengine manually
         if: github.event_name == 'workflow_dispatch'
@@ -52,6 +66,14 @@ jobs:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ steps.get_commit_id.outputs.commit_id }}
 
+      - name: Cache server by push
+        if: github.event_name == 'push'
+        id: cache-server-push
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ steps.get_commit_id.outputs.commit_id }}
+
       - name: Cache server manually
         if: github.event_name == 'workflow_dispatch'
         id: cache-server-manually
@@ -60,27 +82,24 @@ jobs:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ steps.get_commit_id.outputs.commit_id }}
 
-      - name: prepare install
-        if: >
-          (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
-          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
-        run: sudo apt install -y libgeos-dev
 
       - name: install TDengine
         if: >
           (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
-          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true') ||
+          (github.event_name == 'push' && steps.cache-server-push.outputs.cache-hit != 'true')
         run: |
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 
+          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DBUILD_DEPENDENCY_TESTS=0 -DVERNUMBER=3.9.9.9
           make -j 4
 
       - name: package
         if: >
           (github.event_name == 'workflow_dispatch' && steps.cache-server-manually.outputs.cache-hit != 'true') ||
-          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true')
+          (github.event_name == 'pull_request' && steps.cache-server-pr.outputs.cache-hit != 'true') ||
+          (github.event_name == 'push' && steps.cache-server-push.outputs.cache-hit != 'true')
         run: |
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
@@ -107,7 +126,7 @@ jobs:
           tar -zcvf server.tar.gz ./release
 
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: build
     strategy:
       matrix:
@@ -124,6 +143,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ github.base_ref }}-
 
+      - name: get cache server by push
+        if: github.event_name == 'push'
+        id: get-cache-server-push
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ github.ref_name }}-
+
       - name: cache server manually
         if: github.event_name == 'workflow_dispatch'
         id: get-cache-server-manually
@@ -134,8 +163,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ inputs.tbBranch }}-
 
-      - name: prepare install
-        run: sudo apt install -y libgeos-dev
 
       - name: install
         run: |
@@ -164,7 +191,7 @@ jobs:
         run:  sudo taosadapter &
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
           cache-dependency-path: go.sum
@@ -173,9 +200,82 @@ jobs:
         run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
-        if: ${{ matrix.go }} == 'stable'
-        uses: codecov/codecov-action@v4-beta
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
+
+  test_asan:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        go: [ 'stable' ]
+    name: Go-ASAN-${{ matrix.go }}
+    steps:
+      - name: get cache server by pr
+        if: github.event_name == 'pull_request'
+        id: get-cache-server-pr
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ github.base_ref }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ github.base_ref }}-
+
+      - name: get cache server by push
+        if: github.event_name == 'push'
+        id: get-cache-server-push
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ github.ref_name }}-
+
+      - name: cache server manually
+        if: github.event_name == 'workflow_dispatch'
+        id: get-cache-server-manually
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-${{ inputs.tbBranch }}-${{ needs.build.outputs.commit_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ inputs.tbBranch }}-
+
+
+      - name: install
+        run: |
+          tar -zxvf server.tar.gz
+          cd release && sudo sh install.sh
+
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: copy taos cfg
+        run: |
+          sudo mkdir -p /etc/taos
+          sudo cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
+          sudo cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+
+      - name: shell
+        run: |
+          cat >start.sh<<EOF 
+          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
+          EOF
+
+      - name: taosd
+        run: nohup sudo sh ./start.sh &
+
+      - name: start taosadapter
+        run: sudo taosadapter &
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: go.sum
+
+      - name: Test
+        run: sudo go test -v -asan ./...

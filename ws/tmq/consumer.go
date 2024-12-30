@@ -42,6 +42,8 @@ type Consumer struct {
 	offsetRest          string
 	snapshotEnable      string
 	withTableName       string
+	sessionTimeoutMS    string
+	maxPollIntervalMS   string
 	closeOnce           sync.Once
 	closeChan           chan struct{}
 	topics              []string
@@ -63,7 +65,7 @@ type WSError struct {
 }
 
 func (e *WSError) Error() string {
-	return fmt.Sprintf("websocket close with error %s", e.err)
+	return fmt.Sprintf("websocket close with error %v", e.err)
 }
 
 // NewConsumer create a tmq consumer
@@ -243,6 +245,14 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	sessionTimeoutMS, err := m.Get("session.timeout.ms", "")
+	if err != nil {
+		return nil, err
+	}
+	maxPollIntervalMS, err := m.Get("max.poll.interval.ms", "")
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -265,6 +275,8 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	config.setAutoReconnect(autoReconnect.(bool))
 	config.setReconnectIntervalMs(reconnectIntervalMs.(int))
 	config.setReconnectRetryCount(reconnectRetryCount.(int))
+	config.setSessionTimeoutMS(sessionTimeoutMS.(string))
+	config.setMaxPollIntervalMS(maxPollIntervalMS.(string))
 	return config, nil
 }
 
@@ -417,16 +429,18 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 	}
 	reqID := c.generateReqID()
 	req := &SubscribeReq{
-		ReqID:          reqID,
-		User:           c.user,
-		Password:       c.password,
-		GroupID:        c.groupID,
-		ClientID:       c.clientID,
-		OffsetRest:     c.offsetRest,
-		Topics:         topics,
-		AutoCommit:     "false",
-		SnapshotEnable: c.snapshotEnable,
-		WithTableName:  c.withTableName,
+		ReqID:             reqID,
+		User:              c.user,
+		Password:          c.password,
+		GroupID:           c.groupID,
+		ClientID:          c.clientID,
+		OffsetRest:        c.offsetRest,
+		Topics:            topics,
+		AutoCommit:        "false",
+		SnapshotEnable:    c.snapshotEnable,
+		WithTableName:     c.withTableName,
+		SessionTimeoutMS:  c.sessionTimeoutMS,
+		MaxPollIntervalMS: c.maxPollIntervalMS,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -463,11 +477,9 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 	}
 	var resp SubscribeResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
 	}
 	c.topics = make([]string, len(topics))
 	copy(c.topics, topics)
@@ -629,11 +641,9 @@ func (c *Consumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 	}
 	var resp FetchJsonMetaResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	var meta tmq.Meta
 	err = client.JsonI.Unmarshal(resp.Data, &meta)
@@ -722,13 +732,7 @@ func (c *Consumer) doCommit() error {
 	}
 	var resp CommitResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (c *Consumer) Unsubscribe() error {
@@ -759,13 +763,7 @@ func (c *Consumer) Unsubscribe() error {
 	}
 	var resp CommitResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
@@ -798,11 +796,9 @@ func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error) {
 		}
 		var resp AssignmentResp
 		err = client.JsonI.Unmarshal(respBytes, &resp)
+		err = client.HandleResponseError(err, resp.Code, resp.Message)
 		if err != nil {
 			return nil, err
-		}
-		if resp.Code != 0 {
-			return nil, taosErrors.NewError(resp.Code, resp.Message)
 		}
 		topicName := topic
 		for i := 0; i < len(resp.Assignment); i++ {
@@ -848,13 +844,7 @@ func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) erro
 	}
 	var resp OffsetSeekResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
-	if err != nil {
-		return err
-	}
-	if resp.Code != 0 {
-		return taosErrors.NewError(resp.Code, resp.Message)
-	}
-	return nil
+	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
 func (c *Consumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) (offsets []tmq.TopicPartition, err error) {
@@ -890,11 +880,9 @@ func (c *Consumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) (of
 	}
 	var resp CommittedResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	for i := 0; i < len(resp.Committed); i++ {
 		offsets[i] = tmq.TopicPartition{
@@ -939,11 +927,9 @@ func (c *Consumer) CommitOffsets(offsets []tmq.TopicPartition) ([]tmq.TopicParti
 		}
 		var resp CommitOffsetResp
 		err = client.JsonI.Unmarshal(respBytes, &resp)
+		err = client.HandleResponseError(err, resp.Code, resp.Message)
 		if err != nil {
 			return nil, err
-		}
-		if resp.Code != 0 {
-			return nil, taosErrors.NewError(resp.Code, resp.Message)
 		}
 	}
 	return c.Committed(offsets, 0)
@@ -982,11 +968,9 @@ func (c *Consumer) Position(partitions []tmq.TopicPartition) (offsets []tmq.Topi
 	}
 	var resp PositionResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
+	err = client.HandleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
-	}
-	if resp.Code != 0 {
-		return nil, taosErrors.NewError(resp.Code, resp.Message)
 	}
 	for i := 0; i < len(resp.Position); i++ {
 		offsets[i] = tmq.TopicPartition{

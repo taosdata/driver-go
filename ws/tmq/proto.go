@@ -19,6 +19,8 @@ type SubscribeReq struct {
 	AutoCommitIntervalMS string   `json:"auto_commit_interval_ms"`
 	SnapshotEnable       string   `json:"snapshot_enable"`
 	WithTableName        string   `json:"with_table_name"`
+	SessionTimeoutMS     string   `json:"session_timeout_ms"`
+	MaxPollIntervalMS    string   `json:"max_poll_interval_ms"`
 }
 
 type SubscribeResp struct {

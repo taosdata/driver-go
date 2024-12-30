@@ -154,7 +154,7 @@ func TestStmt(t *testing.T) {
 			params: [][]driver.Value{{taosTypes.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}}, {taosTypes.TaosGeometry{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}}},
 			bindType: []*taosTypes.ColumnType{{Type: taosTypes.TaosTimestampType}, {
 				Type:   taosTypes.TaosGeometryType,
-				MaxLen: 3,
+				MaxLen: 100,
 			}},
 			expectValue: []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 		}, //3
@@ -202,6 +202,17 @@ func TestStmt(t *testing.T) {
 				errStr := TaosStmtErrStr(insertStmt)
 				err = taosError.NewError(code, errStr)
 				t.Error(err)
+				return
+			}
+			isInsert, code := TaosStmtIsInsert(insertStmt)
+			if code != 0 {
+				errStr := TaosStmtErrStr(insertStmt)
+				err = taosError.NewError(code, errStr)
+				t.Error(err)
+				return
+			}
+			if !isInsert {
+				t.Errorf("expect insert stmt")
 				return
 			}
 			code = TaosStmtBindParamBatch(insertStmt, tc.params, tc.bindType)
@@ -887,7 +898,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 		return
 	}
 	code, num, _ := TaosStmtGetTagFields(stmt)
-	assert.Equal(t, 0, code)
+	assert.NotEqual(t, 0, code)
 	assert.Equal(t, 0, num)
 	code, columnCount, columnsP := TaosStmtGetColFields(stmt)
 	if code != 0 {
@@ -1031,7 +1042,7 @@ func TestTaosStmtSetTags(t *testing.T) {
 		t.Error(taosError.NewError(code, errStr))
 		return
 	}
-	code = TaosStmtSetTBName(stmt, "test_wrapper.t1")
+	code = TaosStmtSetSubTBName(stmt, "test_wrapper.t1")
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)
 		t.Error(taosError.NewError(code, errStr))
@@ -1208,6 +1219,9 @@ func TestTaosStmtGetParam(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
+
+	_, _, err = TaosStmtGetParam(stmt, 4) // invalid index
+	assert.Error(t, err)
 }
 
 func TestStmtJson(t *testing.T) {
@@ -1298,6 +1312,14 @@ func TestStmtJson(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	count, code := TaosStmtNumParams(stmt)
+	if code != 0 {
+		errStr := TaosStmtErrStr(stmt)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	assert.Equal(t, 1, count)
 	code = TaosStmtBindParam(stmt, param.NewParam(1).AddBigint(1).GetValues())
 	if code != 0 {
 		errStr := TaosStmtErrStr(stmt)

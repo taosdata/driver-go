@@ -29,7 +29,16 @@ const (
 	BindDataIsNullOffset      = BindDataNumOffset + 4
 )
 
-func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, colType, tagType []*StmtField) ([]byte, error) {
+func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, fields []*Stmt2AllField) ([]byte, error) {
+	var colType []*Stmt2AllField
+	var tagType []*Stmt2AllField
+	for i := 0; i < len(fields); i++ {
+		if fields[i].BindType == TAOS_FIELD_COL {
+			colType = append(colType, fields[i])
+		} else if fields[i].BindType == TAOS_FIELD_TAG {
+			tagType = append(tagType, fields[i])
+		}
+	}
 	// count
 	count := len(bindData)
 	if count == 0 {
@@ -94,9 +103,6 @@ func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, colType, t
 	if colCount != 0 {
 		needCols = true
 		binary.LittleEndian.PutUint32(header[ColCountPosition:], uint32(colCount))
-	}
-	if needTableNames {
-		binary.LittleEndian.PutUint32(header[TableNamesOffsetPosition:], uint32(colCount))
 	}
 	if !needTableNames && !needTags && !needCols {
 		return nil, fmt.Errorf("no data")
@@ -218,7 +224,7 @@ func getBindDataHeaderLength(num int, needLength bool) int {
 	return length
 }
 
-func generateBindColData(data []driver.Value, colType *StmtField, tmpBuffer *bytes.Buffer) ([]byte, error) {
+func generateBindColData(data []driver.Value, colType *Stmt2AllField, tmpBuffer *bytes.Buffer) ([]byte, error) {
 	num := len(data)
 	tmpBuffer.Reset()
 	needLength := needLength(colType.FieldType)
@@ -346,12 +352,15 @@ func generateBindColData(data []driver.Value, colType *StmtField, tmpBuffer *byt
 					isNull[i] = 1
 					writeUint64(tmpBuffer, 0)
 				} else {
-					v, ok := data[i].(time.Time)
-					if !ok {
-						return nil, fmt.Errorf("data type not match, expect time.Time, but get %T, value:%v", data[i], data[i])
+					switch v := data[i].(type) {
+					case int64:
+						writeUint64(tmpBuffer, uint64(v))
+					case time.Time:
+						ts := common.TimeToTimestamp(v, precision)
+						writeUint64(tmpBuffer, uint64(ts))
+					default:
+						return nil, fmt.Errorf("data type not match, expect int64 or time.Time, but get %T, value:%v", data[i], data[i])
 					}
-					ts := common.TimeToTimestamp(v, precision)
-					writeUint64(tmpBuffer, uint64(ts))
 				}
 			}
 		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_JSON:
@@ -448,7 +457,7 @@ func checkAllNull(data []driver.Value) bool {
 }
 
 func generateBindQueryData(data driver.Value) ([]byte, error) {
-	var colType = 0
+	var colType uint32
 	var haveLength = false
 	var length = 0
 	var buf []byte
@@ -526,7 +535,7 @@ func generateBindQueryData(data driver.Value) ([]byte, error) {
 	totalLength := len(buf) + headerLength
 	dataBuf := make([]byte, totalLength)
 	// type
-	binary.LittleEndian.PutUint32(dataBuf[BindDataTypeOffset:], uint32(colType))
+	binary.LittleEndian.PutUint32(dataBuf[BindDataTypeOffset:], colType)
 	// num
 	binary.LittleEndian.PutUint32(dataBuf[BindDataNumOffset:], 1)
 	// is null
@@ -577,4 +586,13 @@ func needLength(colType int8) bool {
 		return true
 	}
 	return false
+}
+
+type Stmt2AllField struct {
+	Name      string `json:"name"`
+	FieldType int8   `json:"field_type"`
+	Precision uint8  `json:"precision"`
+	Scale     uint8  `json:"scale"`
+	Bytes     int32  `json:"bytes"`
+	BindType  int8   `json:"bind_type"`
 }

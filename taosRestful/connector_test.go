@@ -530,3 +530,14 @@ func TestSSL(t *testing.T) {
 	}
 	assert.Equal(t, types.RawMessage(`{"a":"b"}`), tt)
 }
+
+func TestConnect(t *testing.T) {
+	conn := connector{
+		cfg: &Config{},
+	}
+	db, err := conn.Connect(context.Background())
+	assert.NoError(t, err)
+	db.Close()
+	driver := conn.Driver()
+	assert.Equal(t, &TDengineDriver{}, driver)
+}

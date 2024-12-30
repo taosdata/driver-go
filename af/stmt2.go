@@ -15,10 +15,11 @@ import (
 )
 
 type Stmt2 struct {
-	stmt2        unsafe.Pointer
-	isInsert     *bool
-	colFields    []*stmt.StmtField
-	tagFields    []*stmt.StmtField
+	stmt2    unsafe.Pointer
+	isInsert *bool
+	fields   []*stmt.Stmt2AllField
+	//colFields    []*stmt.StmtField
+	//tagFields    []*stmt.StmtField
 	caller       *Stmt2CallBackCaller
 	affectedRows int
 	queryResult  unsafe.Pointer
@@ -102,21 +103,14 @@ func (s *Stmt2) Prepare(sql string) error {
 	}
 	s.isInsert = &isInsert
 	if !isInsert {
-		s.tagFields = nil
-		s.colFields = nil
+		s.fields = nil
 	} else {
-		colFields, err := s.getFields(stmt.TAOS_FIELD_COL)
+		fields, err := s.getFields()
 		if err != nil {
 			s.isInsert = nil
 			return fmt.Errorf("get stmt2 col fields error:%s, sql:%s", err.Error(), sql)
 		}
-		tagFields, err := s.getFields(stmt.TAOS_FIELD_TAG)
-		if err != nil {
-			s.isInsert = nil
-			return fmt.Errorf("get stmt2 tag fields error:%s, sql:%s", err.Error(), sql)
-		}
-		s.colFields = colFields
-		s.tagFields = tagFields
+		s.fields = fields
 	}
 	return nil
 }
@@ -148,7 +142,7 @@ func (s *Stmt2) Bind(params []*stmt.TaosStmt2BindData) error {
 	}
 	locker.Lock()
 	defer locker.Unlock()
-	err := wrapper.TaosStmt2BindParam(s.stmt2, *s.isInsert, params, s.colFields, s.tagFields, -1)
+	err := wrapper.TaosStmt2BindParam(s.stmt2, *s.isInsert, params, s.fields, -1)
 	return err
 }
 
@@ -211,8 +205,8 @@ func (s *Stmt2) Close() error {
 	return nil
 }
 
-func (s *Stmt2) getFields(fieldType int) ([]*stmt.StmtField, error) {
-	code, count, cFields := wrapper.TaosStmt2GetFields(s.stmt2, fieldType)
+func (s *Stmt2) getFields() ([]*stmt.Stmt2AllField, error) {
+	code, count, cFields := wrapper.TaosStmt2GetFields(s.stmt2)
 	if code != 0 {
 		return nil, s.stmt2Err(code)
 	}
@@ -222,7 +216,7 @@ func (s *Stmt2) getFields(fieldType int) ([]*stmt.StmtField, error) {
 	if count == 0 {
 		return nil, nil
 	}
-	fields := wrapper.StmtParseFields(count, cFields)
+	fields := wrapper.Stmt2ParseAllFields(count, cFields)
 	return fields, nil
 }
 

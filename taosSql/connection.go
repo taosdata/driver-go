@@ -13,7 +13,7 @@ import (
 
 type taosConn struct {
 	taos unsafe.Pointer
-	cfg  *config
+	cfg  *Config
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {
@@ -38,23 +38,13 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	stmtP := wrapper.TaosStmtInit(tc.taos)
 	code := wrapper.TaosStmtPrepare(stmtP, query)
 	locker.Unlock()
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmtP)
-		err := errors.NewError(code, errStr)
-		locker.Lock()
-		wrapper.TaosStmtClose(stmtP)
-		locker.Unlock()
+	if err := checkStmtError(code, stmtP); err != nil {
 		return nil, err
 	}
 	locker.Lock()
 	isInsert, code := wrapper.TaosStmtIsInsert(stmtP)
 	locker.Unlock()
-	if code != 0 {
-		errStr := wrapper.TaosStmtErrStr(stmtP)
-		err := errors.NewError(code, errStr)
-		locker.Lock()
-		wrapper.TaosStmtClose(stmtP)
-		locker.Unlock()
+	if err := checkStmtError(code, stmtP); err != nil {
 		return nil, err
 	}
 	stmt := &Stmt{
@@ -66,8 +56,16 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	return stmt, nil
 }
 
-func (tc *taosConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	return tc.ExecContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
+func checkStmtError(code int, stmtP unsafe.Pointer) error {
+	if code != 0 {
+		errStr := wrapper.TaosStmtErrStr(stmtP)
+		err := errors.NewError(code, errStr)
+		locker.Lock()
+		wrapper.TaosStmtClose(stmtP)
+		locker.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (tc *taosConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Result, err error) {
@@ -84,7 +82,7 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 		return nil, err
 	}
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try to interpolate the parameters to save extra round trips for preparing and closing a statement
@@ -118,10 +116,6 @@ func (tc *taosConn) processExecResult(result *handler.AsyncResult) (driver.Resul
 	return driver.RowsAffected(affectRows), nil
 }
 
-func (tc *taosConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	return tc.QueryContext(context.Background(), query, common.ValueArgsToNamedValueArgs(args))
-}
-
 func (tc *taosConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
 	if tc.taos == nil {
 		return nil, driver.ErrBadConn
@@ -135,7 +129,7 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		return nil, err
 	}
 	if len(args) != 0 {
-		if !tc.cfg.interpolateParams {
+		if !tc.cfg.InterpolateParams {
 			return nil, driver.ErrSkip
 		}
 		// try client-side prepare to reduce round trip
@@ -183,11 +177,6 @@ func (tc *taosConn) Ping(ctx context.Context) (err error) {
 		return nil
 	}
 	return errors.ErrTscInvalidConnection
-}
-
-// BeginTx implements driver.ConnBeginTx interface
-func (tc *taosConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return nil, &errors.TaosError{Code: 0xffff, ErrStr: "taosSql does not support transaction"}
 }
 
 func (tc *taosConn) taosQuery(sqlStr string, handler *handler.Handler, reqID int64) *handler.AsyncResult {

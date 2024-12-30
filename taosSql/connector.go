@@ -3,15 +3,18 @@ package taosSql
 import (
 	"context"
 	"database/sql/driver"
+	"runtime"
 	"sync"
 
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
+	"github.com/taosdata/driver-go/v3/wrapper/handler"
+	"github.com/taosdata/driver-go/v3/wrapper/thread"
 )
 
 type connector struct {
-	cfg *config
+	cfg *Config
 }
 
 var once = sync.Once{}
@@ -19,14 +22,28 @@ var once = sync.Once{}
 // Connect implements driver.Connector interface.
 // Connect returns a connection to the database.
 func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
+	onceInitLock.Do(func() {
+		threads := c.cfg.CgoThread
+		if threads <= 0 {
+			threads = runtime.NumCPU()
+		}
+		locker = thread.NewLocker(threads)
+	})
+	onceInitHandlerPool.Do(func() {
+		poolSize := c.cfg.CgoAsyncHandlerPoolSize
+		if poolSize <= 0 {
+			poolSize = 10000
+		}
+		asyncHandlerPool = handler.NewHandlerPool(poolSize)
+	})
 	var err error
 	tc := &taosConn{
 		cfg: c.cfg,
 	}
-	if c.cfg.net == "cfg" && len(c.cfg.configPath) > 0 {
+	if c.cfg.Net == "cfg" && len(c.cfg.ConfigPath) > 0 {
 		once.Do(func() {
 			locker.Lock()
-			code := wrapper.TaosOptions(common.TSDB_OPTION_CONFIGDIR, c.cfg.configPath)
+			code := wrapper.TaosOptions(common.TSDB_OPTION_CONFIGDIR, c.cfg.ConfigPath)
 			locker.Unlock()
 			if code != 0 {
 				err = errors.NewError(code, wrapper.TaosErrorStr(nil))
@@ -37,20 +54,20 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 	// Connect to Server
-	if len(tc.cfg.user) == 0 {
-		tc.cfg.user = common.DefaultUser
+	if len(tc.cfg.User) == 0 {
+		tc.cfg.User = common.DefaultUser
 	}
-	if len(tc.cfg.passwd) == 0 {
-		tc.cfg.passwd = common.DefaultPassword
+	if len(tc.cfg.Passwd) == 0 {
+		tc.cfg.Passwd = common.DefaultPassword
 	}
 	locker.Lock()
-	err = wrapper.TaosSetConfig(tc.cfg.params)
+	err = wrapper.TaosSetConfig(tc.cfg.Params)
 	locker.Unlock()
 	if err != nil {
 		return nil, err
 	}
 	locker.Lock()
-	tc.taos, err = wrapper.TaosConnect(tc.cfg.addr, tc.cfg.user, tc.cfg.passwd, tc.cfg.dbName, tc.cfg.port)
+	tc.taos, err = wrapper.TaosConnect(tc.cfg.Addr, tc.cfg.User, tc.cfg.Passwd, tc.cfg.DbName, tc.cfg.Port)
 	locker.Unlock()
 	if err != nil {
 		return nil, err

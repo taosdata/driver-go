@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
 )
 
@@ -50,4 +51,18 @@ func TestTaosConn_ExecContext(t *testing.T) {
 	if count != 1 {
 		t.Fatal("result miss")
 	}
+}
+
+func TestWrongReqID(t *testing.T) {
+	ctx := context.WithValue(context.Background(), common.ReqIDKey, uint64(1234))
+	db, err := sql.Open("taosSql", dataSourceName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	rs, err := db.QueryContext(ctx, "select 1")
+	assert.Error(t, err)
+	assert.Nil(t, rs)
+	_, err = db.ExecContext(ctx, "create database if not exists test_wrong_req_id")
+	assert.Error(t, err)
 }

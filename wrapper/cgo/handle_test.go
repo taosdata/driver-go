@@ -7,6 +7,8 @@ package cgo
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // @author: xftan
@@ -56,34 +58,33 @@ func TestHandle(t *testing.T) {
 	}
 }
 
-//func TestInvalidHandle(t *testing.T) {
-//	t.Run("zero", func(t *testing.T) {
-//		h := Handle(0)
-//
-//		defer func() {
-//			if r := recover(); r != nil {
-//				return
-//			}
-//			t.Fatalf("Delete of zero handle did not trigger a panic")
-//		}()
-//
-//		h.Delete()
-//	})
-//
-//	t.Run("invalid", func(t *testing.T) {
-//		h := NewHandle(42)
-//
-//		defer func() {
-//			if r := recover(); r != nil {
-//				h.Delete()
-//				return
-//			}
-//			t.Fatalf("Invalid handle did not trigger a panic")
-//		}()
-//
-//		Handle(h + 1).Delete()
-//	})
-//}
+func TestPointer(t *testing.T) {
+	v := 42
+	h := NewHandle(&v)
+	p := h.Pointer()
+	assert.Equal(t, *(*Handle)(p), h)
+	h.Delete()
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+		t.Fatalf("Pointer should panic")
+	}()
+	h.Pointer()
+}
+
+func TestInvalidValue(t *testing.T) {
+	v := 42
+	h := NewHandle(&v)
+	h.Delete()
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+		t.Fatalf("Value should panic")
+	}()
+	h.Value()
+}
 
 func BenchmarkHandle(b *testing.B) {
 	b.Run("non-concurrent", func(b *testing.B) {

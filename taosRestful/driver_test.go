@@ -1,11 +1,13 @@
 package taosRestful
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"testing"
 	"time"
 
@@ -288,4 +290,92 @@ func TestChinese(t *testing.T) {
 		t.Log(row)
 	}
 	assert.Equal(t, 1, counter)
+}
+
+func TestNewConnector(t *testing.T) {
+	cfg, err := ParseDSN(dataSourceName)
+	assert.NoError(t, err)
+	conn, err := NewConnector(cfg)
+	assert.NoError(t, err)
+	db := sql.OpenDB(conn)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
+	if err := db.Ping(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOpen(t *testing.T) {
+	tdDriver := &TDengineDriver{}
+	conn, err := tdDriver.Open(dataSourceName)
+	assert.NoError(t, err)
+	defer func() {
+		err := conn.Close()
+		assert.NoError(t, err)
+	}()
+	pinger := conn.(driver.Pinger)
+	err = pinger.Ping(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestSpecialPassword(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		t.Fatalf("error on:  sql.open %s", err.Error())
+		return
+	}
+	defer db.Close()
+	tests := []struct {
+		name string
+		user string
+		pass string
+	}{
+		{
+			name: "test_special1_rs",
+			user: "test_special1_rs",
+			pass: "!q@w#a$1%3^&*()-",
+		},
+		{
+			name: "test_special2_rs",
+			user: "test_special2_rs",
+			pass: "_q+3=[]{}:;><?|~",
+		},
+		{
+			name: "test_special3_rs",
+			user: "test_special3_rs",
+			pass: "1><3?|~,w.",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				dropSql := fmt.Sprintf("drop user %s", test.user)
+				_, _ = db.Exec(dropSql)
+			}()
+			createSql := fmt.Sprintf("create user %s pass '%s'", test.user, test.pass)
+			_, err := db.Exec(createSql)
+			assert.NoError(t, err)
+			escapedPass := url.QueryEscape(test.pass)
+			newDsn := fmt.Sprintf("%s:%s@http(%s:%d)/%s", test.user, escapedPass, host, port, "")
+			db2, err := sql.Open(driverName, newDsn)
+			if err != nil {
+				t.Errorf("error on:  sql.open %s", err.Error())
+				return
+			}
+			defer db2.Close()
+			rows, err := db2.Query("select 1")
+			assert.NoError(t, err)
+			var i int
+			for rows.Next() {
+				err := rows.Scan(&i)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, i)
+			}
+			if i != 1 {
+				t.Errorf("query failed")
+			}
+		})
+	}
 }
