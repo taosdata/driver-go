@@ -10,24 +10,25 @@ English | [简体中文](README-CN.md)
 
 v2 is not compatible with v3 version and corresponds to the TDengine version as follows:
 
-| **driver-go version** | **TDengine version** | **major features**                            |
-|-----------------------|----------------------|-----------------------------------------------|
-| v3.5.8                | 3.3.2.0+ / 3.1.2.0+  | fix null pointer exception                    |
-| v3.5.7                | 3.3.2.0+ / 3.1.2.0+  | taosWS and taosRestful support request id     |
-| v3.5.6                | 3.3.2.0+ / 3.1.2.0+  | WebSocket performance improvements            |
-| v3.5.5                | 3.2.3.0+ / 3.1.1.27+ | support skip http ssl check                   |
-| v3.5.4                | 3.2.3.0+ / 3.1.1.27+ | compatible with TDengine 3.3.0.0 tmq raw data |
-| v3.5.3                | 3.2.3.0+ / 3.1.1.27+ | refactor taosWS                               |
-| v3.5.2                | 3.2.3.0+ / 3.1.1.27+ | websocket compression and optimize tmq poll   |
-| v3.5.1                | 3.2.1.0+ / 3.1.1.13+ | native stmt query and geometry support        |
-| v3.5.0                | 3.0.5.0+             | tmq: get assignment and seek offset           |
-| v3.3.1                | 3.0.4.1+             | schemaless insert over websocket              |
-| v3.1.0                | 3.0.2.2+             | provide tmq apis close to kafka               |
-| v3.0.4                | 3.0.2.2+             | add request id                                |
-| v3.0.3                | 3.0.1.5+             | statement insert over websocket               |
-| v3.0.2                | 3.0.1.5+             | bulk pulling over websocket                   |
-| v3.0.1                | 3.0.0.0+             | tmq over websocket                            |
-| v3.0.0                | 3.0.0.0+             | adapt to TDengine 3.0 query and insert        |
+| **driver-go version** | **TDengine version**                   | **major features**                                                                             |
+|-----------------------|----------------------------------------|------------------------------------------------------------------------------------------------|
+| v3.6.0                | 3.3.5.0 and above                      | stmt2 native interface, DSN supports passwords containing special characters (url.QueryEscape) |
+| v3.5.8                | 3.3.2.0 and above / 3.1.2.0 and above  | fix null pointer exception                                                                     |
+| v3.5.7                | 3.3.2.0 and above / 3.1.2.0 and above  | taosWS and taosRestful support request id                                                      |
+| v3.5.6                | 3.3.2.0 and above / 3.1.2.0 and above  | WebSocket performance improvements                                                             |
+| v3.5.5                | 3.2.3.0 and above / 3.1.1.27 and above | support skip http ssl check                                                                    |
+| v3.5.4                | 3.2.3.0 and above / 3.1.1.27 and above | compatible with TDengine 3.3.0.0 tmq raw data                                                  |
+| v3.5.3                | 3.2.3.0 and above / 3.1.1.27 and above | refactor taosWS                                                                                |
+| v3.5.2                | 3.2.3.0 and above / 3.1.1.27 and above | websocket compression and optimize tmq poll                                                    |
+| v3.5.1                | 3.2.1.0 and above / 3.1.1.13 and above | native stmt query and geometry support                                                         |
+| v3.5.0                | 3.0.5.0 and above                      | tmq: get assignment and seek offset                                                            |
+| v3.3.1                | 3.0.4.1 and above                      | schemaless insert over websocket                                                               |
+| v3.1.0                | 3.0.2.2 and above                      | provide tmq apis close to kafka                                                                |
+| v3.0.4                | 3.0.2.2 and above                      | add request id                                                                                 |
+| v3.0.3                | 3.0.1.5 and above                      | statement insert over websocket                                                                |
+| v3.0.2                | 3.0.1.5 and above                      | bulk pulling over websocket                                                                    |
+| v3.0.1                | 3.0.0.0 and above                      | tmq over websocket                                                                             |
+| v3.0.0                | 3.0.0.0 and above                      | adapt to TDengine 3.0 query and insert                                                         |
 
 ## Install
 
