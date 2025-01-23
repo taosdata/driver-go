@@ -1,4 +1,4 @@
-# 介绍
+# 简介
 
 | Github Action Tests                                                                  | CodeCov                                                                                                                           |
 |--------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
@@ -6,8 +6,20 @@
 
 [English](README.md) | 简体中文
 
-driver-go 是 TDengine 的官方 Go 语言连接器，实现了 Go 语言 database/sql 包的接口。Go 开发人员可以通过它开发存取 TDengine
-集群数据的应用软件。
+`driver-go` 是 TDengine 的官方 Go 语言连接器，实现了 Go 语言 `database/sql` 包的接口。Go 开发人员可以通过它开发存取
+TDengine 集群数据的应用软件。
+
+`driver-go` 提供了三种连接方式：
+
+- 原生连接：通过客户端驱动程序 taosc 直接与服务端程序 taosd 建立连接。这种方式需要保证客户端的驱动程序 taosc 和服务端的
+  taosd 版本保持一致。
+- REST 连接：通过 taosAdapter 组件提供的 REST API 建立与 taosd 的连接。这种方式仅支持执行 SQL。
+- Websocket 连接： 通过 taosAdapter 组件提供的 WebSocket API 建立与 taosd 的连接，不依赖 TDengine 客户端驱动。
+
+## 支持的平台
+
+- 原生连接支持的平台和 TDengine 客户端驱动支持的平台一致。
+- WebSocket/REST 连接支持所有能运行 Go 的平台。
 
 # 获取驱动
 

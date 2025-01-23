@@ -9,6 +9,20 @@ English | [简体中文](README-CN.md)
 `driver-go` is the official Go language connector for TDengine. It implements the Go language `database/sql` interface,
 allowing Go developers to create applications that interact with TDengine clusters.
 
+driver-go provides three connection methods:
+
+- Native Connection: Establishes a connection directly with the server program taosd through the client driver taosc.
+  This method requires the client driver taosc and the server taosd to be of the same version.
+- REST Connection: Establishes a connection with taosd through the REST API provided by the taosAdapter component. This
+  method only supports executing SQL.
+- WebSocket Connection: Establishes a connection with taosd through the WebSocket API provided by the taosAdapter
+  component, without relying on the TDengine client driver.
+
+## Supported Platforms
+
+- Native Connection: Supported platforms are consistent with those supported by the TDengine client driver.
+- WebSocket/REST Connection: Supports all platforms that can run Go.
+
 # Get the Driver
 
 To import `taosSql`:
