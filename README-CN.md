@@ -75,8 +75,8 @@ go get github.com/taosdata/driver-go/v3/taosSql
 
 ## 3. 文档
 
-- 开发示例请见[开发指南](https://docs.taosdata.com/develop/)，包含了数据写入、查询、无模式写入、参数绑定和数据订阅等示例。
-- 其他参考信息请见[参考手册](https://docs.taosdata.com/reference/connector/go/)，包含了版本历史、TDengine 对应版本以及 API
+- 开发示例请见 [开发指南](https://docs.taosdata.com/develop/)，包含了数据写入、查询、无模式写入、参数绑定和数据订阅等示例。
+- 其他参考信息请见 [参考手册](https://docs.taosdata.com/reference/connector/go/)，包含了版本历史、数据类型、示例程序汇总、API
   说明和常见问题等。
 
 ## 4. 前置条件
@@ -124,7 +124,7 @@ go get github.com/taosdata/driver-go/v3/taosSql
 4. 提交修改到远端分支 (`git push origin my_branch`)。
 5. 在 GitHub 上创建一个 Pull
    Request ([how to create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request))。
-6. 提交 PR 后，如果 CI 通过，可以在 [codecov](https://app.codecov.io/gh/taosdata/driver-go/pulls) 页面找到自己 pr 查看覆盖率。
+6. 提交 PR 后，如果 CI 通过，可以在 [codecov](https://app.codecov.io/gh/taosdata/driver-go/pulls) 页面找到自己 PR 查看覆盖率。
 
 ## 9. 引用
 

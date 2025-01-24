@@ -77,9 +77,11 @@ go get github.com/taosdata/driver-go/v3/taosSql
 
 ## 3. Documentation
 
-- For development examples, see the [Developer Guide](https://docs.tdengine.com/developer-guide/).
-- For other [Reference Manual](https://docs.tdengine.com/tdengine-reference/client-libraries/go/), see Reference Manual,
-  which includes version history, example programs, API descriptions, and FAQs.
+- For development examples, see [Developer Guide](https://docs.tdengine.com/developer-guide/), which includes examples
+  of data writing, querying, schemaless writing, parameter binding, and data subscription.
+- For other reference information,
+  see [Reference Manual](https://docs.tdengine.com/tdengine-reference/client-libraries/go/), which includes version
+  history, data types, example programs, API descriptions, and FAQs.
 
 ## 4. Prerequisites
 
