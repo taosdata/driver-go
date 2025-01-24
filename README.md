@@ -44,13 +44,13 @@ allowing Go developers to create applications that interact with TDengine cluste
 - WebSocket Connection: Establishes a connection with taosd through the WebSocket API provided by the taosAdapter
   component, without relying on the TDengine client driver.
 
+We recommend using the WebSocket connection method. For detailed instructions, please refer
+to: [Connection Methods](https://docs.tdengine.com/developer-guide/connecting-to-tdengine/#connection-methods).
+
 ### 1.2 Supported Platforms
 
 - The platforms supported by the native connection are consistent with those supported by the TDengine client driver.
 - WebSocket/REST connections support all platforms that can run Go.
-
-We recommend using the WebSocket connection method. For detailed instructions, please refer
-to: [Connection Methods](https://docs.tdengine.com/developer-guide/connecting-to-tdengine/#connection-methods).
 
 ## 2. Get the Driver
 
