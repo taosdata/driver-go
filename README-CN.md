@@ -6,6 +6,25 @@
 
 [English](README.md) | 简体中文
 
+## 目录
+
+- [TDengine Go Connector](#tdengine-go-connector)
+  - [目录](#目录)
+  - [简介](#简介)
+    - [连接方式](#连接方式)
+    - [支持的平台](#支持的平台)
+  - [获取驱动](#获取驱动)
+    - [安装前准备](#安装前准备)
+    - [安装驱动](#安装驱动)
+  - [文档](#文档)
+  - [前置条件](#前置条件)
+  - [构建](#构建)
+  - [测试](#测试)
+  - [提交 Issue](#提交-issue)
+  - [提交 PR](#提交-pr)
+  - [引用](#引用)
+  - [许可证](#许可证)
+
 ## 简介
 
 `driver-go` 是 TDengine 的官方 Go 语言连接器，实现了 Go 语言 `database/sql` 包的接口。Go 开发人员可以通过它开发存取
@@ -84,7 +103,6 @@ go get github.com/taosdata/driver-go/v3/taosSql
 ## 提交 Issue
 
 我们欢迎提交 [GitHub Issue](https://github.com/taosdata/driver-go/issues/new?template=Blank+issue)。 提交时请说明下面信息：
-- 
 
 - 问题描述，是否必现
 - 驱动版本

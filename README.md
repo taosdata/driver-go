@@ -6,6 +6,25 @@
 
 English | [简体中文](README-CN.md)
 
+## Table of Contents
+
+- [TDengine Go Connector](#tdengine-go-connector)
+    - [Table of Contents](#table-of-contents)
+    - [Introduction](#introduction)
+        - [Connection Methods](#connection-methods)
+        - [Supported Platforms](#supported-platforms)
+    - [Get the Driver](#get-the-driver)
+        - [Pre-installation](#pre-installation)
+        - [Install the Driver](#install-the-driver)
+    - [Documentation](#documentation)
+    - [Prerequisites](#prerequisites)
+    - [Build](#build)
+    - [Testing](#testing)
+    - [Submitting Issues](#submitting-issues)
+    - [Submitting PRs](#submitting-prs)
+    - [References](#references)
+    - [License](#license)
+
 ## Introduction
 
 `driver-go` is the official Go language connector for TDengine. It implements the Go language `database/sql` interface,
