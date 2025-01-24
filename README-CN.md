@@ -42,6 +42,9 @@ TDengine 集群数据的应用软件。
 - REST 连接：通过 taosAdapter 组件提供的 REST API 建立与 taosd 的连接。这种方式仅支持执行 SQL。
 - Websocket 连接： 通过 taosAdapter 组件提供的 WebSocket API 建立与 taosd 的连接，不依赖 TDengine 客户端驱动。
 
+我们推荐使用 WebSocket 连接方式。
+详细说明请参考：[连接方式](https://docs.taosdata.com/develop/connect/#%E8%BF%9E%E6%8E%A5%E6%96%B9%E5%BC%8F) 。
+
 ### 1.2 支持的平台
 
 - 原生连接支持的平台和 TDengine 客户端驱动支持的平台一致。

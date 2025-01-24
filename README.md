@@ -49,6 +49,9 @@ allowing Go developers to create applications that interact with TDengine cluste
 - The platforms supported by the native connection are consistent with those supported by the TDengine client driver.
 - WebSocket/REST connections support all platforms that can run Go.
 
+We recommend using the WebSocket connection method. For detailed instructions, please refer
+to: [Connection Methods](https://docs.tdengine.com/developer-guide/connecting-to-tdengine/#connection-methods).
+
 ## 2. Get the Driver
 
 Import the Driver into the Project
