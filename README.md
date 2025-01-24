@@ -1,44 +1,60 @@
-# Go Connector for TDengine
+<!-- omit in toc -->
+# TDengine Go Connector
 
-[![Build Status](https://cloud.drone.io/api/badges/taosdata/driver-go/status.svg)](https://cloud.drone.io/taosdata/driver-go)
+<!-- omit in toc -->
+
+| GitHub Action Tests                                                                  | CodeCov                                                                                                                           |
+|--------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| ![actions](https://github.com/taosdata/driver-go/actions/workflows/go.yml/badge.svg) | [![codecov](https://codecov.io/gh/taosdata/driver-go/graph/badge.svg?token=70E8APPMKR)](https://codecov.io/gh/taosdata/driver-go) |
 
 English | [简体中文](README-CN.md)
 
-[TDengine] provides Go `database/sql` driver as [`taosSql`][driver-go].
+<!-- omit in toc -->
+## Table of Contents
 
-## Remind
+<!-- omit in toc -->
 
-v2 is not compatible with v3 version and corresponds to the TDengine version as follows:
+- [1. Introduction](#1-introduction)
+    - [1.1 Connection Methods](#11-connection-methods)
+    - [1.2 Supported Platforms](#12-supported-platforms)
+- [2. Get the Driver](#2-get-the-driver)
+- [3. Documentation](#3-documentation)
+- [4. Prerequisites](#4-prerequisites)
+- [5. Build](#5-build)
+- [6. Testing](#6-testing)
+    - [6.1 Test Execution](#61-test-execution)
+    - [6.2 Test Case Addition](#62-test-case-addition)
+    - [6.3 Performance Testing](#63-performance-testing)
+- [7. Submitting Issues](#7-submitting-issues)
+- [8. Submitting PRs](#8-submitting-prs)
+- [9. References](#9-references)
+- [10. License](#10-license)
 
-| **driver-go version** | **TDengine version**                   | **major features**                                                                             |
-|-----------------------|----------------------------------------|------------------------------------------------------------------------------------------------|
-| v3.6.0                | 3.3.5.0 and above                      | stmt2 native interface, DSN supports passwords containing special characters (url.QueryEscape) |
-| v3.5.8                | 3.3.2.0 and above / 3.1.2.0 and above  | fix null pointer exception                                                                     |
-| v3.5.7                | 3.3.2.0 and above / 3.1.2.0 and above  | taosWS and taosRestful support request id                                                      |
-| v3.5.6                | 3.3.2.0 and above / 3.1.2.0 and above  | WebSocket performance improvements                                                             |
-| v3.5.5                | 3.2.3.0 and above / 3.1.1.27 and above | support skip http ssl check                                                                    |
-| v3.5.4                | 3.2.3.0 and above / 3.1.1.27 and above | compatible with TDengine 3.3.0.0 tmq raw data                                                  |
-| v3.5.3                | 3.2.3.0 and above / 3.1.1.27 and above | refactor taosWS                                                                                |
-| v3.5.2                | 3.2.3.0 and above / 3.1.1.27 and above | websocket compression and optimize tmq poll                                                    |
-| v3.5.1                | 3.2.1.0 and above / 3.1.1.13 and above | native stmt query and geometry support                                                         |
-| v3.5.0                | 3.0.5.0 and above                      | tmq: get assignment and seek offset                                                            |
-| v3.3.1                | 3.0.4.1 and above                      | schemaless insert over websocket                                                               |
-| v3.1.0                | 3.0.2.2 and above                      | provide tmq apis close to kafka                                                                |
-| v3.0.4                | 3.0.2.2 and above                      | add request id                                                                                 |
-| v3.0.3                | 3.0.1.5 and above                      | statement insert over websocket                                                                |
-| v3.0.2                | 3.0.1.5 and above                      | bulk pulling over websocket                                                                    |
-| v3.0.1                | 3.0.0.0 and above                      | tmq over websocket                                                                             |
-| v3.0.0                | 3.0.0.0 and above                      | adapt to TDengine 3.0 query and insert                                                         |
+## 1. Introduction
 
-## Install
+`driver-go` is the official Go language connector for TDengine. It implements the Go language `database/sql` interface,
+allowing Go developers to create applications that interact with TDengine clusters.
 
-Go 1.14+ is highly recommended for newly created projects.
+### 1.1 Connection Methods
 
-```sh
-go mod init taos-demo
-```
+- Native Connection: Establishes a connection directly with the server program taosd through the client driver taosc.
+  This method requires the client driver taosc and the server taosd to be of the same version.
+- REST Connection: Establishes a connection with taosd through the REST API provided by the taosAdapter component. This
+  method only supports executing SQL.
+- WebSocket Connection: Establishes a connection with taosd through the WebSocket API provided by the taosAdapter
+  component, without relying on the TDengine client driver.
 
-import taosSql：
+We recommend using the WebSocket connection method. For detailed instructions, please refer
+to: [Connection Methods](https://docs.tdengine.com/developer-guide/connecting-to-tdengine/#connection-methods).
+
+### 1.2 Supported Platforms
+
+- The platforms supported by the native connection are consistent with those supported by the TDengine client driver.
+- WebSocket/REST connections support all platforms that can run Go.
+
+## 2. Get the Driver
+
+Import the Driver into the Project
 
 ```go
 import (
@@ -47,637 +63,85 @@ import (
 )
 ```
 
-Use `go mod` for module management:
+To manage dependencies using `go mod`:
 
 ```sh
 go mod tidy
 ```
 
-Or `go get` to directly install it:
+Or, you can directly install the driver with `go get`:
 
 ```sh
 go get github.com/taosdata/driver-go/v3/taosSql
 ```
 
-## Usage
+## 3. Documentation
 
-### `database/sql` Standard
+- For development examples, see [Developer Guide](https://docs.tdengine.com/developer-guide/), which includes examples
+  of data writing, querying, schemaless writing, parameter binding, and data subscription.
+- For other reference information,
+  see [Reference Manual](https://docs.tdengine.com/tdengine-reference/client-libraries/go/), which includes version
+  history, data types, example programs, API descriptions, and FAQs.
 
-A simple use case：
+## 4. Prerequisites
 
-```go
-package main
+- Go 1.14 or above and enable CGO with `export CGO_ENABLED=1`.
+- TDengine has been deployed locally. For detailed steps, please refer
+   to [Deploy Server](https://docs.tdengine.com/get-started/deploy-from-package/), and taosd and taosAdapter have been
+   started.
 
-import (
-    "database/sql"
-    "fmt"
-    "time"
+## 5. Build
 
-    _ "github.com/taosdata/driver-go/v3/taosSql"
-)
+After writing an example program, use `go build` to build the program.
 
-func main() {
-    var taosUri = "root:taosdata@tcp(localhost:6030)/"
-    taos, err := sql.Open("taosSql", taosUri)
-    if err != nil {
-        fmt.Println("failed to connect TDengine, err:", err)
-        return
-    }
-    defer taos.Close()
-    taos.Exec("create database if not exists test")
-    taos.Exec("use test")
-    taos.Exec("create table if not exists tb1 (ts timestamp, a int)")
-    _, err = taos.Exec("insert into tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
-    if err != nil {
-        fmt.Println("failed to insert, err:", err)
-        return
-    }
-    rows, err := taos.Query("select * from tb1")
-    if err != nil {
-        fmt.Println("failed to select from table, err:", err)
-        return
-    }
+## 6. Testing
 
-    defer rows.Close()
-    for rows.Next() {
-        var r struct {
-            ts time.Time
-            a  int
-        }
-        err := rows.Scan(&r.ts, &r.a)
-        if err != nil {
-            fmt.Println("scan error:\n", err)
-            return
-        }
-        fmt.Println(r.ts, r.a)
-    }
-}
-```
+### 6.1 Test Execution
 
-APIs that are worthy to have a check:
+1. Before running tests, ensure that the TDengine server is installed and that `taosd` and `taosAdapter` are running.
+   The database should be empty.
+2. In the project directory, run `go test ./...` to execute the tests. The tests will connect to the local TDengine
+   server and taosAdapter for testing.
+3. The output result `PASS` means the test passed, while `FAIL` means the test failed. For detailed information, run
+   `go test -v ./...`.
 
-- `sql.Open(DRIVER_NAME string, dataSourceName string) *DB`
+### 6.2 Test Case Addition
 
-  This API will create a `database/sql` DB object, results with type `*DB`. `DRIVER_NAME` should be set as `taosSql`,
-  and `dataSourceName` should be a URI like `user:password@tcp(host:port)/dbname`. For HA use case,
-  use `user:password@cfg(/etc/taos)/dbname` to apply configs in `/etc/taos/taos.cfg`.
+Add test cases to the `*_test.go` file to ensure that the test cases cover the new code.
 
-- `func (db *DB) Exec(query string, args ...interface{}) (Result, error)`
+### 6.3 Performance Testing
 
-  Execute non resultset SQLs, like `create`, `alter` etc.
+Performance testing is in progress.
 
-- `func (db *DB) Query(query string, args ...interface{}) (*Rows, error)`
+## 7. Submitting Issues
 
-  Execute a query with resultset.
+We welcome the submission of [GitHub Issue](https://github.com/taosdata/driver-go/issues/new?template=Blank+issue). When
+submitting, please provide the following information:
 
-- `func (db *DB) Close() error`
+- Description of the issue and whether it is consistently reproducible
+- Driver version
+- Connection parameters (excluding server address, username, and password)
+- TDengine version
 
-  Close an DB object and disconnect.
+## 8. Submitting PRs
 
-### Subscription
+We welcome developers to contribute to this project. Please follow the steps below to submit a PR:
 
-Create consumer:
+1. Fork this project. Please refer
+   to [how to fork a repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo).
+2. Create a new branch from the main branch with a meaningful branch name (`git checkout -b my_branch`).
+3. Modify the code, ensure all unit tests pass, and add new unit tests to verify the changes.
+4. Push the changes to the remote branch (`git push origin my_branch`).
+5. Create a Pull Request on GitHub. Please refer
+   to [how to create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
+6. After submitting the PR, if the CI passes, you can find your PR on
+   the [codecov](https://app.codecov.io/gh/taosdata/driver-go/pulls) page to check the coverage.
 
-````go
-func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error)
-````
+## 9. References
 
-Subscribe single topic:
+- [TDengine Official Website](https://tdengine.com/)
+- [TDengine GitHub](https://github.com/taosdata/TDengine)
 
-````go
-func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error
-````
+## 10. License
 
-Subscribe topics:
-
-````go
-func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error
-````
-
-Poll message:
-
-````go
-func (c *Consumer) Poll(timeoutMs int) tmq.Event
-````
-
-Commit message:
-
-````go
-func (c *Consumer) Commit() ([]tmq.TopicPartition, error)
-````
-
-Get assignment:
-
-```go
-func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)
-```
-
-Seek offset:
-
-```go
-func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error
-```
-
-Unsubscribe:
-
-````go
-func (c *Consumer) Unsubscribe() error
-````
-
-Close consumer:
-
-````go
-func (c *Consumer) Close() error
-````
-
-Example code: [`examples/tmq/main.go`](examples/tmq/main.go).
-
-### schemaless
-
-InfluxDB format:
-
-````go
-func (conn *Connector) InfluxDBInsertLines(lines []string, precision string) error
-````
-
-Example code: [`examples/schemaless/influx/main.go`](examples/schemaless/influx/main.go).
-
-OpenTSDB telnet format:
-
-````go
-func (conn *Connector) OpenTSDBInsertTelnetLines(lines []string) error
-````
-
-Example code: [`examples/schemaless/telnet/main.go`](examples/schemaless/telnet/main.go).
-
-OpenTSDB json format:
-
-````go
-func (conn *Connector) OpenTSDBInsertJsonPayload(payload string) error
-````
-
-Example code: [`examples/schemaless/json/main.go`](examples/schemaless/json/main.go).
-
-### stmt insert
-
-Prepare sql:
-
-````go
-func (stmt *InsertStmt) Prepare(sql string) error
-````
-
-Set the child table name:
-
-````go
-func (stmt *InsertStmt) SetSubTableName(name string) error
-````
-
-Set the table name:
-
-````go
-func (stmt *InsertStmt) SetTableName(name string) error
-````
-
-Set the subtable name and tags:
-
-````go
-func (stmt *InsertStmt) SetTableNameWithTags(tableName string, tags *param.Param) error
-````
-
-Bind parameters:
-
-````go
-func (stmt *InsertStmt) BindParam(params []*param.Param, bindType *param.ColumnType) error
-````
-
-Add batch:
-
-````go
-func (stmt *InsertStmt) AddBatch() error
-````
-
-implement:
-
-````go
-func (stmt *InsertStmt) Execute() error
-````
-
-Get the number of affected rows:
-
-````go
-func (stmt *InsertStmt) GetAffectedRows() int
-````
-
-Close stmt:
-
-````go
-func (stmt *InsertStmt) Close() error
-````
-
-Example code: [`examples/stmtinsert/main.go`](examples/stmtinsert/main.go).
-
-## restful implementation of the `database/sql` standard interface
-
-A simple use case：
-
-```go
-package main
-
-import (
-    "database/sql"
-    "fmt"
-    "time"
-
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
-)
-
-func main() {
-    var taosDSN = "root:taosdata@http(localhost:6041)/"
-    taos, err := sql.Open("taosRestful", taosDSN)
-    if err != nil {
-        fmt.Println("failed to connect TDengine, err:", err)
-        return
-    }
-    defer taos.Close()
-    taos.Exec("create database if not exists test")
-    taos.Exec("create table if not exists test.tb1 (ts timestamp, a int)")
-    _, err = taos.Exec("insert into test.tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
-    if err != nil {
-        fmt.Println("failed to insert, err:", err)
-        return
-    }
-    rows, err := taos.Query("select * from test.tb1")
-    if err != nil {
-        fmt.Println("failed to select from table, err:", err)
-        return
-    }
-
-    defer rows.Close()
-    for rows.Next() {
-        var r struct {
-            ts time.Time
-            a  int
-        }
-        err := rows.Scan(&r.ts, &r.a)
-        if err != nil {
-            fmt.Println("scan error:\n", err)
-            return
-        }
-        fmt.Println(r.ts, r.a)
-    }
-}
-```
-
-### Usage of taosRestful
-
-import
-
-```go
-import (
-    "database/sql"
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
-)
-```
-
-The driverName of `sql.Open` is `taosRestful`
-
-The DSN format is:
-
-```text
-database username:database password@connection-method(domain or ip:port)/[database][? Parameter]
-```
-
-Example:
-
-```text
-root:taosdata@http(localhost:6041)/test?readBufferSize=52428800
-```
-
-Parameters:
-
-- `disableCompression` Whether to accept compressed data, default is `true` Do not accept compressed data, set to `false` if the transferred data is compressed using gzip.
-- `readBufferSize` The default size of the buffer for reading data is 4K (4096), which can be adjusted upwards when there is a lot of data in the query result.
-- `skipVerify` Whether to skip the verification of the server certificate, the default is `false`, and the server
-  certificate is verified by default. If the server certificate is not verified, set to `true`.
-
-### Usage restrictions
-
-Since the restful interface is stateless, the `use db` syntax will not work, you need to put the db name into the sql statement, e.g. `create table if not exists tb1 (ts timestamp, a int)` to `create table if not exists test.tb1 (ts timestamp, a int)` otherwise it will report an error `[0x217] Database not specified or available`.
-
-You can also put the db name in the DSN by changing `root:taosdata@http(localhost:6041)/` to `root:taosdata@http(localhost:6041)/test`. Executing the `create database` statement when the specified db does not exist will not report an error, while executing other queries or inserts will report an error. The example is as follows:
-
-```go
-package main
-
-import (
-    "database/sql"
-    "fmt"
-    "time"
-
-    _ "github.com/taosdata/driver-go/v3/taosRestful"
-)
-
-func main() {
-    var taosDSN = "root:taosdata@http(localhost:6041)/test"
-    taos, err := sql.Open("taosRestful", taosDSN)
-    if err != nil {
-        fmt.Println("failed to connect TDengine, err:", err)
-        return
-    }
-    defer taos.Close()
-    taos.Exec("create database if not exists test")
-    taos.Exec("create table if not exists tb1 (ts timestamp, a int)")
-    _, err = taos.Exec("insert into tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
-    if err != nil {
-        fmt.Println("failed to insert, err:", err)
-        return
-    }
-    rows, err := taos.Query("select * from tb1")
-    if err != nil {
-        fmt.Println("failed to select from table, err:", err)
-        return
-    }
-
-    defer rows.Close()
-    for rows.Next() {
-        var r struct {
-            ts time.Time
-            a  int
-        }
-        err := rows.Scan(&r.ts, &r.a)
-        if err != nil {
-            fmt.Println("scan error:\n", err)
-            return
-        }
-        fmt.Println(r.ts, r.a)
-    }
-}
-```
-
-## websocket implementation of the `database/sql` standard interface
-
-A simple use case：
-
-```go
-package main
-
-import (
-    "database/sql"
-    "fmt"
-    "time"
-
-    _ "github.com/taosdata/driver-go/v3/taosWS"
-)
-
-func main() {
-    var taosDSN = "root:taosdata@ws(localhost:6041)/"
-    taos, err := sql.Open("taosWS", taosDSN)
-    if err != nil {
-        fmt.Println("failed to connect TDengine, err:", err)
-        return
-    }
-    defer taos.Close()
-    taos.Exec("create database if not exists test")
-    taos.Exec("create table if not exists test.tb1 (ts timestamp, a int)")
-    _, err = taos.Exec("insert into test.tb1 values(now, 0)(now+1s,1)(now+2s,2)(now+3s,3)")
-    if err != nil {
-        fmt.Println("failed to insert, err:", err)
-        return
-    }
-    rows, err := taos.Query("select * from test.tb1")
-    if err != nil {
-        fmt.Println("failed to select from table, err:", err)
-        return
-    }
-
-    defer rows.Close()
-    for rows.Next() {
-        var r struct {
-            ts time.Time
-            a  int
-        }
-        err := rows.Scan(&r.ts, &r.a)
-        if err != nil {
-            fmt.Println("scan error:\n", err)
-            return
-        }
-        fmt.Println(r.ts, r.a)
-    }
-}
-```
-
-### Usage of websocket
-
-import
-
-```go
-import (
-    "database/sql"
-    _ "github.com/taosdata/driver-go/v3/taosWS"
-)
-```
-
-The driverName of `sql.Open` is `taosWS`
-
-The DSN format is:
-
-```text
-database username:database password@connection-method(domain or ip:port)/[database][? parameter]
-```
-
-Example:
-
-```text
-root:taosdata@ws(localhost:6041)/test?writeTimeout=10s&readTimeout=10m
-```
-
-Parameters:
-
-- `writeTimeout` The timeout to send data via websocket.
-- `readTimeout` The timeout to receive response data via websocket.
-- `enableCompression` Whether to compress the transmitted data, the default is `false` and no compressed data is sent.
-
-## Using tmq over websocket
-
-Use tmq over websocket. The server needs to start taoAdapter.
-
-### Configure related API
-
-- `func NewConfig(url string, chanLength uint) *Config`
-
- Create a configuration, pass in the websocket address and the length of the sending channel.
-
-- `func (c *Config) SetConnectUser(user string) error`
-
- Set username.
-
-- `func (c *Config) SetConnectPass(pass string) error`
-
- Set password.
-
-- `func (c *Config) SetClientID(clientID string) error`
-
- Set the client ID.
-
-- `func (c *Config) SetGroupID(groupID string) error`
-
- Set the subscription group ID.
-
-- `func (c *Config) SetWriteWait(writeWait time.Duration) error`
-
- Set the waiting time for sending messages.
-
-- `func (c *Config) SetMessageTimeout(timeout time.Duration) error`
-
- Set the message timeout.
-
-- `func (c *Config) SetErrorHandler(f func(consumer *Consumer, err error))`
-
- Set the error handler.
-
-- `func (c *Config) SetCloseHandler(f func())`
-
- Set the close handler.
-
-### Subscription related API
-
-- `func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error)`
-
- Create a consumer.
-
-- `func (c *Consumer) Subscribe(topic string, rebalanceCb RebalanceCb) error`
-
- Subscribe a topic.
-
-- `func (c *Consumer) SubscribeTopics(topics []string, rebalanceCb RebalanceCb) error`
-
- Subscribe to topics.
-
-- `func (c *Consumer) Poll(timeoutMs int) tmq.Event`
-
- Poll messages.
-
-- `func (c *Consumer) Commit() ([]tmq.TopicPartition, error)`
-
- Commit message.
-
-- `func (c *Consumer) Assignment() (partitions []tmq.TopicPartition, err error)`
-
- Get assignment.
-
-- `func (c *Consumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) error`
-
- Seek offset.
-
-- `func (c *Consumer) Close() error`
-
- Close the connection.
-
-Example code: [`examples/tmqoverws/main.go`](examples/tmqoverws/main.go).
-
-## Parameter binding via WebSocket
-
-Use stmt via websocket. The server needs to start taoAdapter.
-
-### Configure related API
-
-- `func NewConfig(url string, chanLength uint) *Config`
-
-  Create a configuration item, pass in the websocket address and the length of the sending pipe.
-
-- `func (c *Config) SetCloseHandler(f func())`
-
-  Set close handler.
-
-- `func (c *Config) SetConnectDB(db string) error`
-
-  Set connect DB.
-
-- `func (c *Config) SetConnectPass(pass string) error`
-
-  Set password.
-
-- `func (c *Config) SetConnectUser(user string) error`
-
-  Set username.
-
-- `func (c *Config) SetErrorHandler(f func(connector *Connector, err error))`
-
-  Set error handler.
-
-- `func (c *Config) SetMessageTimeout(timeout time.Duration) error`
-
-  Set the message timeout.
-
-- `func (c *Config) SetWriteWait(writeWait time.Duration) error`
-
-  Set the waiting time for sending messages.
-
-### Parameter binding related API
-
-* `func NewConnector(config *Config) (*Connector, error)`
-
-  Create a connection.
-
-* `func (c *Connector) Init() (*Stmt, error)`
-
-  Initialize the parameters.
-
-* `func (c *Connector) Close() error`
-
-  Close the connection.
-
-* `func (s *Stmt) Prepare(sql string) error`
-
-  Parameter binding preprocessing SQL statement.
-
-* `func (s *Stmt) SetTableName(name string) error`
-
-  Bind the table name parameter.
-
-* `func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error`
-
-  Bind tags.
-
-* `func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) error`
-
-  Parameter bind multiple rows of data.
-
-* `func (s *Stmt) AddBatch() error`
-
-  Add to a parameter-bound batch.
-
-* `func (s *Stmt) Exec() error`
-
-  Execute a parameter binding.
-
-* `func (s *Stmt) GetAffectedRows() int`
-
-  Gets the number of affected rows inserted by the parameter binding.
-
-* `func (s *Stmt) Close() error`
-
-  Closes the parameter binding.
-
-For a complete example of parameter binding, see [GitHub example file](examples/stmtoverws/main.go)
-
-## Directory structure
-
-```text
-driver-go
-├── af //advanced function
-├── common //common function and constants
-├── errors // error type
-├── examples //examples
-├── taosRestful // database operation standard interface (restful)
-├── taosSql // database operation standard interface
-├── types // inner type
-├── wrapper // cgo wrapper
-└── ws // websocket
-```
-
-## Link
-
-driver-go: [https://github.com/taosdata/driver-go](https://github.com/taosdata/driver-go)
-
-TDengine: [https://github.com/taosdata/TDengine](https://github.com/taosdata/TDengine)
+[MIT License](./LICENSE)
