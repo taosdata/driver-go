@@ -87,15 +87,15 @@ go get github.com/taosdata/driver-go/v3/taosSql
 
 ## 5. 构建
 
-编写示例程序后使用 `go build` 即可构建
+编写示例程序后使用 `go build` 即可构建.
 
 ## 6. 测试
 
 ### 6.1 运行测试
 
-1. 执行测试前确保已经安装 TDengine 服务端，并且已经启动 taosd 与 taosAdapter，数据库干净无数据
-2. 项目目录下执行 `go test ./...` 运行测试，测试会连接到本地的 TDengine 服务器与 taosAdapter 进行测试
-3. 输出结果 `PASS` 为测试通过，`FAIL` 为测试失败，查看详细信息需要执行 `go test -v ./...`
+1. 执行测试前确保已经安装 TDengine 服务端，并且已经启动 taosd 与 taosAdapter，数据库干净无数据。
+2. 项目目录下执行 `go test ./...` 运行测试，测试会连接到本地的 TDengine 服务器与 taosAdapter 进行测试。
+3. 输出结果 `PASS` 为测试通过，`FAIL` 为测试失败，查看详细信息需要执行 `go test -v ./...`。
 
 ### 6.2 添加用例
 
@@ -109,16 +109,16 @@ go get github.com/taosdata/driver-go/v3/taosSql
 
 我们欢迎提交 [GitHub Issue](https://github.com/taosdata/driver-go/issues/new?template=Blank+issue)。 提交时请说明下面信息：
 
-- 问题描述，是否必现
-- 驱动版本
-- 连接参数（不需要服务器地址、用户名和密码）
-- TDengine 版本
+- 问题描述，是否必现。
+- 驱动版本。
+- 连接参数（不需要服务器地址、用户名和密码）。
+- TDengine 版本。
 
 ## 8. 提交 PR
 
 我们欢迎开发者一起开发本项目，提交 PR 时请参考下面步骤：
 
-1. Fork 本项目，请参考 ([how to fork a repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo))
+1. Fork 本项目，请参考 ([how to fork a repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo))。
 2. 从 main 分支创建一个新分支，请使用有意义的分支名称 (`git checkout -b my_branch`)。
 3. 修改代码，保证所有单元测试通过，并增加新的单元测试验证修改。
 4. 提交修改到远端分支 (`git push origin my_branch`)。
