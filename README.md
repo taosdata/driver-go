@@ -1,4 +1,7 @@
+<!-- omit in toc -->
 # TDengine Go Connector
+
+<!-- omit in toc -->
 
 | GitHub Action Tests                                                                  | CodeCov                                                                                                                           |
 |--------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
@@ -6,31 +9,33 @@
 
 English | [简体中文](README-CN.md)
 
+<!-- omit in toc -->
 ## Table of Contents
 
-- [TDengine Go Connector](#tdengine-go-connector)
-    - [Table of Contents](#table-of-contents)
-    - [Introduction](#introduction)
-        - [Connection Methods](#connection-methods)
-        - [Supported Platforms](#supported-platforms)
-    - [Get the Driver](#get-the-driver)
-        - [Pre-installation](#pre-installation)
-        - [Install the Driver](#install-the-driver)
-    - [Documentation](#documentation)
-    - [Prerequisites](#prerequisites)
-    - [Build](#build)
-    - [Testing](#testing)
-    - [Submitting Issues](#submitting-issues)
-    - [Submitting PRs](#submitting-prs)
-    - [References](#references)
-    - [License](#license)
+<!-- omit in toc -->
 
-## Introduction
+- [1. Introduction](#1-introduction)
+    - [1.1 Connection Methods](#11-connection-methods)
+    - [1.2 Supported Platforms](#12-supported-platforms)
+- [2. Get the Driver](#2-get-the-driver)
+- [3. Documentation](#3-documentation)
+- [4. Prerequisites](#4-prerequisites)
+- [5. Build](#5-build)
+- [6. Testing](#6-testing)
+    - [6.1 Test Execution](#61-test-execution)
+    - [6.2 Test Case Addition](#62-test-case-addition)
+    - [6.3 Performance Testing](#63-performance-testing)
+- [7. Submitting Issues](#7-submitting-issues)
+- [8. Submitting PRs](#8-submitting-prs)
+- [9. References](#9-references)
+- [10. License](#10-license)
+
+## 1. Introduction
 
 `driver-go` is the official Go language connector for TDengine. It implements the Go language `database/sql` interface,
 allowing Go developers to create applications that interact with TDengine clusters.
 
-### Connection Methods
+### 1.1 Connection Methods
 
 - Native Connection: Establishes a connection directly with the server program taosd through the client driver taosc.
   This method requires the client driver taosc and the server taosd to be of the same version.
@@ -39,21 +44,12 @@ allowing Go developers to create applications that interact with TDengine cluste
 - WebSocket Connection: Establishes a connection with taosd through the WebSocket API provided by the taosAdapter
   component, without relying on the TDengine client driver.
 
-### Supported Platforms
+### 1.2 Supported Platforms
 
 - The platforms supported by the native connection are consistent with those supported by the TDengine client driver.
 - WebSocket/REST connections support all platforms that can run Go.
 
-## Get the Driver
-
-### Pre-installation
-
-1. Go 1.14 or above installed.
-2. When using a native connection, you need to install the TDengine client. For detailed steps, please refer
-   to [Install Client Driver](https://docs.tdengine.com/tdengine-reference/client-libraries/#install-client-driver), and
-   enable CGO with `export CGO_ENABLED=1`
-
-### Install the Driver
+## 2. Get the Driver
 
 Import the Driver into the Project
 
@@ -76,24 +72,26 @@ Or, you can directly install the driver with `go get`:
 go get github.com/taosdata/driver-go/v3/taosSql
 ```
 
-## Documentation
+## 3. Documentation
 
 - For development examples, see the [Developer Guide](https://docs.tdengine.com/developer-guide/).
-- For version history, TDengine version compatibility, and API documentation, see
-  the [Reference Manual](https://docs.tdengine.com/tdengine-reference/client-libraries/go/).
+- For other [Reference Manual](https://docs.tdengine.com/tdengine-reference/client-libraries/go/), see Reference Manual,
+  which includes version history, example programs, API descriptions, and FAQs.
 
-## Prerequisites
+## 4. Prerequisites
 
-1. Go 1.14 or above.
-2. TDengine has been deployed locally. For detailed steps, please refer
+- Go 1.14 or above and enable CGO with `export CGO_ENABLED=1`.
+- TDengine has been deployed locally. For detailed steps, please refer
    to [Deploy Server](https://docs.tdengine.com/get-started/deploy-from-package/), and taosd and taosAdapter have been
    started.
 
-## Build
+## 5. Build
 
 After writing an example program, use `go build` to build the program.
 
-## Testing
+## 6. Testing
+
+### 6.1 Test Execution
 
 1. Before running tests, ensure that the TDengine server is installed and that `taosd` and `taosAdapter` are running.
    The database should be empty.
@@ -101,10 +99,16 @@ After writing an example program, use `go build` to build the program.
    server and taosAdapter for testing.
 3. The output result `PASS` means the test passed, while `FAIL` means the test failed. For detailed information, run
    `go test -v ./...`.
-4. To check test coverage, run `go test -coverprofile=coverage.out ./...` to generate a coverage file, and then use
-   `go tool cover -html=coverage.out` to view the coverage report.
 
-## Submitting Issues
+### 6.2 Test Case Addition
+
+Add test cases to the `*_test.go` file to ensure that the test cases cover the new code.
+
+### 6.3 Performance Testing
+
+Performance testing is in progress.
+
+## 7. Submitting Issues
 
 We welcome the submission of [GitHub Issue](https://github.com/taosdata/driver-go/issues/new?template=Blank+issue). When
 submitting, please provide the following information:
@@ -114,7 +118,7 @@ submitting, please provide the following information:
 - Connection parameters (excluding server address, username, and password)
 - TDengine version
 
-## Submitting PRs
+## 8. Submitting PRs
 
 We welcome developers to contribute to this project. Please follow the steps below to submit a PR:
 
@@ -128,11 +132,11 @@ We welcome developers to contribute to this project. Please follow the steps bel
 6. After submitting the PR, if the CI passes, you can find your PR on
    the [codecov](https://app.codecov.io/gh/taosdata/driver-go/pulls) page to check the coverage.
 
-## References
+## 9. References
 
 - [TDengine Official Website](https://tdengine.com/)
 - [TDengine GitHub](https://github.com/taosdata/TDengine)
 
-## License
+## 10. License
 
 [MIT License](./LICENSE)
