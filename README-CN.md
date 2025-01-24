@@ -82,7 +82,7 @@ go get github.com/taosdata/driver-go/v3/taosSql
 ## 4. 前置条件
 
 - 已安装 Go 1.14 或以上版本,并允许 CGO `export CGO_ENABLED=1`。
-- 本地已经部署 TDengine，具体步骤请参考[部署服务端](https://docs.taosdata.com/get-started/package/)，且已经启动 taosd 与
+- 本地已经部署 TDengine，具体步骤请参考 [部署服务端](https://docs.taosdata.com/get-started/package/)，且已经启动 taosd 与
   taosAdapter。
 
 ## 5. 构建
