@@ -2,7 +2,7 @@
 # TDengine Go Connector
 
 <!-- omit in toc -->
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/taosdata/driver-go/go.yml)](https://github.com/taosdata/driver-go/actions/workflows/go.yml)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/taosdata/driver-go/build.yml)](https://github.com/taosdata/driver-go/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/taosdata/driver-go/graph/badge.svg?token=70E8APPMKR)](https://codecov.io/gh/taosdata/driver-go)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/taosdata/driver-go)
 ![GitHub License](https://img.shields.io/github/license/taosdata/driver-go)
@@ -46,7 +46,7 @@ allowing Go developers to create applications that interact with TDengine cluste
 - For other reference information, please
   check [Reference Manual](https://docs.tdengine.com/tdengine-reference/client-libraries/go/), which includes version
   history, data types, example programs, API descriptions, and FAQs.
-- This quick guide is mainly for developers who like to contribute/build/test the JDBC connector by themselves. To learn
+- This quick guide is mainly for developers who like to contribute/build/test the Go connector by themselves. To learn
   about TDengine, you can visit the [official documentation](https://docs.tdengine.com).
 
 ## 3. Prerequisites
@@ -81,7 +81,7 @@ Performance testing is in progress.
 
 ## 6. CI/CD
 
-- [Build Workflow](https://github.com/taosdata/driver-go/actions/workflows/go.yml)
+- [Build Workflow](https://github.com/taosdata/driver-go/actions/workflows/build.yml)
 - [Code Coverage](https://app.codecov.io/gh/taosdata/driver-go)
 
 ## 7. Submitting Issues

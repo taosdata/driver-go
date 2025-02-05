@@ -2,7 +2,7 @@
 # TDengine Go Connector
 
 <!-- omit in toc -->
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/taosdata/driver-go/go.yml)](https://github.com/taosdata/driver-go/actions/workflows/go.yml)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/taosdata/driver-go/build.yml)](https://github.com/taosdata/driver-go/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/taosdata/driver-go/graph/badge.svg?token=70E8APPMKR)](https://codecov.io/gh/taosdata/driver-go)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/taosdata/driver-go)
 ![GitHub License](https://img.shields.io/github/license/taosdata/driver-go)
@@ -75,7 +75,7 @@ TDengine 集群数据的应用软件。
 
 ## 6. CI/CD
 
-- [Build Workflow](https://github.com/taosdata/driver-go/actions/workflows/go.yml)
+- [Build Workflow](https://github.com/taosdata/driver-go/actions/workflows/build.yml)
 - [Code Coverage](https://app.codecov.io/gh/taosdata/driver-go)
 
 ## 7. 提交 Issue
