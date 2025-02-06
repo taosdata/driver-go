@@ -6,6 +6,7 @@
 [![codecov](https://codecov.io/gh/taosdata/driver-go/graph/badge.svg?token=70E8APPMKR)](https://codecov.io/gh/taosdata/driver-go)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/taosdata/driver-go)
 ![GitHub License](https://img.shields.io/github/license/taosdata/driver-go)
+![GitHub Tag](https://img.shields.io/github/v/tag/taosdata/driver-go?label=latest)
 <br />
 [![Twitter Follow](https://img.shields.io/twitter/follow/tdenginedb?label=TDengine&style=social)](https://twitter.com/tdenginedb)
 [![YouTube Channel](https://img.shields.io/badge/Subscribe_@tdengine--white?logo=youtube&style=social)](https://www.youtube.com/@tdengine)
