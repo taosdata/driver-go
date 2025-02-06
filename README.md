@@ -59,7 +59,7 @@ allowing Go developers to create applications that interact with TDengine cluste
 
 ## 4. Build
 
-After writing an example program, use `go build` to build the program.
+No need to build.
 
 ## 5. Testing
 
