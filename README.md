@@ -53,13 +53,13 @@ allowing Go developers to create applications that interact with TDengine cluste
 ## 3. Prerequisites
 
 - Go 1.14 or above and enable CGO with `export CGO_ENABLED=1`.
-- TDengine has been deployed locally. For detailed steps, please refer
-  to [Deploy Server](https://docs.tdengine.com/get-started/deploy-from-package/), and taosd and taosAdapter have been
-  started.
+- TDengine has been deployed locally. For specific steps, please refer
+  to [Deploy TDengine](https://docs.tdengine.com/get-started/deploy-from-package/). Please make sure taosd and
+  taosAdapter have been started.
 
 ## 4. Build
 
-After writing an example program, use `go build` to build the program.
+No need to build.
 
 ## 5. Testing
 
