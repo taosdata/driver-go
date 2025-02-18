@@ -68,7 +68,10 @@ func TestBadConnection(t *testing.T) {
 	}
 
 	// to test bad connection, we manually close the connection
-	conn.Close()
+	err = conn.Close()
+	if err != nil {
+		t.Fatalf("close error: %v", err)
+	}
 
 	_, err = conn.QueryContext(context.Background(), "select 1", nil)
 	if err == nil {
@@ -107,7 +110,10 @@ func TestBegin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newTaosConn error: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 
 	tx, err := conn.Begin()
 	assert.Error(t, err)

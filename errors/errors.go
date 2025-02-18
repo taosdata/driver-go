@@ -11,7 +11,8 @@ type TaosError struct {
 }
 
 const (
-	SUCCESS                int32 = 0
+	SUCCESS int32 = 0
+	//revive:disable-next-line
 	TSC_INVALID_CONNECTION int32 = 0x020B
 	UNKNOWN                int32 = 0xffff
 )

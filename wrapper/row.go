@@ -28,9 +28,8 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 	case C.TSDB_DATA_TYPE_BOOL:
 		if v := *((*byte)(p)); v != 0 {
 			return true
-		} else {
-			return false
 		}
+		return false
 	case C.TSDB_DATA_TYPE_TINYINT:
 		return *((*int8)(p))
 	case C.TSDB_DATA_TYPE_SMALLINT:
@@ -62,9 +61,8 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 			return common.TimestampConvertToTime(*((*int64)(p)), arg[0].(int))
 		} else if len(arg) == 2 {
 			return arg[1].(FormatTimeFunc)(*((*int64)(p)), arg[0].(int))
-		} else {
-			panic("convertTime error")
 		}
+		panic("convertTime error")
 	case C.TSDB_DATA_TYPE_JSON, C.TSDB_DATA_TYPE_VARBINARY, C.TSDB_DATA_TYPE_GEOMETRY:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {

@@ -8,9 +8,6 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-
-	_ "github.com/taosdata/driver-go/v3/taosRestful"
-	_ "github.com/taosdata/driver-go/v3/taosSql"
 )
 
 type TDTest struct {
@@ -175,7 +172,12 @@ func (t *TDTest) BenchmarkWriteSingleCommon(count int) {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	now := time.Now().UnixNano() / 1e6
 	s := time.Now()
 	_, err = db.Exec(fmt.Sprintf("create table if not exists wsc using write_single_common tags(%d,true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now))
@@ -207,7 +209,12 @@ func (t *TDTest) BenchmarkWriteSingleJson(count int) {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(db)
 	now := time.Now().UnixNano() / 1e6
 	s := time.Now()
 	_, err = db.Exec("create table if not exists wsj using write_single_json tags('{\"a\":\"b\"}')")
@@ -239,7 +246,12 @@ func (t *TDTest) BenchmarkWriteBatchCommon(count, batch int) {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(db)
 	now := int(time.Now().UnixNano() / 1e6)
 	s := time.Now()
 	_, err = db.Exec(fmt.Sprintf("create table if not exists wbc using write_batch_common tags (%d,true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now))
@@ -286,7 +298,12 @@ func (t *TDTest) BenchmarkWriteBatchJson(count, batch int) {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(db)
 	now := int(time.Now().UnixNano() / 1e6)
 	s := time.Now()
 	_, err = db.Exec("create table if not exists wbj using write_batch_json tags('{\"a\":\"b\"}')")
@@ -339,12 +356,20 @@ func (t *TDTest) PrepareRead(count, batch int) (tableName string) {
 	if err != nil {
 		log.Fatalf("create database error: %s", err.Error())
 	}
-	_ = db.Close()
+	err = db.Close()
+	if err != nil {
+		log.Fatalf("close db error: %s", err.Error())
+	}
 	db, err = sql.Open(t.DriverName, t.DSN+"benchmark_go")
 	if err != nil {
 		log.Fatalf("error on:  sql.open %s", err.Error())
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(db)
 	_, err = db.Exec("create table read_json (ts timestamp," +
 		"c1 bool," +
 		"c2 tinyint," +
@@ -410,7 +435,12 @@ func (t *TDTest) BenchmarkRead(sqlStr string) {
 	if err != nil {
 		log.Fatalf("error on:  sql.open %s", err.Error())
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(db)
 	prefix := t.DriverName + ": BenchmarkRead"
 	s := time.Now()
 	rows, err := db.Query(sqlStr)
@@ -438,7 +468,10 @@ func (t *TDTest) BenchmarkRead(sqlStr string) {
 	s = time.Now()
 	for rows.Next() {
 		count += 1
-		rows.Scan(values...)
+		err = rows.Scan(values...)
+		if err != nil {
+			log.Fatalf("scan value error: %s", err.Error())
+		}
 	}
 	cost := time.Since(s)
 	fmt.Printf("%s : result count: %d, execute cost: %d ns, average count cost: %f ns\n",

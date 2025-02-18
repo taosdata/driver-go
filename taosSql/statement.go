@@ -473,37 +473,36 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			}
 		}
 		return nil
-	} else {
-		if v.Value == nil {
-			return nil
-		}
-		t, is := v.Value.(time.Time)
-		if is {
-			v.Value = types.TaosBinary(t.Format(time.RFC3339Nano))
-			return nil
-		}
-		rv := reflect.ValueOf(v.Value)
-		switch rv.Kind() {
-		case reflect.Bool:
-			v.Value = types.TaosBool(rv.Bool())
-		case reflect.Float32, reflect.Float64:
-			v.Value = types.TaosDouble(rv.Float())
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			v.Value = types.TaosBigint(rv.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			v.Value = types.TaosUBigint(rv.Uint())
-		case reflect.String:
-			v.Value = types.TaosBinary(rv.String())
-		case reflect.Slice:
-			ek := rv.Type().Elem().Kind()
-			if ek == reflect.Uint8 {
-				v.Value = types.TaosBinary(rv.Bytes())
-			} else {
-				return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
-			}
-		default:
-			return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
-		}
+	}
+	if v.Value == nil {
 		return nil
 	}
+	t, is := v.Value.(time.Time)
+	if is {
+		v.Value = types.TaosBinary(t.Format(time.RFC3339Nano))
+		return nil
+	}
+	rv := reflect.ValueOf(v.Value)
+	switch rv.Kind() {
+	case reflect.Bool:
+		v.Value = types.TaosBool(rv.Bool())
+	case reflect.Float32, reflect.Float64:
+		v.Value = types.TaosDouble(rv.Float())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.Value = types.TaosBigint(rv.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.Value = types.TaosUBigint(rv.Uint())
+	case reflect.String:
+		v.Value = types.TaosBinary(rv.String())
+	case reflect.Slice:
+		ek := rv.Type().Elem().Kind()
+		if ek == reflect.Uint8 {
+			v.Value = types.TaosBinary(rv.Bytes())
+		} else {
+			return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
+		}
+	default:
+		return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
+	}
+	return nil
 }

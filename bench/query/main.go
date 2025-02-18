@@ -22,7 +22,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	_, err = db.Exec("create database if not exists test_json")
 	if err != nil {
 		panic(err)

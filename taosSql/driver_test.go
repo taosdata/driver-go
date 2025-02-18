@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -17,15 +18,29 @@ import (
 
 // Ensure that all the driver interfaces are implemented
 func TestMain(m *testing.M) {
-	m.Run()
+	code := testMain(m)
+	os.Exit(code)
+}
+
+func testMain(m *testing.M) int {
+	code := m.Run()
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		log.Fatalf("error on:  sql.open %s", err.Error())
 	}
-	defer db.Close()
 	defer func() {
-		db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+		err = db.Close()
+		if err != nil {
+			log.Fatalf("error on:  db.close %s", err.Error())
+		}
 	}()
+	defer func() {
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+		if err != nil {
+			log.Fatalf("error on:  drop database %s", err.Error())
+		}
+	}()
+	return code
 }
 
 var (
@@ -54,19 +69,45 @@ func NewDBTest(t *testing.T) (dbt *DBTest) {
 }
 
 func (dbt *DBTest) CreateTables(numOfSubTab int) {
-	dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
-	dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
-	dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
-	dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, v BOOL) tags (degress int)", dbName))
+	_, err := dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
+	if err != nil {
+		dbt.Fatalf("error on: drop database %s", err.Error())
+	}
+	_, err = dbt.mustExec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
+	if err != nil {
+		dbt.Fatalf("error on: create database %s", err.Error())
+	}
+	_, err = dbt.mustExec(fmt.Sprintf("drop table if exists %s.super", dbName))
+	if err != nil {
+		dbt.Fatalf("error on: drop table %s", err.Error())
+	}
+	_, err = dbt.mustExec(fmt.Sprintf("CREATE TABLE %s.super (ts timestamp, v BOOL) tags (degress int)", dbName))
+	if err != nil {
+		dbt.Fatalf("error on: create table %s", err.Error())
+	}
 	for i := 0; i < numOfSubTab; i++ {
-		dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
+		_, err = dbt.mustExec(fmt.Sprintf("create table %s.t%d using %s.super tags(%d)", dbName, i%10, dbName, i))
+		if err != nil {
+			dbt.Fatalf("error on: create table %s", err.Error())
+		}
 	}
 }
+
+func (dbt *DBTest) DropDatabase() {
+	_, err := dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
+	if err != nil {
+		dbt.Fatalf("drop database error %s", err)
+	}
+}
+
 func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
 	now := time.Now()
 	t := now.Add(-100 * time.Hour)
 	for i := 0; i < numOfItems; i++ {
-		dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+		_, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+		if err != nil {
+			dbt.Fatalf("error on: insert into %s", err.Error())
+		}
 	}
 }
 
@@ -78,14 +119,13 @@ type TestResult struct {
 func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 	dbt := NewDBTest(t)
 	// prepare data
-	dbt.Exec("DROP TABLE IF EXISTS test")
 	var numOfSubTables = 10
 	var numOfItems = 200
+	defer dbt.DropDatabase()
 	dbt.CreateTables(numOfSubTables)
 	dbt.InsertInto(numOfSubTables, numOfItems)
 	for _, test := range tests {
 		test(dbt)
-		dbt.Exec("DROP TABLE IF EXISTS test")
 	}
 }
 func (dbt *DBTest) fail(method, query string, err error) {
@@ -145,32 +185,36 @@ type Obj struct {
 }
 
 var (
-	userErr = errors.New("user error")
+	ErrUser = errors.New("user error")
 	fp      = func(dbt *DBTest, query string, exec bool, eErr error, expected int64) int64 {
 		var ret int64 = 0
 		if exec == false {
 			rows, err := dbt.mustQuery(query)
-			if eErr == userErr && err != nil {
+			if eErr == ErrUser && err != nil {
 				return ret
 			}
-			defer rows.Close()
+			defer func() {
+				err := rows.Close()
+				if err != nil {
+					dbt.Errorf("error on close rows %s", err.Error())
+				}
+			}()
 			if err != nil {
 				dbt.Errorf("%s is not expected, err: %s", query, err.Error())
 				return ret
-			} else {
-				var count int64 = 0
-				for rows.Next() {
-					var row TestResult
-					if err := rows.Scan(&(row.ts), &(row.value)); err != nil {
-						dbt.Error(err.Error())
-						return ret
-					}
-					count = count + 1
+			}
+			var count int64 = 0
+			for rows.Next() {
+				var row TestResult
+				if err := rows.Scan(&(row.ts), &(row.value)); err != nil {
+					dbt.Error(err.Error())
+					return ret
 				}
-				ret = count
-				if expected != -1 && count != expected {
-					dbt.Errorf("%s is not expected, err: %s", query, errors.New("result is not expected"))
-				}
+				count = count + 1
+			}
+			ret = count
+			if expected != -1 && count != expected {
+				dbt.Errorf("%s is not expected, err: %s", query, errors.New("result is not expected"))
 			}
 		} else {
 			res, err := dbt.mustExec(query)
@@ -207,7 +251,7 @@ func TestAny(t *testing.T) {
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select first(*) from %s.t%d", dbName, 0), nil, false, fp, int64(1)})
 		tests = append(tests,
-			&Obj{"select error", userErr, false, fp, int64(1)})
+			&Obj{"select error", ErrUser, false, fp, int64(1)})
 		tests = append(tests,
 			&Obj{fmt.Sprintf("select * from %s.t%d", dbName, 0), nil, false, fp, int64(-1)})
 		tests = append(tests,
@@ -220,70 +264,6 @@ func TestAny(t *testing.T) {
 	})
 }
 
-//todo
-// @author: xftan
-// @date: 2022/1/27 16:17
-// @description: test query and insert
-//func TestCRUD(t *testing.T) {
-//	runTests(t, func(dbt *DBTest) {
-//		// Create Data
-//		now := time.Now()
-//		res, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, 0, now.UnixNano()/int64(time.Millisecond)-1, false))
-//		if err != nil {
-//			dbt.Fatalf("insert failed %s", err.Error())
-//		}
-//		count, err := res.RowsAffected()
-//		if err != nil {
-//			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-//		}
-//		if count != 1 {
-//			dbt.Fatalf("expected 1 affected row, got %d", count)
-//		}
-//
-//		id, err := res.LastInsertId()
-//		if err == nil {
-//			dbt.Fatalf("res.LastInsertId() expect error")
-//		}
-//		if id != 0 {
-//			dbt.Fatalf("expected InsertId 0, got %d", id)
-//		}
-//
-//		// Read
-//		rows, err := dbt.mustQuery(fmt.Sprintf("select * from %s.super", dbName))
-//		if err != nil {
-//			dbt.Fatalf("select failed")
-//		}
-//		for rows.Next() {
-//			var row TestResult
-//			err := rows.Scan(&(row.ts), &(row.value), &(row.degress))
-//			if err != nil {
-//				dbt.Error(err.Error())
-//			}
-//		}
-//		rows.Close()
-//
-//		rows, err = dbt.mustQuery(fmt.Sprintf("select last_row(*) from %s.super", dbName))
-//		if err != nil {
-//			dbt.Fatalf("select last_row failed")
-//		} else {
-//			for rows.Next() {
-//				var value TestResult
-//				err := rows.Scan(&(value.ts), &(value.value))
-//				if err != nil {
-//					dbt.Error(err.Error())
-//				}
-//			}
-//			rows.Close()
-//		}
-//
-//		query2 := "drop table if exists super"
-//		dbt.mustExec(query2)
-//		if err != nil {
-//			dbt.Fatalf(query2)
-//		}
-//	})
-//}
-
 // @author: xftan
 // @date: 2022/1/27 16:17
 // @description: test sql stmt
@@ -293,10 +273,21 @@ func TestStmt(t *testing.T) {
 		if err != nil {
 			dbt.fail("prepare", "prepare", err)
 		}
-		defer stmt.Close()
+		defer func() {
+			err := stmt.Close()
+			if err != nil {
+				dbt.fail("close", "close", err)
+			}
+		}()
 		now := time.Now()
-		stmt.Exec(now.UnixNano()/int64(time.Millisecond), false)
-		stmt.Exec(now.UnixNano()/int64(time.Millisecond)+int64(1), false)
+		_, err = stmt.Exec(now.UnixNano()/int64(time.Millisecond), false)
+		if err != nil {
+			dbt.fail("exec", "exec", err)
+		}
+		_, err = stmt.Exec(now.UnixNano()/int64(time.Millisecond)+int64(1), false)
+		if err != nil {
+			dbt.fail("exec", "exec", err)
+		}
 	})
 }
 
@@ -309,7 +300,13 @@ func TestJson(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	defer func() {
 		_, err = db.Exec("drop database if exists test_json_native")
 		if err != nil {
@@ -385,7 +382,13 @@ func TestJsonSearch(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	defer func() {
 		_, err = db.Exec("drop database if exists test_json_native_search")
 		if err != nil {
@@ -451,7 +454,13 @@ func TestJsonMatch(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	defer func() {
 		_, err = db.Exec("drop database if exists test_json_native_match")
 		if err != nil {
@@ -516,7 +525,13 @@ func TestChinese(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	defer func() {
 		_, err = db.Exec("drop database if exists test_chinese_native")
 		if err != nil {
@@ -597,7 +612,12 @@ func TestSpecialPassword(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Fatalf("error on:  db.close %s", err.Error())
+		}
+	}()
 	tests := []struct {
 		name string
 		user string
@@ -635,7 +655,12 @@ func TestSpecialPassword(t *testing.T) {
 				t.Errorf("error on:  sql.open %s", err.Error())
 				return
 			}
-			defer db2.Close()
+			defer func() {
+				err := db2.Close()
+				if err != nil {
+					t.Errorf("error on:  db.close %s", err.Error())
+				}
+			}()
 			rows, err := db2.Query("select 1")
 			assert.NoError(t, err)
 			var i int

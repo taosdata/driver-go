@@ -97,9 +97,7 @@ func (c *HandlerPool) Put(handler *Handler) {
 		}
 		c.mu.Unlock()
 		return
-	} else {
-		c.handlers <- handler
-		c.mu.Unlock()
-		return
 	}
+	c.handlers <- handler
+	c.mu.Unlock()
 }

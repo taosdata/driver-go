@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -17,15 +18,29 @@ import (
 // Ensure that all the driver interfaces are implemented
 
 func TestMain(m *testing.M) {
-	m.Run()
+	code := testMain(m)
+	os.Exit(code)
+}
+
+func testMain(m *testing.M) int {
+	code := m.Run()
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		log.Fatalf("error on:  sql.open %s", err.Error())
 	}
-	defer db.Close()
 	defer func() {
-		db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+		err = db.Close()
+		if err != nil {
+			log.Fatalf("error on:  sql.close %s", err.Error())
+		}
 	}()
+	defer func() {
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+		if err != nil {
+			log.Fatalf("error on:  drop database %s", err.Error())
+		}
+	}()
+	return code
 }
 
 var (
@@ -78,11 +93,22 @@ func (dbt *DBTest) CreateTables(numOfSubTab int) {
 		}
 	}
 }
+
+func (dbt *DBTest) DropDatabase() {
+	_, err := dbt.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName))
+	if err != nil {
+		dbt.Fatalf("drop database error %s", err)
+	}
+}
+
 func (dbt *DBTest) InsertInto(numOfSubTab, numOfItems int) {
 	now := time.Now()
 	t := now.Add(-100 * time.Minute)
 	for i := 0; i < numOfItems; i++ {
-		dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+		_, err := dbt.mustExec(fmt.Sprintf("insert into %s.t%d values(%d, %t)", dbName, i%numOfSubTab, t.UnixNano()/int64(time.Millisecond)+int64(i), i%2 == 0))
+		if err != nil {
+			dbt.Fatalf("insert error %s", err)
+		}
 	}
 }
 
@@ -94,14 +120,13 @@ type TestResult struct {
 func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 	dbt := NewDBTest(t)
 	// prepare data
-	dbt.Exec("DROP TABLE IF EXISTS test_taos_ws.test")
 	var numOfSubTables = 10
 	var numOfItems = 200
+	defer dbt.DropDatabase()
 	dbt.CreateTables(numOfSubTables)
 	dbt.InsertInto(numOfSubTables, numOfItems)
 	for _, test := range tests {
 		test(dbt)
-		dbt.Exec("DROP TABLE IF EXISTS test_taos_ws.test")
 	}
 }
 
@@ -166,21 +191,23 @@ var (
 			if err != nil {
 				dbt.Errorf("%s is not expected, err: %s", query, err.Error())
 				return ret
-			} else {
-				var count int64 = 0
-				for rows.Next() {
-					var row TestResult
-					if err := rows.Scan(&(row.ts), &(row.value)); err != nil {
-						dbt.Error(err.Error())
-						return ret
-					}
-					count = count + 1
+			}
+			var count int64 = 0
+			for rows.Next() {
+				var row TestResult
+				if err := rows.Scan(&(row.ts), &(row.value)); err != nil {
+					dbt.Error(err.Error())
+					return ret
 				}
-				rows.Close()
-				ret = count
-				if expected != -1 && count != expected {
-					dbt.Errorf("%s is not expected, err: %s", query, errors.New("result is not expected"))
-				}
+				count = count + 1
+			}
+			err = rows.Close()
+			if err != nil {
+				dbt.Fatalf("%s is not expected, err: %s", query, err.Error())
+			}
+			ret = count
+			if expected != -1 && count != expected {
+				dbt.Errorf("%s is not expected, err: %s", query, errors.New("result is not expected"))
 			}
 		} else {
 			res, err := dbt.mustExec(query)
@@ -236,7 +263,12 @@ func TestChinese(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatalf("error on:  sql.close %s", err.Error())
+		}
+	}()
 	defer func() {
 		_, err = db.Exec("drop database if exists test_chinese_ws")
 		if err != nil {
@@ -317,7 +349,12 @@ func TestSpecialPassword(t *testing.T) {
 		t.Fatalf("error on:  sql.open %s", err.Error())
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatalf("error on:  sql.close %s", err.Error())
+		}
+	}()
 	tests := []struct {
 		name string
 		user string
@@ -355,7 +392,10 @@ func TestSpecialPassword(t *testing.T) {
 				t.Errorf("error on:  sql.open %s", err.Error())
 				return
 			}
-			defer db2.Close()
+			defer func() {
+				err := db2.Close()
+				assert.NoError(t, err)
+			}()
 			rows, err := db2.Query("select 1")
 			assert.NoError(t, err)
 			var i int

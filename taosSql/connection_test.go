@@ -13,12 +13,16 @@ import (
 // @date: 2023/10/13 11:21
 // @description: test taos connection exec context
 func TestTaosConn_ExecContext(t *testing.T) {
+	//nolint:staticcheck
 	ctx := context.WithValue(context.Background(), common.ReqIDKey, common.GetReqID())
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	defer func() {
 		_, err = db.ExecContext(ctx, "drop database if exists test_connection")
 	}()
@@ -42,7 +46,10 @@ func TestTaosConn_ExecContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rs.Close()
+	defer func() {
+		err = rs.Close()
+		assert.NoError(t, err)
+	}()
 	rs.Next()
 	var count int64
 	if err = rs.Scan(&count); err != nil {
@@ -54,12 +61,16 @@ func TestTaosConn_ExecContext(t *testing.T) {
 }
 
 func TestWrongReqID(t *testing.T) {
+	//nolint:staticcheck
 	ctx := context.WithValue(context.Background(), common.ReqIDKey, uint64(1234))
 	db, err := sql.Open("taosSql", dataSourceName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	rs, err := db.QueryContext(ctx, "select 1")
 	assert.Error(t, err)
 	assert.Nil(t, rs)
