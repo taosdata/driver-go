@@ -33,12 +33,10 @@ func testMain(m *testing.M) int {
 			log.Fatalf("error on:  sql.close %s", err.Error())
 		}
 	}(db)
-	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
-		if err != nil {
-			log.Fatalf("error on:  sql.exec %s", err.Error())
-		}
-	}()
+	_, err = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+	if err != nil {
+		log.Fatalf("error on:  sql.exec %s", err.Error())
+	}
 	return code
 }
 
