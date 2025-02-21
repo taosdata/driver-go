@@ -100,7 +100,9 @@ func doRequest(sql string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("http code: %d", resp.StatusCode)
 	}
@@ -162,7 +164,7 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		if err != nil {
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		time.Sleep(time.Second)
 		return nil
 	}
@@ -173,8 +175,8 @@ func stopTaosadapter(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return
 	}
-	cmd.Process.Signal(syscall.SIGINT)
-	cmd.Process.Wait()
+	_ = cmd.Process.Signal(syscall.SIGINT)
+	_, _ = cmd.Process.Wait()
 	cmd.Process = nil
 	time.Sleep(time.Second)
 }

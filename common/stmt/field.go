@@ -56,12 +56,15 @@ func (s *StmtField) GetType() (*types.ColumnType, error) {
 	return nil, fmt.Errorf("unsupported type: %d, name %s", s.FieldType, s.Name)
 }
 
+//revive:disable
 const (
 	TAOS_FIELD_COL = iota + 1
 	TAOS_FIELD_TAG
 	TAOS_FIELD_QUERY
 	TAOS_FIELD_TBNAME
 )
+
+//revive:enable
 
 type TaosStmt2BindData struct {
 	TableName string

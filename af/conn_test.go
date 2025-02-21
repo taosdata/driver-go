@@ -3,6 +3,7 @@ package af
 import (
 	"database/sql/driver"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,16 +15,27 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	m.Run()
+	code := testMain(m)
+	os.Exit(code)
+}
+
+func testMain(m *testing.M) int {
+	code := m.Run()
 	db, err := Open("", "", "", "", 0)
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	_, err = db.Exec("drop database if exists test_af")
 	if err != nil {
 		panic(err)
 	}
+	return code
 }
 
 // @author: xftan
@@ -53,7 +65,10 @@ func testDatabase(t *testing.T) *Connector {
 // @description: test af open connect
 func TestOpen(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	// select database
 	_, err := db.Exec("create database if not exists test_af")
 	if err != nil {
@@ -67,7 +82,10 @@ func TestOpen(t *testing.T) {
 // @description: test query
 func TestQuery(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := db.Exec("drop table if exists test_types")
 	if err != nil {
 		t.Error(err)
@@ -89,7 +107,10 @@ func TestQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		err = rows.Close()
+		assert.NoError(t, err)
+	}()
 	values := make([]driver.Value, 10)
 	if err = rows.Next(values); err != nil {
 		t.Error(err)
@@ -144,7 +165,10 @@ func TestQuery(t *testing.T) {
 // @description: test stmt exec
 func TestStmtExec(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	for i, tc := range []struct {
 		tbType string
@@ -202,7 +226,10 @@ func TestStmtExec(t *testing.T) {
 			if rows, err = db.Query(fmt.Sprintf("select `value` from %s", tbName)); err != nil {
 				t.Fatal(rows, tbName)
 			}
-			defer rows.Close()
+			defer func() {
+				err = rows.Close()
+				assert.NoError(t, err)
+			}()
 			v := make([]driver.Value, 1)
 			if err = rows.Next(v); err != nil {
 				t.Error(err)
@@ -214,85 +241,13 @@ func TestStmtExec(t *testing.T) {
 
 // @author: xftan
 // @date: 2022/1/27 16:07
-// @description: test stmt query
-//func TestStmtQuery(t *testing.T) {
-//	db := testDatabase(t)
-//	defer db.Close()
-//	for i, tc := range []struct {
-//		tbType string
-//		data   string
-//		clause string
-//		params *param2.Param
-//		skip   bool
-//	}{
-//		{"ts timestamp, v int", "0, 1", "v = ?", param2.NewParam(1).AddInt(1), false},
-//		{"ts timestamp, v bool", "now, true", "v = ?", param2.NewParam(1).AddBool(true), false},
-//		{"ts timestamp, v tinyint", "now, 3", "v = ?", param2.NewParam(1).AddTinyint(3), false},
-//		{"ts timestamp, v smallint", "now, 5", "v = ?", param2.NewParam(1).AddSmallint(5), false},
-//		{"ts timestamp, v int", "now, 6", "v = ?", param2.NewParam(1).AddInt(6), false},
-//		{"ts timestamp, v bigint", "now, 7", "v = ?", param2.NewParam(1).AddBigint(7), false},
-//		{"ts timestamp, v tinyint unsigned", "now, 1", "v = ?", param2.NewParam(1).AddUTinyint(1), false},
-//		{"ts timestamp, v smallint unsigned", "now, 2", "v = ?", param2.NewParam(1).AddUSmallint(2), false},
-//		{"ts timestamp, v int unsigned", "now, 3", "v = ?", param2.NewParam(1).AddUInt(3), false},
-//		{"ts timestamp, v bigint unsigned", "now, 4", "v = ?", param2.NewParam(1).AddUBigint(4), false},
-//		{"ts timestamp, v tinyint unsigned", "now, 1", "v = ?", param2.NewParam(1).AddUTinyint(1), false},
-//		{"ts timestamp, v smallint unsigned", "now, 2", "v = ?", param2.NewParam(1).AddUSmallint(2), false},
-//		{"ts timestamp, v int unsigned", "now, 3", "v = ?", param2.NewParam(1).AddUInt(3), false},
-//		{"ts timestamp, v bigint unsigned", "now, 4", "v = ?", param2.NewParam(1).AddUBigint(4), false},
-//		{"ts timestamp, v float", "now, 1.2", "v = ?", param2.NewParam(1).AddFloat(1.2), false},
-//		{"ts timestamp, v double", "now, 1.3", "v = ?", param2.NewParam(1).AddDouble(1.3), false},
-//		{"ts timestamp, v double", "now, 1.4", "v = ?", param2.NewParam(1).AddDouble(1.4), false},
-//		{"ts timestamp, v binary(8)", "now, 'yes'", "v = ?", param2.NewParam(1).AddBinary([]byte("yes")), false},
-//		{"ts timestamp, v nchar(8)", "now, 'OK'", "v = ?", param2.NewParam(1).AddNchar("OK"), false},
-//		{"ts timestamp, v nchar(8)", "1622282105000000, 'NOW'", "ts = ? and v = ?", param2.NewParam(2).AddTimestamp(time.Unix(1622282105, 0), common.PrecisionMicroSecond).AddBinary([]byte("NOW")), false},
-//		{"ts timestamp, v nchar(8)", "1622282105000000, 'NOW'", "ts = ? and v = ?", param2.NewParam(2).AddBigint(1622282105000000).AddBinary([]byte("NOW")), false},
-//	} {
-//		tbName := fmt.Sprintf("test_stmt_query%02d", i)
-//		tbType := tc.tbType
-//		create := fmt.Sprintf("create table if not exists %s(%s)", tbName, tbType)
-//		insert := fmt.Sprintf("insert into %s values(%s)", tbName, tc.data)
-//		params := tc.params
-//		sql := fmt.Sprintf("select * from %s where %s", tbName, tc.clause)
-//		name := fmt.Sprintf("%02d-%s", i, tbType)
-//		var err error
-//		t.Run(name, func(t *testing.T) {
-//			if tc.skip {
-//				t.Skip("Skip, not support yet")
-//			}
-//			if _, err = db.Exec(create); err != nil {
-//				t.Error(err)
-//				return
-//			}
-//			if _, err = db.Exec(insert); err != nil {
-//				t.Error(err)
-//				return
-//			}
-//			var rows driver.Rows
-//
-//			if rows, err = db.StmtQuery(sql, params); err != nil {
-//				t.Error(err)
-//				return
-//			}
-//			defer rows.Close()
-//			names := rows.Columns()
-//			if len(names) == 0 {
-//				t.Fatal(names)
-//			}
-//			values := make([]driver.Value, len(names))
-//			if err = rows.Next(values); err != nil {
-//				t.Error(err)
-//				return
-//			}
-//		})
-//	}
-//}
-
-// @author: xftan
-// @date: 2022/1/27 16:07
 // @description: test stmt insert
 func TestFastInsert(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	for i, tc := range []struct {
 		tbType   string
@@ -359,7 +314,10 @@ func TestFastInsert(t *testing.T) {
 			if rows, err = db.Query(fmt.Sprintf("select `value` from %s", tbName)); err != nil {
 				t.Fatal(rows, tbName)
 			}
-			defer rows.Close()
+			defer func() {
+				err = rows.Close()
+				assert.NoError(t, err)
+			}()
 			v := make([]driver.Value, 1)
 			if err = rows.Next(v); err != nil {
 				t.Error(err)
@@ -374,7 +332,10 @@ func TestFastInsert(t *testing.T) {
 // @description: test stmt insert with set table name
 func TestFastInsertWithSetTableName(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	for i, tc := range []struct {
 		tbType   string
@@ -459,7 +420,10 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 			if rows, err = db.Query(fmt.Sprintf("select `value` from %s", tbName)); err != nil {
 				t.Fatal(rows, tbName)
 			}
-			defer rows.Close()
+			defer func() {
+				err = rows.Close()
+				assert.NoError(t, err)
+			}()
 			v := make([]driver.Value, 1)
 			if err = rows.Next(v); err != nil {
 				t.Error(err)
@@ -474,7 +438,10 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 // @description: test stmt insert with set table name and tag
 func TestFastInsertWithSetTableNameTag(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	_, err := db.Exec("create stable if not exists set_table_name_tag_int (ts timestamp,`value` int) tags(i smallint,v binary(8))")
 	if err != nil {
@@ -540,7 +507,10 @@ func TestFastInsertWithSetTableNameTag(t *testing.T) {
 			if rows, err = db.Query(fmt.Sprintf("select `value` from %s", tbName)); err != nil {
 				t.Fatal(rows, tbName)
 			}
-			defer rows.Close()
+			defer func() {
+				err = rows.Close()
+				assert.NoError(t, err)
+			}()
 			v := make([]driver.Value, 1)
 			if err = rows.Next(v); err != nil {
 				t.Error(err)
@@ -556,7 +526,10 @@ func TestFastInsertWithSetTableNameTag(t *testing.T) {
 // @description: test stmt insert with set sub table name
 func TestFastInsertWithSetSubTableName(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	_, err := db.Exec("create stable if not exists set_table_name_sub_int (ts timestamp,`value` int) tags(i smallint,v binary(8))")
 	if err != nil {
@@ -647,7 +620,10 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 			if rows, err = db.Query(fmt.Sprintf("select `value` from %s", tbName)); err != nil {
 				t.Fatal(rows, tbName)
 			}
-			defer rows.Close()
+			defer func() {
+				err = rows.Close()
+				assert.NoError(t, err)
+			}()
 			v := make([]driver.Value, 1)
 			if err = rows.Next(v); err != nil {
 				t.Error(err)
@@ -753,7 +729,10 @@ jvm_gc_pause_seconds_max,action=end\ of\ minor\ GC,cause=Allocation\ Failure,hos
 // @description: test influxDB insert with line protocol
 func TestInfluxDBInsertLines(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	data := strings.Split(raw, "\n")
 	err := db.InfluxDBInsertLines(data, "ns")
 	if err != nil {
@@ -767,7 +746,10 @@ func TestInfluxDBInsertLines(t *testing.T) {
 // @description: test telnet insert with line protocol
 func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	err := db.OpenTSDBInsertTelnetLines([]string{
 		"sys_if_bytes_out 1479496100 1.3E3 host=web01 interface=eth0",
 		"sys_procs_running 1479496100 42 host=web01",
@@ -783,7 +765,10 @@ func TestOpenTSDBInsertTelnetLines(t *testing.T) {
 // @description: test telnet insert with
 func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	err := db.OpenTSDBInsertJsonPayload(`{
     "metric": "sys",
     "timestamp": 1346846400,
@@ -804,7 +789,10 @@ func TestOpenTSDBInsertJsonPayload(t *testing.T) {
 // @description: test opentsdb json
 func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	err := db.OpenTSDBInsertJsonPayload(`{
     "metric": "sys",
     "timestamp": 
@@ -825,7 +813,10 @@ func TestOpenTSDBInsertJsonPayloadWrong(t *testing.T) {
 // @description: test stmt execute with reqID
 func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
@@ -853,7 +844,10 @@ func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 // @description: test stmt execute with reqID
 func TestConnector_InsertStmtWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
@@ -871,14 +865,18 @@ func TestConnector_InsertStmtWithReqID(t *testing.T) {
 	bindType := param2.NewColumnType(4).AddTimestamp().AddFloat().AddInt().AddFloat()
 
 	stmt := db.InsertStmtWithReqID(common.GetReqID())
-	defer stmt.Close()
-	stmt.Prepare("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES (?, ?, ?, ?)")
-	stmt.BindParam(params, bindType)
-	stmt.AddBatch()
+	defer func() {
+		err = stmt.Close()
+		assert.NoError(t, err)
+	}()
+	err = stmt.Prepare("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES (?, ?, ?, ?)")
+	assert.NoError(t, err)
+	err = stmt.BindParam(params, bindType)
+	assert.NoError(t, err)
+	err = stmt.AddBatch()
+	assert.NoError(t, err)
 	err = stmt.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	if stmt.GetAffectedRows() != 1 {
 		t.Fatal("result miss")
 	}
@@ -890,7 +888,10 @@ func TestConnector_InsertStmtWithReqID(t *testing.T) {
 // @description: test execute with reqID
 func TestConnector_ExecWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
@@ -911,7 +912,10 @@ func TestConnector_ExecWithReqID(t *testing.T) {
 // @description: test query with reqID
 func TestConnector_QueryWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
@@ -930,7 +934,10 @@ func TestConnector_QueryWithReqID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Close()
+	defer func() {
+		err = res.Close()
+		assert.NoError(t, err)
+	}()
 	v := make([]driver.Value, 1)
 	err = res.Next(v)
 	if err != nil {
@@ -944,7 +951,10 @@ func TestConnector_QueryWithReqID(t *testing.T) {
 
 func TestInfluxDBInsertLinesWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	err := db.InfluxDBInsertLinesWithReqID(raw, "ns", 0x1234, 0, "")
 	if err != nil {
 		t.Error(err)
@@ -956,7 +966,10 @@ func TestInfluxDBInsertLinesWithReqID(t *testing.T) {
 
 func TestOpenTSDBInsertTelnetLinesWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	err := db.OpenTSDBInsertTelnetLinesWithReqID(
 		"sys_if_bytes_out 1479496100 1.3E3 host=web01 interface=eth0\nsys_procs_running 1479496100 42 host=web01",
 		0x2234, 0, "")
@@ -973,7 +986,10 @@ func TestOpenTSDBInsertTelnetLinesWithReqID(t *testing.T) {
 
 func TestOpenTSDBInsertJsonPayloadWithReqID(t *testing.T) {
 	db := testDatabase(t)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	err := db.OpenTSDBInsertJsonPayloadWithReqID(`{
     "metric": "sys",
     "timestamp": 

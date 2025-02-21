@@ -120,20 +120,19 @@ func (rs *rows) taosFetchBlock() error {
 	if completed {
 		rs.blockSize = 0
 		return nil
-	} else {
-		if len(respBytes) < 55+msgLen {
-			return taosErrors.NewError(0xffff, "invalid fetch raw block response")
-		}
-		blockLength := binary.LittleEndian.Uint32(respBytes[51+msgLen:])
-		if len(respBytes) < 55+msgLen+int(blockLength) {
-			return taosErrors.NewError(0xffff, "invalid fetch raw block response")
-		}
-		rawBlock := respBytes[55+msgLen : 55+msgLen+int(blockLength)]
-		rs.block = rawBlock
-		rs.blockPtr = unsafe.Pointer(&rs.block[0])
-		rs.blockSize = int(parser.RawBlockGetNumOfRows(rs.blockPtr))
-		rs.blockOffset = 0
 	}
+	if len(respBytes) < 55+msgLen {
+		return taosErrors.NewError(0xffff, "invalid fetch raw block response")
+	}
+	blockLength := binary.LittleEndian.Uint32(respBytes[51+msgLen:])
+	if len(respBytes) < 55+msgLen+int(blockLength) {
+		return taosErrors.NewError(0xffff, "invalid fetch raw block response")
+	}
+	rawBlock := respBytes[55+msgLen : 55+msgLen+int(blockLength)]
+	rs.block = rawBlock
+	rs.blockPtr = unsafe.Pointer(&rs.block[0])
+	rs.blockSize = int(parser.RawBlockGetNumOfRows(rs.blockPtr))
+	rs.blockOffset = 0
 	return nil
 }
 

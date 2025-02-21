@@ -62,6 +62,7 @@ func (e *Envelope) Reset() {
 	}
 }
 
+//revive:disable-next-line
 var ClosedError = errors.New("websocket closed")
 
 type Client struct {
@@ -78,7 +79,6 @@ type Client struct {
 	//SendMessageHandler   func(envelope *Envelope)
 	once           sync.Once
 	errHandlerOnce sync.Once
-	err            error
 }
 
 func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
@@ -101,9 +101,9 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 
 func (c *Client) ReadPump() {
 	c.conn.SetReadLimit(0)
-	c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
+	_ = c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
+		_ = c.conn.SetReadDeadline(time.Now().Add(c.PongWait))
 		return nil
 	})
 	c.conn.SetCloseHandler(nil)
@@ -141,7 +141,7 @@ func (c *Client) WritePump() {
 				message.ErrorChan <- ClosedError
 				continue
 			}
-			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
 			if err != nil {
 				message.ErrorChan <- err
@@ -156,7 +156,7 @@ func (c *Client) WritePump() {
 			}
 			message.ErrorChan <- nil
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.handleError(err)
 				c.Close()
@@ -204,7 +204,7 @@ func (c *Client) Close() {
 		atomic.StoreUint32(&c.status, StatusStop)
 		close(c.sendChan)
 		if c.conn != nil {
-			c.conn.Close()
+			_ = c.conn.Close()
 		}
 	})
 }

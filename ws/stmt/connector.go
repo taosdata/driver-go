@@ -42,6 +42,7 @@ type Connector struct {
 }
 
 var (
+	//revive:disable-next-line
 	ConnectTimeoutErr = errors.New("stmt connect timeout")
 )
 
@@ -69,7 +70,7 @@ func NewConnector(config *Config) (*Connector, error) {
 	ws.EnableWriteCompression(config.EnableCompression)
 	defer func() {
 		if connector == nil {
-			ws.Close()
+			_ = ws.Close()
 		}
 	}()
 	if config.MessageTimeout <= 0 {
@@ -136,7 +137,7 @@ func connect(ws *websocket.Conn, user string, password string, db string, writeT
 	if err != nil {
 		return err
 	}
-	ws.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_ = ws.SetWriteDeadline(time.Now().Add(writeTimeout))
 	err = ws.WriteMessage(websocket.TextMessage, connectAction)
 	if err != nil {
 		return err
@@ -247,7 +248,10 @@ func (c *Connector) send(reqID uint64, envelope *client.Envelope) ([]byte, error
 
 func (c *Connector) sendTextWithoutResp(envelope *client.Envelope) {
 	envelope.Type = websocket.TextMessage
-	c.client.Send(envelope)
+	err := c.client.Send(envelope)
+	if err != nil {
+		return
+	}
 	<-envelope.ErrorChan
 }
 
@@ -301,7 +305,7 @@ func (c *Connector) reconnect() error {
 		conn.EnableWriteCompression(c.dialer.EnableCompression)
 		err = connect(conn, c.user, c.password, c.db, c.writeTimeout, c.readTimeout)
 		if err != nil {
-			conn.Close()
+			_ = conn.Close()
 			continue
 		}
 		if c.client != nil {

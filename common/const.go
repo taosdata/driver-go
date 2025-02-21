@@ -2,6 +2,7 @@ package common
 
 import "unsafe"
 
+//revive:disable
 const (
 	MaxTaosSqlLen   = 1048576
 	DefaultUser     = "root"

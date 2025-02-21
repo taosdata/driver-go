@@ -108,7 +108,9 @@ func doRequest(payload string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("http code: %d", resp.StatusCode)
 	}
@@ -145,7 +147,9 @@ func query(payload string) (*common.TDEngineRestfulResp, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("http code: %d", resp.StatusCode)
 	}
@@ -161,14 +165,22 @@ func TestStmt(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer cleanEnv("test_ws_stmt")
+	defer func() {
+		err = cleanEnv("test_ws_stmt")
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	config := NewConfig("ws://127.0.0.1:6041", 0)
-	config.SetConnectUser("root")
-	config.SetConnectPass("taosdata")
-	config.SetConnectDB("test_ws_stmt")
-	config.SetMessageTimeout(common.DefaultMessageTimeout)
-	config.SetWriteWait(common.DefaultWriteWait)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetConnectDB("test_ws_stmt")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
 	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
@@ -181,7 +193,10 @@ func TestStmt(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer connector.Close()
+	defer func() {
+		err = connector.Close()
+		assert.NoError(t, err)
+	}()
 	{
 		stmt, err := connector.Init()
 		if err != nil {
@@ -312,6 +327,7 @@ func TestStmt(t *testing.T) {
 			return
 		}
 		err = stmt.Prepare("insert into ? using all_all tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		assert.NoError(t, err)
 		err = stmt.SetTableName("tb1")
 		if err != nil {
 			t.Error(err)
@@ -627,14 +643,22 @@ func TestSTMTQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer cleanEnv("test_ws_stmt_query")
+	defer func() {
+		err = cleanEnv("test_ws_stmt_query")
+		assert.NoError(t, err)
+	}()
 	now := time.Now()
 	config := NewConfig("ws://127.0.0.1:6041", 0)
-	config.SetConnectUser("root")
-	config.SetConnectPass("taosdata")
-	config.SetConnectDB("test_ws_stmt_query")
-	config.SetMessageTimeout(common.DefaultMessageTimeout)
-	config.SetWriteWait(common.DefaultWriteWait)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetConnectDB("test_ws_stmt_query")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
 	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
@@ -647,14 +671,18 @@ func TestSTMTQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer connector.Close()
+	defer func() {
+		_ = connector.Close()
+	}()
 	{
 		stmt, err := connector.Init()
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		defer stmt.Close()
+		defer func() {
+			_ = stmt.Close()
+		}()
 		err = stmt.Prepare("insert into ? using all_json tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 		if err != nil {
 			t.Error(err)
@@ -764,7 +792,7 @@ func TestSTMTQuery(t *testing.T) {
 			err = rows.Next(values)
 			if err != nil {
 				if err == io.EOF {
-					rows.Close()
+					_ = rows.Close()
 					break
 				}
 				assert.NoError(t, err)
@@ -817,8 +845,14 @@ func TestSTMTQuery(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		defer stmt.Close()
+		defer func(stmt *Stmt) {
+			err := stmt.Close()
+			if err != nil {
+				t.Error(err)
+			}
+		}(stmt)
 		err = stmt.Prepare("insert into ? using all_all tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		assert.NoError(t, err)
 		err = stmt.SetTableName("tb1")
 		if err != nil {
 			t.Error(err)
@@ -937,7 +971,7 @@ func TestSTMTQuery(t *testing.T) {
 			err = rows.Next(values)
 			if err != nil {
 				if err == io.EOF {
-					rows.Close()
+					_ = rows.Close()
 					break
 				}
 				assert.NoError(t, err)
@@ -1047,7 +1081,7 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		if err != nil {
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		time.Sleep(time.Second)
 		return nil
 	}
@@ -1058,8 +1092,8 @@ func stopTaosadapter(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return
 	}
-	cmd.Process.Signal(syscall.SIGINT)
-	cmd.Process.Wait()
+	_ = cmd.Process.Signal(syscall.SIGINT)
+	_, _ = cmd.Process.Wait()
 	cmd.Process = nil
 }
 
@@ -1074,10 +1108,14 @@ func TestSTMTReconnect(t *testing.T) {
 		stopTaosadapter(cmd)
 	}()
 	config := NewConfig("ws://127.0.0.1:"+port, 0)
-	config.SetConnectUser("root")
-	config.SetConnectPass("taosdata")
-	config.SetMessageTimeout(3 * time.Second)
-	config.SetWriteWait(3 * time.Second)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(3 * time.Second)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(3 * time.Second)
+	assert.NoError(t, err)
 	config.SetEnableCompression(true)
 	config.SetErrorHandler(func(connector *Connector, err error) {
 		t.Log(err)
@@ -1095,7 +1133,8 @@ func TestSTMTReconnect(t *testing.T) {
 	}
 	stmt, err := connector.Init()
 	assert.NoError(t, err)
-	stmt.Close()
+	err = stmt.Close()
+	assert.NoError(t, err)
 	stopTaosadapter(cmd)
 	startChan := make(chan struct{})
 	go func() {
@@ -1109,9 +1148,11 @@ func TestSTMTReconnect(t *testing.T) {
 	}()
 	stmt, err = connector.Init()
 	assert.Error(t, err)
+	assert.Nil(t, stmt)
 	<-startChan
 	time.Sleep(time.Second)
 	stmt, err = connector.Init()
 	assert.NoError(t, err)
-	stmt.Close()
+	err = stmt.Close()
+	assert.NoError(t, err)
 }

@@ -114,7 +114,7 @@ func (s *Schemaless) reconnect() error {
 		}
 		conn.EnableWriteCompression(s.dialer.EnableCompression)
 		if err = connect(conn, s.user, s.password, s.db, s.writeTimeout, s.readTimeout); err != nil {
-			conn.Close()
+			_ = conn.Close()
 			continue
 		}
 		if s.client != nil {
@@ -194,6 +194,7 @@ func (s *Schemaless) Close() {
 }
 
 var (
+	//revive:disable-next-line
 	ConnectTimeoutErr = errors.New("schemaless connect timeout")
 )
 
@@ -216,7 +217,7 @@ func connect(ws *websocket.Conn, user string, password string, db string, writeT
 	if err != nil {
 		return err
 	}
-	ws.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_ = ws.SetWriteDeadline(time.Now().Add(writeTimeout))
 	err = ws.WriteMessage(websocket.TextMessage, connectAction)
 	if err != nil {
 		return err

@@ -192,7 +192,9 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -201,7 +203,9 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 		return nil, fmt.Errorf("server response: %s - %s", resp.Status, string(body))
 	}
 	respBody := resp.Body
-	defer ioutil.ReadAll(respBody)
+	defer func() {
+		_, _ = ioutil.ReadAll(respBody)
+	}()
 	if !tc.cfg.DisableCompression && EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
 		respBody, err = gzip.NewReader(resp.Body)
 		if err != nil {

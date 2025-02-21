@@ -21,7 +21,13 @@ func TestStmtExec(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}(db)
 	defer func() {
 		_, err = db.Exec("drop database if exists test_stmt_driver")
 		if err != nil {
@@ -75,9 +81,16 @@ func TestStmtQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}(db)
 	defer func() {
-		db.Exec("drop database if exists test_stmt_driver_q")
+		_, err := db.Exec("drop database if exists test_stmt_driver_q")
+		assert.NoError(t, err)
 	}()
 	_, err = db.Exec("create database if not exists test_stmt_driver_q")
 	if err != nil {
@@ -120,7 +133,8 @@ func TestStmtQuery(t *testing.T) {
 		return
 	}
 	assert.Equal(t, int64(1), affected)
-	stmt.Close()
+	err = stmt.Close()
+	assert.NoError(t, err)
 	stmt, err = db.Prepare("select * from test_stmt_driver_q.ct where ts = ?")
 	if err != nil {
 		t.Error(err)
@@ -198,7 +212,10 @@ func TestStmtConvertExec(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err = db.Exec("drop database if exists test_stmt_driver_convert")
 	if err != nil {
 		t.Error(err)
@@ -1034,7 +1051,8 @@ func TestStmtConvertExec(t *testing.T) {
 			result, err := stmt.Exec(tt.bind...)
 			if tt.expectError {
 				assert.NotNil(t, err)
-				stmt.Close()
+				err = stmt.Close()
+				assert.NoError(t, err)
 				return
 			}
 			if err != nil {
@@ -1101,7 +1119,10 @@ func TestStmtConvertQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err = db.Exec("drop database if exists test_stmt_driver_convert_q")
 	if err != nil {
 		t.Error(err)
@@ -2102,11 +2123,15 @@ func TestStmtConvertQuery(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			defer stmt.Close()
+			defer func() {
+				err := stmt.Close()
+				assert.NoError(t, err)
+			}()
 			rows, err := stmt.Query(tt.bind)
 			if tt.expectError {
 				assert.NotNil(t, err)
-				stmt.Close()
+				err = stmt.Close()
+				assert.NoError(t, err)
 				return
 			}
 			if err != nil {
@@ -2114,6 +2139,10 @@ func TestStmtConvertQuery(t *testing.T) {
 				return
 			}
 			tts, err := rows.ColumnTypes()
+			if err != nil {
+				t.Error(err)
+				return
+			}
 			typesL := make([]reflect.Type, 1)
 			for i, tp := range tts {
 				st := tp.ScanType()
@@ -2163,7 +2192,10 @@ func TestWrongStmt(t *testing.T) {
 	d := &TDengineDriver{}
 	conn, err := d.Open(dataSourceName)
 	assert.NoError(t, err)
-	defer conn.Close()
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	c := conn.(*taosConn)
 	cPointer := c.taos
 	c.taos = nil

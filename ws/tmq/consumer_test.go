@@ -45,13 +45,16 @@ func cleanEnv() error {
 		"drop topic if exists test_ws_tmq_topic",
 		"drop database if exists test_ws_tmq",
 	}
-	for _, step := range steps {
-		err = doRequest(step)
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
 		if err != nil {
-			return err
+			continue
+		} else {
+			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 func doRequest(payload string) error {
@@ -62,7 +65,9 @@ func doRequest(payload string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("http code: %d", resp.StatusCode)
 	}
@@ -100,7 +105,12 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer cleanEnv()
+	defer func() {
+		err = cleanEnv()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	now := time.Now()
 	go func() {
 		err = doRequest("create table test_ws_tmq.t_all(ts timestamp," +
@@ -148,7 +158,12 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer consumer.Close()
+	defer func() {
+		err = consumer.Close()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	topic := []string{"test_ws_tmq_topic"}
 	err = consumer.SubscribeTopics(topic, nil)
 	if err != nil {
@@ -187,8 +202,10 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, "nchar", v[13].(string))
 				t.Log(e.Offset())
 				ass, err := consumer.Assignment()
+				assert.NoError(t, err)
 				t.Log(ass)
 				committed, err := consumer.Committed(ass, 0)
+				assert.NoError(t, err)
 				t.Log(committed)
 				position, _ := consumer.Position(ass)
 				t.Log(position)
@@ -197,8 +214,10 @@ func TestConsumer(t *testing.T) {
 				_, err = consumer.CommitOffsets(offsets)
 				assert.NoError(t, err)
 				ass, err = consumer.Assignment()
+				assert.NoError(t, err)
 				t.Log(ass)
 				committed, err = consumer.Committed(ass, 0)
+				assert.NoError(t, err)
 				t.Log(committed)
 				position, _ = consumer.Position(ass)
 				t.Log(position)
@@ -247,19 +266,21 @@ func prepareSeekEnv() error {
 }
 
 func cleanSeekEnv() error {
-	var err error
-	time.Sleep(2 * time.Second)
 	steps := []string{
 		"drop topic if exists test_ws_tmq_seek_topic",
 		"drop database if exists test_ws_tmq_seek",
 	}
-	for _, step := range steps {
-		err = doRequest(step)
+	var err error
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
 		if err != nil {
-			return err
+			continue
+		} else {
+			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 // @author: xftan
@@ -271,7 +292,12 @@ func TestSeek(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer cleanSeekEnv()
+	defer func() {
+		err = cleanSeekEnv()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                       "ws://127.0.0.1:6041",
 		"ws.message.channelLen":        uint(0),
@@ -290,7 +316,12 @@ func TestSeek(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer consumer.Close()
+	defer func() {
+		err = consumer.Close()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	topic := []string{"test_ws_tmq_seek_topic"}
 	err = consumer.SubscribeTopics(topic, nil)
 	if err != nil {
@@ -378,19 +409,21 @@ func prepareAutocommitEnv() error {
 }
 
 func cleanAutocommitEnv() error {
-	var err error
-	time.Sleep(2 * time.Second)
 	steps := []string{
 		"drop topic if exists test_ws_tmq_autocommit_topic",
 		"drop database if exists test_ws_tmq_autocommit",
 	}
-	for _, step := range steps {
-		err = doRequest(step)
+	var err error
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
 		if err != nil {
-			return err
+			continue
+		} else {
+			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 func TestAutoCommit(t *testing.T) {
@@ -399,7 +432,12 @@ func TestAutoCommit(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer cleanAutocommitEnv()
+	defer func() {
+		err = cleanAutocommitEnv()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
@@ -415,13 +453,11 @@ func TestAutoCommit(t *testing.T) {
 		"msg.with.table.name":     "true",
 	})
 	assert.NoError(t, err)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 	defer func() {
-		consumer.Unsubscribe()
-		consumer.Close()
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
 	}()
 	topic := []string{"test_ws_tmq_autocommit_topic"}
 	err = consumer.SubscribeTopics(topic, nil)
@@ -491,25 +527,30 @@ func prepareMultiBlockEnv() error {
 }
 
 func cleanMultiBlockEnv() error {
-	var err error
-	time.Sleep(2 * time.Second)
 	steps := []string{
 		"drop topic if exists test_ws_tmq_multi_block_topic",
 		"drop database if exists test_ws_tmq_multi_block",
 	}
-	for _, step := range steps {
-		err = doRequest(step)
+	var err error
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
 		if err != nil {
-			return err
+			continue
+		} else {
+			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 func TestMultiBlock(t *testing.T) {
 	err := prepareMultiBlockEnv()
 	assert.NoError(t, err)
-	defer cleanMultiBlockEnv()
+	defer func() {
+		err = cleanMultiBlockEnv()
+		assert.NoError(t, err)
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
@@ -530,8 +571,10 @@ func TestMultiBlock(t *testing.T) {
 		return
 	}
 	defer func() {
-		consumer.Unsubscribe()
-		consumer.Close()
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
 	}()
 	topic := []string{"test_ws_tmq_multi_block_topic"}
 	err = consumer.SubscribeTopics(topic, nil)
@@ -811,25 +854,30 @@ func prepareMetaEnv() error {
 }
 
 func cleanMetaEnv() error {
-	var err error
-	time.Sleep(2 * time.Second)
 	steps := []string{
 		"drop topic if exists test_ws_tmq_meta_topic",
 		"drop database if exists test_ws_tmq_meta",
 	}
-	for _, step := range steps {
-		err = doRequest(step)
+	var err error
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
 		if err != nil {
-			return err
+			continue
+		} else {
+			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 func TestMeta(t *testing.T) {
 	err := prepareMetaEnv()
 	assert.NoError(t, err)
-	defer cleanMetaEnv()
+	defer func() {
+		err = cleanMetaEnv()
+		assert.NoError(t, err)
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
@@ -847,17 +895,25 @@ func TestMeta(t *testing.T) {
 	err = consumer.Subscribe("test_ws_tmq_meta_topic", nil)
 	assert.NoError(t, err)
 	defer func() {
-		consumer.Unsubscribe()
-		consumer.Close()
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
 	}()
 	go func() {
-		doRequest("create table test_ws_tmq_meta.st(ts timestamp,v int) tags (cn binary(20))")
-		doRequest("create table test_ws_tmq_meta.t1 using test_ws_tmq_meta.st tags ('t1')")
-		doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
-		doRequest("insert into test_ws_tmq_meta.t2 using test_ws_tmq_meta.st tags ('t1') values (now,2)")
+		err = doRequest("create table test_ws_tmq_meta.st(ts timestamp,v int) tags (cn binary(20))")
+		assert.NoError(t, err)
+		err = doRequest("create table test_ws_tmq_meta.t1 using test_ws_tmq_meta.st tags ('t1')")
+		assert.NoError(t, err)
+		err = doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+		assert.NoError(t, err)
+		err = doRequest("insert into test_ws_tmq_meta.t2 using test_ws_tmq_meta.st tags ('t1') values (now,2)")
+		assert.NoError(t, err)
 		time.Sleep(time.Second)
-		doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
-		doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+		err = doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+		assert.NoError(t, err)
+		err = doRequest("insert into test_ws_tmq_meta.t1 values (now,1)")
+		assert.NoError(t, err)
 	}()
 	for i := 0; i < 10; i++ {
 		event := consumer.Poll(500)
@@ -901,7 +957,7 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		if err != nil {
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		time.Sleep(time.Second)
 		return nil
 	}
@@ -912,8 +968,8 @@ func stopTaosadapter(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return
 	}
-	cmd.Process.Signal(syscall.SIGINT)
-	cmd.Process.Wait()
+	_ = cmd.Process.Signal(syscall.SIGINT)
+	_, _ = cmd.Process.Wait()
 	cmd.Process = nil
 }
 
@@ -935,14 +991,26 @@ func prepareSubReconnectEnv() error {
 }
 
 func cleanSubReconnectEnv() error {
-	var err error
-	time.Sleep(2 * time.Second)
 	steps := []string{
 		"drop topic if exists test_ws_tmq_sub_reconnect_topic",
 		"drop database if exists test_ws_tmq_sub_reconnect",
 	}
+	var err error
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
+		if err != nil {
+			continue
+		} else {
+			return nil
+		}
+	}
+	return err
+}
+
+func doClean(steps []string) error {
 	for _, step := range steps {
-		err = doRequest(step)
+		err := doRequest(step)
 		if err != nil {
 			return err
 		}
@@ -958,8 +1026,12 @@ func TestSubscribeReconnect(t *testing.T) {
 	defer func() {
 		stopTaosadapter(cmd)
 	}()
-	prepareSubReconnectEnv()
-	defer cleanSubReconnectEnv()
+	err = prepareSubReconnectEnv()
+	assert.NoError(t, err)
+	defer func() {
+		err = cleanSubReconnectEnv()
+		assert.NoError(t, err)
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:" + port,
 		"ws.message.channelLen":   uint(0),
@@ -996,14 +1068,29 @@ func TestSubscribeReconnect(t *testing.T) {
 	time.Sleep(time.Second)
 	err = consumer.Subscribe("test_ws_tmq_sub_reconnect_topic", nil)
 	assert.NoError(t, err)
-	doRequest("create table test_ws_tmq_sub_reconnect.st(ts timestamp,v int) tags (cn binary(20))")
-	doRequest("create table test_ws_tmq_sub_reconnect.t1 using test_ws_tmq_sub_reconnect.st tags ('t1')")
-	doRequest("insert into test_ws_tmq_sub_reconnect.t1 values (now,1)")
+	defer func() {
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
+	}()
+	err = doRequest("create table test_ws_tmq_sub_reconnect.st(ts timestamp,v int) tags (cn binary(20))")
+	assert.NoError(t, err)
+	err = doRequest("create table test_ws_tmq_sub_reconnect.t1 using test_ws_tmq_sub_reconnect.st tags ('t1')")
+	assert.NoError(t, err)
+	err = doRequest("insert into test_ws_tmq_sub_reconnect.t1 values (now,1)")
+	assert.NoError(t, err)
 	stopTaosadapter(cmd)
 	go func() {
+		defer func() {
+			startChan <- struct{}{}
+		}()
 		time.Sleep(time.Second * 3)
-		startTaosadapter(cmd, port)
-		startChan <- struct{}{}
+		err = startTaosadapter(cmd, port)
+		if err != nil {
+			t.Errorf("start taosadapter failed: %v", err)
+			return
+		}
 	}()
 	time.Sleep(time.Second)
 	event := consumer.Poll(500)
@@ -1022,7 +1109,6 @@ func TestSubscribeReconnect(t *testing.T) {
 			t.Log(e)
 			assert.Equal(t, "test_ws_tmq_sub_reconnect", e.DBName())
 			haveMessage = true
-			break
 		default:
 			t.Log(e)
 		}

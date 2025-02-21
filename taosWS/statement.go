@@ -461,60 +461,59 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			}
 		}
 		return nil
-	} else {
-		if v.Value == nil {
-			return errors.New("CheckNamedValue: value is nil")
-		}
-		if v.Ordinal == 1 {
-			stmt.queryColTypes = nil
-		}
-		if len(stmt.queryColTypes) < v.Ordinal {
-			tmp := stmt.queryColTypes
-			stmt.queryColTypes = make([]*types.ColumnType, v.Ordinal)
-			copy(stmt.queryColTypes, tmp)
-		}
-		t, is := v.Value.(time.Time)
-		if is {
-			v.Value = types.TaosBinary(t.Format(time.RFC3339Nano))
-			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBinaryType}
-			return nil
-		}
-		rv := reflect.ValueOf(v.Value)
-		switch rv.Kind() {
-		case reflect.Bool:
-			v.Value = types.TaosBool(rv.Bool())
-			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBoolType}
-		case reflect.Float32, reflect.Float64:
-			v.Value = types.TaosDouble(rv.Float())
-			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosDoubleType}
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			v.Value = types.TaosBigint(rv.Int())
-			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBigintType}
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			v.Value = types.TaosUBigint(rv.Uint())
-			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosUBigintType}
-		case reflect.String:
-			strVal := rv.String()
-			v.Value = types.TaosBinary(strVal)
-			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{
-				Type:   types.TaosBinaryType,
-				MaxLen: len(strVal),
-			}
-		case reflect.Slice:
-			ek := rv.Type().Elem().Kind()
-			if ek == reflect.Uint8 {
-				bsVal := rv.Bytes()
-				v.Value = types.TaosBinary(bsVal)
-				stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{
-					Type:   types.TaosBinaryType,
-					MaxLen: len(bsVal),
-				}
-			} else {
-				return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
-			}
-		default:
-			return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
-		}
+	}
+	if v.Value == nil {
+		return errors.New("CheckNamedValue: value is nil")
+	}
+	if v.Ordinal == 1 {
+		stmt.queryColTypes = nil
+	}
+	if len(stmt.queryColTypes) < v.Ordinal {
+		tmp := stmt.queryColTypes
+		stmt.queryColTypes = make([]*types.ColumnType, v.Ordinal)
+		copy(stmt.queryColTypes, tmp)
+	}
+	t, is := v.Value.(time.Time)
+	if is {
+		v.Value = types.TaosBinary(t.Format(time.RFC3339Nano))
+		stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBinaryType}
 		return nil
 	}
+	rv := reflect.ValueOf(v.Value)
+	switch rv.Kind() {
+	case reflect.Bool:
+		v.Value = types.TaosBool(rv.Bool())
+		stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBoolType}
+	case reflect.Float32, reflect.Float64:
+		v.Value = types.TaosDouble(rv.Float())
+		stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosDoubleType}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.Value = types.TaosBigint(rv.Int())
+		stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosBigintType}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.Value = types.TaosUBigint(rv.Uint())
+		stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{Type: types.TaosUBigintType}
+	case reflect.String:
+		strVal := rv.String()
+		v.Value = types.TaosBinary(strVal)
+		stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{
+			Type:   types.TaosBinaryType,
+			MaxLen: len(strVal),
+		}
+	case reflect.Slice:
+		ek := rv.Type().Elem().Kind()
+		if ek == reflect.Uint8 {
+			bsVal := rv.Bytes()
+			v.Value = types.TaosBinary(bsVal)
+			stmt.queryColTypes[v.Ordinal-1] = &types.ColumnType{
+				Type:   types.TaosBinaryType,
+				MaxLen: len(bsVal),
+			}
+		} else {
+			return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
+		}
+	default:
+		return fmt.Errorf("CheckNamedValue: can not convert query value %v", v)
+	}
+	return nil
 }

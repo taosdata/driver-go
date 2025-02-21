@@ -375,6 +375,7 @@ const (
 	TMQPosition           = "position"
 )
 
+//revive:disable-next-line
 var ClosedErr = errors.New("connection closed")
 
 func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
@@ -496,7 +497,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			c.nextAutoCommitTime = time.Now().Add(c.autoCommitInterval)
 		} else {
 			if time.Now().After(c.nextAutoCommitTime) {
-				c.doCommit()
+				_ = c.doCommit()
 				c.nextAutoCommitTime = time.Now().Add(c.autoCommitInterval)
 			}
 		}

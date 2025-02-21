@@ -41,9 +41,8 @@ func GetTMQCommitCallbackResult(errCode int32, consumer unsafe.Pointer) *TMQComm
 		t.ErrCode = errCode
 		t.Consumer = consumer
 		return t
-	} else {
-		return &TMQCommitCallbackResult{ErrCode: errCode, Consumer: consumer}
 	}
+	return &TMQCommitCallbackResult{ErrCode: errCode, Consumer: consumer}
 }
 
 func PutTMQCommitCallbackResult(result *TMQCommitCallbackResult) {

@@ -26,7 +26,7 @@ func TestNewLocker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			locker := NewLocker(tt.args.count)
 			locker.Lock()
-			locker.Unlock()
+			defer locker.Unlock()
 		})
 	}
 }

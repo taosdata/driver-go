@@ -107,10 +107,9 @@ func (rs *Rows) taosFetchBlock() error {
 	if resp.Completed {
 		rs.blockSize = 0
 		return nil
-	} else {
-		rs.blockSize = resp.Rows
-		return rs.fetchBlock()
 	}
+	rs.blockSize = resp.Rows
+	return rs.fetchBlock()
 }
 
 func (rs *Rows) fetchBlock() error {

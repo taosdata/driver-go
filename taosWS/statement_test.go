@@ -19,7 +19,10 @@ func TestStmtExec(t *testing.T) {
 	}
 	defer func() {
 		t.Log("start3")
-		db.Close()
+		err = db.Close()
+		if err != nil {
+			t.Error(err)
+		}
 		t.Log("done3")
 	}()
 	defer func() {
@@ -79,9 +82,17 @@ func TestStmtQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
 	defer func() {
-		db.Exec("drop database if exists test_stmt_driver_ws_q")
+		err = db.Close()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	defer func() {
+		_, err = db.Exec("drop database if exists test_stmt_driver_ws_q")
+		if err != nil {
+			t.Error(err)
+		}
 	}()
 	_, err = db.Exec("create database if not exists test_stmt_driver_ws_q")
 	if err != nil {
@@ -126,7 +137,11 @@ func TestStmtQuery(t *testing.T) {
 		return
 	}
 	assert.Equal(t, int64(1), affected)
-	stmt.Close()
+	err = stmt.Close()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	stmt, err = db.Prepare("select * from test_stmt_driver_ws_q.ct where ts = ?")
 	if err != nil {
 		t.Error(err)
@@ -207,7 +222,12 @@ func TestStmtConvertExec(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	_, err = db.Exec("drop database if exists test_stmt_driver_ws_convert")
 	if err != nil {
 		t.Error(err)
@@ -1075,10 +1095,15 @@ func TestStmtConvertExec(t *testing.T) {
 				t.Error(err)
 				return
 			}
+			defer func() {
+				err = stmt.Close()
+				if err != nil {
+					t.Error(err)
+				}
+			}()
 			result, err := stmt.Exec(tt.bind...)
 			if tt.expectError {
 				assert.NotNil(t, err)
-				stmt.Close()
 				return
 			}
 			if err != nil {
@@ -1148,7 +1173,12 @@ func TestStmtConvertQuery(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	_, err = db.Exec("drop database if exists test_stmt_driver_ws_convert_q")
 	if err != nil {
 		t.Error(err)
@@ -2149,11 +2179,15 @@ func TestStmtConvertQuery(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			defer stmt.Close()
+			defer func() {
+				err = stmt.Close()
+				if err != nil {
+					t.Error(err)
+				}
+			}()
 			rows, err := stmt.Query(tt.bind)
 			if tt.expectError {
 				assert.NotNil(t, err)
-				stmt.Close()
 				return
 			}
 			if err != nil {

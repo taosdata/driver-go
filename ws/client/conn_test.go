@@ -52,7 +52,9 @@ func wsEchoServer(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	for {
 		messageType, message, err := conn.ReadMessage()
@@ -87,7 +89,8 @@ func TestClient(t *testing.T) {
 	env := c.GetEnvelope()
 	env.Type = websocket.TextMessage
 	env.Msg.WriteString("test")
-	c.Send(env)
+	err = c.Send(env)
+	assert.NoError(t, err)
 	env = c.GetEnvelope()
 	c.PutEnvelope(env)
 	timeout := time.NewTimer(time.Second * 3)

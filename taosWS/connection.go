@@ -40,10 +40,13 @@ const (
 	FetchRawBlockMessage uint64 = 7
 )
 
+//revive:disable
 var (
 	NotQueryError    = errors.New("sql is an update statement not a query statement")
 	ReadTimeoutError = errors.New("read timeout")
 )
+
+//revive:enable
 
 type taosConn struct {
 	buf          *bytes.Buffer
@@ -82,9 +85,12 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 		return nil, err
 	}
 	ws.EnableWriteCompression(cfg.EnableCompression)
-	ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+	err = ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+	if err != nil {
+		return nil, err
+	}
 	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
+		_ = ws.SetReadDeadline(time.Now().Add(common.DefaultPongWait))
 		return nil
 	})
 	tc := &taosConn{
@@ -102,7 +108,7 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	go tc.read()
 	err = tc.connect()
 	if err != nil {
-		tc.Close()
+		_ = tc.Close()
 	}
 	return tc, nil
 }
@@ -115,7 +121,7 @@ func (tc *taosConn) ping() {
 		case <-tc.closeCh:
 			return
 		case <-ticker.C:
-			tc.writePing()
+			_ = tc.writePing()
 		}
 	}
 }
@@ -191,7 +197,7 @@ func (tc *taosConn) PrepareContext(ctx context.Context, query string) (driver.St
 	}
 	isInsert, err := tc.stmtPrepare(stmtID, query)
 	if err != nil {
-		tc.stmtClose(stmtID)
+		_ = tc.stmtClose(stmtID)
 		return nil, err
 	}
 	stmt := &Stmt{
@@ -605,8 +611,11 @@ func (tc *taosConn) write(messageType int, data []byte) error {
 	if tc.messageError != nil {
 		return tc.messageError
 	}
-	tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
-	err := tc.client.WriteMessage(messageType, data)
+	err := tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
+	if err != nil {
+		return NewBadConnError(err)
+	}
+	err = tc.client.WriteMessage(messageType, data)
 	if err != nil {
 		return NewBadConnErrorWithCtx(err, string(data))
 	}

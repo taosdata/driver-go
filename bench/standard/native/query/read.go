@@ -1,6 +1,9 @@
 package main
 
-import "github.com/taosdata/driver-go/v3/bench/standard/executor"
+import (
+	"github.com/taosdata/driver-go/v3/bench/standard/executor"
+	_ "github.com/taosdata/driver-go/v3/taosSql"
+)
 
 func main() {
 	test := executor.NewTDTest(executor.DefaultNativeDriverName, executor.DefaultNativeDSN)

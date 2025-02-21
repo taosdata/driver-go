@@ -49,7 +49,8 @@ func TestTmq(t *testing.T) {
 	}
 
 	defer func() {
-		execWithoutResult(conn, "drop database if exists af_test_tmq")
+		err = execWithoutResult(conn, "drop database if exists af_test_tmq")
+		assert.NoError(t, err)
 	}()
 	for _, sql := range sqls {
 		err = execWithoutResult(conn, sql)
@@ -93,13 +94,16 @@ func TestTmq(t *testing.T) {
 	t.Log(position)
 	haveMessage := false
 	for i := 0; i < 5; i++ {
+		if haveMessage {
+			break
+		}
 		ev := consumer.Poll(500)
 		if ev == nil {
 			continue
 		}
-		haveMessage = true
 		switch e := ev.(type) {
 		case *tmq.DataMessage:
+			haveMessage = true
 			row1 := e.Value().([]*tmq.Data)[0].Data[0]
 			assert.Equal(t, "af_test_tmq", e.DBName())
 			assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
@@ -118,8 +122,10 @@ func TestTmq(t *testing.T) {
 			assert.Equal(t, "2", row1[13].(string))
 			t.Log(e.Offset())
 			ass, err := consumer.Assignment()
+			assert.NoError(t, err)
 			t.Log(ass)
 			committed, err := consumer.Committed(ass, 0)
+			assert.NoError(t, err)
 			t.Log(committed)
 			position, _ := consumer.Position(ass)
 			t.Log(position)
@@ -128,8 +134,10 @@ func TestTmq(t *testing.T) {
 			_, err = consumer.CommitOffsets(offsets)
 			assert.NoError(t, err)
 			ass, err = consumer.Assignment()
+			assert.NoError(t, err)
 			t.Log(ass)
 			committed, err = consumer.Committed(ass, 0)
+			assert.NoError(t, err)
 			t.Log(committed)
 			position, _ = consumer.Position(ass)
 			t.Log(position)
@@ -137,7 +145,6 @@ func TestTmq(t *testing.T) {
 			assert.NoError(t, err)
 			err = consumer.Close()
 			assert.NoError(t, err)
-			return
 		case tmq.Error:
 			t.Error(e)
 			return
@@ -180,7 +187,8 @@ func TestSeek(t *testing.T) {
 	}
 
 	defer func() {
-		execWithoutResult(conn, "drop database if exists "+db)
+		err = execWithoutResult(conn, "drop database if exists "+db)
+		assert.NoError(t, err)
 	}()
 	for _, sql := range sqls {
 		err = execWithoutResult(conn, sql)
@@ -294,7 +302,8 @@ func TestSeek(t *testing.T) {
 	for i := 0; i < len(assignment); i++ {
 		assert.Equal(t, topic, *assignment[i].Topic)
 	}
-	consumer.Close()
+	err = consumer.Close()
+	assert.NoError(t, err)
 }
 
 func execWithoutResult(conn unsafe.Pointer, sql string) error {
@@ -366,7 +375,10 @@ func TestMultiBlock(t *testing.T) {
 	defer wrapper.TaosClose(conn)
 	err = prepareMultiBlockEnv(conn)
 	assert.NoError(t, err)
-	defer cleanMultiBlockEnv(conn)
+	defer func() {
+		err = cleanMultiBlockEnv(conn)
+		assert.NoError(t, err)
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"group.id":            "test",
 		"td.connect.ip":       "127.0.0.1",
@@ -384,8 +396,10 @@ func TestMultiBlock(t *testing.T) {
 		return
 	}
 	defer func() {
-		consumer.Unsubscribe()
-		consumer.Close()
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
 	}()
 	topic := []string{"test_tmq_multi_block_topic"}
 	err = consumer.SubscribeTopics(topic, nil)
@@ -447,7 +461,10 @@ func TestMeta(t *testing.T) {
 	defer wrapper.TaosClose(conn)
 	err = prepareMetaEnv(conn)
 	assert.NoError(t, err)
-	defer cleanMetaEnv(conn)
+	defer func() {
+		err = cleanMetaEnv(conn)
+		assert.NoError(t, err)
+	}()
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"group.id":            "test",
 		"td.connect.ip":       "127.0.0.1",
@@ -462,17 +479,25 @@ func TestMeta(t *testing.T) {
 	err = consumer.Subscribe("test_tmq_meta_topic", nil)
 	assert.NoError(t, err)
 	defer func() {
-		consumer.Unsubscribe()
-		consumer.Close()
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
 	}()
 	go func() {
-		execWithoutResult(conn, "create table test_tmq_meta.st(ts timestamp,v int) tags (cn binary(20))")
-		execWithoutResult(conn, "create table test_tmq_meta.t1 using test_tmq_meta.st tags ('t1')")
-		execWithoutResult(conn, "insert into test_tmq_meta.t1 values (now,1)")
-		execWithoutResult(conn, "insert into test_tmq_meta.t2 using test_tmq_meta.st tags ('t1') values (now,2)")
+		err := execWithoutResult(conn, "create table test_tmq_meta.st(ts timestamp,v int) tags (cn binary(20))")
+		assert.NoError(t, err)
+		err = execWithoutResult(conn, "create table test_tmq_meta.t1 using test_tmq_meta.st tags ('t1')")
+		assert.NoError(t, err)
+		err = execWithoutResult(conn, "insert into test_tmq_meta.t1 values (now,1)")
+		assert.NoError(t, err)
+		err = execWithoutResult(conn, "insert into test_tmq_meta.t2 using test_tmq_meta.st tags ('t1') values (now,2)")
+		assert.NoError(t, err)
 		time.Sleep(time.Second)
-		execWithoutResult(conn, "insert into test_tmq_meta.t1 values (now,1)")
-		execWithoutResult(conn, "insert into test_tmq_meta.t1 values (now,1)")
+		err = execWithoutResult(conn, "insert into test_tmq_meta.t1 values (now,1)")
+		assert.NoError(t, err)
+		err = execWithoutResult(conn, "insert into test_tmq_meta.t1 values (now,1)")
+		assert.NoError(t, err)
 	}()
 	for i := 0; i < 10; i++ {
 		event := consumer.Poll(500)

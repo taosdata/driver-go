@@ -119,11 +119,7 @@ func ItemIsNull(pHeader unsafe.Pointer, row int) bool {
 }
 
 func rawConvertBool(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
-	if (*((*byte)(pointer.AddUintptr(pStart, uintptr(row)*1)))) != 0 {
-		return true
-	} else {
-		return false
-	}
+	return (*((*byte)(pointer.AddUintptr(pStart, uintptr(row)*1)))) != 0
 }
 
 func rawConvertTinyint(pStart unsafe.Pointer, row int, _ ...interface{}) driver.Value {
@@ -171,9 +167,8 @@ func rawConvertTime(pStart unsafe.Pointer, row int, arg ...interface{}) driver.V
 		return common.TimestampConvertToTime(*((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size))), arg[0].(int))
 	} else if len(arg) == 2 {
 		return arg[1].(FormatTimeFunc)(*((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size))), arg[0].(int))
-	} else {
-		panic("convertTime error")
 	}
+	panic("convertTime error")
 }
 
 func rawConvertVarBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
@@ -350,13 +345,11 @@ func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uin
 func ItemRawBlock(colType uint8, pHeader, pStart unsafe.Pointer, row int, precision int, timeFormat FormatTimeFunc) driver.Value {
 	if IsVarDataType(colType) {
 		return rawConvertVarDataSlice[colType](pHeader, pStart, row)
-	} else {
-		if ItemIsNull(pHeader, row) {
-			return nil
-		} else {
-			return rawConvertFuncSlice[colType](pStart, row, precision, timeFormat)
-		}
 	}
+	if ItemIsNull(pHeader, row) {
+		return nil
+	}
+	return rawConvertFuncSlice[colType](pStart, row, precision, timeFormat)
 }
 
 func init() {

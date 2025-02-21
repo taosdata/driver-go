@@ -37,11 +37,10 @@ func NewTMQErrorWithErr(err error) Error {
 			code: int(tErr.Code),
 			str:  tErr.ErrStr,
 		}
-	} else {
-		return Error{
-			code: ErrorOther,
-			str:  err.Error(),
-		}
+	}
+	return Error{
+		code: ErrorOther,
+		str:  err.Error(),
 	}
 }
 

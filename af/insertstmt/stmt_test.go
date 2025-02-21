@@ -43,9 +43,19 @@ func TestStmt(t *testing.T) {
 	defer wrapper.TaosClose(conn)
 	err = prepareEnv(conn)
 	assert.NoError(t, err)
-	defer cleanEnv(conn)
+	defer func() {
+		err := cleanEnv(conn)
+		if err != nil {
+			t.Errorf("clean env failed: %v", err)
+		}
+	}()
 	s := NewInsertStmt(conn)
-	defer s.Close()
+	defer func() {
+		err := s.Close()
+		if err != nil {
+			t.Errorf("close stmt failed: %v", err)
+		}
+	}()
 	err = s.Prepare("insert into ? values(?,?,?)")
 	assert.NoError(t, err)
 	err = s.SetTableName("test")
@@ -104,7 +114,12 @@ func TestStmtWithWithReqID(t *testing.T) {
 	assert.NoError(t, err)
 	defer wrapper.TaosClose(conn)
 	s := NewInsertStmt(conn)
-	defer s.Close()
+	defer func() {
+		err := s.Close()
+		if err != nil {
+			t.Errorf("close stmt failed: %v", err)
+		}
+	}()
 	err = s.Prepare("insert into ? values(?,?,?)")
 	assert.NoError(t, err)
 }

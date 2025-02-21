@@ -18,7 +18,7 @@ import (
 func NotifyCallback(p unsafe.Pointer, ext unsafe.Pointer, notifyType C.int) {
 	defer func() {
 		// channel may be closed
-		recover()
+		_ = recover()
 	}()
 	switch int(notifyType) {
 	case common.TAOS_NOTIFY_PASSVER:

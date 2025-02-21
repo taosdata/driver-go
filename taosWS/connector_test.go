@@ -90,7 +90,12 @@ func TestAllTypeQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +152,12 @@ func TestAllTypeQueryNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +223,12 @@ func TestAllTypeQueryCompression(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +285,12 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -324,7 +344,12 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -427,7 +452,12 @@ func TestBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	//err = db.Ping()
 	//if err != nil {
 	//	t.Fatal(err)
@@ -464,7 +494,8 @@ func TestConnect(t *testing.T) {
 	}
 	db, err := conn.Connect(context.Background())
 	assert.NoError(t, err)
-	db.Close()
+	err = db.Close()
+	assert.NoError(t, err)
 	driver := conn.Driver()
 	assert.Equal(t, &TDengineDriver{}, driver)
 }

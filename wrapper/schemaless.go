@@ -9,6 +9,7 @@ package wrapper
 import "C"
 import "unsafe"
 
+//revive:disable
 const (
 	InfluxDBLineProtocol       = 1
 	OpenTSDBTelnetLineProtocol = 2
@@ -23,6 +24,8 @@ const (
 	TSDB_SML_TIMESTAMP_MICRO_SECONDS
 	TSDB_SML_TIMESTAMP_NANO_SECONDS
 )
+
+//revive:enable
 
 // TaosSchemalessInsert TAOS_RES *taos_schemaless_insert(TAOS* taos, char* lines[], int numLines, int protocol, int precision);
 // Deprecated
