@@ -37,7 +37,10 @@ func BMSetNull(c byte, n int) byte {
 	return c + (1 << (7 - BitPos(n)))
 }
 
+//revive:disable-next-line
 var ColumnNumberNotMatch = errors.New("number of columns does not match")
+
+//revive:disable-next-line
 var DataTypeWrong = errors.New("wrong data type")
 
 func SerializeRawBlock(params []*param.Param, colType *param.ColumnType) ([]byte, error) {

@@ -1,0 +1,40 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - goimports
+    - revive
+    - govet
+    - staticcheck
+    - gosimple
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters-settings:
+  revive:
+    rules:
+      - name: context-keys-type
+      - name: time-naming
+      - name: var-declaration
+      - name: unexported-return
+      - name: errorf
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: var-naming
+        arguments:
+          - [ "ID","IP","JSON","URL","HTTP","SQL","CPU","URI" ]
+          - [ ]
+          - - skipPackageNameChecks: true
+      - name: range
+      - name: receiver-naming
+      - name: indent-error-flow
+      - name: unreachable-code

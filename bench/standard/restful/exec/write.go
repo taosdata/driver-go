@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/taosdata/driver-go/v3/bench/standard/executor"
+	_ "github.com/taosdata/driver-go/v3/taosRestful"
 )
 
 func main() {

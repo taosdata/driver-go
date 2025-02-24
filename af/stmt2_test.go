@@ -272,7 +272,10 @@ func TestStmt2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer result.Close()
+	defer func() {
+		err = result.Close()
+		assert.NoError(t, err)
+	}()
 	dest := make([]driver.Value, 16)
 	err = result.Next(dest)
 	assert.NoError(t, err)

@@ -61,7 +61,9 @@ func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.
 		return nil, &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 	}
 
-	defer stmt.Close()
+	defer func() {
+		_ = stmt.Close()
+	}()
 	return conn.stmtExecute(stmt, sql, params)
 }
 
@@ -73,7 +75,9 @@ func (conn *Connector) StmtExecuteWithReqID(sql string, params *param.Param, req
 		return
 	}
 
-	defer stmt.Close()
+	defer func() {
+		_ = stmt.Close()
+	}()
 	return conn.stmtExecute(stmt, sql, params)
 }
 

@@ -25,7 +25,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("error on:  sql.open %s", err.Error())
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			log.Fatalf("close db error:%s", err.Error())
+		}
+	}(db)
 	_, err = db.Exec("create database if not exists bench_test")
 	if err != nil {
 		log.Fatalf("create database banch_test error %s", err.Error())

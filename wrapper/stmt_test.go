@@ -814,36 +814,36 @@ func TestGetFields(t *testing.T) {
 	columns := StmtParseFields(columnCount, columnsP)
 	tags := StmtParseFields(tagCount, tagsP)
 	assert.Equal(t, []*stmtCommon.StmtField{
-		{"ts", 9, 0, 0, 8},
-		{"c1", 1, 0, 0, 1},
-		{"c2", 2, 0, 0, 1},
-		{"c3", 3, 0, 0, 2},
-		{"c4", 4, 0, 0, 4},
-		{"c5", 5, 0, 0, 8},
-		{"c6", 11, 0, 0, 1},
-		{"c7", 12, 0, 0, 2},
-		{"c8", 13, 0, 0, 4},
-		{"c9", 14, 0, 0, 8},
-		{"c10", 6, 0, 0, 4},
-		{"c11", 7, 0, 0, 8},
-		{"c12", 8, 0, 0, 22},
-		{"c13", 10, 0, 0, 82},
+		{Name: "ts", FieldType: 9, Bytes: 8},
+		{Name: "c1", FieldType: 1, Bytes: 1},
+		{Name: "c2", FieldType: 2, Bytes: 1},
+		{Name: "c3", FieldType: 3, Bytes: 2},
+		{Name: "c4", FieldType: 4, Bytes: 4},
+		{Name: "c5", FieldType: 5, Bytes: 8},
+		{Name: "c6", FieldType: 11, Bytes: 1},
+		{Name: "c7", FieldType: 12, Bytes: 2},
+		{Name: "c8", FieldType: 13, Bytes: 4},
+		{Name: "c9", FieldType: 14, Bytes: 8},
+		{Name: "c10", FieldType: 6, Bytes: 4},
+		{Name: "c11", FieldType: 7, Bytes: 8},
+		{Name: "c12", FieldType: 8, Bytes: 22},
+		{Name: "c13", FieldType: 10, Bytes: 82},
 	}, columns)
 	assert.Equal(t, []*stmtCommon.StmtField{
-		{"tts", 9, 0, 0, 8},
-		{"tc1", 1, 0, 0, 1},
-		{"tc2", 2, 0, 0, 1},
-		{"tc3", 3, 0, 0, 2},
-		{"tc4", 4, 0, 0, 4},
-		{"tc5", 5, 0, 0, 8},
-		{"tc6", 11, 0, 0, 1},
-		{"tc7", 12, 0, 0, 2},
-		{"tc8", 13, 0, 0, 4},
-		{"tc9", 14, 0, 0, 8},
-		{"tc10", 6, 0, 0, 4},
-		{"tc11", 7, 0, 0, 8},
-		{"tc12", 8, 0, 0, 22},
-		{"tc13", 10, 0, 0, 82},
+		{Name: "tts", FieldType: 9, Bytes: 8},
+		{Name: "tc1", FieldType: 1, Bytes: 1},
+		{Name: "tc2", FieldType: 2, Bytes: 1},
+		{Name: "tc3", FieldType: 3, Bytes: 2},
+		{Name: "tc4", FieldType: 4, Bytes: 4},
+		{Name: "tc5", FieldType: 5, Bytes: 8},
+		{Name: "tc6", FieldType: 11, Bytes: 1},
+		{Name: "tc7", FieldType: 12, Bytes: 2},
+		{Name: "tc8", FieldType: 13, Bytes: 4},
+		{Name: "tc9", FieldType: 14, Bytes: 8},
+		{Name: "tc10", FieldType: 6, Bytes: 4},
+		{Name: "tc11", FieldType: 7, Bytes: 8},
+		{Name: "tc12", FieldType: 8, Bytes: 22},
+		{Name: "tc13", FieldType: 10, Bytes: 82},
 	}, tags)
 }
 
@@ -910,20 +910,20 @@ func TestGetFieldsCommonTable(t *testing.T) {
 	defer TaosStmtReclaimFields(stmt, columnsP)
 	columns := StmtParseFields(columnCount, columnsP)
 	assert.Equal(t, []*stmtCommon.StmtField{
-		{"ts", 9, 0, 0, 8},
-		{"c1", 1, 0, 0, 1},
-		{"c2", 2, 0, 0, 1},
-		{"c3", 3, 0, 0, 2},
-		{"c4", 4, 0, 0, 4},
-		{"c5", 5, 0, 0, 8},
-		{"c6", 11, 0, 0, 1},
-		{"c7", 12, 0, 0, 2},
-		{"c8", 13, 0, 0, 4},
-		{"c9", 14, 0, 0, 8},
-		{"c10", 6, 0, 0, 4},
-		{"c11", 7, 0, 0, 8},
-		{"c12", 8, 0, 0, 22},
-		{"c13", 10, 0, 0, 82},
+		{Name: "ts", FieldType: 9, Bytes: 8},
+		{Name: "c1", FieldType: 1, Bytes: 1},
+		{Name: "c2", FieldType: 2, Bytes: 1},
+		{Name: "c3", FieldType: 3, Bytes: 2},
+		{Name: "c4", FieldType: 4, Bytes: 4},
+		{Name: "c5", FieldType: 5, Bytes: 8},
+		{Name: "c6", FieldType: 11, Bytes: 1},
+		{Name: "c7", FieldType: 12, Bytes: 2},
+		{Name: "c8", FieldType: 13, Bytes: 4},
+		{Name: "c9", FieldType: 14, Bytes: 8},
+		{Name: "c10", FieldType: 6, Bytes: 4},
+		{Name: "c11", FieldType: 7, Bytes: 8},
+		{Name: "c12", FieldType: 8, Bytes: 22},
+		{Name: "c13", FieldType: 10, Bytes: 82},
 	}, columns)
 }
 
@@ -958,7 +958,12 @@ func TestTaosStmtSetTags(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer exec(conn, "drop database if exists test_wrapper")
+	defer func() {
+		err = exec(conn, "drop database if exists test_wrapper")
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	err = exec(conn, "create table if not exists test_wrapper.tgs(ts timestamp,v int) tags (tts timestamp,"+
 		"t1 bool,"+
 		"t2 tinyint,"+
@@ -1187,7 +1192,10 @@ func TestTaosStmtGetParam(t *testing.T) {
 	assert.NoError(t, err)
 	err = exec(conn, "create database if not exists test_stmt_get_param")
 	assert.NoError(t, err)
-	defer exec(conn, "drop database if exists test_stmt_get_param")
+	defer func() {
+		err = exec(conn, "drop database if exists test_stmt_get_param")
+		assert.NoError(t, err)
+	}()
 
 	err = exec(conn,
 		"create table if not exists test_stmt_get_param.stb(ts TIMESTAMP,current float,voltage int,phase float) TAGS (groupid int,location varchar(24))")

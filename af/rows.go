@@ -78,12 +78,11 @@ func (rs *rows) taosFetchBlock() error {
 		rs.blockSize = 0
 		rs.done = true
 		return nil
-	} else {
-		if result.N < 0 {
-			code := wrapper.TaosError(result.Res)
-			errStr := wrapper.TaosErrorStr(result.Res)
-			return errors.NewError(code, errStr)
-		}
+	}
+	if result.N < 0 {
+		code := wrapper.TaosError(result.Res)
+		errStr := wrapper.TaosErrorStr(result.Res)
+		return errors.NewError(code, errStr)
 	}
 	rs.blockSize = result.N
 	rs.block = wrapper.TaosGetRawBlock(result.Res)

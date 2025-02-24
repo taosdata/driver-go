@@ -15,7 +15,9 @@ func TestSetConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)

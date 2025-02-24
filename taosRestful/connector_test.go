@@ -102,7 +102,10 @@ func TestAllTypeQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +162,10 @@ func TestAllTypeQueryNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -225,7 +231,10 @@ func TestAllTypeQueryCompression(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -282,7 +291,10 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -336,7 +348,10 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -476,14 +491,20 @@ func startProxy() *http.Server {
 func TestSSL(t *testing.T) {
 	dataSourceNameWithSkipVerify := fmt.Sprintf("%s:%s@https(%s:%d)/?skipVerify=true", user, password, host, 34443)
 	server := startProxy()
-	defer server.Shutdown(context.Background())
+	defer func() {
+		err := server.Shutdown(context.Background())
+		assert.NoError(t, err)
+	}()
 	time.Sleep(1 * time.Second)
 	database := "restful_test_ssl"
 	db, err := sql.Open("taosRestful", dataSourceNameWithSkipVerify)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
 	err = db.Ping()
 	if err != nil {
 		t.Fatal(err)
@@ -537,7 +558,8 @@ func TestConnect(t *testing.T) {
 	}
 	db, err := conn.Connect(context.Background())
 	assert.NoError(t, err)
-	db.Close()
+	err = db.Close()
+	assert.NoError(t, err)
 	driver := conn.Driver()
 	assert.Equal(t, &TDengineDriver{}, driver)
 }
