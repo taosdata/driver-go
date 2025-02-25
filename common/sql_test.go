@@ -2,6 +2,7 @@ package common
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -41,7 +42,8 @@ func TestInterpolateParams(t *testing.T) {
 					"b = ? and " +
 					"bs = ? and " +
 					"str = ? and " +
-					"nil is ?",
+					"nil is ? " +
+					"json is ?",
 				args: []driver.NamedValue{
 					{Ordinal: 1, Value: time.Unix(1643068800, 0).UTC()},
 					{Ordinal: 2, Value: int8(1)},
@@ -57,9 +59,10 @@ func TestInterpolateParams(t *testing.T) {
 					{Ordinal: 12, Value: 6},
 					{Ordinal: 13, Value: uint(6)},
 					{Ordinal: 14, Value: true},
-					{Ordinal: 15, Value: []byte("'bytes'")},
-					{Ordinal: 16, Value: []byte("'str'")},
+					{Ordinal: 15, Value: []byte("bytes")},
+					{Ordinal: 16, Value: "str"},
 					{Ordinal: 17, Value: nil},
+					{Ordinal: 18, Value: json.RawMessage("json")},
 				},
 			},
 			want: "select * from t1 where " +
@@ -79,7 +82,8 @@ func TestInterpolateParams(t *testing.T) {
 				"b = 1 and " +
 				"bs = 'bytes' and " +
 				"str = 'str' and " +
-				"nil is NULL",
+				"nil is NULL " +
+				"json is 'json'",
 			wantErr: false,
 		},
 	}
