@@ -2,6 +2,7 @@ package common
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -69,10 +70,18 @@ func InterpolateParams(query string, args []driver.NamedValue) (string, error) {
 			buf.WriteByte('\'')
 			buf.WriteString(t)
 			buf.WriteByte('\'')
+		case json.RawMessage:
+			buf.WriteByte('\'')
+			escapeBytesQuotes(buf, v)
+			buf.WriteByte('\'')
 		case []byte:
-			buf.Write(v)
+			buf.WriteByte('\'')
+			escapeBytesQuotes(buf, v)
+			buf.WriteByte('\'')
 		case string:
-			buf.WriteString(v)
+			buf.WriteByte('\'')
+			escapeStringQuotes(buf, v)
+			buf.WriteByte('\'')
 		default:
 			return "", driver.ErrSkip
 		}
@@ -95,4 +104,27 @@ func ValueArgsToNamedValueArgs(args []driver.Value) (values []driver.NamedValue)
 		}
 	}
 	return
+}
+
+func escapeBytesQuotes(b *strings.Builder, v []byte) {
+	for _, c := range v {
+		if c == '\'' {
+			b.WriteByte('\'')
+			b.WriteByte('\'')
+		} else {
+			b.WriteByte(c)
+		}
+	}
+}
+
+// escapeStringQuotes is similar to escapeBytesQuotes but for string.
+func escapeStringQuotes(b *strings.Builder, v string) {
+	for i := 0; i < len(v); i++ {
+		if c := v[i]; c == '\'' {
+			b.WriteByte('\'')
+			b.WriteByte('\'')
+		} else {
+			b.WriteByte(c)
+		}
+	}
 }
