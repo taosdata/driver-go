@@ -153,6 +153,7 @@ func TestConsumer(t *testing.T) {
 		"msg.with.table.name":     "true",
 		"session.timeout.ms":      "12000",
 		"max.poll.interval.ms":    "300000",
+		"min.poll.rows":           "1024",
 	})
 	if err != nil {
 		t.Error(err)
@@ -599,7 +600,7 @@ func TestMultiBlock(t *testing.T) {
 
 func Test_configMapToConfigWrong(t *testing.T) {
 	type args struct {
-		m *tmq.ConfigMap
+		m tmq.ConfigMap
 	}
 	tests := []struct {
 		name    string
@@ -609,7 +610,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "url",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url": 123,
 				},
 			},
@@ -618,7 +619,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "empty url",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url": "",
 				},
 			},
@@ -627,7 +628,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "channelLen",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":                "ws://127.0.0.1:6041",
 					"ws.message.channelLen": "not a uint",
 				},
@@ -637,7 +638,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.message.timeout",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":             "ws://127.0.0.1:6041",
 					"ws.message.timeout": "xx",
 				},
@@ -647,7 +648,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.message.writeWait",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":               "ws://127.0.0.1:6041",
 					"ws.message.writeWait": "xx",
 				},
@@ -657,7 +658,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "td.connect.user",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":          "ws://127.0.0.1:6041",
 					"td.connect.user": 123,
 				},
@@ -667,7 +668,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "td.connect.pass",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":          "ws://127.0.0.1:6041",
 					"td.connect.pass": 123,
 				},
@@ -677,7 +678,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "group.id",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":   "ws://127.0.0.1:6041",
 					"group.id": 123,
 				},
@@ -687,7 +688,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "client.id",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":    "ws://127.0.0.1:6041",
 					"client.id": 123,
 				},
@@ -697,7 +698,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "auto.offset.reset",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":            "ws://127.0.0.1:6041",
 					"auto.offset.reset": 123,
 				},
@@ -707,7 +708,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "enable.auto.commit",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":             "ws://127.0.0.1:6041",
 					"enable.auto.commit": 123,
 				},
@@ -717,7 +718,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "auto.commit.interval.ms",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":                  "ws://127.0.0.1:6041",
 					"auto.commit.interval.ms": 123,
 				},
@@ -727,7 +728,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "experimental.snapshot.enable",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":                       "ws://127.0.0.1:6041",
 					"experimental.snapshot.enable": 123,
 				},
@@ -737,7 +738,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "msg.with.table.name",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":              "ws://127.0.0.1:6041",
 					"msg.with.table.name": 123,
 				},
@@ -747,7 +748,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.message.enableCompression",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":                       "ws://127.0.0.1:6041",
 					"ws.message.enableCompression": 123,
 				},
@@ -757,7 +758,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.message.timeout < 1s",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":             "ws://127.0.0.1:6041",
 					"ws.message.timeout": time.Millisecond,
 				},
@@ -767,7 +768,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.message.writeWait < 1s",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":               "ws://127.0.0.1:6041",
 					"ws.message.writeWait": time.Millisecond,
 				},
@@ -777,7 +778,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.autoReconnect",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":           "ws://127.0.0.1:6041",
 					"ws.autoReconnect": 123,
 				},
@@ -788,7 +789,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.reconnectIntervalMs",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":                 "ws://127.0.0.1:6041",
 					"ws.reconnectIntervalMs": "not int",
 				},
@@ -799,7 +800,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "ws.reconnectRetryCount",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":                 "ws://127.0.0.1:6041",
 					"ws.reconnectRetryCount": "not int",
 				},
@@ -809,7 +810,7 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "session.timeout.ms",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":             "ws://127.0.0.1:6041",
 					"session.timeout.ms": 123,
 				},
@@ -819,12 +820,22 @@ func Test_configMapToConfigWrong(t *testing.T) {
 		{
 			name: "max.poll.interval.ms",
 			args: args{
-				m: &tmq.ConfigMap{
+				m: tmq.ConfigMap{
 					"ws.url":               "ws://127.0.0.1:6041",
 					"max.poll.interval.ms": 123,
 				},
 			},
 			wantErr: "max.poll.interval.ms expects type string, not int",
+		},
+		{
+			name: "expect string value",
+			args: args{
+				m: tmq.ConfigMap{
+					"ws.url":        "ws://127.0.0.1:6041",
+					"min.poll.rows": 123,
+				},
+			},
+			wantErr: "config min.poll.rows value must be string",
 		},
 	}
 	for _, tt := range tests {
