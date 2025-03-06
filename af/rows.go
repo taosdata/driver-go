@@ -8,6 +8,7 @@ import (
 
 	"github.com/taosdata/driver-go/v3/af/async"
 	"github.com/taosdata/driver-go/v3/af/locker"
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -42,6 +43,13 @@ func (rs *rows) ColumnTypeScanType(i int) reflect.Type {
 	return rs.rowsHeader.ScanType(i)
 }
 
+func (rs *rows) ColumnTypePrecisionScale(i int) (precision, scale int64, ok bool) {
+	if rs.rowsHeader.ColTypes[i] == common.TSDB_DATA_TYPE_DECIMAL || rs.rowsHeader.ColTypes[i] == common.TSDB_DATA_TYPE_DECIMAL64 {
+		return int64(rs.rowsHeader.Precisions[i]), int64(rs.rowsHeader.Scales[i]), true
+	}
+	return 0, 0, false
+}
+
 func (rs *rows) Close() error {
 	rs.freeResult()
 	rs.block = nil
@@ -66,8 +74,10 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.freeResult()
 		return io.EOF
 	}
-
-	parser.ReadRow(dest, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision)
+	err := parser.ReadRow(dest, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision, rs.rowsHeader.Scales)
+	if err != nil {
+		return err
+	}
 	rs.blockOffset++
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/url"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -39,6 +38,9 @@ type Connector struct {
 	user                string
 	password            string
 	db                  string
+	stmtArray           []*Stmt
+	closed              bool
+	sync.Mutex
 }
 
 var (
@@ -291,7 +293,7 @@ func (c *Connector) handleError(err error) {
 }
 
 func (c *Connector) generateReqID() uint64 {
-	return atomic.AddUint64(&c.requestID, 1)
+	return uint64(common.GetReqID())
 }
 
 func (c *Connector) reconnect() error {
@@ -315,6 +317,10 @@ func (c *Connector) reconnect() error {
 		c.initClient(cl)
 		c.client = cl
 		reconnected = true
+		for _, stmt := range c.stmtArray {
+			stmt.setConnClosed()
+		}
+		c.stmtArray = nil
 		break
 	}
 	if !reconnected {
@@ -327,6 +333,11 @@ func (c *Connector) reconnect() error {
 }
 
 func (c *Connector) Init() (*Stmt, error) {
+	c.Lock()
+	defer c.Unlock()
+	if c.closed {
+		return nil, ErrConnIsClosed
+	}
 	reqID := c.generateReqID()
 	req := &InitReq{
 		ReqID: reqID,
@@ -370,16 +381,35 @@ func (c *Connector) Init() (*Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Stmt{
+	s := &Stmt{
 		id:        resp.StmtID,
 		connector: c,
-	}, nil
+	}
+	c.stmtArray = append(c.stmtArray, s)
+	return s, nil
 }
 
+func (c *Connector) removeStmt(stmt *Stmt) {
+	c.Lock()
+	defer c.Unlock()
+	for i := 0; i < len(c.stmtArray); i++ {
+		if c.stmtArray[i] == stmt {
+			copy(c.stmtArray[i:], c.stmtArray[i+1:])
+			c.stmtArray = c.stmtArray[:len(c.stmtArray)-1]
+		}
+	}
+}
 func (c *Connector) Close() error {
 	c.closeOnce.Do(func() {
+		c.Lock()
+		defer c.Unlock()
+		c.closed = true
 		close(c.closeChan)
 		c.client.Close()
+		for _, stmt := range c.stmtArray {
+			stmt.setConnClosed()
+		}
+		c.stmtArray = nil
 		if c.customCloseHandler != nil {
 			c.customCloseHandler()
 		}

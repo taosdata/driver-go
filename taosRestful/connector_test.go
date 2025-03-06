@@ -42,7 +42,9 @@ func generateCreateTableSql(db string, withJson bool) string {
 		"c12 binary(20),"+
 		"c13 nchar(20),"+
 		"c14 varbinary(100),"+
-		"c15 geometry(100)"+
+		"c15 geometry(100),"+
+		"c16 decimal(8,4),"+
+		"c17 decimal(20,4)"+
 		")",
 		db)
 	if withJson {
@@ -68,6 +70,8 @@ func generateValues() (value []interface{}, scanValue []interface{}, insertSql s
 	v13 := "test_nchar"
 	v14 := []byte("test_varbinary")
 	v15 := []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}
+	v16 := "123.4560"
+	v17 := "-123456789.1234"
 	ts := time.Now().Round(time.Millisecond).UTC()
 	var (
 		cts time.Time
@@ -86,11 +90,13 @@ func generateValues() (value []interface{}, scanValue []interface{}, insertSql s
 		c13 string
 		c14 []byte
 		c15 []byte
+		c16 string
+		c17 string
 	)
 	return []interface{}{
-			ts, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15,
-		}, []interface{}{cts, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15},
-		fmt.Sprintf(`values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar','test_varbinary','point(100 100)')`, ts.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11)
+			ts, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17,
+		}, []interface{}{cts, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17},
+		fmt.Sprintf(`values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','-123456789.1234')`, ts.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11)
 }
 
 // @author: xftan

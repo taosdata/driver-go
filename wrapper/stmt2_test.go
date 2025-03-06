@@ -3147,7 +3147,8 @@ func TestStmt2Query(t *testing.T) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		result = append(result, r...)
 	}
 	assert.Equal(t, 4, len(result))
@@ -3352,7 +3353,8 @@ func TestStmt2QueryBytes(t *testing.T) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		result = append(result, r...)
 	}
 	assert.Equal(t, 4, len(result))
@@ -3640,7 +3642,8 @@ func TestStmt2QueryAllType(t *testing.T) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		result = append(result, r...)
 	}
 	t.Log(result)
@@ -3924,7 +3927,8 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		result = append(result, r...)
 	}
 	t.Log(result)
@@ -4060,7 +4064,8 @@ func TestStmt2Json(t *testing.T) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		result = append(result, r...)
 	}
 	t.Log(result)

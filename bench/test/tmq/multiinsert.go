@@ -147,7 +147,10 @@ func main() {
 				}
 				precision := wrapper.TaosResultPrecision(message)
 				totalCount += blockSize
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				if err != nil {
+					panic(err)
+				}
 				fmt.Println(data)
 			}
 			wrapper.TaosFreeResult(message)

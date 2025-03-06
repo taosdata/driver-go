@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -237,6 +238,7 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 		case "column_meta":
 			iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 				index := 0
+				isDecimal := false
 				iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 					switch index {
 					case 0:
@@ -244,16 +246,43 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 						index = 1
 					case 1:
 						typeStr := iter.ReadString()
-						t, exist := common.NameTypeMap[typeStr]
-						if exist {
-							result.ColTypes = append(result.ColTypes, t)
+						if strings.HasPrefix(typeStr, "DECIMAL(") {
+							// parse DECIMAL(10,2) to DECIMAL, 10, 2
+							precision, scale, err := parseDecimalType(typeStr)
+							if err != nil {
+								iter.ReportError("parse decimal", err.Error())
+								return false
+							}
+							isDecimal = true
+							result.Precisions = append(result.Precisions, precision)
+							result.Scales = append(result.Scales, scale)
 						} else {
-							iter.ReportError("unsupported type in column_meta", typeStr)
+							t, exist := common.NameTypeMap[typeStr]
+							if exist {
+								result.ColTypes = append(result.ColTypes, t)
+							} else {
+								iter.ReportError("unsupported type in column_meta", typeStr)
+							}
+							result.Precisions = append(result.Precisions, 0)
+							result.Scales = append(result.Scales, 0)
 						}
 						index = 2
 					case 2:
-						result.ColLength = append(result.ColLength, iter.ReadInt64())
+						colLen := iter.ReadInt64()
+						result.ColLength = append(result.ColLength, colLen)
 						index = 0
+						if isDecimal {
+							switch colLen {
+							case 8:
+								result.ColTypes = append(result.ColTypes, common.TSDB_DATA_TYPE_DECIMAL64)
+							case 16:
+								result.ColTypes = append(result.ColTypes, common.TSDB_DATA_TYPE_DECIMAL)
+							default:
+								iter.ReportError("parse decimal", fmt.Sprintf("invalid length %d", colLen))
+								return false
+							}
+						}
+						isDecimal = false
 					}
 					return true
 				})
@@ -325,6 +354,8 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 							value[i/2] = hexCharToDigit(data[i])<<4 | hexCharToDigit(data[i+1])
 						}
 						row[column] = value
+					case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
+						row[column] = iter.ReadString()
 					default:
 						row[column] = nil
 						iter.Skip()
@@ -348,6 +379,27 @@ func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, e
 		return nil, iter.Error
 	}
 	return &result, nil
+}
+
+func parseDecimalType(typeStr string) (int64, int64, error) {
+	// parse DECIMAL(10,2) to 10, 2
+	if len(typeStr) < 12 || typeStr[len(typeStr)-1] != ')' {
+		return 0, 0, fmt.Errorf("invalid decimal type %s", typeStr)
+	}
+	for i := len(typeStr) - 2; i > 8; i-- {
+		if typeStr[i] == ',' {
+			precision, err := strconv.ParseInt(typeStr[8:i], 10, 8)
+			if err != nil {
+				return 0, 0, err
+			}
+			scale, err := strconv.ParseInt(typeStr[i+1:len(typeStr)-1], 10, 8)
+			if err != nil {
+				return 0, 0, err
+			}
+			return precision, scale, nil
+		}
+	}
+	return 0, 0, fmt.Errorf("invalid decimal type %s", typeStr)
 }
 
 // EqualFold is strings.EqualFold, ASCII only. It reports whether s and t

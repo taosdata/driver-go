@@ -114,6 +114,11 @@ func TaosFetchFields(result unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(C.taos_fetch_fields(result))
 }
 
+// TaosFetchFieldsE TAOS_FIELD_E *taos_fetch_fields_e(TAOS_RES *res); 3.3.6.0
+func TaosFetchFieldsE(result unsafe.Pointer) unsafe.Pointer {
+	return unsafe.Pointer(C.taos_fetch_fields_e(result))
+}
+
 // TaosFetchBlock int taos_fetch_block(TAOS_RES *res, TAOS_ROW *rows);
 func TaosFetchBlock(result unsafe.Pointer) (int, unsafe.Pointer) {
 	var block C.TAOS_ROW

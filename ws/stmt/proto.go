@@ -157,6 +157,8 @@ type UseResultResp struct {
 	FieldsTypes   []uint8  `json:"fields_types"`
 	FieldsLengths []int64  `json:"fields_lengths"`
 	Precision     int      `json:"precision"`
+	Precisions    []int64  `json:"precisions"`
+	Scales        []int64  `json:"scales"`
 }
 
 type WSFetchReq struct {

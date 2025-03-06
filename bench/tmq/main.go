@@ -145,7 +145,10 @@ func main() {
 				if blockSize == 0 {
 					break
 				}
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				if err != nil {
+					panic(err)
+				}
 				fmt.Println(data)
 			}
 			wrapper.TaosFreeResult(message)

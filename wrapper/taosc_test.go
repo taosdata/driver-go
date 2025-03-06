@@ -417,7 +417,8 @@ func TestTaosResultBlock(t *testing.T) {
 					res = r.res
 					block := TaosGetRawBlock(res)
 					assert.NotNil(t, block)
-					values := parser.ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
+					values, err := parser.ReadBlock(block, r.n, rowsHeader.ColTypes, precision)
+					assert.NoError(t, err)
 					_ = values
 					t.Log(values)
 				}

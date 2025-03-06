@@ -15,19 +15,21 @@ import (
 )
 
 type Rows struct {
-	buf           *bytes.Buffer
-	blockPtr      unsafe.Pointer
-	blockOffset   int
-	blockSize     int
-	resultID      uint64
-	block         []byte
-	conn          *Connector
-	client        *client.Client
-	fieldsCount   int
-	fieldsNames   []string
-	fieldsTypes   []uint8
-	fieldsLengths []int64
-	precision     int
+	buf              *bytes.Buffer
+	blockPtr         unsafe.Pointer
+	blockOffset      int
+	blockSize        int
+	resultID         uint64
+	block            []byte
+	conn             *Connector
+	client           *client.Client
+	fieldsCount      int
+	fieldsNames      []string
+	fieldsTypes      []uint8
+	fieldsLengths    []int64
+	fieldsPrecisions []int64
+	fieldsScales     []int64
+	precision        int
 }
 
 func (rs *Rows) Columns() []string {
@@ -35,7 +37,7 @@ func (rs *Rows) Columns() []string {
 }
 
 func (rs *Rows) ColumnTypeDatabaseTypeName(i int) string {
-	return common.TypeNameMap[int(rs.fieldsTypes[i])]
+	return common.GetTypeName(int(rs.fieldsTypes[i]))
 }
 
 func (rs *Rows) ColumnTypeLength(i int) (length int64, ok bool) {
@@ -68,7 +70,10 @@ func (rs *Rows) Next(dest []driver.Value) error {
 		rs.block = nil
 		return io.EOF
 	}
-	parser.ReadRow(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision)
+	err := parser.ReadRow(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales)
+	if err != nil {
+		return err
+	}
 	rs.blockOffset += 1
 	return nil
 }

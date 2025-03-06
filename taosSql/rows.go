@@ -22,6 +22,7 @@ type rows struct {
 	result      unsafe.Pointer
 	precision   int
 	isStmt      bool
+	scales      []int
 }
 
 func (rs *rows) Columns() []string {
@@ -85,7 +86,10 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.block = nil
 		return io.EOF
 	}
-	parser.ReadRow(dest, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision)
+	err := parser.ReadRow(dest, rs.block, rs.blockSize, rs.blockOffset, rs.rowsHeader.ColTypes, rs.precision, rs.rowsHeader.Scales)
+	if err != nil {
+		return err
+	}
 	rs.blockOffset++
 	return nil
 }
