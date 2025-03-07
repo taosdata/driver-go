@@ -273,8 +273,8 @@ func (s *Stmt) UseResult() (*Rows, error) {
 		fieldsTypes:      resp.FieldsTypes,
 		fieldsLengths:    resp.FieldsLengths,
 		precision:        resp.Precision,
-		fieldsPrecisions: resp.Precisions,
-		fieldsScales:     resp.Scales,
+		fieldsPrecisions: resp.FieldsPrecisions,
+		fieldsScales:     resp.FieldsScales,
 	}, nil
 }
 

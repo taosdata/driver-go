@@ -511,8 +511,8 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		fieldsTypes:      resp.FieldsTypes,
 		fieldsLengths:    resp.FieldsLengths,
 		precision:        resp.Precision,
-		fieldsPrecisions: resp.Precisions,
-		fieldsScales:     resp.Scales,
+		fieldsPrecisions: resp.FieldsPrecisions,
+		fieldsScales:     resp.FieldsScales,
 	}
 	return rs, err
 }

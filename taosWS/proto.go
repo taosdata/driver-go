@@ -40,16 +40,16 @@ type WSQueryReq struct {
 
 type WSQueryResp struct {
 	BaseResp
-	ID            uint64   `json:"id"`
-	IsUpdate      bool     `json:"is_update"`
-	AffectedRows  int      `json:"affected_rows"`
-	FieldsCount   int      `json:"fields_count"`
-	FieldsNames   []string `json:"fields_names"`
-	FieldsTypes   []uint8  `json:"fields_types"`
-	FieldsLengths []int64  `json:"fields_lengths"`
-	Precision     int      `json:"precision"`
-	Precisions    []int64  `json:"precisions"`
-	Scales        []int64  `json:"scales"`
+	ID               uint64   `json:"id"`
+	IsUpdate         bool     `json:"is_update"`
+	AffectedRows     int      `json:"affected_rows"`
+	FieldsCount      int      `json:"fields_count"`
+	FieldsNames      []string `json:"fields_names"`
+	FieldsTypes      []uint8  `json:"fields_types"`
+	FieldsLengths    []int64  `json:"fields_lengths"`
+	Precision        int      `json:"precision"`
+	FieldsPrecisions []int64  `json:"fields_precisions"`
+	FieldsScales     []int64  `json:"fields_scales"`
 }
 
 type WSFetchReq struct {
