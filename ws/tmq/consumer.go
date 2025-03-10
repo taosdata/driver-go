@@ -44,6 +44,7 @@ type Consumer struct {
 	withTableName       string
 	sessionTimeoutMS    string
 	maxPollIntervalMS   string
+	otherOptions        map[string]string
 	closeOnce           sync.Once
 	closeChan           chan struct{}
 	topics              []string
@@ -71,7 +72,7 @@ func (e *WSError) Error() string {
 // NewConsumer create a tmq consumer
 func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	confCopy := conf.Clone()
-	config, err := configMapToConfig(&confCopy)
+	config, err := configMapToConfig(confCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +125,7 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		reconnectRetryCount: config.ReconnectRetryCount,
 		chanLength:          config.ChanLength,
 		writeWait:           config.WriteWait,
+		otherOptions:        config.OtherOptions,
 		dialer:              &dialer,
 	}
 	consumer.initClient(consumer.client)
@@ -172,7 +174,29 @@ func (c *Consumer) reconnect() error {
 	return nil
 }
 
-func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
+var excludeConfig = map[string]struct{}{
+	"ws.url":                       {},
+	"ws.message.channelLen":        {},
+	"ws.message.timeout":           {},
+	"ws.message.writeWait":         {},
+	"td.connect.user":              {},
+	"td.connect.pass":              {},
+	"group.id":                     {},
+	"client.id":                    {},
+	"auto.offset.reset":            {},
+	"enable.auto.commit":           {},
+	"auto.commit.interval.ms":      {},
+	"experimental.snapshot.enable": {},
+	"msg.with.table.name":          {},
+	"ws.message.enableCompression": {},
+	"ws.autoReconnect":             {},
+	"ws.reconnectIntervalMs":       {},
+	"ws.reconnectRetryCount":       {},
+	"session.timeout.ms":           {},
+	"max.poll.interval.ms":         {},
+}
+
+func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	url, err := m.Get("ws.url", "")
 	if err != nil {
 		return nil, err
@@ -277,6 +301,16 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 	config.setReconnectRetryCount(reconnectRetryCount.(int))
 	config.setSessionTimeoutMS(sessionTimeoutMS.(string))
 	config.setMaxPollIntervalMS(maxPollIntervalMS.(string))
+	for k, v := range m {
+		if _, ok := excludeConfig[k]; ok {
+			continue
+		}
+		if strV, ok := v.(string); ok {
+			config.OtherOptions[k] = strV
+		} else {
+			return nil, fmt.Errorf("config %s value must be string", k)
+		}
+	}
 	return config, nil
 }
 
@@ -442,6 +476,7 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 		WithTableName:     c.withTableName,
 		SessionTimeoutMS:  c.sessionTimeoutMS,
 		MaxPollIntervalMS: c.maxPollIntervalMS,
+		Config:            c.otherOptions,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
