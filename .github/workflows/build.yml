@@ -186,6 +186,17 @@ jobs:
 
       - name: taosd
         run: nohup sudo sh ./start.sh &
+      - name: clone taosadapter
+        uses: actions/checkout@v4
+        with:
+          repository: 'taosdata/taosadapter'
+          path: 'taosadapter'
+          ref: 'feat/xftan/TS-5950'
+      - name: build taosadapter
+        run: |
+          cd taosadapter
+          sudo go build -o taosadapter
+          sudo cp ./taosadapter /bin/
 
       - name: start taosadapter
         run:  sudo taosadapter &
@@ -267,6 +278,18 @@ jobs:
 
       - name: taosd
         run: nohup sudo sh ./start.sh &
+
+      - name: clone taosadapter
+        uses: actions/checkout@v4
+        with:
+          repository: 'taosdata/taosadapter'
+          path: 'taosadapter'
+          ref: 'feat/xftan/TS-5950'
+      - name: build taosadapter
+        run: |
+          cd taosadapter
+          sudo go build -o taosadapter
+          sudo cp ./taosadapter /bin/
 
       - name: start taosadapter
         run: sudo taosadapter &

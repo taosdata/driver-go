@@ -22,7 +22,6 @@ type rows struct {
 	result      unsafe.Pointer
 	precision   int
 	isStmt      bool
-	scales      []int
 }
 
 func (rs *rows) Columns() []string {
@@ -95,8 +94,6 @@ func (rs *rows) Next(dest []driver.Value) error {
 }
 
 func (rs *rows) taosFetchBlock() error {
-	//rs.blockSize, rs.block = wrapper.TaosFetchBlock(rs.result)
-	//return nil
 	result := rs.asyncFetchRows()
 	if result.N == 0 {
 		rs.blockSize = 0

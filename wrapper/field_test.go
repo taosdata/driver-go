@@ -540,7 +540,7 @@ func TestReadColumn(t *testing.T) {
 			common.TSDB_DATA_TYPE_DECIMAL,
 			common.TSDB_DATA_TYPE_JSON,
 		},
-		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 22, 82, 22, 102, 16, 16384},
+		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 16, 4095},
 		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0},
 		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0},
 	}
