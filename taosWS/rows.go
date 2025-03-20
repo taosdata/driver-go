@@ -33,6 +33,13 @@ type rows struct {
 	isStmt           bool
 }
 
+func (rs *rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	if rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
+		return rs.fieldsPrecisions[index], rs.fieldsScales[index], true
+	}
+	return 0, 0, false
+}
+
 func (rs *rows) Columns() []string {
 	return rs.fieldsNames
 }

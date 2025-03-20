@@ -67,7 +67,11 @@ func TestReadRow(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20)"+
+		"c13 nchar(20),"+
+		"c14 varbinary(20),"+
+		"c15 geometry(100),"+
+		"c16 decimal(20,4),"+
+		"c17 decimal(10,4)"+
 		") tags (info json)")
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -79,7 +83,7 @@ func TestReadRow(t *testing.T) {
 	wrapper.TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_read_row.t0 using test_read_row.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into test_read_row.t0 using test_read_row.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','varbinary','point(100 100)','-123.4','1234.56')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = wrapper.TaosQuery(conn, sql)
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -143,13 +147,17 @@ func TestReadRow(t *testing.T) {
 	assert.Equal(t, float64(1), row1[11].(float64))
 	assert.Equal(t, "test_binary", row1[12].(string))
 	assert.Equal(t, "test_nchar", row1[13].(string))
-	assert.Equal(t, []byte(`{"a":1}`), row1[14].([]byte))
+	assert.Equal(t, []byte("varbinary"), row1[14].([]byte))
+	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
+	assert.Equal(t, "-123.4000", row1[16].(string))
+	assert.Equal(t, "1234.5600", row1[17].(string))
+	assert.Equal(t, []byte(`{"a":1}`), row1[18].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 14; i++ {
+	for i := 1; i < 18; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[18].([]byte))
 }
 
 // @author: xftan
@@ -209,7 +217,8 @@ func TestParseBlock(t *testing.T) {
 		"c13 nchar(20),"+
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
-		"c16 decimal(20,4)"+
+		"c16 decimal(20,4),"+
+		"c17 decimal(10,4)"+
 		") tags (info json)")
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -222,8 +231,8 @@ func TestParseBlock(t *testing.T) {
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into parse_block.t0 using parse_block.all_type tags('{\"a\":1}') "+
-		"values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','POINT(100 100)',123456789.123)"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+		"values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','POINT(100 100)',123456789.123,123.456)"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = wrapper.TaosQuery(conn, sql)
 	code = wrapper.TaosError(res)
 	if code != 0 {
@@ -260,11 +269,11 @@ func TestParseBlock(t *testing.T) {
 		version := RawBlockGetVersion(block)
 		t.Log(version)
 		length := RawBlockGetLength(block)
-		assert.Equal(t, int32(490), length)
+		assert.Equal(t, int32(516), length)
 		rows := RawBlockGetNumOfRows(block)
 		assert.Equal(t, int32(2), rows)
 		columns := RawBlockGetNumOfCols(block)
-		assert.Equal(t, int32(18), columns)
+		assert.Equal(t, int32(19), columns)
 		hasColumnSegment := RawBlockGetHasColumnSegment(block)
 		assert.Equal(t, int32(-2147483648), hasColumnSegment)
 		groupId := RawBlockGetGroupID(block)
@@ -275,76 +284,80 @@ func TestParseBlock(t *testing.T) {
 			t,
 			[]RawBlockColInfo{
 				{
-					ColType: 9,
+					ColType: common.TSDB_DATA_TYPE_TIMESTAMP,
 					Bytes:   8,
 				},
 				{
-					ColType: 1,
+					ColType: common.TSDB_DATA_TYPE_BOOL,
 					Bytes:   1,
 				},
 				{
-					ColType: 2,
+					ColType: common.TSDB_DATA_TYPE_TINYINT,
 					Bytes:   1,
 				},
 				{
-					ColType: 3,
+					ColType: common.TSDB_DATA_TYPE_SMALLINT,
 					Bytes:   2,
 				},
 				{
-					ColType: 4,
+					ColType: common.TSDB_DATA_TYPE_INT,
 					Bytes:   4,
 				},
 				{
-					ColType: 5,
+					ColType: common.TSDB_DATA_TYPE_BIGINT,
 					Bytes:   8,
 				},
 				{
-					ColType: 11,
+					ColType: common.TSDB_DATA_TYPE_UTINYINT,
 					Bytes:   1,
 				},
 				{
-					ColType: 12,
+					ColType: common.TSDB_DATA_TYPE_USMALLINT,
 					Bytes:   2,
 				},
 				{
-					ColType: 13,
+					ColType: common.TSDB_DATA_TYPE_UINT,
 					Bytes:   4,
 				},
 				{
-					ColType: 14,
+					ColType: common.TSDB_DATA_TYPE_UBIGINT,
 					Bytes:   8,
 				},
 				{
-					ColType: 6,
+					ColType: common.TSDB_DATA_TYPE_FLOAT,
 					Bytes:   4,
 				},
 				{
-					ColType: 7,
+					ColType: common.TSDB_DATA_TYPE_DOUBLE,
 					Bytes:   8,
 				},
 				{
-					ColType: 8,
+					ColType: common.TSDB_DATA_TYPE_BINARY,
 					Bytes:   22,
 				},
 				{
-					ColType: 10,
+					ColType: common.TSDB_DATA_TYPE_NCHAR,
 					Bytes:   82,
 				},
 				{
-					ColType: 16,
+					ColType: common.TSDB_DATA_TYPE_VARBINARY,
 					Bytes:   22,
 				},
 				{
-					ColType: 20,
+					ColType: common.TSDB_DATA_TYPE_GEOMETRY,
 					Bytes:   102,
 				},
 				{
-					ColType: 17,
+					ColType: common.TSDB_DATA_TYPE_DECIMAL,
 					// scale,precision,empty,len
 					Bytes: int32(binary.LittleEndian.Uint32([]byte{4, 20, 0, 16})),
 				},
 				{
-					ColType: 15,
+					ColType: common.TSDB_DATA_TYPE_DECIMAL64,
+					Bytes:   int32(binary.LittleEndian.Uint32([]byte{4, 10, 0, 8})),
+				},
+				{
+					ColType: common.TSDB_DATA_TYPE_JSON,
 					Bytes:   16384,
 				},
 			},
@@ -374,13 +387,14 @@ func TestParseBlock(t *testing.T) {
 	assert.Equal(t, []byte("test_varbinary"), row1[14].([]byte))
 	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 	assert.Equal(t, "123456789.1230", row1[16].(string))
-	assert.Equal(t, []byte(`{"a":1}`), row1[17].([]byte))
+	assert.Equal(t, "123.4560", row1[17].(string))
+	assert.Equal(t, []byte(`{"a":1}`), row1[18].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 17; i++ {
+	for i := 1; i < 18; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[17].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[18].([]byte))
 }
 
 func Test_validColumnType(t *testing.T) {

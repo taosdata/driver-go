@@ -185,15 +185,7 @@ func rawConvertDecimal64(pStart unsafe.Pointer, row int, arg ...interface{}) dri
 	if len(arg) != 1 {
 		panic("convertDecimal error")
 	}
-	var scale int
-	switch v := arg[0].(type) {
-	case uint8:
-		scale = int(v)
-	case int64:
-		scale = int(v)
-	default:
-		panic(fmt.Sprintf("invalid scale type %T", v))
-	}
+	scale := arg[0].(int)
 	value := *((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size)))
 	str := strconv.FormatInt(value, 10)
 	return common.FormatDecimal(str, scale)
@@ -203,15 +195,7 @@ func rawConvertDecimal128(pStart unsafe.Pointer, row int, arg ...interface{}) dr
 	if len(arg) != 1 {
 		panic("convertDecimal error")
 	}
-	var scale int
-	switch v := arg[0].(type) {
-	case uint8:
-		scale = int(v)
-	case int64:
-		scale = int(v)
-	default:
-		panic(fmt.Sprintf("invalid scale type %T", v))
-	}
+	scale := arg[0].(int)
 	lo := *((*uint64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size*2)))
 	hi := *((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size*2+UInt64Size)))
 	str := common.FormatI128(hi, lo)
@@ -321,7 +305,7 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 				args = []interface{}{precision}
 			case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
 				_, _, scale := RawBlockGetDecimalInfo(block, column)
-				args = []interface{}{scale}
+				args = []interface{}{int(scale)}
 			}
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
@@ -365,7 +349,7 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 				case common.TSDB_DATA_TYPE_TIMESTAMP:
 					dest[column] = convertF(pStart, row, precision)
 				case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
-					dest[column] = convertF(pStart, row, scales[column])
+					dest[column] = convertF(pStart, row, int(scales[column]))
 				default:
 					dest[column] = convertF(pStart, row)
 				}

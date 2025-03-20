@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"unsafe"
 
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -22,6 +23,13 @@ type rows struct {
 	result      unsafe.Pointer
 	precision   int
 	isStmt      bool
+}
+
+func (rs *rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	if rs.rowsHeader.ColTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || rs.rowsHeader.ColTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
+		return rs.rowsHeader.Precisions[index], rs.rowsHeader.Scales[index], true
+	}
+	return 0, 0, false
 }
 
 func (rs *rows) Columns() []string {
