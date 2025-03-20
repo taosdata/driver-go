@@ -1,32 +1,23 @@
 package stmt
 
 import (
-	"container/list"
 	"context"
-	"encoding/binary"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
 type Connector struct {
-	client              *client.Client
-	requestID           uint64
-	listLock            sync.RWMutex
-	sendChanList        *list.List
+	client              *WSConn
 	writeTimeout        time.Duration
 	readTimeout         time.Duration
 	config              *Config
-	closeOnce           sync.Once
-	closeChan           chan struct{}
 	customErrorHandler  func(*Connector, error)
 	customCloseHandler  func()
 	url                 string
@@ -38,7 +29,6 @@ type Connector struct {
 	user                string
 	password            string
 	db                  string
-	stmtArray           []*Stmt
 	closed              bool
 	sync.Mutex
 }
@@ -46,6 +36,7 @@ type Connector struct {
 var (
 	//revive:disable-next-line
 	ConnectTimeoutErr = errors.New("stmt connect timeout")
+	ErrConnIsClosed   = errors.New("stmt Connector is closed")
 )
 
 func NewConnector(config *Config) (*Connector, error) {
@@ -83,16 +74,12 @@ func NewConnector(config *Config) (*Connector, error) {
 		return nil, err
 	}
 	wsClient := client.NewClient(ws, config.ChanLength)
+	wsConn := NewWSConn(wsClient, writeTimeout, readTimeout)
 	connector = &Connector{
-		client:              wsClient,
-		requestID:           0,
-		listLock:            sync.RWMutex{},
-		sendChanList:        list.New(),
+		client:              wsConn,
 		writeTimeout:        writeTimeout,
 		readTimeout:         readTimeout,
 		config:              config,
-		closeOnce:           sync.Once{},
-		closeChan:           make(chan struct{}),
 		customErrorHandler:  config.ErrorHandler,
 		customCloseHandler:  config.CloseHandler,
 		url:                 u.String(),
@@ -105,19 +92,9 @@ func NewConnector(config *Config) (*Connector, error) {
 		password:            config.Password,
 		db:                  config.DB,
 	}
-	connector.initClient(connector.client)
+	wsClient.ErrorHandler = connector.handleError
+	wsConn.initClient()
 	return connector, nil
-}
-
-func (c *Connector) initClient(client *client.Client) {
-	if c.writeTimeout > 0 {
-		client.WriteWait = c.writeTimeout
-	}
-	client.TextMessageHandler = c.handleTextMessage
-	client.BinaryMessageHandler = c.handleBinaryMessage
-	client.ErrorHandler = c.handleError
-	go client.WritePump()
-	go client.ReadPump()
 }
 
 func connect(ws *websocket.Conn, user string, password string, db string, writeTimeout time.Duration, readTimeout time.Duration) error {
@@ -166,125 +143,6 @@ func connect(ws *websocket.Conn, user string, password string, db string, writeT
 	return client.HandleResponseError(err, resp.Code, resp.Message)
 }
 
-func (c *Connector) handleTextMessage(message []byte) {
-	iter := client.JsonI.BorrowIterator(message)
-	var reqID uint64
-	iter.ReadObjectCB(func(iter *jsoniter.Iterator, s string) bool {
-		switch s {
-		case "req_id":
-			reqID = iter.ReadUint64()
-			return false
-		default:
-			iter.Skip()
-		}
-		return iter.Error == nil
-	})
-	client.JsonI.ReturnIterator(iter)
-	c.listLock.Lock()
-	element := c.findOutChanByID(reqID)
-	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
-		c.sendChanList.Remove(element)
-	}
-	c.listLock.Unlock()
-}
-
-func (c *Connector) handleBinaryMessage(message []byte) {
-	reqID := binary.LittleEndian.Uint64(message[8:16])
-	c.listLock.Lock()
-	element := c.findOutChanByID(reqID)
-	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
-		c.sendChanList.Remove(element)
-	}
-	c.listLock.Unlock()
-}
-
-type IndexedChan struct {
-	index   uint64
-	channel chan []byte
-}
-
-func (c *Connector) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	envelope.Type = websocket.TextMessage
-	return c.send(reqID, envelope)
-}
-func (c *Connector) sendBinary(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	envelope.Type = websocket.BinaryMessage
-	return c.send(reqID, envelope)
-}
-func (c *Connector) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	channel := &IndexedChan{
-		index:   reqID,
-		channel: make(chan []byte, 1),
-	}
-	element := c.addMessageOutChan(channel)
-	err := c.client.Send(envelope)
-	if err != nil {
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
-		return nil, err
-	}
-	err = <-envelope.ErrorChan
-	if err != nil {
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), c.readTimeout)
-	defer cancel()
-	select {
-	case <-c.closeChan:
-		return nil, errors.New("connection closed")
-	case resp := <-channel.channel:
-		return resp, nil
-	case <-ctx.Done():
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
-		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
-	}
-}
-
-func (c *Connector) sendTextWithoutResp(envelope *client.Envelope) {
-	envelope.Type = websocket.TextMessage
-	err := c.client.Send(envelope)
-	if err != nil {
-		return
-	}
-	<-envelope.ErrorChan
-}
-
-func (c *Connector) findOutChanByID(index uint64) *list.Element {
-	root := c.sendChanList.Front()
-	if root == nil {
-		return nil
-	}
-	rootIndex := root.Value.(*IndexedChan).index
-	if rootIndex == index {
-		return root
-	}
-	item := root.Next()
-	for {
-		if item == nil || item == root {
-			return nil
-		}
-		if item.Value.(*IndexedChan).index == index {
-			return item
-		}
-		item = item.Next()
-	}
-}
-
-func (c *Connector) addMessageOutChan(outChan *IndexedChan) *list.Element {
-	c.listLock.Lock()
-	element := c.sendChanList.PushBack(outChan)
-	c.listLock.Unlock()
-	return element
-}
-
 func (c *Connector) handleError(err error) {
 	if c.customErrorHandler != nil {
 		c.customErrorHandler(c, err)
@@ -314,13 +172,11 @@ func (c *Connector) reconnect() error {
 			c.client.Close()
 		}
 		cl := client.NewClient(conn, c.chanLength)
-		c.initClient(cl)
-		c.client = cl
+		cl.ErrorHandler = c.handleError
+		wsConn := NewWSConn(cl, c.writeTimeout, c.readTimeout)
+		wsConn.initClient()
 		reconnected = true
-		for _, stmt := range c.stmtArray {
-			stmt.setConnClosed()
-		}
-		c.stmtArray = nil
+		c.client = wsConn
 		break
 	}
 	if !reconnected {
@@ -356,18 +212,19 @@ func (c *Connector) Init() (*Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	respBytes, err := c.sendText(reqID, envelope)
+	respBytes, err := c.client.sendText(reqID, envelope)
 	if err != nil {
 		if !c.autoReconnect {
 			return nil, err
 		}
+
 		var opError *net.OpError
-		if errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+		if !c.client.client.IsRunning() || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
 			err = c.reconnect()
 			if err != nil {
 				return nil, err
 			}
-			respBytes, err = c.sendText(reqID, envelope)
+			respBytes, err = c.client.sendText(reqID, envelope)
 			if err != nil {
 				return nil, err
 			}
@@ -383,36 +240,21 @@ func (c *Connector) Init() (*Stmt, error) {
 	}
 	s := &Stmt{
 		id:        resp.StmtID,
-		connector: c,
+		connector: c.client,
 	}
-	c.stmtArray = append(c.stmtArray, s)
 	return s, nil
 }
 
-func (c *Connector) removeStmt(stmt *Stmt) {
+func (c *Connector) Close() error {
 	c.Lock()
 	defer c.Unlock()
-	for i := 0; i < len(c.stmtArray); i++ {
-		if c.stmtArray[i] == stmt {
-			copy(c.stmtArray[i:], c.stmtArray[i+1:])
-			c.stmtArray = c.stmtArray[:len(c.stmtArray)-1]
-		}
+	if c.closed {
+		return nil
 	}
-}
-func (c *Connector) Close() error {
-	c.closeOnce.Do(func() {
-		c.Lock()
-		defer c.Unlock()
-		c.closed = true
-		close(c.closeChan)
-		c.client.Close()
-		for _, stmt := range c.stmtArray {
-			stmt.setConnClosed()
-		}
-		c.stmtArray = nil
-		if c.customCloseHandler != nil {
-			c.customCloseHandler()
-		}
-	})
+	c.closed = true
+	c.client.Close()
+	if c.customCloseHandler != nil {
+		c.customCloseHandler()
+	}
 	return nil
 }

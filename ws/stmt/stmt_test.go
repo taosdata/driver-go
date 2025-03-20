@@ -153,7 +153,7 @@ func query(payload string) (*common.TDEngineRestfulResp, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("http code: %d", resp.StatusCode)
 	}
-	return marshalBody(resp.Body, 512)
+	return common.UnmarshalRestfulBody(resp.Body, 512)
 }
 
 // @author: xftan
@@ -517,124 +517,6 @@ func TestStmt(t *testing.T) {
 		assert.Equal(t, "tb2", row3[26])
 		assert.Equal(t, "tb2", row3[27])
 	}
-}
-
-func marshalBody(body io.Reader, bufferSize int) (*common.TDEngineRestfulResp, error) {
-	var result common.TDEngineRestfulResp
-	iter := client.JsonI.BorrowIterator(make([]byte, bufferSize))
-	defer client.JsonI.ReturnIterator(iter)
-	iter.Reset(body)
-	timeFormat := time.RFC3339Nano
-	iter.ReadObjectCB(func(iter *jsoniter.Iterator, s string) bool {
-		switch s {
-		case "code":
-			result.Code = iter.ReadInt()
-		case "desc":
-			result.Desc = iter.ReadString()
-		case "column_meta":
-			iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
-				index := 0
-				iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
-					switch index {
-					case 0:
-						result.ColNames = append(result.ColNames, iter.ReadString())
-						index = 1
-					case 1:
-						typeStr := iter.ReadString()
-						t, exist := common.NameTypeMap[typeStr]
-						if exist {
-							result.ColTypes = append(result.ColTypes, t)
-						} else {
-							iter.ReportError("unsupported type in column_meta", typeStr)
-						}
-						index = 2
-					case 2:
-						result.ColLength = append(result.ColLength, iter.ReadInt64())
-						index = 0
-					}
-					return true
-				})
-				return true
-			})
-		case "data":
-			columnCount := len(result.ColTypes)
-			column := 0
-			iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
-				column = 0
-				var row = make([]driver.Value, columnCount)
-				iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
-					defer func() {
-						column += 1
-					}()
-					columnType := result.ColTypes[column]
-					if columnType == common.TSDB_DATA_TYPE_JSON {
-						row[column] = iter.SkipAndReturnBytes()
-						return true
-					}
-					if iter.ReadNil() {
-						row[column] = nil
-						return true
-					}
-					var err error
-					switch columnType {
-					case common.TSDB_DATA_TYPE_NULL:
-						iter.Skip()
-						row[column] = nil
-					case common.TSDB_DATA_TYPE_BOOL:
-						row[column] = iter.ReadAny().ToBool()
-					case common.TSDB_DATA_TYPE_TINYINT:
-						row[column] = iter.ReadInt8()
-					case common.TSDB_DATA_TYPE_SMALLINT:
-						row[column] = iter.ReadInt16()
-					case common.TSDB_DATA_TYPE_INT:
-						row[column] = iter.ReadInt32()
-					case common.TSDB_DATA_TYPE_BIGINT:
-						row[column] = iter.ReadInt64()
-					case common.TSDB_DATA_TYPE_FLOAT:
-						row[column] = iter.ReadFloat32()
-					case common.TSDB_DATA_TYPE_DOUBLE:
-						row[column] = iter.ReadFloat64()
-					case common.TSDB_DATA_TYPE_BINARY:
-						row[column] = iter.ReadString()
-					case common.TSDB_DATA_TYPE_TIMESTAMP:
-						b := iter.ReadString()
-						row[column], err = time.Parse(timeFormat, b)
-						if err != nil {
-							iter.ReportError("parse time", err.Error())
-						}
-					case common.TSDB_DATA_TYPE_NCHAR:
-						row[column] = iter.ReadString()
-					case common.TSDB_DATA_TYPE_UTINYINT:
-						row[column] = iter.ReadUint8()
-					case common.TSDB_DATA_TYPE_USMALLINT:
-						row[column] = iter.ReadUint16()
-					case common.TSDB_DATA_TYPE_UINT:
-						row[column] = iter.ReadUint32()
-					case common.TSDB_DATA_TYPE_UBIGINT:
-						row[column] = iter.ReadUint64()
-					default:
-						row[column] = nil
-						iter.Skip()
-					}
-					return iter.Error == nil
-				})
-				if iter.Error != nil {
-					return false
-				}
-				result.Data = append(result.Data, row)
-				return true
-			})
-		case "rows":
-			result.Rows = iter.ReadInt()
-		default:
-			iter.Skip()
-		}
-		return iter.Error == nil
-	})
-	if iter.Error != nil && iter.Error != io.EOF {
-		return nil, iter.Error
-	}
-	return &result, nil
 }
 
 func TestSTMTQuery(t *testing.T) {
@@ -1059,13 +941,155 @@ func TestSTMTQuery(t *testing.T) {
 	}
 }
 
+func TestStmtQueryDecimal(t *testing.T) {
+	err := prepareEnv("test_ws_stmt_query_decimal")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = cleanEnv("test_ws_stmt_query_decimal")
+		assert.NoError(t, err)
+	}()
+	config := NewConfig("ws://127.0.0.1:6041", 0)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetConnectDB("test_ws_stmt_query_decimal")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
+	config.SetEnableCompression(true)
+	config.SetErrorHandler(func(connector *Connector, err error) {
+		t.Log(err)
+	})
+	config.SetCloseHandler(func() {
+		t.Log("stmt websocket closed")
+	})
+	connector, err := NewConnector(config)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		_ = connector.Close()
+	}()
+	now := time.Now().UTC().Round(time.Millisecond)
+	err = doRequest("create table test_ws_stmt_query_decimal.tb1(ts timestamp, c1 decimal(10, 4), c2 decimal(20, 4))")
+	assert.NoError(t, err)
+	err = doRequest(fmt.Sprintf("insert into test_ws_stmt_query_decimal.tb1 values('%s', 1.23, 2.34)", now.Format(time.RFC3339Nano)))
+	stmt, err := connector.Init()
+	assert.NoError(t, err)
+	err = stmt.Prepare("select * from tb1 where ts = ?")
+	assert.NoError(t, err)
+	queryTime := []byte(now.Format(time.RFC3339Nano))
+	params := []*param.Param{param.NewParam(1).AddBinary(queryTime)}
+	paramTypes := param.NewColumnType(1).AddBinary(len(queryTime))
+	err = stmt.BindParam(params, paramTypes)
+	assert.NoError(t, err)
+	err = stmt.AddBatch()
+	assert.NoError(t, err)
+	err = stmt.Exec()
+	assert.NoError(t, err)
+	rows, err := stmt.UseResult()
+	assert.NoError(t, err)
+	columns := rows.Columns()
+	assert.Equal(t, 3, len(columns))
+	precision, scale, ok := rows.ColumnTypePrecisionScale(0)
+	assert.False(t, ok)
+	assert.Equal(t, int64(0), precision)
+	assert.Equal(t, int64(0), scale)
+	precision, scale, ok = rows.ColumnTypePrecisionScale(1)
+	assert.True(t, ok)
+	assert.Equal(t, int64(10), precision)
+	assert.Equal(t, int64(4), scale)
+	precision, scale, ok = rows.ColumnTypePrecisionScale(2)
+	assert.True(t, ok)
+	assert.Equal(t, int64(20), precision)
+	assert.Equal(t, int64(4), scale)
+	var result [][]driver.Value
+	for {
+		values := make([]driver.Value, 3)
+		err = rows.Next(values)
+		if err != nil {
+			if err == io.EOF {
+				_ = rows.Close()
+				break
+			}
+			assert.NoError(t, err)
+		}
+		result = append(result, values)
+	}
+	assert.Equal(t, 1, len(result))
+	row1 := result[0]
+	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
+	assert.Equal(t, "1.2300", row1[1].(string))
+	assert.Equal(t, "2.3400", row1[2].(string))
+}
+
+func TestStmtClose(t *testing.T) {
+	err := prepareEnv("test_ws_stmt_close")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = cleanEnv("test_ws_stmt_close")
+		assert.NoError(t, err)
+	}()
+	config := NewConfig("ws://127.0.0.1:6041", 0)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetConnectDB("test_ws_stmt_close")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
+	config.SetEnableCompression(true)
+	config.SetErrorHandler(func(connector *Connector, err error) {
+		t.Log(err)
+	})
+	config.SetCloseHandler(func() {
+		t.Log("stmt websocket closed")
+	})
+	connector, err := NewConnector(config)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		_ = connector.Close()
+	}()
+	err = doRequest("create table test_ws_stmt_close.tb1(ts timestamp, c1 int)")
+	assert.NoError(t, err)
+	err = doRequest("insert into test_ws_stmt_close.tb1 values(now, 1)")
+	assert.NoError(t, err)
+	stmt, err := connector.Init()
+	assert.NoError(t, err)
+	err = connector.Close()
+	assert.NoError(t, err)
+	err = stmt.Prepare("select * from tb1 where c1 = ?")
+	assert.Equal(t, client.ClosedError, err)
+	stmtNew, err := connector.Init()
+	assert.Equal(t, ErrConnIsClosed, err)
+	assert.Nil(t, stmtNew)
+	err = stmt.BindParam([]*param.Param{param.NewParam(1).AddInt(1)}, param.NewColumnType(1).AddInt())
+	assert.Equal(t, client.ClosedError, err)
+}
+
 func newTaosadapter(port string) *exec.Cmd {
 	command := "taosadapter"
 	if runtime.GOOS == "windows" {
 		command = "C:\\TDengine\\taosadapter.exe"
 
 	}
-	return exec.Command(command, "--port", port)
+	return exec.Command(command, "--port", port, "--log.level", "debug")
 }
 
 func startTaosadapter(cmd *exec.Cmd, port string) error {
@@ -1088,13 +1112,24 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 	return errors.New("taosadapter start failed")
 }
 
-func stopTaosadapter(cmd *exec.Cmd) {
+func stopTaosadapter(cmd *exec.Cmd, port string) {
 	if cmd.Process == nil {
 		return
 	}
 	_ = cmd.Process.Signal(syscall.SIGINT)
 	_, _ = cmd.Process.Wait()
 	cmd.Process = nil
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond * 100)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
+		if err != nil {
+			return
+		}
+		_ = resp.Body.Close()
+		time.Sleep(time.Second)
+		continue
+	}
+	panic("taosadapter stop failed")
 }
 
 func TestSTMTReconnect(t *testing.T) {
@@ -1105,7 +1140,7 @@ func TestSTMTReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		stopTaosadapter(cmd)
+		stopTaosadapter(cmd, port)
 	}()
 	config := NewConfig("ws://127.0.0.1:"+port, 0)
 	err = config.SetConnectUser("root")
@@ -1124,7 +1159,7 @@ func TestSTMTReconnect(t *testing.T) {
 		t.Log("stmt websocket closed")
 	})
 	config.SetAutoReconnect(true)
-	config.SetReconnectRetryCount(3)
+	config.SetReconnectRetryCount(10)
 	config.SetReconnectIntervalMs(2000)
 	connector, err := NewConnector(config)
 	if err != nil {
@@ -1135,7 +1170,7 @@ func TestSTMTReconnect(t *testing.T) {
 	assert.NoError(t, err)
 	err = stmt.Close()
 	assert.NoError(t, err)
-	stopTaosadapter(cmd)
+	stopTaosadapter(cmd, port)
 	startChan := make(chan struct{})
 	go func() {
 		time.Sleep(time.Second * 3)
@@ -1153,6 +1188,23 @@ func TestSTMTReconnect(t *testing.T) {
 	time.Sleep(time.Second)
 	stmt, err = connector.Init()
 	assert.NoError(t, err)
+	stopTaosadapter(cmd, port)
+	err = startTaosadapter(cmd, port)
+	assert.NoError(t, err)
+	err = doRequest("create database if not exists test_ws_stmt_reconnect")
+	assert.NoError(t, err)
+	err = doRequest("create table if not exists test_ws_stmt_reconnect.tb1(ts timestamp, c1 int)")
+	assert.NoError(t, err)
+	err = doRequest("insert into test_ws_stmt_reconnect.tb1 values(now, 1)")
+	assert.NoError(t, err)
+	err = stmt.Prepare("select * from tb1 where c1 = ?")
+	assert.Error(t, err)
 	err = stmt.Close()
+	assert.NoError(t, err)
+	stmtNew, err := connector.Init()
+	assert.NoError(t, err)
+	err = stmtNew.Prepare("select * from tb1 where c1 = ?")
+	assert.NoError(t, err)
+	err = stmtNew.Close()
 	assert.NoError(t, err)
 }

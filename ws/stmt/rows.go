@@ -21,7 +21,7 @@ type Rows struct {
 	blockSize        int
 	resultID         uint64
 	block            []byte
-	conn             *Connector
+	conn             *WSConn
 	client           *client.Client
 	fieldsCount      int
 	fieldsNames      []string
@@ -30,6 +30,13 @@ type Rows struct {
 	fieldsPrecisions []int64
 	fieldsScales     []int64
 	precision        int
+}
+
+func (rs *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	if rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
+		return rs.fieldsPrecisions[index], rs.fieldsScales[index], true
+	}
+	return 0, 0, false
 }
 
 func (rs *Rows) Columns() []string {

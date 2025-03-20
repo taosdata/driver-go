@@ -3,8 +3,6 @@ package stmt
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
-	"sync/atomic"
 
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/serializer"
@@ -12,26 +10,12 @@ import (
 )
 
 type Stmt struct {
-	connector    *Connector
+	connector    *WSConn
 	id           uint64
 	lastAffected int
-	connClosed   uint32
-}
-
-var ErrConnIsClosed = fmt.Errorf("connection is closed")
-
-func (s *Stmt) isConnClosed() bool {
-	return atomic.LoadUint32(&s.connClosed) == 1
-}
-
-func (s *Stmt) setConnClosed() {
-	atomic.StoreUint32(&s.connClosed, 1)
 }
 
 func (s *Stmt) Prepare(sql string) error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
 	reqID := s.connector.generateReqID()
 	req := &PrepareReq{
 		ReqID:  reqID,
@@ -62,9 +46,6 @@ func (s *Stmt) Prepare(sql string) error {
 }
 
 func (s *Stmt) SetTableName(name string) error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
 	reqID := s.connector.generateReqID()
 	req := &SetTableNameReq{
 		ReqID:  reqID,
@@ -95,9 +76,6 @@ func (s *Stmt) SetTableName(name string) error {
 }
 
 func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
 	tagValues := tags.GetValues()
 	reverseTags := make([]*param.Param, len(tagValues))
 	for i := 0; i < len(tagValues); i++ {
@@ -127,9 +105,6 @@ func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
 }
 
 func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
 	block, err := serializer.SerializeRawBlock(params, bindType)
 	if err != nil {
 		return err
@@ -158,9 +133,6 @@ func (s *Stmt) BindParam(params []*param.Param, bindType *param.ColumnType) erro
 }
 
 func (s *Stmt) AddBatch() error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
 	reqID := s.connector.generateReqID()
 	req := &AddBatchReq{
 		ReqID:  reqID,
@@ -190,9 +162,6 @@ func (s *Stmt) AddBatch() error {
 }
 
 func (s *Stmt) Exec() error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
 	reqID := s.connector.generateReqID()
 	req := &ExecReq{
 		ReqID:  reqID,
@@ -231,9 +200,6 @@ func (s *Stmt) GetAffectedRows() int {
 }
 
 func (s *Stmt) UseResult() (*Rows, error) {
-	if s.isConnClosed() {
-		return nil, ErrConnIsClosed
-	}
 	reqID := s.connector.generateReqID()
 	req := &UseResultReq{
 		ReqID:  reqID,
@@ -279,11 +245,6 @@ func (s *Stmt) UseResult() (*Rows, error) {
 }
 
 func (s *Stmt) Close() error {
-	if s.isConnClosed() {
-		return ErrConnIsClosed
-	}
-	s.setConnClosed()
-	defer s.connector.removeStmt(s)
 	reqID := s.connector.generateReqID()
 	req := &CloseReq{
 		ReqID:  reqID,
