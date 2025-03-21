@@ -15,12 +15,9 @@ import (
 	"strings"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
-
-var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type taosConn struct {
 	cfg            *Config
