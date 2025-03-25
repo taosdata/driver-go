@@ -670,7 +670,10 @@ func query(conn unsafe.Pointer, sql string) ([][]driver.Value, error) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, r...)
 	}
 	return result, nil
@@ -718,7 +721,10 @@ func StmtQuery(t *testing.T, conn unsafe.Pointer, sql string, params *param.Para
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
+		if err != nil {
+			return nil, err
+		}
 		data = append(data, d...)
 	}
 	return data, nil
@@ -1363,7 +1369,8 @@ func TestStmtJson(t *testing.T) {
 		if columns == 0 {
 			break
 		}
-		r := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		result = append(result, r...)
 	}
 	t.Log(result)

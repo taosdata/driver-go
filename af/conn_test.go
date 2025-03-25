@@ -3,6 +3,7 @@ package af
 import (
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -1053,4 +1054,37 @@ func TestGetTableVGroupID(t *testing.T) {
 	vgID, err := db.GetTableVGroupID("test_af", "test_vg")
 	assert.NoError(t, err)
 	t.Log(vgID)
+}
+
+func TestDecimal(t *testing.T) {
+	db := testDatabase(t)
+	_, err := db.Exec("create table test_decimal (ts timestamp, v1 decimal(10,2), v2 decimal (20,4))")
+	assert.NoError(t, err)
+	_, err = db.Exec("insert into test_decimal values (now, 10.2, 20.4)")
+	assert.NoError(t, err)
+	rows, err := db.Query("select * from test_decimal")
+	assert.NoError(t, err)
+	ps := rows.(driver.RowsColumnTypePrecisionScale)
+	precision, scale, ok := ps.ColumnTypePrecisionScale(0)
+	assert.False(t, ok)
+	assert.Equal(t, int64(0), precision)
+	assert.Equal(t, int64(0), scale)
+	precision, scale, ok = ps.ColumnTypePrecisionScale(1)
+	assert.True(t, ok)
+	assert.Equal(t, int64(10), precision)
+	assert.Equal(t, int64(2), scale)
+	precision, scale, ok = ps.ColumnTypePrecisionScale(2)
+	assert.True(t, ok)
+	assert.Equal(t, int64(20), precision)
+	assert.Equal(t, int64(4), scale)
+	values := make([]driver.Value, 3)
+	err = rows.Next(values)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(values))
+	assert.Equal(t, "10.20", values[1])
+	assert.Equal(t, "20.4000", values[2])
+	err = rows.Next(values)
+	assert.Equal(t, io.EOF, err)
+	err = rows.Close()
+	assert.NoError(t, err)
 }

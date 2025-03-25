@@ -112,15 +112,17 @@ func TestStmt2(t *testing.T) {
 		"v12 binary(20), " +
 		"v13 varbinary(20), " +
 		"v14 geometry(100), " +
-		"v15 nchar(20))")
-
-	err = stmt2.Prepare("insert into all_type values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		"v15 nchar(20)) tags(tg binary(20))")
+	assert.NoError(t, err)
+	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
 	params := []*stmt.TaosStmt2BindData{
 		{
+			TableName: "中文0",
+			Tags:      []driver.Value{[]byte("中文 tag")},
 			Cols: [][]driver.Value{
 				{
 					// TIMESTAMP
@@ -196,9 +198,9 @@ func TestStmt2(t *testing.T) {
 				},
 				{
 					// BINARY
-					[]byte("binary1"),
+					"binary1",
 					nil,
-					[]byte("binary2"),
+					"binary2",
 				},
 				{
 					// VARBINARY
@@ -253,7 +255,7 @@ func TestStmt2(t *testing.T) {
 				{uint64(11)},
 				{float32(11.2)},
 				{float64(11.2)},
-				{[]byte("binary1")},
+				{"binary1"},
 				{[]byte("varbinary1")},
 				{"point(100 100)"},
 				{"nchar1"},
@@ -276,12 +278,13 @@ func TestStmt2(t *testing.T) {
 		err = result.Close()
 		assert.NoError(t, err)
 	}()
-	dest := make([]driver.Value, 16)
+	dest := make([]driver.Value, 17)
 	err = result.Next(dest)
 	assert.NoError(t, err)
 	for i, col := range params[0].Cols {
-		dest[i] = col[0]
+		assert.Equal(t, col[0], dest[i])
 	}
+	assert.Equal(t, "中文 tag", dest[16])
 	err = result.Next(dest)
 	assert.ErrorIs(t, err, io.EOF)
 

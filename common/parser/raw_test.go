@@ -790,7 +790,8 @@ func TestParseTenBlock(t *testing.T) {
 			},
 		}, blockInfos[i].Schema)
 		assert.Equal(t, fmt.Sprintf("t%d", i+1), blockInfos[i].TableName)
-		value := ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision)
+		value, err := ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision)
+		assert.NoError(t, err)
 		ts := time.Unix(0, 1706081119570000000).Local()
 		assert.Equal(t, [][]driver.Value{{ts, int32(i + 1)}}, value)
 	}
@@ -1028,7 +1029,8 @@ func TestVersion100Block(t *testing.T) {
 		},
 	}, blockInfos[0].Schema)
 	assert.Equal(t, "t_all", blockInfos[0].TableName)
-	value := ReadBlockSimple(blockInfos[0].RawBlock, blockInfos[0].Precision)
+	value, err := ReadBlockSimple(blockInfos[0].RawBlock, blockInfos[0].Precision)
+	assert.NoError(t, err)
 	expect := []driver.Value{
 		time.Unix(0, 1713766021022000000).Local(),
 		true,

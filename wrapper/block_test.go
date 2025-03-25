@@ -136,7 +136,8 @@ func TestReadBlock(t *testing.T) {
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		data = append(data, d...)
 	}
 	TaosFreeResult(res)
@@ -342,7 +343,8 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		data = append(data, d...)
 	}
 	TaosFreeResult(res)
@@ -533,7 +535,8 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		data = append(data, d...)
 	}
 	TaosFreeResult(res)
@@ -713,7 +716,8 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		data = append(data, d...)
 	}
 	TaosFreeResult(res)
@@ -904,7 +908,8 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+		assert.NoError(t, err)
 		data = append(data, d...)
 	}
 	TaosFreeResult(res)

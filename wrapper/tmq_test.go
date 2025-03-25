@@ -220,7 +220,8 @@ func TestTMQ(t *testing.T) {
 				//assert.Equal(t, "ct1", tableName)
 				dbName := TMQGetDBName(message)
 				assert.Equal(t, "abc1", dbName)
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				assert.NoError(t, err)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -450,7 +451,8 @@ func TestTMQDB(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				assert.NoError(t, err)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -683,7 +685,8 @@ func TestTMQDBMultiTable(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				assert.NoError(t, err)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -896,7 +899,8 @@ func TestTMQDBMultiInsert(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				assert.NoError(t, err)
 				t.Log(data)
 			}
 			TaosFreeResult(message)
@@ -1380,7 +1384,8 @@ func TestTMQAutoCreateTable(t *testing.T) {
 				}
 				precision := TaosResultPrecision(message)
 				totalCount += blockSize
-				data := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				data, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
+				assert.NoError(t, err)
 				t.Log(data)
 			}
 			TaosFreeResult(message)

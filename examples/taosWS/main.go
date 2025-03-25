@@ -31,7 +31,10 @@ func main() {
 		"c10 float," +
 		"c11 double," +
 		"c12 binary(20)," +
-		"c13 nchar(20)" +
+		"c13 nchar(20)," +
+		"c14 varbinary(20)," +
+		"c15 geometry(100)," +
+		"c16 decimal(20,4)" +
 		") tags (info json)")
 	if err != nil {
 		panic(err)
@@ -41,7 +44,7 @@ func main() {
 		panic(err)
 	}
 	now := time.Now()
-	_, err = db.Exec(fmt.Sprintf("insert into example_taos_ws.tb1 values ('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now.Format(time.RFC3339Nano)))
+	_, err = db.Exec(fmt.Sprintf("insert into example_taos_ws.tb1 values ('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar','varbinary','point(100 100)',123.456)", now.Format(time.RFC3339Nano)))
 	if err != nil {
 		panic(err)
 	}
@@ -65,6 +68,9 @@ func main() {
 			c11 float64
 			c12 string
 			c13 string
+			c14 string
+			c15 []byte
+			c16 string
 		)
 		err = rows.Scan(
 			&ts,
@@ -81,6 +87,9 @@ func main() {
 			&c11,
 			&c12,
 			&c13,
+			&c14,
+			&c15,
+			&c16,
 		)
 		if err != nil {
 			panic(err)
@@ -99,5 +108,8 @@ func main() {
 		fmt.Println("c11:", c11)
 		fmt.Println("c12:", c12)
 		fmt.Println("c13:", c13)
+		fmt.Println("c14:", c14)
+		fmt.Println("c15:", c15)
+		fmt.Println("c16:", c16)
 	}
 }

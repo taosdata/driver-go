@@ -719,9 +719,13 @@ func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 	}
 	tmqData := make([]*tmq.Data, len(blockInfo))
 	for i := 0; i < len(blockInfo); i++ {
+		data, err := parser.ReadBlockSimple(blockInfo[i].RawBlock, blockInfo[i].Precision)
+		if err != nil {
+			return nil, err
+		}
 		tmqData[i] = &tmq.Data{
 			TableName: blockInfo[i].TableName,
-			Data:      parser.ReadBlockSimple(blockInfo[i].RawBlock, blockInfo[i].Precision),
+			Data:      data,
 		}
 	}
 	return tmqData, nil
