@@ -2685,15 +2685,6 @@ func TestStmt2AllType(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	params = []*stmt.TaosStmt2BindData{{
-		TableName: "ctb1",
-	}}
-	err = TaosStmt2BindParam(insertStmt, true, params, nil, -1)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
 	isInsert, code = TaosStmt2IsInsert(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
@@ -3223,19 +3214,6 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	params := []*stmt.TaosStmt2BindData{{
-		TableName: "ctb1",
-	}}
-	bs, err := stmt.MarshalStmt2Binary(params, true, nil)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	err = TaosStmt2BindBinary(insertStmt, bs, -1)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
 	isInsert, code := TaosStmt2IsInsert(insertStmt)
 	if code != 0 {
@@ -3395,7 +3373,7 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 			},
 		},
 	}}
-	bs, err = stmt.MarshalStmt2Binary(params2, true, fields)
+	bs, err := stmt.MarshalStmt2Binary(params2, true, fields)
 	if err != nil {
 		t.Error(err)
 		return
