@@ -25,12 +25,14 @@ type config struct {
 	ReconnectRetryCount  int
 	SessionTimeoutMS     string
 	MaxPollIntervalMS    string
+	OtherOptions         map[string]string
 }
 
 func newConfig(url string, chanLength uint) *config {
 	return &config{
-		Url:        url,
-		ChanLength: chanLength,
+		Url:          url,
+		ChanLength:   chanLength,
+		OtherOptions: make(map[string]string),
 	}
 }
 

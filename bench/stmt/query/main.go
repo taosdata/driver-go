@@ -115,7 +115,11 @@ func StmtQuery(conn unsafe.Pointer, sql string, params *param.Param) (rows [][]d
 		if blockSize == 0 {
 			break
 		}
-		d := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
+		d, err := parser.ReadBlock(block, blockSize, rowsHeader.ColTypes, precision)
+		if err != nil {
+			wrapper.TaosFreeResult(res)
+			return nil, err
+		}
 		data = append(data, d...)
 	}
 	wrapper.TaosFreeResult(res)

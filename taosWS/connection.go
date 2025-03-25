@@ -231,7 +231,7 @@ func (tc *taosConn) stmtInit(reqID uint64) (uint64, error) {
 		return 0, err
 	}
 	var resp StmtInitResp
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return 0, err
@@ -264,7 +264,7 @@ func (tc *taosConn) stmtPrepare(stmtID uint64, sql string) (bool, error) {
 		return false, err
 	}
 	var resp StmtPrepareResponse
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return false, err
@@ -322,7 +322,7 @@ func (tc *taosConn) stmtGetColFields(stmtID uint64) ([]*stmtCommon.StmtField, er
 		return nil, err
 	}
 	var resp StmtGetColFieldsResponse
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
@@ -342,7 +342,7 @@ func (tc *taosConn) stmtBindParam(stmtID uint64, block []byte) error {
 		return err
 	}
 	var resp StmtBindResponse
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	return handleResponseError(err, resp.Code, resp.Message)
 }
 
@@ -393,7 +393,7 @@ func (tc *taosConn) stmtAddBatch(stmtID uint64) error {
 		return err
 	}
 	var resp StmtAddBatchResponse
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	return handleResponseError(err, resp.Code, resp.Message)
 }
 
@@ -421,7 +421,7 @@ func (tc *taosConn) stmtExec(stmtID uint64) (int, error) {
 		return 0, err
 	}
 	var resp StmtExecResponse
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return 0, err
@@ -453,7 +453,7 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 		return nil, err
 	}
 	var resp StmtUseResultResponse
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	err = handleResponseError(err, resp.Code, resp.Message)
 	if err != nil {
 		return nil, err
@@ -503,14 +503,16 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		return nil, NotQueryError
 	}
 	rs := &rows{
-		buf:           &bytes.Buffer{},
-		conn:          tc,
-		resultID:      resp.ID,
-		fieldsCount:   resp.FieldsCount,
-		fieldsNames:   resp.FieldsNames,
-		fieldsTypes:   resp.FieldsTypes,
-		fieldsLengths: resp.FieldsLengths,
-		precision:     resp.Precision,
+		buf:              &bytes.Buffer{},
+		conn:             tc,
+		resultID:         resp.ID,
+		fieldsCount:      resp.FieldsCount,
+		fieldsNames:      resp.FieldsNames,
+		fieldsTypes:      resp.FieldsTypes,
+		fieldsLengths:    resp.FieldsLengths,
+		precision:        resp.Precision,
+		fieldsPrecisions: resp.FieldsPrecisions,
+		fieldsScales:     resp.FieldsScales,
 	}
 	return rs, err
 }
@@ -547,7 +549,7 @@ func (tc *taosConn) doQuery(ctx context.Context, query string, args []driver.Nam
 		return nil, err
 	}
 	var resp WSQueryResp
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, reqID)
 	if err != nil {
 		return nil, err
 	}
@@ -562,8 +564,9 @@ func (tc *taosConn) Ping(ctx context.Context) (err error) {
 }
 
 func (tc *taosConn) connect() error {
+	redID := uint64(common.GetReqID())
 	req := &WSConnectReq{
-		ReqID:    0,
+		ReqID:    redID,
 		User:     tc.cfg.User,
 		Password: tc.cfg.Passwd,
 		DB:       tc.cfg.DbName,
@@ -586,7 +589,7 @@ func (tc *taosConn) connect() error {
 		return err
 	}
 	var resp WSConnectResp
-	err = tc.readTo(&resp)
+	err = tc.readTo(&resp, redID)
 	return handleResponseError(err, resp.Code, resp.Message)
 }
 
@@ -622,7 +625,7 @@ func (tc *taosConn) write(messageType int, data []byte) error {
 	return nil
 }
 
-func (tc *taosConn) readTo(to interface{}) error {
+func (tc *taosConn) readTo(to interface{}, expectRedID uint64) error {
 	mt, respBytes, err := tc.readResponse()
 	if err != nil {
 		return err
@@ -633,6 +636,11 @@ func (tc *taosConn) readTo(to interface{}) error {
 	err = jsonI.Unmarshal(respBytes, to)
 	if err != nil {
 		return NewBadConnErrorWithCtx(err, string(respBytes))
+	}
+	if respI, ok := to.(RespInterface); ok {
+		if respI.GetReqID() != expectRedID {
+			return NewBadConnErrorWithCtx(fmt.Errorf("readTo: got wrong reqID %d, expect %d", respI.GetReqID(), expectRedID), string(respBytes))
+		}
 	}
 	return nil
 }

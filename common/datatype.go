@@ -23,6 +23,8 @@ const (
 	TSDB_DATA_TYPE_BLOB       = 18
 	TSDB_DATA_TYPE_MEDIUMBLOB = 19
 	TSDB_DATA_TYPE_GEOMETRY   = 20
+	TSDB_DATA_TYPE_DECIMAL64  = 21
+	TSDB_DATA_TYPE_MAX        = 22
 )
 
 const (
@@ -44,9 +46,10 @@ const (
 	TSDB_DATA_TYPE_JSON_Str      = "JSON"
 	TSDB_DATA_TYPE_VARBINARY_Str = "VARBINARY"
 	TSDB_DATA_TYPE_GEOMETRY_Str  = "GEOMETRY"
+	TSDB_DATA_TYPE_DECIMAL_Str   = "DECIMAL"
 )
 
-var TypeNameMap = map[int]string{
+var TypeNameArray = [TSDB_DATA_TYPE_MAX]string{
 	TSDB_DATA_TYPE_NULL:      TSDB_DATA_TYPE_NULL_Str,
 	TSDB_DATA_TYPE_BOOL:      TSDB_DATA_TYPE_BOOL_Str,
 	TSDB_DATA_TYPE_TINYINT:   TSDB_DATA_TYPE_TINYINT_Str,
@@ -65,6 +68,15 @@ var TypeNameMap = map[int]string{
 	TSDB_DATA_TYPE_JSON:      TSDB_DATA_TYPE_JSON_Str,
 	TSDB_DATA_TYPE_VARBINARY: TSDB_DATA_TYPE_VARBINARY_Str,
 	TSDB_DATA_TYPE_GEOMETRY:  TSDB_DATA_TYPE_GEOMETRY_Str,
+	TSDB_DATA_TYPE_DECIMAL:   TSDB_DATA_TYPE_DECIMAL_Str,
+	TSDB_DATA_TYPE_DECIMAL64: TSDB_DATA_TYPE_DECIMAL_Str,
+}
+
+func GetTypeName(dataType int) string {
+	if dataType < 0 || dataType >= TSDB_DATA_TYPE_MAX {
+		return ""
+	}
+	return TypeNameArray[dataType]
 }
 
 var NameTypeMap = map[string]int{

@@ -13,12 +13,19 @@ type rows struct {
 	rowIndex int
 }
 
+func (rs *rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	if rs.result.ColTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || rs.result.ColTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
+		return rs.result.Precisions[index], rs.result.Scales[index], true
+	}
+	return 0, 0, false
+}
+
 func (rs *rows) Columns() []string {
 	return rs.result.ColNames
 }
 
 func (rs *rows) ColumnTypeDatabaseTypeName(i int) string {
-	return common.TypeNameMap[rs.result.ColTypes[i]]
+	return common.GetTypeName(rs.result.ColTypes[i])
 }
 
 func (rs *rows) ColumnTypeLength(i int) (length int64, ok bool) {

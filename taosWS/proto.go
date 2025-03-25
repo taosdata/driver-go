@@ -6,6 +6,22 @@ import (
 	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
 )
 
+type RespInterface interface {
+	GetReqID() uint64
+}
+
+type BaseResp struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	ReqID   uint64 `json:"req_id"`
+	Timing  int64  `json:"timing"`
+}
+
+func (b *BaseResp) GetReqID() uint64 {
+	return b.ReqID
+}
+
 type WSConnectReq struct {
 	ReqID    uint64 `json:"req_id"`
 	User     string `json:"user"`
@@ -14,11 +30,7 @@ type WSConnectReq struct {
 }
 
 type WSConnectResp struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Action  string `json:"action"`
-	ReqID   uint64 `json:"req_id"`
-	Timing  int64  `json:"timing"`
+	BaseResp
 }
 
 type WSQueryReq struct {
@@ -27,19 +39,17 @@ type WSQueryReq struct {
 }
 
 type WSQueryResp struct {
-	Code          int      `json:"code"`
-	Message       string   `json:"message"`
-	Action        string   `json:"action"`
-	ReqID         uint64   `json:"req_id"`
-	Timing        int64    `json:"timing"`
-	ID            uint64   `json:"id"`
-	IsUpdate      bool     `json:"is_update"`
-	AffectedRows  int      `json:"affected_rows"`
-	FieldsCount   int      `json:"fields_count"`
-	FieldsNames   []string `json:"fields_names"`
-	FieldsTypes   []uint8  `json:"fields_types"`
-	FieldsLengths []int64  `json:"fields_lengths"`
-	Precision     int      `json:"precision"`
+	BaseResp
+	ID               uint64   `json:"id"`
+	IsUpdate         bool     `json:"is_update"`
+	AffectedRows     int      `json:"affected_rows"`
+	FieldsCount      int      `json:"fields_count"`
+	FieldsNames      []string `json:"fields_names"`
+	FieldsTypes      []uint8  `json:"fields_types"`
+	FieldsLengths    []int64  `json:"fields_lengths"`
+	Precision        int      `json:"precision"`
+	FieldsPrecisions []int64  `json:"fields_precisions"`
+	FieldsScales     []int64  `json:"fields_scales"`
 }
 
 type WSFetchReq struct {
@@ -48,11 +58,7 @@ type WSFetchReq struct {
 }
 
 type WSFetchResp struct {
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
-	Action    string `json:"action"`
-	ReqID     uint64 `json:"req_id"`
-	Timing    int64  `json:"timing"`
+	BaseResp
 	ID        uint64 `json:"id"`
 	Completed bool   `json:"completed"`
 	Lengths   []int  `json:"lengths"`
@@ -81,11 +87,7 @@ type StmtPrepareRequest struct {
 }
 
 type StmtPrepareResponse struct {
-	Code     int    `json:"code"`
-	Message  string `json:"message"`
-	Action   string `json:"action"`
-	ReqID    uint64 `json:"req_id"`
-	Timing   int64  `json:"timing"`
+	BaseResp
 	StmtID   uint64 `json:"stmt_id"`
 	IsInsert bool   `json:"is_insert"`
 }
@@ -95,12 +97,8 @@ type StmtInitReq struct {
 }
 
 type StmtInitResp struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Action  string `json:"action"`
-	ReqID   uint64 `json:"req_id"`
-	Timing  int64  `json:"timing"`
-	StmtID  uint64 `json:"stmt_id"`
+	BaseResp
+	StmtID uint64 `json:"stmt_id"`
 }
 type StmtCloseRequest struct {
 	ReqID  uint64 `json:"req_id"`
@@ -108,12 +106,8 @@ type StmtCloseRequest struct {
 }
 
 type StmtCloseResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Action  string `json:"action"`
-	ReqID   uint64 `json:"req_id"`
-	Timing  int64  `json:"timing"`
-	StmtID  uint64 `json:"stmt_id,omitempty"`
+	BaseResp
+	StmtID uint64 `json:"stmt_id,omitempty"`
 }
 
 type StmtGetColFieldsRequest struct {
@@ -122,13 +116,9 @@ type StmtGetColFieldsRequest struct {
 }
 
 type StmtGetColFieldsResponse struct {
-	Code    int                     `json:"code"`
-	Message string                  `json:"message"`
-	Action  string                  `json:"action"`
-	ReqID   uint64                  `json:"req_id"`
-	Timing  int64                   `json:"timing"`
-	StmtID  uint64                  `json:"stmt_id"`
-	Fields  []*stmtCommon.StmtField `json:"fields"`
+	BaseResp
+	StmtID uint64                  `json:"stmt_id"`
+	Fields []*stmtCommon.StmtField `json:"fields"`
 }
 
 const (
@@ -136,12 +126,8 @@ const (
 )
 
 type StmtBindResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Action  string `json:"action"`
-	ReqID   uint64 `json:"req_id"`
-	Timing  int64  `json:"timing"`
-	StmtID  uint64 `json:"stmt_id"`
+	BaseResp
+	StmtID uint64 `json:"stmt_id"`
 }
 
 type StmtAddBatchRequest struct {
@@ -150,12 +136,8 @@ type StmtAddBatchRequest struct {
 }
 
 type StmtAddBatchResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Action  string `json:"action"`
-	ReqID   uint64 `json:"req_id"`
-	Timing  int64  `json:"timing"`
-	StmtID  uint64 `json:"stmt_id"`
+	BaseResp
+	StmtID uint64 `json:"stmt_id"`
 }
 
 type StmtExecRequest struct {
@@ -164,11 +146,7 @@ type StmtExecRequest struct {
 }
 
 type StmtExecResponse struct {
-	Code     int    `json:"code"`
-	Message  string `json:"message"`
-	Action   string `json:"action"`
-	ReqID    uint64 `json:"req_id"`
-	Timing   int64  `json:"timing"`
+	BaseResp
 	StmtID   uint64 `json:"stmt_id"`
 	Affected int    `json:"affected"`
 }
@@ -179,11 +157,7 @@ type StmtUseResultRequest struct {
 }
 
 type StmtUseResultResponse struct {
-	Code          int      `json:"code"`
-	Message       string   `json:"message"`
-	Action        string   `json:"action"`
-	ReqID         uint64   `json:"req_id"`
-	Timing        int64    `json:"timing"`
+	BaseResp
 	StmtID        uint64   `json:"stmt_id"`
 	ResultID      uint64   `json:"result_id"`
 	FieldsCount   int      `json:"fields_count"`

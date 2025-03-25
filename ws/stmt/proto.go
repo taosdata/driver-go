@@ -145,18 +145,20 @@ type UseResultReq struct {
 }
 
 type UseResultResp struct {
-	Code          int      `json:"code"`
-	Message       string   `json:"message"`
-	Action        string   `json:"action"`
-	ReqID         uint64   `json:"req_id"`
-	Timing        int64    `json:"timing"`
-	StmtID        uint64   `json:"stmt_id"`
-	ResultID      uint64   `json:"result_id"`
-	FieldsCount   int      `json:"fields_count"`
-	FieldsNames   []string `json:"fields_names"`
-	FieldsTypes   []uint8  `json:"fields_types"`
-	FieldsLengths []int64  `json:"fields_lengths"`
-	Precision     int      `json:"precision"`
+	Code             int      `json:"code"`
+	Message          string   `json:"message"`
+	Action           string   `json:"action"`
+	ReqID            uint64   `json:"req_id"`
+	Timing           int64    `json:"timing"`
+	StmtID           uint64   `json:"stmt_id"`
+	ResultID         uint64   `json:"result_id"`
+	FieldsCount      int      `json:"fields_count"`
+	FieldsNames      []string `json:"fields_names"`
+	FieldsTypes      []uint8  `json:"fields_types"`
+	FieldsLengths    []int64  `json:"fields_lengths"`
+	Precision        int      `json:"precision"`
+	FieldsPrecisions []int64  `json:"fields_precisions"`
+	FieldsScales     []int64  `json:"fields_scales"`
 }
 
 type WSFetchReq struct {

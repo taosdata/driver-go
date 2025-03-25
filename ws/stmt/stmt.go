@@ -10,7 +10,7 @@ import (
 )
 
 type Stmt struct {
-	connector    *Connector
+	connector    *WSConn
 	id           uint64
 	lastAffected int
 }
@@ -230,15 +230,17 @@ func (s *Stmt) UseResult() (*Rows, error) {
 		return nil, err
 	}
 	return &Rows{
-		buf:           &bytes.Buffer{},
-		conn:          s.connector,
-		client:        s.connector.client,
-		resultID:      resp.ResultID,
-		fieldsCount:   resp.FieldsCount,
-		fieldsNames:   resp.FieldsNames,
-		fieldsTypes:   resp.FieldsTypes,
-		fieldsLengths: resp.FieldsLengths,
-		precision:     resp.Precision,
+		buf:              &bytes.Buffer{},
+		conn:             s.connector,
+		client:           s.connector.client,
+		resultID:         resp.ResultID,
+		fieldsCount:      resp.FieldsCount,
+		fieldsNames:      resp.FieldsNames,
+		fieldsTypes:      resp.FieldsTypes,
+		fieldsLengths:    resp.FieldsLengths,
+		precision:        resp.Precision,
+		fieldsPrecisions: resp.FieldsPrecisions,
+		fieldsScales:     resp.FieldsScales,
 	}, nil
 }
 

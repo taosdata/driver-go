@@ -2,7 +2,9 @@ package parser
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"math"
+	"strconv"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -70,6 +72,14 @@ func RawBlockGetColInfo(rawBlock unsafe.Pointer, infos []RawBlockColInfo) {
 	}
 }
 
+func RawBlockGetDecimalInfo(rawBlock unsafe.Pointer, colIndex int) (uint8, uint8, uint8) {
+	offset := ColInfoOffset + ColInfoSize*uintptr(colIndex)
+	scale := *((*uint8)(pointer.AddUintptr(rawBlock, offset+UInt8Size)))
+	precision := *((*uint8)(pointer.AddUintptr(rawBlock, offset+2*UInt8Size)))
+	bytes := *((*uint8)(pointer.AddUintptr(rawBlock, offset+4*UInt8Size)))
+	return bytes, precision, scale
+}
+
 func RawBlockGetColumnLengthOffset(colCount int) uintptr {
 	return ColInfoOffset + uintptr(colCount)*ColInfoSize
 }
@@ -108,9 +118,9 @@ type rawConvertFunc func(pStart unsafe.Pointer, row int, arg ...interface{}) dri
 
 type rawConvertVarDataFunc func(pHeader, pStart unsafe.Pointer, row int) driver.Value
 
-var rawConvertFuncSlice = [15]rawConvertFunc{}
+var rawConvertFuncSlice = [common.TSDB_DATA_TYPE_MAX]rawConvertFunc{}
 
-var rawConvertVarDataSlice = [21]rawConvertVarDataFunc{}
+var rawConvertVarDataSlice = [common.TSDB_DATA_TYPE_MAX]rawConvertVarDataFunc{}
 
 func ItemIsNull(pHeader unsafe.Pointer, row int) bool {
 	offset := CharOffset(row)
@@ -169,6 +179,27 @@ func rawConvertTime(pStart unsafe.Pointer, row int, arg ...interface{}) driver.V
 		return arg[1].(FormatTimeFunc)(*((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size))), arg[0].(int))
 	}
 	panic("convertTime error")
+}
+
+func rawConvertDecimal64(pStart unsafe.Pointer, row int, arg ...interface{}) driver.Value {
+	if len(arg) != 1 {
+		panic("convertDecimal error")
+	}
+	scale := arg[0].(int)
+	value := *((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size)))
+	str := strconv.FormatInt(value, 10)
+	return common.FormatDecimal(str, scale)
+}
+
+func rawConvertDecimal128(pStart unsafe.Pointer, row int, arg ...interface{}) driver.Value {
+	if len(arg) != 1 {
+		panic("convertDecimal error")
+	}
+	scale := arg[0].(int)
+	lo := *((*uint64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size*2)))
+	hi := *((*int64)(pointer.AddUintptr(pStart, uintptr(row)*Int64Size*2+UInt64Size)))
+	str := common.FormatI128(hi, lo)
+	return common.FormatDecimal(str, scale)
 }
 
 func rawConvertVarBinary(pHeader, pStart unsafe.Pointer, row int) driver.Value {
@@ -230,7 +261,7 @@ func rawConvertJson(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 	return rawConvertVarBinary(pHeader, pStart, row)
 }
 
-func ReadBlockSimple(block unsafe.Pointer, precision int) [][]driver.Value {
+func ReadBlockSimple(block unsafe.Pointer, precision int) ([][]driver.Value, error) {
 	blockSize := RawBlockGetNumOfRows(block)
 	colCount := RawBlockGetNumOfCols(block)
 	colInfo := make([]RawBlockColInfo, colCount)
@@ -243,7 +274,11 @@ func ReadBlockSimple(block unsafe.Pointer, precision int) [][]driver.Value {
 }
 
 // ReadBlock in-place
-func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int) [][]driver.Value {
+func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int) ([][]driver.Value, error) {
+	err := validColumnType(colTypes)
+	if err != nil {
+		return nil, err
+	}
 	r := make([][]driver.Value, blockSize)
 	colCount := len(colTypes)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
@@ -264,6 +299,14 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 		} else {
 			convertF := rawConvertFuncSlice[colTypes[column]]
 			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
+			var args []interface{}
+			switch colTypes[column] {
+			case common.TSDB_DATA_TYPE_TIMESTAMP:
+				args = []interface{}{precision}
+			case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
+				_, _, scale := RawBlockGetDecimalInfo(block, column)
+				args = []interface{}{int(scale)}
+			}
 			for row := 0; row < blockSize; row++ {
 				if column == 0 {
 					r[row] = make([]driver.Value, colCount)
@@ -271,16 +314,20 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 				if ItemIsNull(pHeader, row) {
 					r[row][column] = nil
 				} else {
-					r[row][column] = convertF(pStart, row, precision)
+					r[row][column] = convertF(pStart, row, args...)
 				}
 			}
 		}
 		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
 	}
-	return r
+	return r, nil
 }
 
-func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, colTypes []uint8, precision int) {
+func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, colTypes []uint8, precision int, scales []int64) error {
+	err := validColumnType(colTypes)
+	if err != nil {
+		return err
+	}
 	colCount := len(colTypes)
 	nullBitMapOffset := uintptr(BitmapLen(blockSize))
 	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
@@ -298,58 +345,31 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 			if ItemIsNull(pHeader, row) {
 				dest[column] = nil
 			} else {
-				dest[column] = convertF(pStart, row, precision)
-			}
-		}
-		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
-	}
-}
-
-func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int, formatFunc FormatTimeFunc) [][]driver.Value {
-	r := make([][]driver.Value, blockSize)
-	colCount := len(colTypes)
-	nullBitMapOffset := uintptr(BitmapLen(blockSize))
-	lengthOffset := RawBlockGetColumnLengthOffset(colCount)
-	pHeader := pointer.AddUintptr(block, RawBlockGetColDataOffset(colCount))
-	var pStart unsafe.Pointer
-	for column := 0; column < colCount; column++ {
-		colLength := *((*int32)(pointer.AddUintptr(block, lengthOffset+uintptr(column)*Int32Size)))
-		if IsVarDataType(colTypes[column]) {
-			convertF := rawConvertVarDataSlice[colTypes[column]]
-			pStart = pointer.AddUintptr(pHeader, uintptr(4*blockSize))
-			for row := 0; row < blockSize; row++ {
-				if column == 0 {
-					r[row] = make([]driver.Value, colCount)
-				}
-				r[row][column] = convertF(pHeader, pStart, row)
-			}
-		} else {
-			convertF := rawConvertFuncSlice[colTypes[column]]
-			pStart = pointer.AddUintptr(pHeader, nullBitMapOffset)
-			for row := 0; row < blockSize; row++ {
-				if column == 0 {
-					r[row] = make([]driver.Value, colCount)
-				}
-				if ItemIsNull(pHeader, row) {
-					r[row][column] = nil
-				} else {
-					r[row][column] = convertF(pStart, row, precision, formatFunc)
+				switch colTypes[column] {
+				case common.TSDB_DATA_TYPE_TIMESTAMP:
+					dest[column] = convertF(pStart, row, precision)
+				case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
+					dest[column] = convertF(pStart, row, int(scales[column]))
+				default:
+					dest[column] = convertF(pStart, row)
 				}
 			}
 		}
 		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
 	}
-	return r
+	return nil
 }
 
-func ItemRawBlock(colType uint8, pHeader, pStart unsafe.Pointer, row int, precision int, timeFormat FormatTimeFunc) driver.Value {
-	if IsVarDataType(colType) {
-		return rawConvertVarDataSlice[colType](pHeader, pStart, row)
+func validColumnType(colTypes []uint8) error {
+	for _, colType := range colTypes {
+		if colType >= common.TSDB_DATA_TYPE_MAX {
+			return fmt.Errorf("invalid column type %d", colType)
+		}
+		if rawConvertFuncSlice[colType] == nil && rawConvertVarDataSlice[colType] == nil {
+			return fmt.Errorf("unsupported column type %d", colType)
+		}
 	}
-	if ItemIsNull(pHeader, row) {
-		return nil
-	}
-	return rawConvertFuncSlice[colType](pStart, row, precision, timeFormat)
+	return nil
 }
 
 func init() {
@@ -365,6 +385,8 @@ func init() {
 	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_FLOAT)] = rawConvertFloat
 	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_DOUBLE)] = rawConvertDouble
 	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_TIMESTAMP)] = rawConvertTime
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_DECIMAL64)] = rawConvertDecimal64
+	rawConvertFuncSlice[uint8(common.TSDB_DATA_TYPE_DECIMAL)] = rawConvertDecimal128
 
 	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_BINARY)] = rawConvertBinary
 	rawConvertVarDataSlice[uint8(common.TSDB_DATA_TYPE_NCHAR)] = rawConvertNchar

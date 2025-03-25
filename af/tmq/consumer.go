@@ -188,9 +188,13 @@ func (c *Consumer) getData(message unsafe.Pointer) ([]*tmq.Data, error) {
 	}
 	var tmqData []*tmq.Data
 	for i := 0; i < len(blockInfos); i++ {
+		data, err := parser.ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision)
+		if err != nil {
+			return nil, err
+		}
 		tmqData = append(tmqData, &tmq.Data{
 			TableName: blockInfos[i].TableName,
-			Data:      parser.ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision),
+			Data:      data,
 		})
 	}
 	return tmqData, nil
