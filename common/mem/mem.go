@@ -1,4 +1,4 @@
-package parser
+package mem
 
 import "unsafe"
 

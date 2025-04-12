@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/mem"
 	"github.com/taosdata/driver-go/v3/common/pointer"
 )
 
@@ -222,7 +223,7 @@ func rawGetBytes(pHeader, pStart unsafe.Pointer, row int) []byte {
 	}
 	currentRow = pointer.AddUintptr(currentRow, 2)
 	result := make([]byte, clen)
-	Copy(currentRow, result, 0, int(clen))
+	mem.Copy(currentRow, result, 0, int(clen))
 	return result
 }
 

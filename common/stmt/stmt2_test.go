@@ -2,7 +2,9 @@ package stmt
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -2531,4 +2533,173 @@ func TestMarshalBinary(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func BenchmarkBinary(b *testing.B) {
+	tableCount := 10000
+	rows := 10
+	bindData := make([]*TaosStmt2BindData, tableCount)
+	var fields = []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: 1,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	ts := time.Now()
+	cols := make([][]driver.Value, 3)
+	for j := 0; j < 3; j++ {
+		cols[j] = make([]driver.Value, rows)
+	}
+	for k := 0; k < rows; k++ {
+		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
+		cols[1][k] = int8(rand.Int())
+		cols[2][k] = int32(rand.Int())
+	}
+
+	for i := 0; i < tableCount; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("table_%04d", i),
+			Cols:      cols,
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := MarshalStmt2Binary(bindData, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkBinary2(b *testing.B) {
+	tableCount := 10000
+	rows := 10
+	bindData := make([]*TaosStmt2BindData, tableCount)
+	var fields = []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: 1,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	ts := time.Now()
+	cols := make([][]driver.Value, 3)
+	for j := 0; j < 3; j++ {
+		cols[j] = make([]driver.Value, rows)
+	}
+	for k := 0; k < rows; k++ {
+		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
+		cols[1][k] = int8(rand.Int())
+		cols[2][k] = int32(rand.Int())
+	}
+
+	for i := 0; i < tableCount; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("table_%04d", i),
+			Cols:      cols,
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := MarshalStmt2Binary2(bindData, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func TestMarshalStmt2Binary2(t *testing.T) {
+	tableCount := 10000
+	rows := 10
+	bindData := make([]*TaosStmt2BindData, tableCount)
+	var fields = []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: 1,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	ts := time.Now()
+	cols := make([][]driver.Value, 3)
+	for j := 0; j < 3; j++ {
+		cols[j] = make([]driver.Value, rows)
+	}
+	for k := 0; k < rows; k++ {
+		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
+		cols[1][k] = int8(rand.Int())
+		cols[2][k] = int32(rand.Int())
+	}
+
+	for i := 0; i < tableCount; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("table_%04d", i),
+			Cols:      cols,
+		}
+	}
+	b1, err := MarshalStmt2Binary(bindData, true, fields)
+	assert.NoError(t, err)
+	b2, err := MarshalStmt2Binary2(bindData, true, fields)
+	assert.NoError(t, err)
+	assert.Equal(t, b1, b2)
+	//for i := 0; i < len(b2); i++ {
+	//	fmt.Printf("0x%02x,", b2[i])
+	//	if i%16 == 15 {
+	//		fmt.Println()
+	//	}
+	//}
+	m1Start := time.Now()
+	for i := 0; i < 1000; i++ {
+		_, err := MarshalStmt2Binary(bindData, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+	m1End := time.Since(m1Start)
+	m2Start := time.Now()
+	for i := 0; i < 1000; i++ {
+		_, err := MarshalStmt2Binary2(bindData, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+	m2End := time.Since(m2Start)
+	fmt.Printf("m1 cost %s, m2 cost %s, p:%f\n", m1End, m2End, float64(m1End.Nanoseconds())/float64(m2End.Nanoseconds()))
+
 }
