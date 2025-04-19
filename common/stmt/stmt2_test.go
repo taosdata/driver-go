@@ -2,14 +2,16 @@ package stmt
 
 import (
 	"database/sql/driver"
-	"fmt"
 	"math"
 	"math/rand"
+	"os"
+	"runtime/pprof"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/stmt/memory"
 )
 
 type customInt int
@@ -2535,96 +2537,87 @@ func TestMarshalBinary(t *testing.T) {
 	}
 }
 
-func BenchmarkBinary(b *testing.B) {
-	tableCount := 10000
-	rows := 10
-	bindData := make([]*TaosStmt2BindData, tableCount)
-	var fields = []*Stmt2AllField{
-		{
-			FieldType: common.TSDB_DATA_TYPE_BINARY,
-			BindType:  TAOS_FIELD_TBNAME,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
-			Precision: 1,
-			BindType:  TAOS_FIELD_COL,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_TINYINT,
-			BindType:  TAOS_FIELD_COL,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_INT,
-			BindType:  TAOS_FIELD_COL,
-		},
-	}
-	ts := time.Now()
-	cols := make([][]driver.Value, 3)
-	for j := 0; j < 3; j++ {
-		cols[j] = make([]driver.Value, rows)
-	}
-	for k := 0; k < rows; k++ {
-		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
-		cols[1][k] = int8(rand.Int())
-		cols[2][k] = int32(rand.Int())
-	}
-
-	for i := 0; i < tableCount; i++ {
-		bindData[i] = &TaosStmt2BindData{
-			TableName: fmt.Sprintf("table_%04d", i),
-			Cols:      cols,
-		}
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := MarshalStmt2Binary(bindData, true, fields)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
+//func BenchmarkBinary(b *testing.B) {
+//	tableCount := 10000
+//	rows := 10
+//	bindData := make([]*TaosStmt2BindData, tableCount)
+//	var fields = []*Stmt2AllField{
+//		{
+//			FieldType: common.TSDB_DATA_TYPE_BINARY,
+//			BindType:  TAOS_FIELD_TBNAME,
+//		},
+//		{
+//			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+//			Precision: 1,
+//			BindType:  TAOS_FIELD_COL,
+//		},
+//		{
+//			FieldType: common.TSDB_DATA_TYPE_TINYINT,
+//			BindType:  TAOS_FIELD_COL,
+//		},
+//		{
+//			FieldType: common.TSDB_DATA_TYPE_INT,
+//			BindType:  TAOS_FIELD_COL,
+//		},
+//	}
+//	ts := time.Now()
+//	cols := make([][]driver.Value, 3)
+//	for j := 0; j < 3; j++ {
+//		cols[j] = make([]driver.Value, rows)
+//	}
+//	for k := 0; k < rows; k++ {
+//		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
+//		cols[1][k] = int8(rand.Int())
+//		cols[2][k] = int32(rand.Int())
+//	}
+//
+//	for i := 0; i < tableCount; i++ {
+//		bindData[i] = &TaosStmt2BindData{
+//			TableName: fmt.Sprintf("table_%04d", i),
+//			Cols:      cols,
+//		}
+//	}
+//	b.ResetTimer()
+//	for i := 0; i < b.N; i++ {
+//		_, err := MarshalStmt2Binary(bindData, true, fields)
+//		if err != nil {
+//			panic(err)
+//		}
+//	}
+//}
 
 func BenchmarkBinary2(b *testing.B) {
-	tableCount := 10000
-	rows := 10
+	tableCount := 50
+	rows := 1
 	bindData := make([]*TaosStmt2BindData, tableCount)
-	var fields = []*Stmt2AllField{
-		{
-			FieldType: common.TSDB_DATA_TYPE_BINARY,
-			BindType:  TAOS_FIELD_TBNAME,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
-			Precision: 1,
-			BindType:  TAOS_FIELD_COL,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_TINYINT,
-			BindType:  TAOS_FIELD_COL,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_INT,
-			BindType:  TAOS_FIELD_COL,
-		},
+	var fields = make([]*Stmt2AllField, 2000)
+	field := &Stmt2AllField{
+		FieldType: common.TSDB_DATA_TYPE_INT,
+		BindType:  TAOS_FIELD_COL,
 	}
-	ts := time.Now()
-	cols := make([][]driver.Value, 3)
-	for j := 0; j < 3; j++ {
+	for i := 0; i < 2000; i++ {
+		fields[i] = field
+	}
+	//ts := time.Now()
+	cols := make([][]driver.Value, 2000)
+	for j := 0; j < 2000; j++ {
 		cols[j] = make([]driver.Value, rows)
 	}
+	v := int32(rand.Int())
 	for k := 0; k < rows; k++ {
-		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
-		cols[1][k] = int8(rand.Int())
-		cols[2][k] = int32(rand.Int())
+		//cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
+		for i := 0; i < 2000; i++ {
+			cols[i][k] = v
+		}
 	}
 
 	for i := 0; i < tableCount; i++ {
 		bindData[i] = &TaosStmt2BindData{
-			TableName: fmt.Sprintf("table_%04d", i),
-			Cols:      cols,
+			//TableName: fmt.Sprintf("table_%04d", i),
+			Cols: cols,
 		}
 	}
-	b.ResetTimer()
+	//b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := MarshalStmt2Binary2(bindData, true, fields)
 		if err != nil {
@@ -2633,20 +2626,64 @@ func BenchmarkBinary2(b *testing.B) {
 	}
 }
 
-func TestMarshalStmt2Binary2(t *testing.T) {
+func BenchmarkBinary3(b *testing.B) {
+	tableCount := 50
+	rows := 1
+	bindData := make([]*TaosStmt2BindDatax, tableCount)
+	var fields = make([]*Stmt2AllField, 2000)
+	field := &Stmt2AllField{
+		FieldType: common.TSDB_DATA_TYPE_INT,
+		BindType:  TAOS_FIELD_COL,
+	}
+	for i := 0; i < 2000; i++ {
+		fields[i] = field
+	}
+	mem := memory.NewGoAllocator()
+	record := NewRecordBuilder(mem, fields)
+	v := int32(rand.Int())
+	//i8Builder := record.Field(0).(*Int8Builder)
+	//i32Builder := record.Field(1).(*Int32Builder)
+	for k := 0; k < rows; k++ {
+		for i := 0; i < 2000; i++ {
+			record.Field(i).(*Int32Builder).Append(v)
+		}
+	}
+	for i := 0; i < tableCount; i++ {
+		bindData[i] = &TaosStmt2BindDatax{
+			Cols: record,
+		}
+	}
+	f, err := os.Create("cpu.pprof")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	if err := pprof.StartCPUProfile(f); err != nil {
+		panic(err)
+	}
+	defer pprof.StopCPUProfile()
+	for i := 0; i < b.N; i++ {
+		_, err := MarshalStmt2Binary3(bindData, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func TestMarshal3(t *testing.T) {
 	tableCount := 10000
-	rows := 10
-	bindData := make([]*TaosStmt2BindData, tableCount)
+	rows := 100
+	bindData := make([]*TaosStmt2BindDatax, tableCount)
 	var fields = []*Stmt2AllField{
-		{
-			FieldType: common.TSDB_DATA_TYPE_BINARY,
-			BindType:  TAOS_FIELD_TBNAME,
-		},
-		{
-			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
-			Precision: 1,
-			BindType:  TAOS_FIELD_COL,
-		},
+		//{
+		//	FieldType: common.TSDB_DATA_TYPE_BINARY,
+		//	BindType:  TAOS_FIELD_TBNAME,
+		//},
+		//{
+		//	FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+		//	Precision: 1,
+		//	BindType:  TAOS_FIELD_COL,
+		//},
 		{
 			FieldType: common.TSDB_DATA_TYPE_TINYINT,
 			BindType:  TAOS_FIELD_COL,
@@ -2656,50 +2693,89 @@ func TestMarshalStmt2Binary2(t *testing.T) {
 			BindType:  TAOS_FIELD_COL,
 		},
 	}
-	ts := time.Now()
-	cols := make([][]driver.Value, 3)
-	for j := 0; j < 3; j++ {
+	mem := memory.NewGoAllocator()
+	record := NewRecordBuilder(mem, fields)
+	i8Builder := record.Field(0).(*Int8Builder)
+	i32Builder := record.Field(1).(*Int32Builder)
+	int8Vals := make([]int8, rows)
+	int32Vals := make([]int32, rows)
+	for k := 0; k < rows; k++ {
+		int8Vals[k] = int8(rand.Int())
+		int32Vals[k] = int32(rand.Int())
+	}
+	i8Builder.AppendValues(int8Vals, nil)
+	i32Builder.AppendValues(int32Vals, nil)
+	for i := 0; i < tableCount; i++ {
+		bindData[i] = &TaosStmt2BindDatax{
+			Cols: record,
+		}
+	}
+	start := time.Now()
+	for i := 0; i < 1000; i++ {
+		_, err := MarshalStmt2Binary3(bindData, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+	t.Log(time.Since(start))
+	bindDatav2 := make([]*TaosStmt2BindData, tableCount)
+	cols := make([][]driver.Value, 2)
+	for j := 0; j < 2; j++ {
 		cols[j] = make([]driver.Value, rows)
 	}
 	for k := 0; k < rows; k++ {
-		cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
-		cols[1][k] = int8(rand.Int())
-		cols[2][k] = int32(rand.Int())
+		//cols[0][k] = ts.Add(time.Duration(k) * time.Millisecond)
+		cols[0][k] = int8Vals[k]
+		cols[1][k] = int32Vals[k]
 	}
 
 	for i := 0; i < tableCount; i++ {
-		bindData[i] = &TaosStmt2BindData{
-			TableName: fmt.Sprintf("table_%04d", i),
-			Cols:      cols,
+		bindDatav2[i] = &TaosStmt2BindData{
+			//TableName: fmt.Sprintf("table_%04d", i),
+			Cols: cols,
 		}
 	}
-	b1, err := MarshalStmt2Binary(bindData, true, fields)
-	assert.NoError(t, err)
-	b2, err := MarshalStmt2Binary2(bindData, true, fields)
-	assert.NoError(t, err)
-	assert.Equal(t, b1, b2)
-	//for i := 0; i < len(b2); i++ {
-	//	fmt.Printf("0x%02x,", b2[i])
+	start = time.Now()
+	for i := 0; i < 1000; i++ {
+		_, err := MarshalStmt2Binary2(bindDatav2, true, fields)
+		if err != nil {
+			panic(err)
+		}
+	}
+	t.Log(time.Since(start))
+	v1b, _ := MarshalStmt2Binary(bindDatav2, true, fields)
+	v2b, _ := MarshalStmt2Binary2(bindDatav2, true, fields)
+	v3b, _ := MarshalStmt2Binary3(bindData, true, fields)
+	assert.Equal(t, v1b, v3b)
+	assert.Equal(t, v1b, v2b)
+	//fmt.Println()
+	//for i := 0; i < len(v1b); i++ {
+	//	fmt.Printf("0x%02x, ", v1b[i])
 	//	if i%16 == 15 {
 	//		fmt.Println()
 	//	}
 	//}
-	m1Start := time.Now()
-	for i := 0; i < 1000; i++ {
-		_, err := MarshalStmt2Binary(bindData, true, fields)
-		if err != nil {
-			panic(err)
-		}
-	}
-	m1End := time.Since(m1Start)
-	m2Start := time.Now()
-	for i := 0; i < 1000; i++ {
-		_, err := MarshalStmt2Binary2(bindData, true, fields)
-		if err != nil {
-			panic(err)
-		}
-	}
-	m2End := time.Since(m2Start)
-	fmt.Printf("m1 cost %s, m2 cost %s, p:%f\n", m1End, m2End, float64(m1End.Nanoseconds())/float64(m2End.Nanoseconds()))
-
+	//fmt.Println()
+	//fmt.Println()
+	//for i := 0; i < len(v2b); i++ {
+	//	fmt.Printf("0x%02x, ", v2b[i])
+	//	if i%16 == 15 {
+	//		fmt.Println()
+	//	}
+	//}
+	//fmt.Println()
+	//for i := 0; i < len(v3b); i++ {
+	//	fmt.Printf("0x%02x, ", v3b[i])
+	//	if i%16 == 15 {
+	//		fmt.Println()
+	//	}
+	//}
+	//fmt.Println()
+	//for i := 0; i < len(v2b); i++ {
+	//	fmt.Printf("0x%02x, ", v2b[i])
+	//	if i%16 == 15 {
+	//		fmt.Println()
+	//	}
+	//}
+	//assert.Equal(t, v3b, v2b)
 }

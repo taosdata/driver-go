@@ -1,6 +1,5 @@
 package stmt
 
-import "C"
 import (
 	"bytes"
 	"database/sql/driver"
@@ -639,9 +638,9 @@ func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []
 				}
 				needTableNames = true
 				totalTableNameBufferLength += len(data.TableName) + 1
-				if len(tableNameBufferLength) == 0 {
-					tableNameBufferLength = make([]uint16, count)
-				}
+				//if len(tableNameBufferLength) == 0 {
+				//	tableNameBufferLength = make([]uint16, count)
+				//}
 				tableNameBufferLength[i] = uint16(len(data.TableName) + 1)
 			}
 			if len(data.Tags) != tagCount {
@@ -682,14 +681,18 @@ func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []
 	if !needTableNames && !needTags && !needCols {
 		return nil, fmt.Errorf("no data")
 	}
+	totalTag := count * tagCount
+	totalCol := count * colCount
 	totalTagBufferLength := 0
 	var tagBufferLength []uint32
 	var tagDataLength [][]uint32
 	var tableTagLength []uint32
+	var everyTagBindBinarylen []uint32
 	if needTags {
-		tagBufferLength = make([]uint32, count*tagCount)
-		tagDataLength = make([][]uint32, count*tagCount)
+		tagBufferLength = make([]uint32, totalTag)
+		tagDataLength = make([][]uint32, totalTag)
 		tableTagLength = make([]uint32, count)
+		everyTagBindBinarylen = make([]uint32, totalTag)
 	}
 	totalColBufferLength := 0
 	var colBufferLength []uint32
@@ -697,34 +700,38 @@ func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []
 	var tableColLength []uint32
 	var everyColBindBinaryLen []uint32
 	if needCols {
-		colBufferLength = make([]uint32, count*colCount)
-		colDataLength = make([][]uint32, count*colCount)
+		colBufferLength = make([]uint32, totalCol)
+		colDataLength = make([][]uint32, totalCol)
 		tableColLength = make([]uint32, count)
-		everyColBindBinaryLen = make([]uint32, count*colCount)
+		everyColBindBinaryLen = make([]uint32, totalCol)
 	}
 	tmpTagData := make([]driver.Value, 1)
 	for i := 0; i < count; i++ {
 		data := bindData[i]
 		if needTags {
+			baseIndex := i * tagCount
 			for j := 0; j < tagCount; j++ {
+				index := baseIndex + j
 				if needLength(tagType[j].FieldType) {
 					tmpTagData[0] = data.Tags[j]
 					tagDataTotalLen, tagBufferLen, dataLengths, err := getVarDataTypeBufferLen(tmpTagData, tagType[j])
 					if err != nil {
 						return nil, err
 					}
-					tagBufferLength[i*tagCount+j] = tagBufferLen
-					tagDataLength[i*tagCount+j] = dataLengths
+					tagBufferLength[index] = tagBufferLen
+					tagDataLength[index] = dataLengths
 					totalTagBufferLength += tagDataTotalLen
 					tableTagLength[i] += uint32(tagDataTotalLen)
+					everyTagBindBinarylen[index] = uint32(tagDataTotalLen)
 				} else {
 					tagDataTotalLen, tagBufferLen, err := getNumTypeBufferLen(1, tagType[j])
 					if err != nil {
 						return nil, err
 					}
-					tagBufferLength[i*tagCount+j] = tagBufferLen
+					tagBufferLength[index] = tagBufferLen
 					totalTagBufferLength += tagDataTotalLen
 					tableTagLength[i] += uint32(tagDataTotalLen)
+					everyTagBindBinarylen[index] = uint32(tagDataTotalLen)
 				}
 			}
 		}
@@ -785,15 +792,22 @@ func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []
 		mem.Copy(unsafe.Pointer(&tableNameBufferLength[0]), buffer, tableNamesOffset, len(tableNameBufferLength)*2)
 	}
 	tableNameP := tableNamesOffset + len(tableNameBufferLength)*2
-	//tagP := tagOffset + len(tableTagLength)*4
+	tagP := tagOffset + len(tableTagLength)*4
 	colP := colOffset + len(tableColLength)*4
 	for i := 0; i < len(bindData); i++ {
 		if bindData[i].TableName != "" {
 			copy(buffer[tableNameP:], bindData[i].TableName)
 			tableNameP += len(bindData[i].TableName) + 1
 		}
-		//if bindData[i].Tags != nil {
-		//}
+		if bindData[i].Tags != nil {
+			for j := 0; j < tagCount; j++ {
+				tmpTagData[0] = bindData[i].Tags[j]
+				err := generateBindColData2(buffer[tagP:], tmpTagData, tagType[j], everyTagBindBinarylen[i*tagCount+j], tagDataLength[i*tagCount+j], tagBufferLength[i*tagCount+j])
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		if bindData[i].Cols != nil {
 			for j := 0; j < colCount; j++ {
 				err := generateBindColData2(buffer[colP:], bindData[i].Cols[j], colType[j], everyColBindBinaryLen[i*colCount+j], colDataLength[i*colCount+j], colBufferLength[i*colCount+j])
@@ -864,8 +878,8 @@ type stringHeader struct {
 }
 
 func generateBindColData2(buffer []byte, data []driver.Value, colType *Stmt2AllField, totalLen uint32, length []uint32, bufferLen uint32) error {
-	_ = buffer[totalLen-1]
 	rows := len(data)
+	_ = buffer[BindDataIsNullOffset+rows+1+4]
 	//TotalLength  uint32  // 4, 当前 TagData 的全部长度,包括 TotalLength 字段长度
 	//Type         int32   // 4, 数据类型
 	//Num          int32   // 4, 多少行数据
@@ -879,12 +893,15 @@ func generateBindColData2(buffer []byte, data []driver.Value, colType *Stmt2AllF
 	binary.LittleEndian.PutUint32(buffer[BindDataNumOffset:], uint32(rows))
 	if needLength(colType.FieldType) {
 		// have length
-		buffer[BindDataIsNullOffset+rows] = 1
+		haveLengthOffset := BindDataIsNullOffset + rows
+		lengthOffset := haveLengthOffset + 1
+		bufferLengthOffset := lengthOffset + rows*4
+		bufferOffset := bufferLengthOffset + 4
+		buffer[haveLengthOffset] = 1
 		// length
-		mem.Copy(unsafe.Pointer(&length[0]), buffer, BindDataIsNullOffset+rows+1, rows*4)
+		mem.Copy(unsafe.Pointer(&length[0]), buffer, lengthOffset, rows*4)
 		// buffer length
-		binary.LittleEndian.PutUint32(buffer[BindDataIsNullOffset+rows+1+rows*4:], bufferLen)
-		bufferOffset := BindDataIsNullOffset + rows + 1 + rows*4 + 4
+		binary.LittleEndian.PutUint32(buffer[bufferLengthOffset:bufferOffset], bufferLen)
 		for i := 0; i < rows; i++ {
 			// buffer
 			if data[i] == nil {
@@ -1060,6 +1077,184 @@ func generateBindColData2(buffer []byte, data []driver.Value, colType *Stmt2AllF
 		default:
 			return fmt.Errorf("unsupported field type: %d", colType.FieldType)
 		}
+	}
+	return nil
+}
+
+type TaosStmt2BindDatax struct {
+	TableName string
+	Tags      *RecordBuilder
+	Cols      *RecordBuilder
+}
+
+func MarshalStmt2Binary3(bindData []*TaosStmt2BindDatax, isInsert bool, fields []*Stmt2AllField) ([]byte, error) {
+	count := len(bindData)
+	if count == 0 {
+		return nil, fmt.Errorf("empty data")
+	}
+	var colType []*Stmt2AllField
+	var tagType []*Stmt2AllField
+	//var fieldsHasTableName bool
+	for i := 0; i < len(fields); i++ {
+		switch fields[i].BindType {
+		case TAOS_FIELD_COL:
+			colType = append(colType, fields[i])
+		case TAOS_FIELD_TAG:
+			tagType = append(tagType, fields[i])
+		case TAOS_FIELD_TBNAME:
+			//fieldsHasTableName = true
+		default:
+
+			return nil, fmt.Errorf("unsupported bind type: %d", fields[i].BindType)
+		}
+	}
+	tagCount := len(tagType)
+	colCount := len(colType)
+	needTableNames := false
+	needTags := tagCount > 0
+	needCols := colCount > 0
+	totalTableNameBufferLength := 0
+	var tableNameBufferLength []uint16
+	//if isInsert {
+	//	for i := 0; i < count; i++ {
+	//		data := bindData[i]
+	//		if data.TableName != "" {
+	//			if !fieldsHasTableName {
+	//				return nil, fmt.Errorf("got table name, but no table name field")
+	//			}
+	//			needTableNames = true
+	//			totalTableNameBufferLength += len(data.TableName) + 1
+	//			tableNameBufferLength[i] = uint16(len(data.TableName) + 1)
+	//		}
+	//	}
+	//} else {
+	//}
+	//if !needTableNames && !needTags && !needCols {
+	//	return nil, fmt.Errorf("no data")
+	//}
+	totalTagBufferLength := 0
+	var tableTagLength []uint32
+	if needTags {
+		tableTagLength = make([]uint32, count)
+	}
+	totalColBufferLength := 0
+	var tableColLength []uint32
+	if needCols {
+		tableColLength = make([]uint32, count)
+	}
+	for i := 0; i < len(bindData); i++ {
+		if bindData[i].Tags != nil {
+			builders := bindData[i].Tags.Fields()
+			for j := 0; j < len(builders); j++ {
+				bindLen := builders[j].BindBytesLength()
+				totalTagBufferLength += bindLen
+				tableTagLength[i] += uint32(bindLen)
+			}
+		}
+		if bindData[i].Cols != nil {
+			builders := bindData[i].Cols.Fields()
+			for j := 0; j < len(builders); j++ {
+				bindLen := builders[j].BindBytesLength()
+				totalColBufferLength += bindLen
+				tableColLength[i] += uint32(bindLen)
+			}
+		}
+	}
+	tableNamesOffset := DataPosition
+	tagOffset := tableNamesOffset + totalTableNameBufferLength
+	if needTableNames {
+		tagOffset += count * 2
+	}
+	colOffset := tagOffset + totalTagBufferLength
+	if needTags {
+		colOffset += count * 4
+	}
+	totalBufferLength := colOffset + totalColBufferLength
+	if needCols {
+		totalBufferLength += count * 4
+	}
+	buffer := make([]byte, totalBufferLength)
+	p0 := unsafe.Pointer(&buffer[0])
+	*(*uint32)(unsafe.Pointer(uintptr(p0) + TotalLengthPosition)) = uint32(totalBufferLength)
+	// count
+	*(*uint32)(unsafe.Pointer(uintptr(p0) + CountPosition)) = uint32(count)
+	if tagCount != 0 {
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + TagCountPosition)) = uint32(tagCount)
+	}
+	if colCount != 0 {
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + ColCountPosition)) = uint32(colCount)
+	}
+	if needTableNames {
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + TableNamesOffsetPosition)) = uint32(tableNamesOffset)
+		mem.CopyUncheck(unsafe.Pointer(&tableNameBufferLength[0]), unsafe.Pointer(uintptr(p0)+uintptr(tableNamesOffset)), count*2)
+	}
+	if needTags {
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + TagsOffsetPosition)) = uint32(tagOffset)
+		mem.CopyUncheck(unsafe.Pointer(&tableTagLength[0]), unsafe.Pointer(uintptr(p0)+uintptr(tagOffset)), count*4)
+	}
+	if needCols {
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + ColsOffsetPosition)) = uint32(colOffset)
+		mem.CopyUncheck(unsafe.Pointer(&tableColLength[0]), unsafe.Pointer(uintptr(p0)+uintptr(colOffset)), count*4)
+	}
+	if len(tableNameBufferLength) != 0 {
+		mem.CopyUncheck(unsafe.Pointer(&tableNameBufferLength[0]), unsafe.Pointer(uintptr(p0)+uintptr(tableNamesOffset)), len(tableNameBufferLength)*2)
+	}
+	tableNameP := tableNamesOffset + len(tableNameBufferLength)*2
+	colP := colOffset + len(tableColLength)*4
+	for i := 0; i < len(bindData); i++ {
+		if bindData[i].TableName != "" {
+			copy(buffer[tableNameP:], bindData[i].TableName)
+			tableNameP += len(bindData[i].TableName) + 1
+		}
+		if bindData[i].Cols != nil {
+			builders := bindData[i].Cols.Fields()
+			for j := 0; j < len(builders); j++ {
+				err := generateBindColData3(buffer[colP:], builders[j], colType[j])
+				if err != nil {
+					return nil, err
+				}
+				colP += builders[j].BindBytesLength()
+			}
+		}
+	}
+	return buffer, nil
+}
+
+func generateBindColData3(buffer []byte, data Builder, colType *Stmt2AllField) error {
+	rows := data.Len()
+	p0 := unsafe.Pointer(&buffer[0])
+	//_ = buffer[BindDataIsNullOffset+rows+1+4]
+	//TotalLength  uint32  // 4, 当前 TagData 的全部长度,包括 TotalLength 字段长度
+	//Type         int32   // 4, 数据类型
+	//Num          int32   // 4, 多少行数据
+	//IsNull       []byte  // Num * 1 每个 tag 是否为 null, Num 个元素
+	//haveLength   byte    // 1, 是否有长度，0 为没有，1 为有，当数据类型为变长时必须有长度（binary, nchar, json, varbinary, varchar）
+	//Length       []int32 // Num * 4 每个 tag 的长度, Num 个元素，当 hasLength 为 0 时，无该字段
+	//BufferLength uint32  // 4, Buffer 的长度
+	//Buffer       []byte  // 绑定数据
+	*(*uint32)(unsafe.Pointer(uintptr(p0) + BindDataTotalLengthOffset)) = uint32(data.BindBytesLength())
+	*(*int32)(unsafe.Pointer(uintptr(p0) + BindDataTypeOffset)) = int32(colType.FieldType)
+	*(*uint32)(unsafe.Pointer(uintptr(p0) + BindDataNumOffset)) = uint32(rows)
+	if data.VariableLengthType() {
+		haveLengthOffset := BindDataIsNullOffset + rows
+		data.CopyNullBytes(buffer[BindDataIsNullOffset : BindDataIsNullOffset+rows : BindDataIsNullOffset+rows])
+		buffer[haveLengthOffset] = 1
+		bufferLengths := data.BufferLengths()
+		lengthOffset := haveLengthOffset + 1
+		mem.CopyUncheck(unsafe.Pointer(&bufferLengths[0]), unsafe.Pointer(uintptr(p0)+uintptr(lengthOffset)), rows*4)
+		bufferLenOffset := lengthOffset + rows*4
+		bufferLen := data.ValueBytesLength()
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + uintptr(bufferLenOffset))) = uint32(bufferLen)
+		bufferOffset := bufferLenOffset + 4
+		data.CopyValueBytes(buffer[bufferOffset : bufferOffset+bufferLen : bufferOffset+bufferLen])
+	} else {
+		// buffer length
+		bufferLenOffset := BindDataIsNullOffset + rows + 1
+		bufferLen := data.ValueBytesLength()
+		*(*uint32)(unsafe.Pointer(uintptr(p0) + uintptr(bufferLenOffset))) = uint32(bufferLen)
+		bufferOffset := BindDataIsNullOffset + rows + 1 + 4
+		data.CopyNullBytes(buffer[BindDataIsNullOffset : BindDataIsNullOffset+rows : BindDataIsNullOffset+rows])
+		data.CopyValueBytes(buffer[bufferOffset : bufferOffset+bufferLen : bufferOffset+bufferLen])
 	}
 	return nil
 }
