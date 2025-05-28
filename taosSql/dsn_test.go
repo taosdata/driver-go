@@ -332,6 +332,24 @@ func TestParseDsn(t *testing.T) {
 				CgoAsyncHandlerPoolSize: 0,
 			},
 		},
+		{
+			name: "ipv6",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname",
+			want: &Config{
+				User:                    "user",
+				Passwd:                  "passwd",
+				Net:                     "http",
+				Addr:                    "ab:cd:ef:ab::cd:ef",
+				Port:                    6041,
+				DbName:                  "dbname",
+				Params:                  nil,
+				Loc:                     time.UTC,
+				InterpolateParams:       true,
+				ConfigPath:              "",
+				CgoThread:               0,
+				CgoAsyncHandlerPoolSize: 0,
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

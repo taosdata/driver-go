@@ -1,6 +1,7 @@
 package taosWS
 
 import (
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -85,17 +86,18 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 							}
 							//return nil, errInvalidDSNAddr
 						}
-						strList := strings.Split(dsn[k+1:i-1], ":")
-						if len(strList) == 1 {
+						addr := dsn[k+1 : i-1]
+						host, port, err := net.SplitHostPort(addr)
+						if err != nil {
 							return nil, ErrInvalidDSNAddr
 						}
-						if len(strList[0]) != 0 {
-							cfg.Addr = strList[0]
-							cfg.Port, err = strconv.Atoi(strList[1])
+						if len(port) != 0 {
+							cfg.Port, err = strconv.Atoi(port)
 							if err != nil {
 								return nil, ErrInvalidDSNPort
 							}
 						}
+						cfg.Addr = host
 						break
 					}
 				}

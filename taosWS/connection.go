@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -69,9 +71,10 @@ type message struct {
 }
 
 func newTaosConn(cfg *Config) (*taosConn, error) {
+	host := net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
 	endpointUrl := &url.URL{
 		Scheme: cfg.Net,
-		Host:   fmt.Sprintf("%s:%d", cfg.Addr, cfg.Port),
+		Host:   host,
 		Path:   "/ws",
 	}
 	if cfg.Token != "" {
