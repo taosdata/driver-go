@@ -123,7 +123,7 @@ jobs:
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
           cp ./TDengine/debug/build/bin/taosd ./release/
-          cp ./TDengine/.externals/build/taosadapter/src/ext_taosadapter/taosadapter ./release/
+          cp ./TDengine/debug/build/bin/taosadapter ./release/
           cp ./TDengine/debug/build/lib/libtaos.so ./release/
           cp ./TDengine/debug/build/lib/libtaosnative.so ./release/
           cp ./TDengine/include/client/taos.h ./release/
