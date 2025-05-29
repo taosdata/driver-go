@@ -212,7 +212,7 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Test
-        run: sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+        run: sudo go test -coverpkg=./... -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
