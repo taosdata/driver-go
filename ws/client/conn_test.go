@@ -11,7 +11,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v3/common/tdversion"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -75,8 +74,6 @@ func TestClient(t *testing.T) {
 	t.Log(s.URL)
 	ep := "ws" + strings.TrimPrefix(s.URL, "http")
 	ws, _, err := websocket.DefaultDialer.Dial(ep, nil)
-	assert.NoError(t, err)
-	err = tdversion.WSCheckVersion(ws)
 	assert.NoError(t, err)
 	c := NewClient(ws, 1)
 	gotMessage := make(chan struct{})

@@ -69,8 +69,6 @@ type message struct {
 	err     error
 }
 
-var versionReq = []byte(`{"action": "version"}`)
-
 type VersionResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -114,10 +112,12 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
 	}
-	err = tc.checkVersion()
+	fmt.Println("Connecting to TDengine WebSocket at", endpoint)
+	time.Sleep(time.Second * 4)
+	err = tdversion.WSCheckVersion(ws)
 	if err != nil {
 		_ = tc.Close()
-		return nil, err
+		return nil, NewBadConnError(err)
 	}
 	go tc.ping()
 	go tc.read()
@@ -140,33 +140,6 @@ func (tc *taosConn) ping() {
 			_ = tc.writePing()
 		}
 	}
-}
-
-func (tc *taosConn) checkVersion() error {
-	err := tc.writeText(versionReq)
-	if err != nil {
-		return NewBadConnError(err)
-	}
-	mt, msg, err := tc.client.ReadMessage()
-	if err != nil {
-		return NewBadConnError(err)
-	}
-	if mt != websocket.TextMessage {
-		return NewBadConnErrorWithCtx(fmt.Errorf("getVersion: got wrong message type %d", mt), formatBytes(msg))
-	}
-	var versionResp VersionResp
-	err = json.Unmarshal(msg, &versionResp)
-	if err != nil {
-		return NewBadConnErrorWithCtx(err, string(msg))
-	}
-	if versionResp.Code != 0 {
-		return NewBadConnError(taosErrors.NewError(versionResp.Code, versionResp.Message))
-	}
-	err = tdversion.CheckVersionCompatibility(versionResp.Version)
-	if err != nil {
-		return NewBadConnError(err)
-	}
-	return nil
 }
 
 func (tc *taosConn) read() {
