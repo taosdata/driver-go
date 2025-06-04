@@ -192,7 +192,7 @@ func TMQGetResType(message unsafe.Pointer) int32 {
 
 // TMQGetRaw DLL_EXPORT int32_t       tmq_get_raw(TAOS_RES *res, tmq_raw_data *raw);
 func TMQGetRaw(message unsafe.Pointer) (int32, unsafe.Pointer) {
-	var cRawMeta C.TAOS_FIELD_E
+	var cRawMeta C.struct_tmq_raw_data
 	m := unsafe.Pointer(&cRawMeta)
 	code := int32(C.tmq_get_raw(message, (*C.tmq_raw_data)(m)))
 	return code, m
