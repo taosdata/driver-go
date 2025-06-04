@@ -69,14 +69,6 @@ type message struct {
 	err     error
 }
 
-type VersionResp struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Action  string `json:"action"`
-	Timing  int    `json:"timing"`
-	Version string `json:"version"`
-}
-
 func newTaosConn(cfg *Config) (*taosConn, error) {
 	endpointUrl := &url.URL{
 		Scheme: cfg.Net,
@@ -112,8 +104,6 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
 	}
-	fmt.Println("Connecting to TDengine WebSocket at", endpoint)
-	time.Sleep(time.Second * 4)
 	err = tdversion.WSCheckVersion(ws)
 	if err != nil {
 		_ = tc.Close()
