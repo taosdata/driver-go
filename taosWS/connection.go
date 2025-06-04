@@ -17,6 +17,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
+	"github.com/taosdata/driver-go/v3/common/tdversion"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -68,6 +69,16 @@ type message struct {
 	err     error
 }
 
+var versionReq = []byte(`{"action": "version"}`)
+
+type VersionResp struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Action  string `json:"action"`
+	Timing  int    `json:"timing"`
+	Version string `json:"version"`
+}
+
 func newTaosConn(cfg *Config) (*taosConn, error) {
 	endpointUrl := &url.URL{
 		Scheme: cfg.Net,
@@ -103,12 +114,17 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
 	}
-
+	err = tc.checkVersion()
+	if err != nil {
+		_ = tc.Close()
+		return nil, err
+	}
 	go tc.ping()
 	go tc.read()
 	err = tc.connect()
 	if err != nil {
 		_ = tc.Close()
+		return nil, NewBadConnError(err)
 	}
 	return tc, nil
 }
@@ -124,6 +140,33 @@ func (tc *taosConn) ping() {
 			_ = tc.writePing()
 		}
 	}
+}
+
+func (tc *taosConn) checkVersion() error {
+	err := tc.writeText(versionReq)
+	if err != nil {
+		return NewBadConnError(err)
+	}
+	mt, msg, err := tc.client.ReadMessage()
+	if err != nil {
+		return NewBadConnError(err)
+	}
+	if mt != websocket.TextMessage {
+		return NewBadConnErrorWithCtx(fmt.Errorf("getVersion: got wrong message type %d", mt), formatBytes(msg))
+	}
+	var versionResp VersionResp
+	err = json.Unmarshal(msg, &versionResp)
+	if err != nil {
+		return NewBadConnErrorWithCtx(err, string(msg))
+	}
+	if versionResp.Code != 0 {
+		return NewBadConnError(taosErrors.NewError(versionResp.Code, versionResp.Message))
+	}
+	err = tdversion.CheckVersionCompatibility(versionResp.Version)
+	if err != nil {
+		return NewBadConnError(err)
+	}
+	return nil
 }
 
 func (tc *taosConn) read() {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/tdversion"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -61,6 +62,10 @@ func NewConnector(config *Config) (*Connector, error) {
 		return nil, err
 	}
 	ws.EnableWriteCompression(config.EnableCompression)
+	if err = tdversion.WSCheckVersion(ws); err != nil {
+		_ = ws.Close()
+		return nil, err
+	}
 	defer func() {
 		if connector == nil {
 			_ = ws.Close()
@@ -165,6 +170,10 @@ func (c *Connector) reconnect() error {
 		conn.EnableWriteCompression(c.dialer.EnableCompression)
 		err = connect(conn, c.user, c.password, c.db, c.writeTimeout, c.readTimeout)
 		if err != nil {
+			_ = conn.Close()
+			continue
+		}
+		if err = tdversion.WSCheckVersion(conn); err != nil {
 			_ = conn.Close()
 			continue
 		}
