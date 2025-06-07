@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/tdversion"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -58,6 +59,10 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 		return nil, fmt.Errorf("dial ws error: %s", err)
 	}
 	conn.EnableWriteCompression(config.enableCompression)
+	if err = tdversion.WSCheckVersion(conn); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
 	s := Schemaless{
 		client:       client.NewClient(conn, config.chanLength),
 		sendList:     list.New(),
@@ -114,6 +119,10 @@ func (s *Schemaless) reconnect() error {
 		}
 		conn.EnableWriteCompression(s.dialer.EnableCompression)
 		if err = connect(conn, s.user, s.password, s.db, s.writeTimeout, s.readTimeout); err != nil {
+			_ = conn.Close()
+			continue
+		}
+		if tdversion.WSCheckVersion(conn) != nil {
 			_ = conn.Close()
 			continue
 		}

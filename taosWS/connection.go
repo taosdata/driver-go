@@ -19,6 +19,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
+	"github.com/taosdata/driver-go/v3/common/tdversion"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -106,12 +107,17 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
 	}
-
+	err = tdversion.WSCheckVersion(ws)
+	if err != nil {
+		_ = tc.Close()
+		return nil, NewBadConnError(err)
+	}
 	go tc.ping()
 	go tc.read()
 	err = tc.connect()
 	if err != nil {
 		_ = tc.Close()
+		return nil, NewBadConnError(err)
 	}
 	return tc, nil
 }

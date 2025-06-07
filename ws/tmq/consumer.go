@@ -18,6 +18,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
+	"github.com/taosdata/driver-go/v3/common/tdversion"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
@@ -101,6 +102,10 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		return nil, err
 	}
 	ws.EnableWriteCompression(config.EnableCompression)
+	if err = tdversion.WSCheckVersion(ws); err != nil {
+		_ = ws.Close()
+		return nil, err
+	}
 	wsClient := client.NewClient(ws, config.ChanLength)
 
 	consumer := &Consumer{
@@ -152,6 +157,10 @@ func (c *Consumer) reconnect() error {
 			continue
 		}
 		conn.EnableWriteCompression(c.dialer.EnableCompression)
+		if err = tdversion.WSCheckVersion(conn); err != nil {
+			_ = conn.Close()
+			continue
+		}
 		cl := client.NewClient(conn, c.chanLength)
 		c.initClient(cl)
 		if c.client != nil {
