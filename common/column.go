@@ -45,4 +45,5 @@ var ColumnTypeMap = map[int]reflect.Type{
 	TSDB_DATA_TYPE_GEOMETRY:  Bytes,
 	TSDB_DATA_TYPE_DECIMAL:   NullString,
 	TSDB_DATA_TYPE_DECIMAL64: NullString,
+	TSDB_DATA_TYPE_BLOB:      Bytes,
 }
