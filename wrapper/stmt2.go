@@ -408,7 +408,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
-		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_NCHAR:
+		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_BLOB:
 			bind.buffer_type = C.int(columnType)
 			colOffset := make([]int, rowLen)
 			totalLen := 0
