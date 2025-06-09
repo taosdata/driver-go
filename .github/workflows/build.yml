@@ -212,7 +212,10 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Test
-        run: sudo go test -coverpkg=./... -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
+        env:
+          TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
+          TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+        run: go test -coverpkg=./... -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -293,7 +296,10 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Test
-        run: sudo go test -v -asan ./...
+        env:
+          TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
+          TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+        run: go test -v -asan ./...
 
   golangci:
     name: lint
