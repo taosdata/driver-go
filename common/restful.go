@@ -148,7 +148,7 @@ func UnmarshalRestfulBody(body io.Reader, bufferSize int) (*TDEngineRestfulResp,
 						row[column] = iter.ReadUint32()
 					case TSDB_DATA_TYPE_UBIGINT:
 						row[column] = iter.ReadUint64()
-					case TSDB_DATA_TYPE_VARBINARY, TSDB_DATA_TYPE_GEOMETRY:
+					case TSDB_DATA_TYPE_VARBINARY, TSDB_DATA_TYPE_GEOMETRY, TSDB_DATA_TYPE_BLOB:
 						data := iter.ReadStringAsSlice()
 						if len(data)%2 != 0 {
 							iter.ReportError("read varbinary", fmt.Sprintf("invalid length %s", string(data)))

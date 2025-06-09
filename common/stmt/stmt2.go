@@ -363,7 +363,7 @@ func generateBindColData(data []driver.Value, colType *Stmt2AllField, tmpBuffer 
 					}
 				}
 			}
-		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_JSON:
+		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_BLOB:
 			for i := 0; i < num; i++ {
 				if data[i] == nil {
 					isNull[i] = 1
@@ -582,7 +582,8 @@ func needLength(colType int8) bool {
 		common.TSDB_DATA_TYPE_NCHAR,
 		common.TSDB_DATA_TYPE_JSON,
 		common.TSDB_DATA_TYPE_VARBINARY,
-		common.TSDB_DATA_TYPE_GEOMETRY:
+		common.TSDB_DATA_TYPE_GEOMETRY,
+		common.TSDB_DATA_TYPE_BLOB:
 		return true
 	}
 	return false
