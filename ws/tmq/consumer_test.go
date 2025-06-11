@@ -129,13 +129,14 @@ func TestConsumer(t *testing.T) {
 			"c13 nchar(20)," +
 			"c14 varbinary(20)," +
 			"c15 geometry(100)," +
-			"c16 decimal(20,4)" +
+			"c16 decimal(20,4)," +
+			"c17 blob" +
 			")")
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		err = doRequest(fmt.Sprintf("insert into test_ws_tmq.t_all values('%s',true,2,3,4,5,6,7,8,9,10.123,11.123,'binary','nchar','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+		err = doRequest(fmt.Sprintf("insert into test_ws_tmq.t_all values('%s',true,2,3,4,5,6,7,8,9,10.123,11.123,'binary','nchar','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 		if err != nil {
 			t.Error(err)
 			return
@@ -207,6 +208,7 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, []byte("varbinary"), v[14].([]byte))
 				assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, v[15].([]byte))
 				assert.Equal(t, "123456789.1230", v[16].(string))
+				assert.Equal(t, []byte("blob"), v[17].([]byte))
 				t.Log(e.Offset())
 				ass, err := consumer.Assignment()
 				assert.NoError(t, err)

@@ -56,6 +56,17 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
 		}
 		return string(data)
+	case C.TSDB_DATA_TYPE_DECIMAL64, C.TSDB_DATA_TYPE_DECIMAL:
+		data := make([]byte, 0, length)
+		var b byte
+		for i := 0; i < length; i++ {
+			b = *((*byte)(pointer.AddUintptr(p, uintptr(i))))
+			if b == 0 {
+				break
+			}
+			data = append(data, b)
+		}
+		return string(data)
 	case C.TSDB_DATA_TYPE_TIMESTAMP:
 		if len(arg) == 1 {
 			return common.TimestampConvertToTime(*((*int64)(p)), arg[0].(int))
@@ -63,7 +74,7 @@ func FetchRow(row unsafe.Pointer, offset int, colType uint8, length int, arg ...
 			return arg[1].(FormatTimeFunc)(*((*int64)(p)), arg[0].(int))
 		}
 		panic("convertTime error")
-	case C.TSDB_DATA_TYPE_JSON, C.TSDB_DATA_TYPE_VARBINARY, C.TSDB_DATA_TYPE_GEOMETRY:
+	case C.TSDB_DATA_TYPE_JSON, C.TSDB_DATA_TYPE_VARBINARY, C.TSDB_DATA_TYPE_GEOMETRY, C.TSDB_DATA_TYPE_BLOB:
 		data := make([]byte, length)
 		for i := 0; i < length; i++ {
 			data[i] = *((*byte)(pointer.AddUintptr(p, uintptr(i))))

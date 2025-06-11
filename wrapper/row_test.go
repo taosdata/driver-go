@@ -541,7 +541,10 @@ func TestFetchRowAllType(t *testing.T) {
 			"c12 binary(20),"+
 			"c13 nchar(20),"+
 			"c14 varbinary(20),"+
-			"c15 geometry(100)"+
+			"c15 geometry(100),"+
+			"c16 decimal(20,4),"+
+			"c17 decimal(10,4),"+
+			"c18 blob"+
 			")"+
 			"tags(t json)", db))
 	code = TaosError(res)
@@ -565,7 +568,7 @@ func TestFetchRowAllType(t *testing.T) {
 	}
 	TaosFreeResult(res)
 	now := time.Now()
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar','varbinary','POINT(100 100)');", db, now.Format(time.RFC3339Nano)))
+	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar','varbinary','POINT(100 100)',123456789.123,123.456,'blob');", db, now.Format(time.RFC3339Nano)))
 	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
@@ -624,5 +627,8 @@ func TestFetchRowAllType(t *testing.T) {
 	assert.Equal(t, "nchar", result[13].(string))
 	assert.Equal(t, []byte("varbinary"), result[14].([]byte))
 	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, result[15].([]byte))
-	assert.Equal(t, []byte(`{"a":1}`), result[16].([]byte))
+	assert.Equal(t, "123456789.1230", result[16].(string))
+	assert.Equal(t, "123.4560", result[17].(string))
+	assert.Equal(t, []byte("blob"), result[18].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), result[19].([]byte))
 }
