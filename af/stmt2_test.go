@@ -112,13 +112,19 @@ func TestStmt2(t *testing.T) {
 		"v12 binary(20), " +
 		"v13 varbinary(20), " +
 		"v14 geometry(100), " +
-		"v15 nchar(20)) tags(tg binary(20))")
+		"v15 nchar(20), " +
+		"v16 blob" +
+		") tags(tg binary(20))")
 	assert.NoError(t, err)
-	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
+	var largeBlob = make([]byte, 1024*1024) // 1MB blob
+	for i := 0; i < len(largeBlob); i++ {
+		largeBlob[i] = 'a'
+	}
 	params := []*stmt.TaosStmt2BindData{
 		{
 			TableName: "中文0",
@@ -220,6 +226,11 @@ func TestStmt2(t *testing.T) {
 					nil,
 					"nchar2",
 				},
+				{
+					largeBlob,
+					nil,
+					largeBlob,
+				},
 			},
 		},
 	}
@@ -236,7 +247,7 @@ func TestStmt2(t *testing.T) {
 		return
 	}
 
-	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ?")
+	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? and v16 = ?")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -259,6 +270,7 @@ func TestStmt2(t *testing.T) {
 				{[]byte("varbinary1")},
 				{"point(100 100)"},
 				{"nchar1"},
+				{largeBlob},
 			},
 		},
 	}
@@ -278,13 +290,13 @@ func TestStmt2(t *testing.T) {
 		err = result.Close()
 		assert.NoError(t, err)
 	}()
-	dest := make([]driver.Value, 17)
+	dest := make([]driver.Value, 18)
 	err = result.Next(dest)
 	assert.NoError(t, err)
 	for i, col := range params[0].Cols {
 		assert.Equal(t, col[0], dest[i])
 	}
-	assert.Equal(t, "中文 tag", dest[16])
+	assert.Equal(t, "中文 tag", dest[17])
 	err = result.Next(dest)
 	assert.ErrorIs(t, err, io.EOF)
 
