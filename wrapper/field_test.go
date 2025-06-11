@@ -498,11 +498,11 @@ func TestReadColumn(t *testing.T) {
 	assert.NoError(t, err)
 	err = exec(conn, "use test_read_column")
 	assert.NoError(t, err)
-	err = exec(conn, "create table if not exists alltype(ts timestamp,v1 bool,v2 tinyint,v3 smallint,v4 int,v5 bigint,v6 tinyint unsigned,v7 smallint unsigned,v8 int unsigned,v9 bigint unsigned,v10 float,v11 double,v12 binary(20),v13 nchar(20),v14 varbinary(20),v15 geometry(100),v16 decimal(20,4)) tags (info json)")
+	err = exec(conn, "create table if not exists alltype(ts timestamp,v1 bool,v2 tinyint,v3 smallint,v4 int,v5 bigint,v6 tinyint unsigned,v7 smallint unsigned,v8 int unsigned,v9 bigint unsigned,v10 float,v11 double,v12 binary(20),v13 nchar(20),v14 varbinary(20),v15 geometry(100),v16 decimal(20,4),v17 blob) tags (info json)")
 	assert.NoError(t, err)
-	err = exec(conn, "create table if not exists alltype2(ts timestamp,v1 bool,v2 tinyint,v3 smallint,v4 int,v5 bigint,v6 tinyint unsigned,v7 smallint unsigned,v8 int unsigned,v9 bigint unsigned,v10 float,v11 double,v12 binary(20),v13 nchar(20),v14 varbinary(20),v15 geometry(100),v16 decimal(10,4)) tags (info json)")
+	err = exec(conn, "create table if not exists alltype2(ts timestamp,v1 bool,v2 tinyint,v3 smallint,v4 int,v5 bigint,v6 tinyint unsigned,v7 smallint unsigned,v8 int unsigned,v9 bigint unsigned,v10 float,v11 double,v12 binary(20),v13 nchar(20),v14 varbinary(20),v15 geometry(100),v16 decimal(10,4),v17 blob) tags (info json)")
 	assert.NoError(t, err)
-	err = exec(conn, `insert into t1 using alltype tags ('{"a":1}') values(now,true,2,3,4,5,6,7,8,9,10.1,11.1,'12345678901','1234567','\xaabbcc','POINT(1 1)',12.1)`)
+	err = exec(conn, `insert into t1 using alltype tags ('{"a":1}') values(now,true,2,3,4,5,6,7,8,9,10.1,11.1,'12345678901','1234567','\xaabbcc','POINT(1 1)',12.1,'blob')`)
 	assert.NoError(t, err)
 	res := TaosQuery(conn, "select * from alltype")
 	code := TaosError(res)
@@ -519,7 +519,7 @@ func TestReadColumn(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 18, len(ha.ColNames))
 	expect := &RowsHeader{
-		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "info"},
+		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "info"},
 		ColTypes: []uint8{
 			common.TSDB_DATA_TYPE_TIMESTAMP,
 			common.TSDB_DATA_TYPE_BOOL,
@@ -538,11 +538,12 @@ func TestReadColumn(t *testing.T) {
 			common.TSDB_DATA_TYPE_VARBINARY,
 			common.TSDB_DATA_TYPE_GEOMETRY,
 			common.TSDB_DATA_TYPE_DECIMAL,
+			common.TSDB_DATA_TYPE_BLOB,
 			common.TSDB_DATA_TYPE_JSON,
 		},
-		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 16, 4095},
-		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0},
-		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0},
+		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 16, 5, 4095},
+		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0},
+		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0},
 	}
 	assert.Equal(t, expect, ha)
 
@@ -561,7 +562,7 @@ func TestReadColumn(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 18, len(ha.ColNames))
 	expect = &RowsHeader{
-		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "info"},
+		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "info"},
 		ColTypes: []uint8{
 			common.TSDB_DATA_TYPE_TIMESTAMP,
 			common.TSDB_DATA_TYPE_BOOL,
@@ -580,11 +581,12 @@ func TestReadColumn(t *testing.T) {
 			common.TSDB_DATA_TYPE_VARBINARY,
 			common.TSDB_DATA_TYPE_GEOMETRY,
 			common.TSDB_DATA_TYPE_DECIMAL64,
+			common.TSDB_DATA_TYPE_BLOB,
 			common.TSDB_DATA_TYPE_JSON,
 		},
-		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 8, 4095},
-		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0},
-		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0},
+		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 8, 5, 4095},
+		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0},
+		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0},
 	}
 	assert.Equal(t, expect, ha)
 }
