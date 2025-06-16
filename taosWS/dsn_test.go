@@ -65,6 +65,19 @@ func TestParseDsn(t *testing.T) {
 				EnableCompression: true,
 			},
 		},
+		{
+			name: "ipv6",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname",
+			want: &Config{
+				User:              "user",
+				Passwd:            "passwd",
+				Net:               "ws",
+				Addr:              "ab:cd:ef:ab::cd:ef",
+				Port:              6041,
+				DbName:            "dbname",
+				InterpolateParams: true,
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

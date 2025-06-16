@@ -245,6 +245,24 @@ func TestParseDsn(t *testing.T) {
 				SkipVerify:         false,
 			},
 		},
+		{
+			name: "ipv6",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "http",
+				Addr:               "ab:cd:ef:ab::cd:ef",
+				Port:               6041,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {

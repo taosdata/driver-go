@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
@@ -62,6 +63,8 @@ func TestBadConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseDSN error: %v", err)
 	}
+	cfg.ReadTimeout = 10 * time.Second
+	cfg.WriteTimeout = 10 * time.Second
 	conn, err := newTaosConn(cfg)
 	if err != nil {
 		t.Fatalf("newTaosConn error: %v", err)
@@ -106,6 +109,8 @@ func TestBegin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseDSN error: %v", err)
 	}
+	cfg.ReadTimeout = 10 * time.Second
+	cfg.WriteTimeout = 10 * time.Second
 	conn, err := newTaosConn(cfg)
 	if err != nil {
 		t.Fatalf("newTaosConn error: %v", err)

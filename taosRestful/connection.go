@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,9 +58,10 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	if len(cfg.DbName) != 0 {
 		path = fmt.Sprintf("%s/%s", path, cfg.DbName)
 	}
+	host := net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
 	tc.url = &url.URL{
 		Scheme: cfg.Net,
-		Host:   fmt.Sprintf("%s:%d", cfg.Addr, cfg.Port),
+		Host:   host,
 		Path:   path,
 	}
 	tc.header = map[string][]string{

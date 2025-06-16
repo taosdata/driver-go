@@ -109,7 +109,7 @@ func generateValues() (value []interface{}, scanValue []interface{}, insertSql s
 }
 
 func TestAllTypeQuery(t *testing.T) {
-	database := "ws_test"
+	database := "native_test"
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestAllTypeQuery(t *testing.T) {
 }
 
 func TestAllTypeQueryNull(t *testing.T) {
-	database := "ws_test_null"
+	database := "native_test_null"
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		t.Fatal(err)

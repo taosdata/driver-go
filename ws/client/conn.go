@@ -93,9 +93,6 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 		TextMessageHandler:   func(message []byte) {},
 		BinaryMessageHandler: func(message []byte) {},
 		ErrorHandler:         func(err error) {},
-		//SendMessageHandler: func(envelope *Envelope) {
-		//	GlobalEnvelopePool.Put(envelope)
-		//},
 	}
 }
 
