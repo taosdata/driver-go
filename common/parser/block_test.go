@@ -152,7 +152,7 @@ func TestReadRow(t *testing.T) {
 	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 	assert.Equal(t, "-123.4000", row1[16].(string))
 	assert.Equal(t, "1234.5600", row1[17].(string))
-	assert.Equal(t, []byte("blob"), row1[18].(string))
+	assert.Equal(t, []byte("blob"), row1[18].([]byte))
 	assert.Equal(t, []byte(`{"a":1}`), row1[19].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
@@ -272,7 +272,7 @@ func TestParseBlock(t *testing.T) {
 		version := RawBlockGetVersion(block)
 		t.Log(version)
 		length := RawBlockGetLength(block)
-		assert.Equal(t, int32(543), length)
+		assert.Equal(t, int32(541), length)
 		rows := RawBlockGetNumOfRows(block)
 		assert.Equal(t, int32(2), rows)
 		columns := RawBlockGetNumOfCols(block)
@@ -396,7 +396,7 @@ func TestParseBlock(t *testing.T) {
 	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 	assert.Equal(t, "123456789.1230", row1[16].(string))
 	assert.Equal(t, "123.4560", row1[17].(string))
-	assert.Equal(t, "blob", row1[18].([]byte))
+	assert.Equal(t, []byte("blob"), row1[18].([]byte))
 	assert.Equal(t, []byte(`{"a":1}`), row1[19].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
