@@ -179,7 +179,7 @@ func TestConsumer(t *testing.T) {
 		if gotData {
 			return
 		}
-		ev := consumer.Poll(0)
+		ev := consumer.Poll(500)
 		if ev != nil {
 			switch e := ev.(type) {
 			case *tmq.DataMessage:
@@ -1182,4 +1182,152 @@ func TestWrongConsumer(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, consumer)
 
+}
+
+func preparePollMultiTimesEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_pool_multi_tmq_topic",
+		"drop database if exists test_ws_pool_multi_tmq",
+		"create database test_ws_pool_multi_tmq WAL_RETENTION_PERIOD 86400",
+		"create table test_ws_pool_multi_tmq.t(ts timestamp,v int)",
+		"create topic test_ws_pool_multi_tmq_topic as select * from test_ws_pool_multi_tmq.t",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanPollMultiTimesEnv() error {
+	var err error
+	time.Sleep(2 * time.Second)
+	steps := []string{
+		"drop topic if exists test_ws_pool_multi_tmq_topic",
+		"drop database if exists test_ws_pool_multi_tmq",
+	}
+	for i := 0; i < 10; i++ {
+		time.Sleep(2 * time.Second)
+		err = doClean(steps)
+		if err != nil {
+			continue
+		} else {
+			return nil
+		}
+	}
+	return err
+}
+func TestPollMultiTimes(t *testing.T) {
+	err := preparePollMultiTimesEnv()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = cleanPollMultiTimesEnv()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:6041",
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      common.DefaultMessageTimeout,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "latest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "5000",
+		"msg.with.table.name":     "true",
+		"session.timeout.ms":      "12000",
+		"max.poll.interval.ms":    "300000",
+		"min.poll.rows":           "1024",
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = consumer.Close()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	topic := []string{"test_ws_pool_multi_tmq_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	messageCount := 0
+	now := time.Now().Unix() * 1000
+	insertIdx := int64(0)
+	for i := 0; i < 5; i++ {
+		ev := consumer.Poll(500)
+		if ev != nil {
+			switch e := ev.(type) {
+			case *tmq.DataMessage:
+				messageCount += 1
+				data := e.Value().([]*tmq.Data)
+				assert.Equal(t, "test_ws_pool_multi_tmq", e.DBName())
+				assert.Equal(t, 1, len(data))
+				assert.Equal(t, 1, len(data[0].Data))
+				assert.Equal(t, (now+insertIdx*1000)/1000, data[0].Data[0][0].(time.Time).Unix())
+				var v = data[0].Data[0]
+				assert.Equal(t, int32(insertIdx), v[1].(int32))
+				t.Log(e.Offset())
+				ass, err := consumer.Assignment()
+				assert.NoError(t, err)
+				t.Log(ass)
+				committed, err := consumer.Committed(ass, 0)
+				assert.NoError(t, err)
+				t.Log(committed)
+				position, _ := consumer.Position(ass)
+				t.Log(position)
+				offsets, err := consumer.Position([]tmq.TopicPartition{e.TopicPartition})
+				assert.NoError(t, err)
+				_, err = consumer.CommitOffsets(offsets)
+				assert.NoError(t, err)
+				ass, err = consumer.Assignment()
+				assert.NoError(t, err)
+				t.Log(ass)
+				committed, err = consumer.Committed(ass, 0)
+				assert.NoError(t, err)
+				t.Log(committed)
+				position, _ = consumer.Position(ass)
+				t.Log(position)
+				insertIdx += 1
+				err = doRequest(fmt.Sprintf("insert into test_ws_pool_multi_tmq.t values(%d,%d)", now+insertIdx*1000, insertIdx))
+				assert.NoError(t, err)
+			case tmq.Error:
+				t.Error(e)
+				return
+			default:
+				t.Error("unexpected", e)
+				return
+			}
+		} else {
+			if i == 0 {
+				err = doRequest(fmt.Sprintf("insert into test_ws_pool_multi_tmq.t values(%d,%d)", now+insertIdx*1000, insertIdx))
+				assert.NoError(t, err)
+			}
+		}
+
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}
+	assert.Greater(t, messageCount, 1)
+	err = consumer.Unsubscribe()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 }
