@@ -38,23 +38,14 @@ jobs:
         with:
           cmakeVersion: 3.31.6
 
-      - name: Cache externals built
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
-        id: cache-ext
-        with:
-          path: TDengine/.externals
-          key: ${{ runner.os }}-${{ matrix.os }}-${{ hashFiles('TDengine/cmake/external.cmake', 'cmake/in/**') }}-build-ext-v3
-
       - name: install TDengine
         if: steps.cache-server.outputs.cache-hit != 'true'
         run: |
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DBUILD_DEPENDENCY_TESTS=0
-          make -j 8
-
+          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DBUILD_DEPENDENCY_TESTS=0 -DVERNUMBER=3.3.6.0
+          make -j 4
 
       - name: package
         if: steps.cache-server.outputs.cache-hit != 'true'
@@ -62,9 +53,9 @@ jobs:
           mkdir -p ./release
           cp ./TDengine/debug/build/bin/taos ./release/
           cp ./TDengine/debug/build/bin/taosd ./release/
-          cp ./TDengine/debug/build/bin/taosadapter ./release/
-          cp ./TDengine/debug/build/lib/libtaos.so ./release/
-          cp ./TDengine/debug/build/lib/libtaosnative.so ./release/
+          cp ./TDengine/tools/taosadapter/taosadapter ./release/
+          cp ./TDengine/debug/build/lib/libtaos.so.3.3.6.0 ./release/
+          cp ./TDengine/debug/build/lib/libtaosnative.so.3.3.6.0 ./release/
           cp ./TDengine/include/client/taos.h ./release/
           cat >./release/install.sh<<EOF 
           chmod +x ./taos
@@ -73,8 +64,12 @@ jobs:
           cp ./taos /bin/
           cp ./taosd /bin/
           cp ./taosadapter /bin/
-          cp ./libtaos.so /usr/lib
-          cp ./libtaosnative.so /usr/lib
+          cp ./libtaos.so.3.3.6.0 /usr/lib
+          cp ./libtaosnative.so.3.3.6.0 /usr/lib
+          ln -sf /usr/lib/libtaos.so.3.3.6.0 /usr/lib/libtaos.so.1
+          ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
+          ln -sf /usr/lib/libtaosnative.so.3.3.6.0 /usr/lib/libtaosnative.so.1
+          ln -sf /usr/lib/libtaosnative.so.1 /usr/lib/libtaosnative.so
           cp ./taos.h /usr/include
           EOF
           tar -zcvf server.tar.gz ./release
