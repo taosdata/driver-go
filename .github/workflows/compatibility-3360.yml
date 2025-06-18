@@ -11,89 +11,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    name: Build
-    strategy:
-      matrix:
-        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
-    steps:
-      - name: Cache server
-        id: cache-server
-        uses: actions/cache@v4
-        with:
-          path: server.tar.gz
-          key: ${{ runner.os }}-build-TDengine-3.3.6.0
-
-      - name: checkout TDengine
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: 'taosdata/TDengine'
-          path: 'TDengine'
-          ref: 'ver-3.3.6.0'
-      - name: Get CMake
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: 3.31.6
-
-      - name: install TDengine
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        run: |
-          cd TDengine
-          mkdir debug
-          cd debug
-          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DBUILD_DEPENDENCY_TESTS=0 -DVERNUMBER=3.3.6.0
-          make -j 4
-
-      - name: package
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ./release
-          cp ./TDengine/debug/build/bin/taos ./release/
-          cp ./TDengine/debug/build/bin/taosd ./release/
-          cp ./TDengine/tools/taosadapter/taosadapter ./release/
-          cp ./TDengine/debug/build/lib/libtaos.so.3.3.6.0 ./release/
-          cp ./TDengine/debug/build/lib/libtaosnative.so.3.3.6.0 ./release/
-          cp ./TDengine/include/client/taos.h ./release/
-          cat >./release/install.sh<<EOF 
-          chmod +x ./taos
-          chmod +x ./taosd
-          chmod +x ./taosadapter
-          cp ./taos /bin/
-          cp ./taosd /bin/
-          cp ./taosadapter /bin/
-          cp ./libtaos.so.3.3.6.0 /usr/lib
-          cp ./libtaosnative.so.3.3.6.0 /usr/lib
-          ln -sf /usr/lib/libtaos.so.3.3.6.0 /usr/lib/libtaos.so.1
-          ln -sf /usr/lib/libtaos.so.1 /usr/lib/libtaos.so
-          ln -sf /usr/lib/libtaosnative.so.3.3.6.0 /usr/lib/libtaosnative.so.1
-          ln -sf /usr/lib/libtaosnative.so.1 /usr/lib/libtaosnative.so
-          cp ./taos.h /usr/include
-          EOF
-          tar -zcvf server.tar.gz ./release
-
   test:
     runs-on: ${{ matrix.os }}
-    needs: build
     strategy:
       matrix:
-        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
+        os: [ 'ubuntu-latest' ]
         go: [ '1.14', 'stable' ]
     name: Go-${{ matrix.os }}-${{ matrix.go }}
     steps:
-      - name: get cache server
-        id: get-cache-server
-        uses: actions/cache@v4
-        with:
-          path: server.tar.gz
-          key: ${{ runner.os }}-build-TDengine-3.3.6.0
+      - name: get TDengine
+        run: |
+          wget https://github.com/taosdata/TDengine/releases/download/ver-3.3.6.0/TDengine-server-3.3.6.0-Linux-x64.tar.gz
 
       - name: install
         run: |
-          tar -zxvf server.tar.gz
-          cd release && sudo sh install.sh
+          tar -zxf TDengine-server-3.3.6.0-Linux-x64.tar.gz
+          cd TDengine-server-3.3.6.0
+          sudo ./install.sh -e no
 
       - name: checkout
         uses: actions/checkout@v4
@@ -133,25 +67,20 @@ jobs:
 
   test_asan:
     runs-on: ${{ matrix.os }}
-    needs: build
     strategy:
       matrix:
-        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
+        os: [ 'ubuntu-latest' ]
         go: [ 'stable' ]
-
-    name: Go-ASAN-${{ matrix.os }}-${{ matrix.go }}
     steps:
-      - name: get cache server
-        id: get-cache-server
-        uses: actions/cache@v4
-        with:
-          path: server.tar.gz
-          key: ${{ runner.os }}-build-TDengine-3.3.6.0
+      - name: get TDengine
+        run: |
+          wget https://github.com/taosdata/TDengine/releases/download/ver-3.3.6.0/TDengine-server-3.3.6.0-Linux-x64.tar.gz
 
       - name: install
         run: |
-          tar -zxvf server.tar.gz
-          cd release && sudo sh install.sh
+          tar -zxf TDengine-server-3.3.6.0-Linux-x64.tar.gz
+          cd TDengine-server-3.3.6.0
+          sudo ./install.sh -e no
 
       - name: checkout
         uses: actions/checkout@v4
