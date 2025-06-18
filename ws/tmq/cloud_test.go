@@ -71,7 +71,8 @@ func TestCloudTmq(t *testing.T) {
 				gotData = true
 				data := e.Value().([]*tmq.Data)
 				assert.Equal(t, db, e.DBName())
-				assert.Equal(t, 1, len(data))
+				// can not expect the data is 1 because the data may be inserted by other test process
+				assert.GreaterOrEqual(t, len(data), 1)
 				assert.Equal(t, "tmq_sub_table", data[0].TableName)
 				t.Log(e.Value())
 				t.Log(e.Offset())
