@@ -1,0 +1,192 @@
+name: compatibility-3360
+on:
+  pull_request:
+    branches:
+      - 'main'
+      - '3.0'
+  push:
+    branches:
+      - 'main'
+      - '3.0'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    name: Build
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
+    steps:
+      - name: Cache server
+        id: cache-server
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-TDengine-3.3.6.0
+
+      - name: checkout TDengine
+        if: steps.cache-server.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'ver-3.3.6.0'
+      - name: Get CMake
+        if: steps.cache-server.outputs.cache-hit != 'true'
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: 3.31.6
+
+      - name: Cache externals built
+        if: steps.cache-server.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        id: cache-ext
+        with:
+          path: TDengine/.externals
+          key: ${{ runner.os }}-${{ matrix.os }}-${{ hashFiles('TDengine/cmake/external.cmake', 'cmake/in/**') }}-build-ext-v3
+
+      - name: install TDengine
+        if: steps.cache-server.outputs.cache-hit != 'true'
+        run: |
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DBUILD_DEPENDENCY_TESTS=0
+          make -j 8
+
+
+      - name: package
+        if: steps.cache-server.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ./release
+          cp ./TDengine/debug/build/bin/taos ./release/
+          cp ./TDengine/debug/build/bin/taosd ./release/
+          cp ./TDengine/debug/build/bin/taosadapter ./release/
+          cp ./TDengine/debug/build/lib/libtaos.so ./release/
+          cp ./TDengine/debug/build/lib/libtaosnative.so ./release/
+          cp ./TDengine/include/client/taos.h ./release/
+          cat >./release/install.sh<<EOF 
+          chmod +x ./taos
+          chmod +x ./taosd
+          chmod +x ./taosadapter
+          cp ./taos /bin/
+          cp ./taosd /bin/
+          cp ./taosadapter /bin/
+          cp ./libtaos.so /usr/lib
+          cp ./libtaosnative.so /usr/lib
+          cp ./taos.h /usr/include
+          EOF
+          tar -zcvf server.tar.gz ./release
+
+  test:
+    runs-on: ${{ matrix.os }}
+    needs: build
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
+        go: [ '1.14', 'stable' ]
+    name: Go-${{ matrix.os }}-${{ matrix.go }}
+    steps:
+      - name: get cache server
+        id: get-cache-server
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-TDengine-3.3.6.0
+
+      - name: install
+        run: |
+          tar -zxvf server.tar.gz
+          cd release && sudo sh install.sh
+
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: copy taos cfg
+        run: |
+          sudo mkdir -p /etc/taos
+          sudo cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
+          sudo cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+
+      - name: shell
+        run: |
+          cat >start.sh<<EOF 
+          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
+          EOF
+
+      - name: taosd
+        run: nohup sudo sh ./start.sh &
+
+      - name: start taosadapter
+        run: sudo taosadapter &
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: go.sum
+
+      - name: Test
+        env:
+          TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
+          TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+        run: |
+          go version
+          go env
+          go test -v ./...
+
+  test_asan:
+    runs-on: ${{ matrix.os }}
+    needs: build
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest', 'ubuntu-24.04-arm' ]
+        go: [ 'stable' ]
+
+    name: Go-ASAN-${{ matrix.os }}-${{ matrix.go }}
+    steps:
+      - name: get cache server
+        id: get-cache-server
+        uses: actions/cache@v4
+        with:
+          path: server.tar.gz
+          key: ${{ runner.os }}-build-TDengine-3.3.6.0
+
+      - name: install
+        run: |
+          tar -zxvf server.tar.gz
+          cd release && sudo sh install.sh
+
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: copy taos cfg
+        run: |
+          sudo mkdir -p /etc/taos
+          sudo cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
+          sudo cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+
+      - name: shell
+        run: |
+          cat >start.sh<<EOF 
+          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
+          EOF
+
+      - name: taosd
+        run: nohup sudo sh ./start.sh &
+
+      - name: start taosadapter
+        run: sudo taosadapter &
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: go.sum
+
+      - name: Test
+        env:
+          TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
+          TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+        run: go test -v -asan ./...
