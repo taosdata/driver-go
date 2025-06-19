@@ -1220,6 +1220,10 @@ func cleanPollMultiTimesEnv() error {
 	}
 	return err
 }
+
+// @author: xftan
+// @date: 2025/6/19 9:28
+// @description: TestPollMultiTimes tests the consumer's ability to poll multiple times without duplicating messages.
 func TestPollMultiTimes(t *testing.T) {
 	err := preparePollMultiTimesEnv()
 	if err != nil {
@@ -1278,7 +1282,9 @@ func TestPollMultiTimes(t *testing.T) {
 				assert.Equal(t, "test_ws_pool_multi_tmq", e.DBName())
 				assert.Equal(t, 1, len(data))
 				assert.Equal(t, 1, len(data[0].Data))
+				// Check if the timestamp is correct
 				assert.Equal(t, (now+insertIdx*1000)/1000, data[0].Data[0][0].(time.Time).Unix())
+				// Check if the value is correct
 				var v = data[0].Data[0]
 				assert.Equal(t, int32(insertIdx), v[1].(int32))
 				t.Log(e.Offset())
@@ -1300,8 +1306,10 @@ func TestPollMultiTimes(t *testing.T) {
 				committed, err = consumer.Committed(ass, 0)
 				assert.NoError(t, err)
 				t.Log(committed)
-				position, _ = consumer.Position(ass)
+				position, err = consumer.Position(ass)
+				assert.NoError(t, err)
 				t.Log(position)
+				// insert next data
 				insertIdx += 1
 				err = doRequest(fmt.Sprintf("insert into test_ws_pool_multi_tmq.t values(%d,%d)", now+insertIdx*1000, insertIdx))
 				assert.NoError(t, err)
@@ -1314,17 +1322,16 @@ func TestPollMultiTimes(t *testing.T) {
 			}
 		} else {
 			if i == 0 {
+				// insert first data
 				err = doRequest(fmt.Sprintf("insert into test_ws_pool_multi_tmq.t values(%d,%d)", now+insertIdx*1000, insertIdx))
 				assert.NoError(t, err)
+			} else {
+				t.Error("expect got data")
+				return
 			}
 		}
-
-		if err != nil {
-			t.Error(err)
-			return
-		}
 	}
-	assert.Greater(t, messageCount, 1)
+	assert.Equal(t, messageCount, 4)
 	err = consumer.Unsubscribe()
 	if err != nil {
 		t.Error(err)
