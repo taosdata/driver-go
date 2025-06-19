@@ -35,6 +35,7 @@ type SubscribeResp struct {
 type PollReq struct {
 	ReqID        uint64 `json:"req_id"`
 	BlockingTime int64  `json:"blocking_time"`
+	MessageID    uint64 `json:"message_id"`
 }
 
 type PollResp struct {

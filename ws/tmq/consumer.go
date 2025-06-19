@@ -55,6 +55,7 @@ type Consumer struct {
 	chanLength          uint
 	writeWait           time.Duration
 	dialer              *websocket.Dialer
+	lastMessageID       uint64
 }
 
 type IndexedChan struct {
@@ -550,6 +551,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 	req := &PollReq{
 		ReqID:        reqID,
 		BlockingTime: int64(timeoutMs),
+		MessageID:    c.lastMessageID,
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -593,6 +595,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 		return tmq.NewTMQErrorWithErr(taosErrors.NewError(resp.Code, resp.Message))
 	}
 	if resp.HaveMessage {
+		c.lastMessageID = resp.MessageID
 		switch resp.MessageType {
 		case common.TMQ_RES_DATA:
 			result := &tmq.DataMessage{}
@@ -653,7 +656,7 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			}
 			return result
 		default:
-			return tmq.NewTMQErrorWithErr(err)
+			return tmq.NewTMQError(0xfffff, "invalid tmq message type")
 		}
 	} else {
 		return nil
