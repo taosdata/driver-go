@@ -28,13 +28,15 @@ func TestCloudTmq(t *testing.T) {
 	}
 	now := time.Now()
 	url := fmt.Sprintf("wss://%s?token=%s", endPoint, token)
+	groupId := fmt.Sprintf("test_%d", now.UnixNano())
+	clientId := fmt.Sprintf("test_consumer_%d", now.UnixNano())
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  url,
 		"ws.message.channelLen":   uint(0),
 		"ws.message.timeout":      common.DefaultMessageTimeout,
 		"ws.message.writeWait":    common.DefaultWriteWait,
-		"group.id":                fmt.Sprintf("test_%d", now.UnixNano()),
-		"client.id":               fmt.Sprintf("test_consumer_%d", now.UnixNano()),
+		"group.id":                groupId,
+		"client.id":               clientId,
 		"auto.offset.reset":       "latest",
 		"enable.auto.commit":      "true",
 		"auto.commit.interval.ms": "5000",
@@ -47,6 +49,20 @@ func TestCloudTmq(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer func() {
+		for i := 0; i < 20; i++ {
+			time.Sleep(time.Second * 1)
+			err = cloudDoRequest(endPoint, token, db, fmt.Sprintf("DROP CONSUMER GROUP IF EXISTS FORCE %s on %s", groupId, topic))
+			if err != nil {
+				t.Log(err)
+				continue
+			}
+			break
+		}
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 	defer func() {
 		err = consumer.Close()
 		if err != nil {
@@ -71,8 +87,6 @@ func TestCloudTmq(t *testing.T) {
 				gotData = true
 				data := e.Value().([]*tmq.Data)
 				assert.Equal(t, db, e.DBName())
-				// can not expect the data is 1 because the data may be inserted by other test process
-				assert.GreaterOrEqual(t, len(data), 1)
 				assert.Equal(t, "tmq_sub_table", data[0].TableName)
 				t.Log(e.Value())
 				t.Log(e.Offset())
