@@ -3,6 +3,7 @@ package wrapper
 import (
 	"database/sql/driver"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -486,6 +487,10 @@ func TestFetchRowNchar(t *testing.T) {
 // @date: 2023/10/13 11:28
 // @description: test fetch row all type
 func TestFetchRowAllType(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)

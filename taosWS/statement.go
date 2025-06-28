@@ -312,15 +312,6 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			default:
 				return fmt.Errorf("CheckNamedValue:%v can not convert to geometry", v)
 			}
-		case common.TSDB_DATA_TYPE_BLOB:
-			switch v.Value.(type) {
-			case string:
-				v.Value = types.TaosBlob(v.Value.(string))
-			case []byte:
-				v.Value = types.TaosBlob(v.Value.([]byte))
-			default:
-				return fmt.Errorf("CheckNamedValue:%v can not convert to blob", v)
-			}
 		case common.TSDB_DATA_TYPE_TIMESTAMP:
 			t, is := v.Value.(time.Time)
 			if is {
@@ -467,6 +458,8 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			default:
 				return fmt.Errorf("CheckNamedValue:%v can not convert to bigint unsigned", v)
 			}
+		default:
+			return fmt.Errorf("CheckNamedValue: unsupported field type %s", common.GetTypeName(int(stmt.cols[v.Ordinal-1].FieldType)))
 		}
 		return nil
 	}

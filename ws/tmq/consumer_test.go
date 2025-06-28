@@ -100,6 +100,10 @@ func doRequest(payload string) error {
 // @date: 2023/10/13 11:36
 // @description: test tmq subscribe over websocket
 func TestConsumer(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	err := prepareEnv()
 	if err != nil {
 		t.Error(err)

@@ -2,8 +2,8 @@ package af
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -11,71 +11,8 @@ import (
 	"github.com/taosdata/driver-go/v3/common/stmt"
 )
 
-func TestStmt2CallBackCallerPool(t *testing.T) {
-	pool := NewStmt2CallBackCallerPool(2)
-
-	// Test Get method
-	handle1, caller1 := pool.Get()
-	if handle1 == 0 || caller1 == nil {
-		t.Errorf("Expected handle and caller to be not nil")
-	}
-
-	handle2, caller2 := pool.Get()
-	if handle2 == 0 || caller2 == nil {
-		t.Errorf("Expected handle and caller to be not nil")
-	}
-
-	// Test Put method
-	pool.Put(handle1)
-	pool.Put(handle2)
-
-	// Test Get method after Put
-	handle3, caller3 := pool.Get()
-	if handle3 == 0 || caller3 == nil {
-		t.Errorf("Expected handle and caller to be not nil after Put")
-	}
-	assert.Equal(t, handle1, handle3)
-
-	handle4, caller4 := pool.Get()
-	if handle4 == 0 || caller4 == nil {
-		t.Errorf("Expected handle and caller to be not nil after Put")
-	}
-	assert.Equal(t, handle2, handle4)
-
-	handle5, caller5 := pool.Get()
-	if handle5 == 0 || caller5 == nil {
-		t.Errorf("Expected handle and caller to be not nil after Put")
-	}
-
-	pool.Put(handle5)
-	pool.Put(handle4)
-	pool.Put(handle3)
-
-	handle6, caller6 := pool.Get()
-	if handle6 == 0 || caller6 == nil {
-		t.Errorf("Expected handle and caller to be not nil after Put")
-	}
-	assert.Equal(t, handle5, handle6)
-}
-
-func TestNewStmt2(t *testing.T) {
-	conn, err := Open("", "root", "taosdata", "", 0)
-	assert.NoError(t, err)
-	stmt := conn.Stmt2(0x12345678, false)
-	if stmt == nil {
-		t.Errorf("Expected stmt to be not nil")
-		return
-	}
-	assert.NotNil(t, stmt.stmt2)
-	err = stmt.Close()
-	assert.NoError(t, err)
-}
-
-func TestStmt2(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
+func TestStmt2_3360(t *testing.T) {
+	database := "stmt2_prepare_test_3360"
 	conn, err := Open("", "root", "taosdata", "", 0)
 	if !assert.NoError(t, err) {
 		return
@@ -89,15 +26,15 @@ func TestStmt2(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_prepare_test")
+	_, err = conn.Exec(fmt.Sprintf("create database if not exists %s", database))
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_prepare_test")
+		_, err = conn.Exec(fmt.Sprintf("drop database if exists %s", database))
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_prepare_test")
+	_, err = conn.Exec(fmt.Sprintf("use %s", database))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -117,19 +54,14 @@ func TestStmt2(t *testing.T) {
 		"v12 binary(20), " +
 		"v13 varbinary(20), " +
 		"v14 geometry(100), " +
-		"v15 nchar(20), " +
-		"v16 blob" +
+		"v15 nchar(20)" +
 		") tags(tg binary(20))")
 	assert.NoError(t, err)
-	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
-	var largeBlob = make([]byte, 1024*1024) // 1MB blob
-	for i := 0; i < len(largeBlob); i++ {
-		largeBlob[i] = 'a'
-	}
 	params := []*stmt.TaosStmt2BindData{
 		{
 			TableName: "中文0",
@@ -231,11 +163,6 @@ func TestStmt2(t *testing.T) {
 					nil,
 					"nchar2",
 				},
-				{
-					largeBlob,
-					nil,
-					largeBlob,
-				},
 			},
 		},
 	}
@@ -252,7 +179,7 @@ func TestStmt2(t *testing.T) {
 		return
 	}
 
-	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? and v16 = ?")
+	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ?")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -275,7 +202,6 @@ func TestStmt2(t *testing.T) {
 				{[]byte("varbinary1")},
 				{"point(100 100)"},
 				{"nchar1"},
-				{largeBlob},
 			},
 		},
 	}
@@ -295,60 +221,14 @@ func TestStmt2(t *testing.T) {
 		err = result.Close()
 		assert.NoError(t, err)
 	}()
-	dest := make([]driver.Value, 18)
+	dest := make([]driver.Value, 17)
 	err = result.Next(dest)
 	assert.NoError(t, err)
 	for i, col := range params[0].Cols {
 		assert.Equal(t, col[0], dest[i])
 	}
-	assert.Equal(t, "中文 tag", dest[17])
+	assert.Equal(t, "中文 tag", dest[16])
 	err = result.Next(dest)
 	assert.ErrorIs(t, err, io.EOF)
 
-}
-
-func TestStmt2_Prepare(t *testing.T) {
-	conn, err := Open("", "root", "taosdata", "", 0)
-	if !assert.NoError(t, err) {
-		return
-	}
-	stmt2 := conn.Stmt2(0x123456789, false)
-	if stmt2 == nil {
-		t.Errorf("Expected stmt to be not nil")
-		return
-	}
-	defer func() {
-		err = stmt2.Close()
-		assert.NoError(t, err)
-	}()
-	_, err = conn.Exec("create database if not exists stmt2_prepare_wrong_test")
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_prepare_wrong_test")
-		assert.NoError(t, err)
-	}()
-	_, err = conn.Exec("use stmt2_prepare_wrong_test")
-	if !assert.NoError(t, err) {
-		return
-	}
-	err = stmt2.Prepare("insert into not_exist_table values(?,?,?)")
-	assert.Error(t, err)
-	_, err = conn.Exec("create table t (ts timestamp, b int, c int)")
-	assert.NoError(t, err)
-	err = stmt2.Prepare("")
-	assert.NoError(t, err)
-	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
-		{
-			Cols: [][]driver.Value{
-				{time.Now()},
-				{int32(1)},
-				{int32(2)},
-			},
-		},
-	})
-	assert.Error(t, err)
-	err = stmt2.Prepare("insert into t values(?,?,?)")
-	assert.Error(t, err)
 }
