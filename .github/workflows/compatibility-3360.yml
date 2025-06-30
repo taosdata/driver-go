@@ -60,6 +60,7 @@ jobs:
         env:
           TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
           TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+          TD_3360_TEST: 'true'
         run: |
           go version
           go env
@@ -113,4 +114,5 @@ jobs:
         env:
           TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
           TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+          TD_3360_TEST: 'true'
         run: go test -v -asan ./...
