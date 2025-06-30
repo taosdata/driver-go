@@ -481,17 +481,6 @@ func TestTaosWriteRawBlockWithFields_3360(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "use test_write_block_raw_fields"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
-
 	sql = "select ts,c1 from t0"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
@@ -662,17 +651,6 @@ func TestTaosWriteRawBlockWithReqID_3360(t *testing.T) {
 	TaosFreeResult(res)
 
 	sql = "create table t1 using all_type tags('{\"a\":2}')"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
-
-	sql = "use test_write_block_raw_with_reqid"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {

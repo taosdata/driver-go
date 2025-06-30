@@ -54,9 +54,9 @@ func TestReadRow_3360(t *testing.T) {
 		return
 	}
 	wrapper.TaosFreeResult(res)
-	code = wrapper.TaosSelectDB(res, database)
+	code = wrapper.TaosSelectDB(conn, database)
 	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
+		errStr := wrapper.TaosErrorStr(nil)
 		t.Error(errors.NewError(code, errStr))
 		return
 	}
@@ -207,9 +207,9 @@ func TestParseBlock_3360(t *testing.T) {
 		return
 	}
 	wrapper.TaosFreeResult(res)
-	code = wrapper.TaosSelectDB(res, database)
+	code = wrapper.TaosSelectDB(conn, database)
 	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
+		errStr := wrapper.TaosErrorStr(nil)
 		t.Error(errors.NewError(code, errStr))
 		return
 	}

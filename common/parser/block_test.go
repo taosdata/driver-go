@@ -18,6 +18,10 @@ import (
 // @date: 2023/10/13 11:18
 // @description: test read row
 func TestReadRow(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)

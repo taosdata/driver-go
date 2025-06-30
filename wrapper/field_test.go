@@ -519,10 +519,10 @@ func TestReadColumn(t *testing.T) {
 	}
 	defer TaosFreeResult(res)
 	count := TaosNumFields(res)
-	assert.Equal(t, 18, count)
+	assert.Equal(t, 19, count)
 	ha, err := ReadColumn(res, count)
 	assert.NoError(t, err)
-	assert.Equal(t, 18, len(ha.ColNames))
+	assert.Equal(t, 19, len(ha.ColNames))
 	expect := &RowsHeader{
 		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "info"},
 		ColTypes: []uint8{

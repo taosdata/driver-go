@@ -29,7 +29,7 @@ func TestReadColumn_3360(t *testing.T) {
 	assert.NoError(t, err)
 	err = exec(conn, "create table if not exists alltype2(ts timestamp,v1 bool,v2 tinyint,v3 smallint,v4 int,v5 bigint,v6 tinyint unsigned,v7 smallint unsigned,v8 int unsigned,v9 bigint unsigned,v10 float,v11 double,v12 binary(20),v13 nchar(20),v14 varbinary(20),v15 geometry(100),v16 decimal(10,4)) tags (info json)")
 	assert.NoError(t, err)
-	err = exec(conn, `insert into t1 using alltype tags ('{"a":1}') values(now,true,2,3,4,5,6,7,8,9,10.1,11.1,'12345678901','1234567','\xaabbcc','POINT(1 1)',12.1,'blob')`)
+	err = exec(conn, `insert into t1 using alltype tags ('{"a":1}') values(now,true,2,3,4,5,6,7,8,9,10.1,11.1,'12345678901','1234567','\xaabbcc','POINT(1 1)',12.1)`)
 	assert.NoError(t, err)
 	res := TaosQuery(conn, "select * from alltype")
 	code := TaosError(res)
@@ -46,7 +46,7 @@ func TestReadColumn_3360(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 18, len(ha.ColNames))
 	expect := &RowsHeader{
-		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "info"},
+		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "info"},
 		ColTypes: []uint8{
 			common.TSDB_DATA_TYPE_TIMESTAMP,
 			common.TSDB_DATA_TYPE_BOOL,
@@ -83,10 +83,10 @@ func TestReadColumn_3360(t *testing.T) {
 	}
 	defer TaosFreeResult(res2)
 	count = TaosNumFields(res2)
-	assert.Equal(t, 17, count)
+	assert.Equal(t, 18, count)
 	ha, err = ReadColumn(res2, count)
 	assert.NoError(t, err)
-	assert.Equal(t, 17, len(ha.ColNames))
+	assert.Equal(t, 18, len(ha.ColNames))
 	expect = &RowsHeader{
 		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "info"},
 		ColTypes: []uint8{
