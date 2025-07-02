@@ -546,7 +546,7 @@ func TestReadColumn(t *testing.T) {
 			common.TSDB_DATA_TYPE_BLOB,
 			common.TSDB_DATA_TYPE_JSON,
 		},
-		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 16, 5, 4095},
+		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 16, 4194304, 4095},
 		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0},
 		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0},
 	}
@@ -562,10 +562,10 @@ func TestReadColumn(t *testing.T) {
 	}
 	defer TaosFreeResult(res2)
 	count = TaosNumFields(res2)
-	assert.Equal(t, 18, count)
+	assert.Equal(t, 19, count)
 	ha, err = ReadColumn(res2, count)
 	assert.NoError(t, err)
-	assert.Equal(t, 18, len(ha.ColNames))
+	assert.Equal(t, 19, len(ha.ColNames))
 	expect = &RowsHeader{
 		ColNames: []string{"ts", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "info"},
 		ColTypes: []uint8{
@@ -589,7 +589,7 @@ func TestReadColumn(t *testing.T) {
 			common.TSDB_DATA_TYPE_BLOB,
 			common.TSDB_DATA_TYPE_JSON,
 		},
-		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 8, 5, 4095},
+		ColLength:  []int64{8, 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 20, 20, 20, 100, 8, 4194304, 4095},
 		Precisions: []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0},
 		Scales:     []int64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0},
 	}
