@@ -251,32 +251,52 @@ func TestStmt2(t *testing.T) {
 	if !assert.Equal(t, 3, affectedRows) {
 		return
 	}
-
-	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? and v16 = ?")
+	// blob not support in stmt2 query
+	//err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? and v16 = ?")
+	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ?")
 	if !assert.NoError(t, err) {
 		return
 	}
+	expect := []driver.Value{
+		now.Add(time.Second * 2),
+		false,
+		int8(12),
+		int16(12),
+		int32(12),
+		int64(12),
+		uint8(12),
+		uint16(12),
+		uint32(12),
+		uint64(12),
+		float32(12.2),
+		float64(12.2),
+		"binary2",
+		[]byte("varbinary2"),
+		[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+		"nchar2",
+		largeBlob,
+	}
+	bind := [][]driver.Value{
+		{now.Add(time.Second * 2)},
+		{false},
+		{int8(12)},
+		{int16(12)},
+		{int32(12)},
+		{int64(12)},
+		{uint8(12)},
+		{uint16(12)},
+		{uint32(12)},
+		{uint64(12)},
+		{float32(12.2)},
+		{float64(12.2)},
+		{"binary2"},
+		{[]byte("varbinary2")},
+		{"point(100 100)"},
+		{"nchar2"},
+	}
 	queryParams := []*stmt.TaosStmt2BindData{
 		{
-			Cols: [][]driver.Value{
-				{now},
-				{true},
-				{int8(11)},
-				{int16(11)},
-				{int32(11)},
-				{int64(11)},
-				{uint8(11)},
-				{uint16(11)},
-				{uint32(11)},
-				{uint64(11)},
-				{float32(11.2)},
-				{float64(11.2)},
-				{"binary1"},
-				{[]byte("varbinary1")},
-				{"point(100 100)"},
-				{"nchar1"},
-				{largeBlob},
-			},
+			Cols: bind,
 		},
 	}
 	err = stmt2.Bind(queryParams)
@@ -298,8 +318,8 @@ func TestStmt2(t *testing.T) {
 	dest := make([]driver.Value, 18)
 	err = result.Next(dest)
 	assert.NoError(t, err)
-	for i, col := range params[0].Cols {
-		assert.Equal(t, col[0], dest[i])
+	for i, col := range expect {
+		assert.Equal(t, col, dest[i])
 	}
 	assert.Equal(t, "中文 tag", dest[17])
 	err = result.Next(dest)
