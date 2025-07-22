@@ -200,7 +200,7 @@ func TestReadBlock(t *testing.T) {
 	for i := 1; i < 19; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[19].([]byte))
 	row3 := data[2]
 	assert.Equal(t, after2s.UnixNano()/1e6, row3[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row3[1].(bool))
