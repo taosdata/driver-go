@@ -33,9 +33,10 @@ func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, fields []*
 	var colType []*Stmt2AllField
 	var tagType []*Stmt2AllField
 	for i := 0; i < len(fields); i++ {
-		if fields[i].BindType == TAOS_FIELD_COL {
+		switch fields[i].BindType {
+		case TAOS_FIELD_COL:
 			colType = append(colType, fields[i])
-		} else if fields[i].BindType == TAOS_FIELD_TAG {
+		case TAOS_FIELD_TAG:
 			tagType = append(tagType, fields[i])
 		}
 	}

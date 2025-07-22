@@ -11,7 +11,6 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/errors"
-	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 	"github.com/taosdata/driver-go/v3/wrapper/handler"
 )
@@ -253,7 +252,7 @@ func (conn *Connector) SelectDB(db string) error {
 	code := wrapper.TaosSelectDB(conn.taos, db)
 	locker.Unlock()
 	if code != 0 {
-		return taosError.NewError(code, wrapper.TaosErrorStr(nil))
+		return errors.NewError(code, wrapper.TaosErrorStr(nil))
 	}
 	return nil
 }

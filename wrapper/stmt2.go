@@ -46,9 +46,10 @@ func TaosStmt2BindParam(stmt2 unsafe.Pointer, isInsert bool, params []*stmt.Taos
 	var colTypes []*stmt.Stmt2AllField
 	var tagTypes []*stmt.Stmt2AllField
 	for i := 0; i < len(fields); i++ {
-		if fields[i].BindType == stmt.TAOS_FIELD_COL {
+		switch fields[i].BindType {
+		case stmt.TAOS_FIELD_COL:
 			colTypes = append(colTypes, fields[i])
-		} else if fields[i].BindType == stmt.TAOS_FIELD_TAG {
+		case stmt.TAOS_FIELD_TAG:
 			tagTypes = append(tagTypes, fields[i])
 		}
 	}

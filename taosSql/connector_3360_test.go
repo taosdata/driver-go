@@ -13,7 +13,7 @@ import (
 	"github.com/taosdata/driver-go/v3/types"
 )
 
-func generate_CreateTableSql_3360(db string, withJson bool) string {
+func generateCreateTableSql3360(db string, withJson bool) string {
 	createSql := fmt.Sprintf("create table if not exists %s.alltype(ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -40,7 +40,7 @@ func generate_CreateTableSql_3360(db string, withJson bool) string {
 	return createSql
 }
 
-func generateValues_3360() (value []interface{}, scanValue []interface{}, insertSql string) {
+func generateValues3360() (value []interface{}, scanValue []interface{}, insertSql string) {
 	rand.Seed(time.Now().UnixNano())
 	v1 := true
 	v2 := int8(rand.Int())
@@ -112,11 +112,11 @@ func TestAllTypeQuery_3360(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generate_CreateTableSql_3360(database, true))
+	_, err = db.Exec(generateCreateTableSql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	colValues, scanValues, insertSql := generateValues_3360()
+	colValues, scanValues, insertSql := generateValues3360()
 	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
@@ -171,11 +171,11 @@ func TestAllTypeQueryNull_3360(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generate_CreateTableSql_3360(database, true))
+	_, err = db.Exec(generateCreateTableSql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	colValues, _, _ := generateValues_3360()
+	colValues, _, _ := generateValues3360()
 	builder := &strings.Builder{}
 	for i := 1; i < len(colValues); i++ {
 		builder.WriteString(",null")
