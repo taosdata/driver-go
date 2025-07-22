@@ -290,7 +290,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	// todo: TDengine not support taos_write_raw_block with blob data
 	res = TaosQuery(conn, "create table if not exists test_write_block_raw.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -308,8 +308,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
 		"c16 decimal(8,4),"+
-		"c17 decimal(20,4),"+
-		"c18 blob"+
+		"c17 decimal(20,4)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -321,7 +320,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw.t0 using test_write_block_raw.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456','blob')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into test_write_block_raw.t0 using test_write_block_raw.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -464,10 +463,9 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}, row1[15].([]byte))
 	assert.Equal(t, "123.4560", row1[16].(string))
 	assert.Equal(t, "123456.4560", row1[17].(string))
-	assert.Equal(t, []byte("blob"), row1[18].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 19; i++ {
+	for i := 1; i < 18; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
@@ -516,7 +514,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	// todo: TDengine not support taos_write_raw_block_with_fields with blob data
 	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -534,8 +532,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
 		"c16 decimal(8,4),"+
-		"c17 decimal(20,4),"+
-		"c18 blob"+
+		"c17 decimal(20,4)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -547,7 +544,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw_fields.t0 using test_write_block_raw_fields.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456','blob')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into test_write_block_raw_fields.t0 using test_write_block_raw_fields.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -654,12 +651,12 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
-	for i := 2; i < 19; i++ {
+	for i := 2; i < 18; i++ {
 		assert.Nil(t, row1[i])
 	}
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 19; i++ {
+	for i := 1; i < 18; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
@@ -708,7 +705,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	// todo: TDengine not support taos_write_raw_block_with_reqid with blob data
 	res = TaosQuery(conn, "create table if not exists test_write_block_raw_with_reqid.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -726,8 +723,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
 		"c16 decimal(8,4),"+
-		"c17 decimal(20,4),"+
-		"c18 blob"+
+		"c17 decimal(20,4)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -740,8 +736,8 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into test_write_block_raw_with_reqid.t0 using test_write_block_raw_with_reqid.all_type tags('{\"a\":1}') values"+
-		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456','blob')"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -884,10 +880,9 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}, row1[15].([]byte))
 	assert.Equal(t, "123.4560", row1[16].(string))
 	assert.Equal(t, "123456.4560", row1[17].(string))
-	assert.Equal(t, []byte("blob"), row1[18].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 19; i++ {
+	for i := 1; i < 18; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
@@ -936,7 +931,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-
+	// todo: TDengine not support taos_write_raw_block_with_fields_with_reqid with blob data
 	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields_with_reqid.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -954,8 +949,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
 		"c16 decimal(8,4),"+
-		"c17 decimal(20,4),"+
-		"c18 blob"+
+		"c17 decimal(20,4)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -967,8 +961,9 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw_fields_with_reqid.t0 using test_write_block_raw_fields_with_reqid.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456','blob')"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into test_write_block_raw_fields_with_reqid.t0 using test_write_block_raw_fields_with_reqid.all_type tags('{\"a\":1}') values"+
+		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -1075,12 +1070,12 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
-	for i := 2; i < 19; i++ {
+	for i := 2; i < 18; i++ {
 		assert.Nil(t, row1[i])
 	}
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 19; i++ {
+	for i := 1; i < 18; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
