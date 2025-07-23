@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,29 +13,7 @@ import (
 	"github.com/taosdata/driver-go/v3/types"
 )
 
-// @author: xftan
-// @date: 2022/1/27 16:16
-// @description: test set config
-func TestSetConfig(t *testing.T) {
-	db, err := sql.Open("taosSql", "root:taosdata/tcp(localhost:6030)/?debugFlag=135&asyncLog=0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err = db.Close()
-	}()
-	err = db.Ping()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_, err = db.Exec("drop database if exists test_set_config")
-	}()
-	_, err = db.Exec("create database if not exists test_set_config")
-	assert.NoError(t, err)
-}
-
-func generateCreateTableSql(db string, withJson bool) string {
+func generateCreateTableSql3360(db string, withJson bool) string {
 	createSql := fmt.Sprintf("create table if not exists %s.alltype(ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -54,8 +31,7 @@ func generateCreateTableSql(db string, withJson bool) string {
 		"c14 varbinary(100),"+
 		"c15 geometry(100),"+
 		"c16 decimal(8,4),"+
-		"c17 decimal(20,4),"+
-		"c18 blob"+
+		"c17 decimal(20,4)"+
 		")",
 		db)
 	if withJson {
@@ -64,7 +40,7 @@ func generateCreateTableSql(db string, withJson bool) string {
 	return createSql
 }
 
-func generateValues() (value []interface{}, scanValue []interface{}, insertSql string) {
+func generateValues3360() (value []interface{}, scanValue []interface{}, insertSql string) {
 	rand.Seed(time.Now().UnixNano())
 	v1 := true
 	v2 := int8(rand.Int())
@@ -83,7 +59,6 @@ func generateValues() (value []interface{}, scanValue []interface{}, insertSql s
 	v15 := []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}
 	v16 := "123.4560"
 	v17 := "-123456789.1234"
-	v18 := []byte("blob")
 	ts := time.Now().Round(time.Millisecond)
 	var (
 		cts time.Time
@@ -104,20 +79,15 @@ func generateValues() (value []interface{}, scanValue []interface{}, insertSql s
 		c15 []byte
 		c16 string
 		c17 string
-		c18 []byte
 	)
 	return []interface{}{
-			ts, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18,
-		}, []interface{}{cts, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18},
-		fmt.Sprintf(`values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','-123456789.1234','blob')`, ts.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11)
+			ts, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17,
+		}, []interface{}{cts, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17},
+		fmt.Sprintf(`values('%s',%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','-123456789.1234')`, ts.Format(time.RFC3339Nano), v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11)
 }
 
-func TestAllTypeQuery(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
-	database := "native_test"
+func TestAllTypeQuery_3360(t *testing.T) {
+	database := "native_test_3360"
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -142,11 +112,11 @@ func TestAllTypeQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = db.Exec(generateCreateTableSql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	colValues, scanValues, insertSql := generateValues()
+	colValues, scanValues, insertSql := generateValues3360()
 	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
@@ -175,12 +145,8 @@ func TestAllTypeQuery(t *testing.T) {
 	assert.Equal(t, types.RawMessage(`{"a":"b"}`), tt)
 }
 
-func TestAllTypeQueryNull(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
-	database := "native_test_null"
+func TestAllTypeQueryNull_3360(t *testing.T) {
+	database := "native_test_null_3360"
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		t.Fatal(err)
@@ -205,11 +171,11 @@ func TestAllTypeQueryNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = db.Exec(generateCreateTableSql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	colValues, _, _ := generateValues()
+	colValues, _, _ := generateValues3360()
 	builder := &strings.Builder{}
 	for i := 1; i < len(colValues); i++ {
 		builder.WriteString(",null")

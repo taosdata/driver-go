@@ -2,6 +2,7 @@ package tmq
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -17,6 +18,10 @@ import (
 // @date: 2023/10/13 11:11
 // @description: test tmq
 func TestTmq(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -43,12 +48,13 @@ func TestTmq(t *testing.T) {
 			"c13 nchar(20)," +
 			"c14 varbinary(20)," +
 			"c15 geometry(100)," +
-			"c16 decimal(20,4)" +
+			"c16 decimal(20,4)," +
+			"c17 blob" +
 			") tags(t1 int)",
 		"create table if not exists ct0 using all_type tags(1000)",
 		"create table if not exists ct1 using all_type tags(2000)",
 		"create table if not exists ct2 using all_type tags(3000)",
-		"create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16 from all_type",
+		"create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17 from all_type",
 	}
 
 	defer func() {
@@ -64,11 +70,11 @@ func TestTmq(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	now := time.Now()
-	err = execWithoutResult(conn, fmt.Sprintf("insert into ct0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
-	err = execWithoutResult(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
-	err = execWithoutResult(conn, fmt.Sprintf("insert into ct2 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct2 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 
 	consumer, err := NewConsumer(&tmq.ConfigMap{
@@ -126,6 +132,7 @@ func TestTmq(t *testing.T) {
 			assert.Equal(t, []byte("varbinary"), row1[14].([]byte))
 			assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 			assert.Equal(t, "123456789.1230", row1[16].(string))
+			assert.Equal(t, []byte("blob"), row1[17].([]byte))
 
 			t.Log(e.Offset())
 			ass, err := consumer.Assignment()

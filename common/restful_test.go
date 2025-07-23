@@ -135,7 +135,7 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 		{
 			name: "all type",
 			args: args{
-				body:       strings.NewReader(`{"code":0,"column_meta":[["ts","TIMESTAMP",8],["c1","BOOL",1],["c2","TINYINT",1],["c3","SMALLINT",2],["c4","INT",4],["c5","BIGINT",8],["c6","TINYINT UNSIGNED",1],["c7","SMALLINT UNSIGNED",2],["c8","INT UNSIGNED",4],["c9","BIGINT UNSIGNED",8],["c10","FLOAT",4],["c11","DOUBLE",8],["c12","VARCHAR",20],["c13","NCHAR",20],["c14","VARBINARY",20],["c15","GEOMETRY",100],["c16","DECIMAL(20,4)",16],["c17","DECIMAL(10,4)",8],["info","JSON",4095]],"data":[["2025-03-20T09:11:11.634Z",true,1,1,1,1,1,1,1,1,1,1,"test_binary","test_nchar","76617262696e617279","010100000000000000000059400000000000005940","-123.4000","1234.5600",{"a":1}],["2025-03-20T09:11:12.634Z",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,{"a":1}]],"rows":2}`),
+				body:       strings.NewReader(`{"code":0,"column_meta":[["ts","TIMESTAMP",8],["c1","BOOL",1],["c2","TINYINT",1],["c3","SMALLINT",2],["c4","INT",4],["c5","BIGINT",8],["c6","TINYINT UNSIGNED",1],["c7","SMALLINT UNSIGNED",2],["c8","INT UNSIGNED",4],["c9","BIGINT UNSIGNED",8],["c10","FLOAT",4],["c11","DOUBLE",8],["c12","VARCHAR",20],["c13","NCHAR",20],["c14","VARBINARY",20],["c15","GEOMETRY",100],["c16","DECIMAL(20,4)",16],["c17","DECIMAL(10,4)",8],["c18","BLOB",4194304],["info","JSON",4095]],"data":[["2025-03-20T09:11:11.634Z",true,1,1,1,1,1,1,1,1,1,1,"test_binary","test_nchar","76617262696e617279","010100000000000000000059400000000000005940","-123.4000","1234.5600","626c6f62",{"a":1}],["2025-03-20T09:11:12.634Z",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,{"a":1}]],"rows":2}`),
 				bufferSize: 1024,
 			},
 			want: &TDEngineRestfulResp{
@@ -161,6 +161,7 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 					"c15",
 					"c16",
 					"c17",
+					"c18",
 					"info",
 				},
 				ColTypes: []int{
@@ -182,6 +183,7 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 					TSDB_DATA_TYPE_GEOMETRY,
 					TSDB_DATA_TYPE_DECIMAL,
 					TSDB_DATA_TYPE_DECIMAL64,
+					TSDB_DATA_TYPE_BLOB,
 					TSDB_DATA_TYPE_JSON,
 				},
 				ColLength: []int64{
@@ -203,6 +205,7 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 					100,
 					16,
 					8,
+					4194304,
 					4095,
 				},
 				Precisions: []int64{
@@ -225,6 +228,7 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 					20,
 					10,
 					0,
+					0,
 				},
 				Scales: []int64{
 					0,
@@ -245,6 +249,7 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 					0,
 					4,
 					4,
+					0,
 					0,
 				},
 				Data: [][]driver.Value{
@@ -267,10 +272,12 @@ func TestUnmarshalRestfulBody(t *testing.T) {
 						[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 						"-123.4000",
 						"1234.5600",
+						[]byte("blob"),
 						[]byte(`{"a":1}`),
 					},
 					{
 						ts2,
+						nil,
 						nil,
 						nil,
 						nil,

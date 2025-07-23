@@ -471,6 +471,8 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			default:
 				return fmt.Errorf("CheckNamedValue:%v can not convert to bigint unsigned", v)
 			}
+		default:
+			return fmt.Errorf("CheckNamedValue: unsupported field type %s", common.GetTypeName(int(stmt.cols[v.Ordinal-1].FieldType)))
 		}
 		return nil
 	}

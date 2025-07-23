@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math"
-	"os"
 	"testing"
 	"time"
 
@@ -16,11 +15,8 @@ import (
 // @author: xftan
 // @date: 2023/10/13 11:27
 // @description: test read block
-func TestReadBlock(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
+func TestReadBlock_3360(t *testing.T) {
+	database := "test_block_raw_3360"
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -28,7 +24,7 @@ func TestReadBlock(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_block_raw")
+	res := TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -38,7 +34,7 @@ func TestReadBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_block_raw")
+		res = TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 		code = TaosError(res)
 		if code != 0 {
 			errStr := TaosErrorStr(res)
@@ -48,7 +44,7 @@ func TestReadBlock(t *testing.T) {
 		}
 		TaosFreeResult(res)
 	}()
-	res = TaosQuery(conn, "create database test_block_raw")
+	res = TaosQuery(conn, fmt.Sprintf("create database %s", database))
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -58,7 +54,13 @@ func TestReadBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	res = TaosQuery(conn, "create table if not exists test_block_raw.all_type (ts timestamp,"+
+	code = TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+	res = TaosQuery(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -71,12 +73,7 @@ func TestReadBlock(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20),"+
-		"c14 varbinary(20),"+
-		"c15 geometry(100),"+
-		"c16 decimal(8,4),"+
-		"c17 decimal(20,4),"+
-		"c18 blob"+
+		"c13 nchar(20)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -89,10 +86,10 @@ func TestReadBlock(t *testing.T) {
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	after2s := now.Add(2 * time.Second)
-	sql := fmt.Sprintf("insert into test_block_raw.t0 using test_block_raw.all_type tags('{\"a\":1}') values"+
-		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456','blob')"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)"+
-		"('%s',true,%d,%d,%d,%d,%d,%d,%d,%v,%f,%f,'b','n','test_varbinary','point(100 100)','123.456','123456.456','blob')",
+	sql := fmt.Sprintf("insert into t0 using all_type tags('{\"a\":1}') values"+
+		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)"+
+		"('%s',true,%d,%d,%d,%d,%d,%d,%d,%v,%f,%f,'b','n')",
 		now.Format(time.RFC3339Nano),
 		after1s.Format(time.RFC3339Nano),
 		after2s.Format(time.RFC3339Nano),
@@ -117,7 +114,7 @@ func TestReadBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "select * from test_block_raw.all_type"
+	sql = "select * from all_type"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -167,40 +164,13 @@ func TestReadBlock(t *testing.T) {
 	assert.Equal(t, float64(1), row1[11].(float64))
 	assert.Equal(t, "test_binary", row1[12].(string))
 	assert.Equal(t, "test_nchar", row1[13].(string))
-	assert.Equal(t, []byte("test_varbinary"), row1[14].([]byte))
-	assert.Equal(t, []byte{
-		0x01,
-		0x01,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-	}, row1[15].([]byte))
-	assert.Equal(t, "123.4560", row1[16].(string))
-	assert.Equal(t, "123456.4560", row1[17].(string))
-	assert.Equal(t, []byte("blob"), row1[18].([]byte))
-	assert.Equal(t, []byte(`{"a":1}`), row1[19].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row1[14].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 19; i++ {
+	for i := 1; i < 14; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[19].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[14].([]byte))
 	row3 := data[2]
 	assert.Equal(t, after2s.UnixNano()/1e6, row3[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row3[1].(bool))
@@ -216,44 +186,14 @@ func TestReadBlock(t *testing.T) {
 	assert.Equal(t, float64(math.MaxFloat64), row3[11].(float64))
 	assert.Equal(t, "b", row3[12].(string))
 	assert.Equal(t, "n", row3[13].(string))
-	assert.Equal(t, []byte("test_varbinary"), row1[14].([]byte))
-	assert.Equal(t, []byte{
-		0x01,
-		0x01,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-	}, row1[15].([]byte))
-	assert.Equal(t, "123.4560", row1[16].(string))
-	assert.Equal(t, "123456.4560", row1[17].(string))
-	assert.Equal(t, []byte("blob"), row1[18].([]byte))
-	assert.Equal(t, []byte(`{"a":1}`), row1[19].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row3[14].([]byte))
 }
 
 // @author: xftan
 // @date: 2023/10/13 11:27
 // @description: test write raw block
-func TestTaosWriteRawBlock(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
+func TestTaosWriteRawBlock_3360(t *testing.T) {
+	database := "test_write_block_raw"
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -261,7 +201,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw")
+	res := TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -271,7 +211,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw")
+		res = TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 		code = TaosError(res)
 		if code != 0 {
 			errStr := TaosErrorStr(res)
@@ -281,7 +221,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		}
 		TaosFreeResult(res)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw")
+	res = TaosQuery(conn, fmt.Sprintf("create database %s", database))
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -290,8 +230,14 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	// todo: TDengine not support taos_write_raw_block with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw.all_type (ts timestamp,"+
+	code = TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+
+	res = TaosQuery(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -304,11 +250,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20),"+
-		"c14 varbinary(20),"+
-		"c15 geometry(100),"+
-		"c16 decimal(8,4),"+
-		"c17 decimal(20,4)"+
+		"c13 nchar(20)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -320,7 +262,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw.t0 using test_write_block_raw.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into t0 using all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -331,7 +273,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "create table test_write_block_raw.t1 using test_write_block_raw.all_type tags('{\"a\":2}')"
+	sql = "create table t1 using all_type tags('{\"a\":2}')"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -353,7 +295,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "select * from test_write_block_raw.t0"
+	sql = "select * from t0"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -386,7 +328,7 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "select * from test_write_block_raw.t1"
+	sql = "select * from t1"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -437,35 +379,9 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	assert.Equal(t, float64(1), row1[11].(float64))
 	assert.Equal(t, "test_binary", row1[12].(string))
 	assert.Equal(t, "test_nchar", row1[13].(string))
-	assert.Equal(t, []byte("test_varbinary"), row1[14].([]byte))
-	assert.Equal(t, []byte{
-		0x01,
-		0x01,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-	}, row1[15].([]byte))
-	assert.Equal(t, "123.4560", row1[16].(string))
-	assert.Equal(t, "123456.4560", row1[17].(string))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 18; i++ {
+	for i := 1; i < 14; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
@@ -473,11 +389,8 @@ func TestTaosWriteRawBlock(t *testing.T) {
 // @author: xftan
 // @date: 2023/10/13 11:28
 // @description: test write raw block with fields
-func TestTaosWriteRawBlockWithFields(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
+func TestTaosWriteRawBlockWithFields_3360(t *testing.T) {
+	database := "test_write_block_raw_fields_3360"
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -485,7 +398,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
+	res := TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -495,7 +408,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	}
 	TaosFreeResult(res)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
+		res = TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 		code = TaosError(res)
 		if code != 0 {
 			errStr := TaosErrorStr(res)
@@ -505,7 +418,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		}
 		TaosFreeResult(res)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw_fields")
+	res = TaosQuery(conn, fmt.Sprintf("create database %s", database))
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -514,8 +427,14 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	// todo: TDengine not support taos_write_raw_block_with_fields with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields.all_type (ts timestamp,"+
+	code = TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+
+	res = TaosQuery(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -528,11 +447,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20),"+
-		"c14 varbinary(20),"+
-		"c15 geometry(100),"+
-		"c16 decimal(8,4),"+
-		"c17 decimal(20,4)"+
+		"c13 nchar(20)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -544,7 +459,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw_fields.t0 using test_write_block_raw_fields.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into t0 using all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -555,7 +470,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "create table test_write_block_raw_fields.t1 using test_write_block_raw_fields.all_type tags('{\"a\":2}')"
+	sql = "create table t1 using all_type tags('{\"a\":2}')"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -566,18 +481,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "use test_write_block_raw_fields"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
-
-	sql = "select ts,c1 from test_write_block_raw_fields.t0"
+	sql = "select ts,c1 from t0"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -612,7 +516,7 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "select * from test_write_block_raw_fields.t1"
+	sql = "select * from t1"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -651,12 +555,12 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
-	for i := 2; i < 18; i++ {
+	for i := 2; i < 14; i++ {
 		assert.Nil(t, row1[i])
 	}
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 18; i++ {
+	for i := 1; i < 14; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
@@ -664,11 +568,8 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 // @author: xftan
 // @date: 2023/11/17 9:39
 // @description: test write raw block with reqid
-func TestTaosWriteRawBlockWithReqID(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
+func TestTaosWriteRawBlockWithReqID_3360(t *testing.T) {
+	database := "test_write_block_raw_with_reqid_3360"
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -676,7 +577,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw_with_reqid")
+	res := TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -686,7 +587,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw_with_reqid")
+		res = TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 		code = TaosError(res)
 		if code != 0 {
 			errStr := TaosErrorStr(res)
@@ -696,7 +597,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		}
 		TaosFreeResult(res)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw_with_reqid")
+	res = TaosQuery(conn, fmt.Sprintf("create database %s", database))
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -705,8 +606,15 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	// todo: TDengine not support taos_write_raw_block_with_reqid with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw_with_reqid.all_type (ts timestamp,"+
+
+	code = TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+
+	res = TaosQuery(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -719,11 +627,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20),"+
-		"c14 varbinary(20),"+
-		"c15 geometry(100),"+
-		"c16 decimal(8,4),"+
-		"c17 decimal(20,4)"+
+		"c13 nchar(20)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -735,9 +639,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw_with_reqid.t0 using test_write_block_raw_with_reqid.all_type tags('{\"a\":1}') values"+
-		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into t0 using all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -748,7 +650,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "create table test_write_block_raw_with_reqid.t1 using test_write_block_raw_with_reqid.all_type tags('{\"a\":2}')"
+	sql = "create table t1 using all_type tags('{\"a\":2}')"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -759,18 +661,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "use test_write_block_raw_with_reqid"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
-
-	sql = "select * from test_write_block_raw_with_reqid.t0"
+	sql = "select * from t0"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -803,7 +694,7 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "select * from test_write_block_raw_with_reqid.t1"
+	sql = "select * from t1"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -854,35 +745,9 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	assert.Equal(t, float64(1), row1[11].(float64))
 	assert.Equal(t, "test_binary", row1[12].(string))
 	assert.Equal(t, "test_nchar", row1[13].(string))
-	assert.Equal(t, []byte("test_varbinary"), row1[14].([]byte))
-	assert.Equal(t, []byte{
-		0x01,
-		0x01,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x00,
-		0x59,
-		0x40,
-	}, row1[15].([]byte))
-	assert.Equal(t, "123.4560", row1[16].(string))
-	assert.Equal(t, "123456.4560", row1[17].(string))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 18; i++ {
+	for i := 1; i < 14; i++ {
 		assert.Nil(t, row2[i])
 	}
 }
@@ -890,19 +755,15 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 // @author: xftan
 // @date: 2023/11/17 9:37
 // @description: test write raw block with fields and reqid
-func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
-	_, ok := os.LookupEnv("TD_3360_TEST")
-	if ok {
-		t.Skip("Skip 3.3.6.0 test")
-	}
+func TestTaosWriteRawBlockWithFieldsWithReqID_3360(t *testing.T) {
+	database := "test_write_block_raw_fields_with_reqid_3360"
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw_fields_with_reqid")
+	res := TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -912,7 +773,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields_with_reqid")
+		res = TaosQuery(conn, fmt.Sprintf("drop database if exists %s", database))
 		code = TaosError(res)
 		if code != 0 {
 			errStr := TaosErrorStr(res)
@@ -922,7 +783,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		}
 		TaosFreeResult(res)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw_fields_with_reqid")
+	res = TaosQuery(conn, fmt.Sprintf("create database %s", database))
 	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
@@ -931,8 +792,15 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		return
 	}
 	TaosFreeResult(res)
-	// todo: TDengine not support taos_write_raw_block_with_fields_with_reqid with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields_with_reqid.all_type (ts timestamp,"+
+
+	code = TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
+
+	res = TaosQuery(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -945,11 +813,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20),"+
-		"c14 varbinary(20),"+
-		"c15 geometry(100),"+
-		"c16 decimal(8,4),"+
-		"c17 decimal(20,4)"+
+		"c13 nchar(20)"+
 		") tags (info json)")
 	code = TaosError(res)
 	if code != 0 {
@@ -961,9 +825,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	TaosFreeResult(res)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_write_block_raw_fields_with_reqid.t0 using test_write_block_raw_fields_with_reqid.all_type tags('{\"a\":1}') values"+
-		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	sql := fmt.Sprintf("insert into t0 using all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -974,7 +836,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "create table test_write_block_raw_fields_with_reqid.t1 using test_write_block_raw_fields_with_reqid.all_type tags('{\"a\":2}')"
+	sql = "create table t1 using all_type tags('{\"a\":2}')"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -985,18 +847,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "use test_write_block_raw_fields_with_reqid"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
-
-	sql = "select ts,c1 from test_write_block_raw_fields_with_reqid.t0"
+	sql = "select ts,c1 from t0"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -1031,7 +882,7 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	}
 	TaosFreeResult(res)
 
-	sql = "select * from test_write_block_raw_fields_with_reqid.t1"
+	sql = "select * from t1"
 	res = TaosQuery(conn, sql)
 	code = TaosError(res)
 	if code != 0 {
@@ -1070,12 +921,12 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, row1[1].(bool))
-	for i := 2; i < 18; i++ {
+	for i := 2; i < 14; i++ {
 		assert.Nil(t, row1[i])
 	}
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 18; i++ {
+	for i := 1; i < 14; i++ {
 		assert.Nil(t, row2[i])
 	}
 }

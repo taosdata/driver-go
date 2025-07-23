@@ -3,6 +3,7 @@ package af
 import (
 	"database/sql/driver"
 	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -71,6 +72,10 @@ func TestNewStmt2(t *testing.T) {
 }
 
 func TestStmt2(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := Open("", "root", "taosdata", "", 0)
 	if !assert.NoError(t, err) {
 		return
@@ -112,13 +117,19 @@ func TestStmt2(t *testing.T) {
 		"v12 binary(20), " +
 		"v13 varbinary(20), " +
 		"v14 geometry(100), " +
-		"v15 nchar(20)) tags(tg binary(20))")
+		"v15 nchar(20), " +
+		"v16 blob" +
+		") tags(tg binary(20))")
 	assert.NoError(t, err)
-	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
+	var largeBlob = make([]byte, 1024*1024) // 1MB blob
+	for i := 0; i < len(largeBlob); i++ {
+		largeBlob[i] = 'a'
+	}
 	params := []*stmt.TaosStmt2BindData{
 		{
 			TableName: "中文0",
@@ -220,6 +231,11 @@ func TestStmt2(t *testing.T) {
 					nil,
 					"nchar2",
 				},
+				{
+					largeBlob,
+					nil,
+					largeBlob,
+				},
 			},
 		},
 	}
@@ -235,31 +251,52 @@ func TestStmt2(t *testing.T) {
 	if !assert.Equal(t, 3, affectedRows) {
 		return
 	}
-
+	// blob not support in stmt2 query
+	//err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? and v16 = ?")
 	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ?")
 	if !assert.NoError(t, err) {
 		return
 	}
+	expect := []driver.Value{
+		now.Add(time.Second * 2),
+		false,
+		int8(12),
+		int16(12),
+		int32(12),
+		int64(12),
+		uint8(12),
+		uint16(12),
+		uint32(12),
+		uint64(12),
+		float32(12.2),
+		float64(12.2),
+		"binary2",
+		[]byte("varbinary2"),
+		[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+		"nchar2",
+		largeBlob,
+	}
+	bind := [][]driver.Value{
+		{now.Add(time.Second * 2)},
+		{false},
+		{int8(12)},
+		{int16(12)},
+		{int32(12)},
+		{int64(12)},
+		{uint8(12)},
+		{uint16(12)},
+		{uint32(12)},
+		{uint64(12)},
+		{float32(12.2)},
+		{float64(12.2)},
+		{"binary2"},
+		{[]byte("varbinary2")},
+		{"point(100 100)"},
+		{"nchar2"},
+	}
 	queryParams := []*stmt.TaosStmt2BindData{
 		{
-			Cols: [][]driver.Value{
-				{now},
-				{true},
-				{int8(11)},
-				{int16(11)},
-				{int32(11)},
-				{int64(11)},
-				{uint8(11)},
-				{uint16(11)},
-				{uint32(11)},
-				{uint64(11)},
-				{float32(11.2)},
-				{float64(11.2)},
-				{"binary1"},
-				{[]byte("varbinary1")},
-				{"point(100 100)"},
-				{"nchar1"},
-			},
+			Cols: bind,
 		},
 	}
 	err = stmt2.Bind(queryParams)
@@ -278,13 +315,13 @@ func TestStmt2(t *testing.T) {
 		err = result.Close()
 		assert.NoError(t, err)
 	}()
-	dest := make([]driver.Value, 17)
+	dest := make([]driver.Value, 18)
 	err = result.Next(dest)
 	assert.NoError(t, err)
-	for i, col := range params[0].Cols {
-		assert.Equal(t, col[0], dest[i])
+	for i, col := range expect {
+		assert.Equal(t, col, dest[i])
 	}
-	assert.Equal(t, "中文 tag", dest[16])
+	assert.Equal(t, "中文 tag", dest[17])
 	err = result.Next(dest)
 	assert.ErrorIs(t, err, io.EOF)
 

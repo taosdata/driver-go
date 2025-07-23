@@ -78,10 +78,7 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
-	autoCommit := true
-	if config.AutoCommit == "false" {
-		autoCommit = false
-	}
+	autoCommit := config.AutoCommit != "false"
 	autoCommitInterval := time.Second * 5
 	if config.AutoCommitIntervalMS != "" {
 		interval, err := strconv.ParseUint(config.AutoCommitIntervalMS, 10, 64)
