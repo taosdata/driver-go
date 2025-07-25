@@ -158,11 +158,13 @@ type StmtUseResultRequest struct {
 
 type StmtUseResultResponse struct {
 	BaseResp
-	StmtID        uint64   `json:"stmt_id"`
-	ResultID      uint64   `json:"result_id"`
-	FieldsCount   int      `json:"fields_count"`
-	FieldsNames   []string `json:"fields_names"`
-	FieldsTypes   []uint8  `json:"fields_types"`
-	FieldsLengths []int64  `json:"fields_lengths"`
-	Precision     int      `json:"precision"`
+	StmtID           uint64   `json:"stmt_id"`
+	ResultID         uint64   `json:"result_id"`
+	FieldsCount      int      `json:"fields_count"`
+	FieldsNames      []string `json:"fields_names"`
+	FieldsTypes      []uint8  `json:"fields_types"`
+	FieldsLengths    []int64  `json:"fields_lengths"`
+	Precision        int      `json:"precision"`
+	FieldsPrecisions []int64  `json:"fields_precisions"`
+	FieldsScales     []int64  `json:"fields_scales"`
 }

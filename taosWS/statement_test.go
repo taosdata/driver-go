@@ -2239,3 +2239,64 @@ func TestStmtConvertQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestStmtDecimal(t *testing.T) {
+	testDbName := "test_ws_stmt_decimal"
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}(db)
+	defer func() {
+		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", testDbName))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", testDbName))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec(fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v decimal(8,4),v2 decimal (30,5))", testDbName))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	ts := now.UnixNano() / 1e6
+	_, err = db.Exec(fmt.Sprintf("insert into %s.ctb values(%d,123.456,12345678901234567890.12345)", testDbName, ts))
+	assert.NoError(t, err)
+	stmt, err := db.Prepare(fmt.Sprintf("select * from %s.ctb where ts = ?", testDbName))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = stmt.Close()
+		assert.NoError(t, err)
+	}()
+	rows, err := stmt.Query(now)
+	count := 0
+	assert.NoError(t, err)
+	for rows.Next() {
+		var c1 time.Time
+		var c2 string
+		var c3 string
+		err = rows.Scan(&c1, &c2, &c3)
+		assert.NoError(t, err)
+		count += 1
+		t.Log(c1, c2, c3)
+		assert.Equal(t, c2, "123.4560")
+		assert.Equal(t, c3, "12345678901234567890.12345")
+	}
+	assert.Equal(t, 1, count)
+}

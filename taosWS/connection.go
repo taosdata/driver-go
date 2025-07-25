@@ -461,17 +461,18 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	rs := &rows{
-		buf:           &bytes.Buffer{},
-		conn:          tc,
-		resultID:      resp.ResultID,
-		fieldsCount:   resp.FieldsCount,
-		fieldsNames:   resp.FieldsNames,
-		fieldsTypes:   resp.FieldsTypes,
-		fieldsLengths: resp.FieldsLengths,
-		precision:     resp.Precision,
-		isStmt:        true,
-	}
+	rs := newRows(
+		tc,
+		resp.ResultID,
+		resp.FieldsCount,
+		resp.FieldsNames,
+		resp.FieldsTypes,
+		resp.FieldsLengths,
+		resp.FieldsPrecisions,
+		resp.FieldsScales,
+		resp.Precision,
+		true,
+	)
 	return rs, nil
 }
 
@@ -505,18 +506,18 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 	if resp.IsUpdate {
 		return nil, NotQueryError
 	}
-	rs := &rows{
-		buf:              &bytes.Buffer{},
-		conn:             tc,
-		resultID:         resp.ID,
-		fieldsCount:      resp.FieldsCount,
-		fieldsNames:      resp.FieldsNames,
-		fieldsTypes:      resp.FieldsTypes,
-		fieldsLengths:    resp.FieldsLengths,
-		precision:        resp.Precision,
-		fieldsPrecisions: resp.FieldsPrecisions,
-		fieldsScales:     resp.FieldsScales,
-	}
+	rs := newRows(
+		tc,
+		resp.ID,
+		resp.FieldsCount,
+		resp.FieldsNames,
+		resp.FieldsTypes,
+		resp.FieldsLengths,
+		resp.FieldsPrecisions,
+		resp.FieldsScales,
+		resp.Precision,
+		false,
+	)
 	return rs, err
 }
 
