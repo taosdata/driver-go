@@ -33,6 +33,32 @@ type rows struct {
 	isStmt           bool
 }
 
+func newRows(
+	conn *taosConn,
+	resultID uint64,
+	fieldsCount int,
+	fieldsNames []string,
+	fieldsTypes []uint8,
+	fieldsLengths []int64,
+	fieldsPrecisions []int64,
+	fieldsScales []int64,
+	precision int,
+	isStmt bool,
+) *rows {
+	return &rows{
+		buf:              &bytes.Buffer{},
+		resultID:         resultID,
+		conn:             conn,
+		fieldsCount:      fieldsCount,
+		fieldsNames:      fieldsNames,
+		fieldsTypes:      fieldsTypes,
+		fieldsLengths:    fieldsLengths,
+		fieldsPrecisions: fieldsPrecisions,
+		fieldsScales:     fieldsScales,
+		precision:        precision,
+		isStmt:           isStmt,
+	}
+}
 func (rs *rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	if rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
 		return rs.fieldsPrecisions[index], rs.fieldsScales[index], true

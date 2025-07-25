@@ -62,35 +62,29 @@ func TestConsumer_3360(t *testing.T) {
 		}
 	}()
 	now := time.Now()
-	go func() {
-		err = doRequest("create table test_ws_tmq_3360.t_all(ts timestamp," +
-			"c1 bool," +
-			"c2 tinyint," +
-			"c3 smallint," +
-			"c4 int," +
-			"c5 bigint," +
-			"c6 tinyint unsigned," +
-			"c7 smallint unsigned," +
-			"c8 int unsigned," +
-			"c9 bigint unsigned," +
-			"c10 float," +
-			"c11 double," +
-			"c12 binary(20)," +
-			"c13 nchar(20)," +
-			"c14 varbinary(20)," +
-			"c15 geometry(100)," +
-			"c16 decimal(20,4)" +
-			")")
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		err = doRequest(fmt.Sprintf("insert into test_ws_tmq_3360.t_all values('%s',true,2,3,4,5,6,7,8,9,10.123,11.123,'binary','nchar','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+
+	err = doRequest("create table test_ws_tmq_3360.t_all(ts timestamp," +
+		"c1 bool," +
+		"c2 tinyint," +
+		"c3 smallint," +
+		"c4 int," +
+		"c5 bigint," +
+		"c6 tinyint unsigned," +
+		"c7 smallint unsigned," +
+		"c8 int unsigned," +
+		"c9 bigint unsigned," +
+		"c10 float," +
+		"c11 double," +
+		"c12 binary(20)," +
+		"c13 nchar(20)," +
+		"c14 varbinary(20)," +
+		"c15 geometry(100)," +
+		"c16 decimal(20,4)" +
+		")")
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
@@ -129,7 +123,7 @@ func TestConsumer_3360(t *testing.T) {
 		if gotData {
 			return
 		}
-		ev := consumer.Poll(0)
+		ev := consumer.Poll(10)
 		if ev != nil {
 			switch e := ev.(type) {
 			case *tmq.DataMessage:
@@ -186,11 +180,14 @@ func TestConsumer_3360(t *testing.T) {
 				return
 			}
 
-		}
-
-		if err != nil {
-			t.Error(err)
-			return
+		} else {
+			if i == 0 {
+				err = doRequest(fmt.Sprintf("insert into test_ws_tmq_3360.t_all values('%s',true,2,3,4,5,6,7,8,9,10.123,11.123,'binary','nchar','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+				if err != nil {
+					t.Error(err)
+					return
+				}
+			}
 		}
 	}
 	if !gotData {
