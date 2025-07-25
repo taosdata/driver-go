@@ -28,6 +28,10 @@ type TDEngineRestfulResp struct {
 var jsonI = jsoniter.ConfigCompatibleWithStandardLibrary
 
 func UnmarshalRestfulBody(body io.Reader, bufferSize int) (*TDEngineRestfulResp, error) {
+	return UnmarshalRestfulBodyWithTimezone(body, bufferSize, nil)
+}
+
+func UnmarshalRestfulBodyWithTimezone(body io.Reader, bufferSize int, loc *time.Location) (*TDEngineRestfulResp, error) {
 	var result TDEngineRestfulResp
 	iter := jsonI.BorrowIterator(make([]byte, bufferSize))
 	defer jsonI.ReturnIterator(iter)
@@ -66,6 +70,7 @@ func UnmarshalRestfulBody(body io.Reader, bufferSize int) (*TDEngineRestfulResp,
 								result.ColTypes = append(result.ColTypes, t)
 							} else {
 								iter.ReportError("unsupported type in column_meta", typeStr)
+								return false
 							}
 							result.Precisions = append(result.Precisions, 0)
 							result.Scales = append(result.Scales, 0)
@@ -134,10 +139,16 @@ func UnmarshalRestfulBody(body io.Reader, bufferSize int) (*TDEngineRestfulResp,
 						row[column] = iter.ReadString()
 					case TSDB_DATA_TYPE_TIMESTAMP:
 						b := iter.ReadString()
-						row[column], err = time.Parse(timeFormat, b)
+						var tm time.Time
+						tm, err = time.Parse(timeFormat, b)
 						if err != nil {
 							iter.ReportError("parse time", err.Error())
+							return false
 						}
+						if loc != nil {
+							tm = tm.In(loc)
+						}
+						row[column] = tm
 					case TSDB_DATA_TYPE_NCHAR:
 						row[column] = iter.ReadString()
 					case TSDB_DATA_TYPE_UTINYINT:
@@ -152,6 +163,7 @@ func UnmarshalRestfulBody(body io.Reader, bufferSize int) (*TDEngineRestfulResp,
 						data := iter.ReadStringAsSlice()
 						if len(data)%2 != 0 {
 							iter.ReportError("read varbinary", fmt.Sprintf("invalid length %s", string(data)))
+							return false
 						}
 						value := make([]byte, len(data)/2)
 						for i := 0; i < len(data); i += 2 {

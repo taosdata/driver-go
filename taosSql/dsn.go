@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -44,11 +45,12 @@ type Config struct {
 	Port                    int
 	DbName                  string            // Database name
 	Params                  map[string]string // Connection parameters
-	Loc                     *time.Location    // Location for time.Time values
+	Loc                     *time.Location    // Deprecated: never used
 	InterpolateParams       bool              // Interpolate placeholders into query string
 	ConfigPath              string
 	CgoThread               int
 	CgoAsyncHandlerPoolSize int
+	Timezone                *time.Location // Timezone for connection, e.g., "Asia%2FShanghai" or "UTC"
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -193,14 +195,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if err != nil {
 				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid cgoAsyncHandlerPoolSize value: " + value}
 			}
-
-		default:
-			// lazy init
-			if cfg.Params == nil {
-				cfg.Params = make(map[string]string)
+		case "timezone":
+			escapedValue, err := url.QueryUnescape(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "can not unescape timezone value: " + value + ", " + err.Error()}
 			}
-
-			if cfg.Params[param[0]], err = url.QueryUnescape(value); err != nil {
+			cfg.Timezone, err = common.ParseTimezone(escapedValue)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid timezone value: " + escapedValue + ", " + err.Error()}
+			}
+		default:
+			if err = setParam(cfg, param[0], value); err != nil {
 				return
 			}
 		}
@@ -209,6 +214,18 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 	return
 }
 
+func setParam(cfg *Config, key, value string) error {
+	// lazy init
+	var err error
+	if cfg.Params == nil {
+		cfg.Params = make(map[string]string)
+	}
+
+	if cfg.Params[key], err = url.QueryUnescape(value); err != nil {
+		return err
+	}
+	return nil
+}
 func tryUnescape(s string) string {
 	if res, err := url.QueryUnescape(s); err == nil {
 		return res

@@ -1,8 +1,8 @@
 package stmt
 
 import (
-	"bytes"
 	"encoding/binary"
+	"time"
 
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/serializer"
@@ -11,6 +11,7 @@ import (
 
 type Stmt struct {
 	connector    *WSConn
+	timezone     *time.Location
 	id           uint64
 	lastAffected int
 }
@@ -229,19 +230,7 @@ func (s *Stmt) UseResult() (*Rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{
-		buf:              &bytes.Buffer{},
-		conn:             s.connector,
-		client:           s.connector.client,
-		resultID:         resp.ResultID,
-		fieldsCount:      resp.FieldsCount,
-		fieldsNames:      resp.FieldsNames,
-		fieldsTypes:      resp.FieldsTypes,
-		fieldsLengths:    resp.FieldsLengths,
-		precision:        resp.Precision,
-		fieldsPrecisions: resp.FieldsPrecisions,
-		fieldsScales:     resp.FieldsScales,
-	}, nil
+	return NewRows(s.connector, s.connector.client, &resp, s.timezone), nil
 }
 
 func (s *Stmt) Close() error {

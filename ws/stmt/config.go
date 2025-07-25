@@ -2,6 +2,7 @@ package stmt
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -10,6 +11,7 @@ type Config struct {
 	ChanLength          uint
 	MessageTimeout      time.Duration
 	WriteWait           time.Duration
+	Timezone            *time.Location
 	ErrorHandler        func(connector *Connector, err error)
 	CloseHandler        func()
 	User                string
@@ -40,6 +42,21 @@ func (c *Config) SetConnectPass(pass string) error {
 }
 func (c *Config) SetConnectDB(db string) error {
 	c.DB = db
+	return nil
+}
+
+func (c *Config) SetConnectionTimezone(timezone string) error {
+	if timezone == "" {
+		return errors.New("invalid timezone value: empty string")
+	}
+	if strings.ToLower(timezone) == "local" {
+		return errors.New("invalid timezone value: 'local'")
+	}
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		return errors.New("invalid timezone value: " + timezone + ", " + err.Error())
+	}
+	c.Timezone = loc
 	return nil
 }
 

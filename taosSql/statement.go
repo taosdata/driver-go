@@ -100,13 +100,7 @@ func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    handler,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-		isStmt:     true,
-	}
+	rs := newRows(handler, rowsHeader, res, precision, true, stmt.tc.timezone)
 	return rs, nil
 }
 

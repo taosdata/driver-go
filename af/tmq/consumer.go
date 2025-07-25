@@ -1,7 +1,9 @@
 package tmq
 
 import (
+	"database/sql/driver"
 	"errors"
+	"time"
 	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
@@ -15,6 +17,7 @@ import (
 type Consumer struct {
 	cConsumer  unsafe.Pointer
 	dataParser *parser.TMQRawDataParser
+	timezone   *time.Location
 }
 
 // NewConsumer Create new TMQ consumer with TMQ config
@@ -31,6 +34,7 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 	consumer := &Consumer{
 		cConsumer:  cConsumer,
 		dataParser: parser.NewTMQRawDataParser(),
+		timezone:   confStruct.timezone,
 	}
 	return consumer, nil
 }
@@ -43,6 +47,15 @@ func configMapToConfig(m *tmq.ConfigMap) (*config, error) {
 		if !ok {
 			c.destroy()
 			return nil, errors.New("config value requires string")
+		}
+		if k == "timezone" {
+			tz, err := common.ParseTimezone(vv)
+			if err != nil {
+				c.destroy()
+				return nil, err
+			}
+			c.timezone = tz
+			continue
 		}
 		err := c.setConfig(k, vv)
 		if err != nil {
@@ -188,7 +201,12 @@ func (c *Consumer) getData(message unsafe.Pointer) ([]*tmq.Data, error) {
 	}
 	var tmqData []*tmq.Data
 	for i := 0; i < len(blockInfos); i++ {
-		data, err := parser.ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision)
+		var data [][]driver.Value
+		if c.timezone == nil {
+			data, err = parser.ReadBlockSimple(blockInfos[i].RawBlock, blockInfos[i].Precision)
+		} else {
+			data, err = parser.ReadBlockSimpleWithTimeFormat(blockInfos[i].RawBlock, blockInfos[i].Precision, c.FormatTime)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -198,6 +216,10 @@ func (c *Consumer) getData(message unsafe.Pointer) ([]*tmq.Data, error) {
 		})
 	}
 	return tmqData, nil
+}
+
+func (c *Consumer) FormatTime(ts int64, precision int) driver.Value {
+	return common.TimestampConvertToTimeWithLocation(ts, precision, c.timezone)
 }
 
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {

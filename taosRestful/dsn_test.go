@@ -2,6 +2,7 @@ package taosRestful
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -10,6 +11,8 @@ import (
 // @date: 2022/2/8 12:52
 // @description: test parse dsn
 func TestParseDsn(t *testing.T) {
+	shanghaiTimezone, err := time.LoadLocation("Asia/Shanghai")
+	assert.NoError(t, err)
 	tcs := []struct {
 		name string
 		dsn  string
@@ -262,6 +265,64 @@ func TestParseDsn(t *testing.T) {
 				Token:              "",
 				SkipVerify:         false,
 			},
+		},
+		{
+			name: "timezone",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Asia%2FShanghai",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "http",
+				Addr:               "ab:cd:ef:ab::cd:ef",
+				Port:               6041,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+				Timezone:           shanghaiTimezone,
+			},
+		},
+		{
+			name: "timezone with utc",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=UTC",
+			want: &Config{
+				User:               "user",
+				Passwd:             "passwd",
+				Net:                "http",
+				Addr:               "ab:cd:ef:ab::cd:ef",
+				Port:               6041,
+				DbName:             "dbname",
+				Params:             nil,
+				InterpolateParams:  true,
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				Token:              "",
+				SkipVerify:         false,
+				Timezone:           time.UTC,
+			},
+		},
+		{
+			name: "empty timezone",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=",
+			errs: "invalid timezone value: , empty string",
+		},
+		{
+			name: "invalid timezone",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Invalid%2FTimezone",
+			errs: "invalid timezone value: Invalid/Timezone, unknown time zone Invalid/Timezone",
+		},
+		{
+			name: "timezone with invalid unescaped characters",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Asia%2Shanghai",
+			errs: "can not unescape timezone value: Asia%2Shanghai, invalid URL escape \"%2S\"",
+		},
+		{
+			name: "timezone Local",
+			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Local",
+			errs: "invalid timezone value: Local, timezone cannot be 'Local'",
 		},
 	}
 	for _, tc := range tcs {

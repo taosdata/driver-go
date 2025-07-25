@@ -37,9 +37,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		asyncHandlerPool = handler.NewHandlerPool(poolSize)
 	})
 	var err error
-	tc := &taosConn{
-		cfg: c.cfg,
-	}
+	tc := newTaosConn(c.cfg)
 	if c.cfg.Net == "cfg" && len(c.cfg.ConfigPath) > 0 {
 		once.Do(func() {
 			locker.Lock()
@@ -67,12 +65,18 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 	locker.Lock()
-	tc.taos, err = wrapper.TaosConnect(tc.cfg.Addr, tc.cfg.User, tc.cfg.Passwd, tc.cfg.DbName, tc.cfg.Port)
+	taos, err := wrapper.TaosConnect(tc.cfg.Addr, tc.cfg.User, tc.cfg.Passwd, tc.cfg.DbName, tc.cfg.Port)
 	locker.Unlock()
 	if err != nil {
 		return nil, err
 	}
-
+	code := wrapper.TaosOptionsConnection(taos, common.TSDB_OPTION_CONNECTION_TIMEZONE, &tc.timezoneStr)
+	if code != 0 {
+		err = errors.NewError(code, wrapper.TaosErrorStr(nil))
+		wrapper.TaosFreeResult(taos)
+		return nil, err
+	}
+	tc.taos = taos
 	return tc, nil
 }
 

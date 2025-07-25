@@ -3,6 +3,7 @@ package af
 import "C"
 import (
 	"database/sql/driver"
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/af/async"
@@ -16,7 +17,8 @@ import (
 )
 
 type Connector struct {
-	taos unsafe.Pointer
+	taos     unsafe.Pointer
+	timezone *time.Location
 }
 
 // NewConnector New connector with TDengine connection
@@ -44,6 +46,21 @@ func Open(host, user, pass, db string, port int) (*Connector, error) {
 	return &Connector{taos: tc}, nil
 }
 
+func (conn *Connector) SetTimezone(timezone string) error {
+	tz, err := common.ParseTimezone(timezone)
+	if err != nil {
+		return err
+	}
+	locker.Lock()
+	defer locker.Unlock()
+	code := wrapper.TaosOptionsConnection(conn.taos, common.TSDB_OPTION_CONNECTION_TIMEZONE, &timezone)
+	if code != 0 {
+		return errors.NewError(code, wrapper.TaosErrorStr(nil))
+	}
+	conn.timezone = tz
+	return nil
+}
+
 // Close Release TDengine connection
 func (conn *Connector) Close() error {
 	locker.Lock()
@@ -59,7 +76,7 @@ func (conn *Connector) StmtExecute(sql string, params *param.Param) (res driver.
 	if stmt == nil {
 		return nil, &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 	}
-
+	stmt.SetTimezone(conn.timezone)
 	defer func() {
 		_ = stmt.Close()
 	}()
@@ -73,7 +90,7 @@ func (conn *Connector) StmtExecuteWithReqID(sql string, params *param.Param, req
 		err = &errors.TaosError{Code: 0xffff, ErrStr: "failed to init stmt"}
 		return
 	}
-
+	stmt.SetTimezone(conn.timezone)
 	defer func() {
 		_ = stmt.Close()
 	}()
@@ -205,12 +222,7 @@ func (conn *Connector) processQueryResult(result *handler.AsyncResult, h *handle
 		return nil, err
 	}
 	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    h,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-	}
+	rs := newRows(h, res, rowsHeader, precision, false, conn.timezone)
 	return rs, nil
 }
 
@@ -233,12 +245,20 @@ func (conn *Connector) InsertStmt() *insertstmt.InsertStmt {
 
 // Stmt Prepare stmt
 func (conn *Connector) Stmt() *Stmt {
-	return NewStmt(conn.taos)
+	stmt := NewStmt(conn.taos)
+	if stmt != nil {
+		stmt.SetTimezone(conn.timezone)
+	}
+	return stmt
 }
 
 // Stmt2 Prepare stmt2
 func (conn *Connector) Stmt2(reqID int64, singleTableBindOnce bool) *Stmt2 {
-	return NewStmt2(conn.taos, reqID, singleTableBindOnce)
+	stmt2 := NewStmt2(conn.taos, reqID, singleTableBindOnce)
+	if stmt2 != nil {
+		stmt2.SetTimezone(conn.timezone)
+	}
+	return stmt2
 }
 
 // InsertStmtWithReqID Prepare batch insert stmt with reqID

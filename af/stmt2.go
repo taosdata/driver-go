@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/af/async"
@@ -24,6 +25,7 @@ type Stmt2 struct {
 	affectedRows int
 	queryResult  unsafe.Pointer
 	handle       cgo.Handle
+	timezone     *time.Location
 }
 
 type Stmt2Result struct {
@@ -88,6 +90,10 @@ func NewStmt2(taosConn unsafe.Pointer, reqID int64, singleTableBindOnce bool) *S
 		handle: handle,
 		caller: caller,
 	}
+}
+
+func (s *Stmt2) SetTimezone(tz *time.Location) {
+	s.timezone = tz
 }
 
 func (s *Stmt2) Prepare(sql string) error {
@@ -180,13 +186,7 @@ func (s *Stmt2) UseResult() (driver.Rows, error) {
 	}
 	h := async.GetHandler()
 	precision := wrapper.TaosResultPrecision(s.queryResult)
-	rs := &rows{
-		handler:    h,
-		rowsHeader: rowsHeader,
-		result:     s.queryResult,
-		precision:  precision,
-		isStmt:     true,
-	}
+	rs := newRows(h, s.queryResult, rowsHeader, precision, true, s.timezone)
 	return rs, nil
 }
 

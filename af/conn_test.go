@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	param2 "github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -1085,6 +1086,32 @@ func TestDecimal(t *testing.T) {
 	assert.Equal(t, "20.4000", values[2])
 	err = rows.Next(values)
 	assert.Equal(t, io.EOF, err)
+	err = rows.Close()
+	assert.NoError(t, err)
+}
+
+func TestTimezone(t *testing.T) {
+	db := testDatabase(t)
+	dbParis := testDatabase(t)
+	tz := "Europe/Paris"
+	timezone, err := time.LoadLocation(tz)
+	require.NoError(t, err)
+	err = dbParis.SetTimezone(tz)
+	require.NoError(t, err)
+	_, err = db.Exec("create table test_timezone (ts timestamp, v int)")
+	assert.NoError(t, err)
+	now := time.Now().Round(time.Millisecond)
+	_, err = db.Exec(fmt.Sprintf("insert into test_timezone values ('%s', 10)", now.Format("2006-01-02 15:04:05.000")))
+	assert.NoError(t, err)
+	rows, err := dbParis.Query("select * from test_timezone")
+	assert.NoError(t, err)
+	values := make([]driver.Value, 2)
+	err = rows.Next(values)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(values))
+	t.Logf("ts: %v, v: %v", values[0], values[1])
+	assert.Equal(t, timezone, values[0].(time.Time).Location())
+	assert.Equal(t, now.UnixNano(), values[0].(time.Time).UnixNano())
 	err = rows.Close()
 	assert.NoError(t, err)
 }

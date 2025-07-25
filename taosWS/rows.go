@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -31,6 +32,7 @@ type rows struct {
 	fieldsScales     []int64
 	precision        int
 	isStmt           bool
+	timezone         *time.Location
 }
 
 func newRows(
@@ -44,6 +46,7 @@ func newRows(
 	fieldsScales []int64,
 	precision int,
 	isStmt bool,
+	timezone *time.Location,
 ) *rows {
 	return &rows{
 		buf:              &bytes.Buffer{},
@@ -57,6 +60,7 @@ func newRows(
 		fieldsScales:     fieldsScales,
 		precision:        precision,
 		isStmt:           isStmt,
+		timezone:         timezone,
 	}
 }
 func (rs *rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
@@ -115,12 +119,21 @@ func (rs *rows) Next(dest []driver.Value) error {
 		rs.block = nil
 		return io.EOF
 	}
-	err := parser.ReadRow(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales)
+	var err error
+	if rs.timezone != nil {
+		err = parser.ReadRowWithTimeFormat(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales, rs.FormatTime)
+	} else {
+		err = parser.ReadRow(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales)
+	}
 	if err != nil {
 		return err
 	}
 	rs.blockOffset += 1
 	return nil
+}
+
+func (rs *rows) FormatTime(ts int64, precision int) driver.Value {
+	return common.TimestampConvertToTimeWithLocation(ts, precision, rs.timezone)
 }
 
 func (rs *rows) taosFetchBlock() error {

@@ -5,7 +5,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -32,6 +34,7 @@ type Config struct {
 	ReadBufferSize     int
 	Token              string // cloud platform Token
 	SkipVerify         bool
+	Timezone           *time.Location // Timezone for connection, e.g., "Asia%2FShanghai" or "UTC"
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -161,6 +164,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.SkipVerify, err = strconv.ParseBool(value)
 			if err != nil {
 				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid bool value: " + value}
+			}
+		case "timezone":
+			escapedValue, err := url.QueryUnescape(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "can not unescape timezone value: " + value + ", " + err.Error()}
+			}
+			cfg.Timezone, err = common.ParseTimezone(escapedValue)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid timezone value: " + escapedValue + ", " + err.Error()}
 			}
 		default:
 			// lazy init

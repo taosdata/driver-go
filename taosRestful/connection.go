@@ -24,6 +24,8 @@ type taosConn struct {
 	cfg            *Config
 	client         *http.Client
 	url            *url.URL
+	timezone       *time.Location
+	timezoneStr    string
 	baseRawQuery   string
 	header         map[string][]string
 	readBufferSize int
@@ -34,7 +36,11 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	if readBufferSize <= 0 {
 		readBufferSize = 4 << 10
 	}
-	tc := &taosConn{cfg: cfg, readBufferSize: readBufferSize}
+	tc := &taosConn{
+		cfg:            cfg,
+		timezone:       cfg.Timezone,
+		readBufferSize: readBufferSize,
+	}
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -67,8 +73,13 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	tc.header = map[string][]string{
 		"Connection": {"keep-alive"},
 	}
+	baseRawQueryBuilder := strings.Builder{}
+	baseRawQueryBuilder.WriteString("app=")
+	processName := common.GetProcessName()
+	baseRawQueryBuilder.WriteString(url.QueryEscape(processName))
 	if cfg.Token != "" {
-		tc.baseRawQuery = fmt.Sprintf("token=%s", cfg.Token)
+		baseRawQueryBuilder.WriteString("&token=")
+		baseRawQueryBuilder.WriteString(cfg.Token)
 	} else {
 		basic := base64.StdEncoding.EncodeToString([]byte(cfg.User + ":" + cfg.Passwd))
 		tc.header["Authorization"] = []string{fmt.Sprintf("Basic %s", basic)}
@@ -76,6 +87,12 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	if !cfg.DisableCompression {
 		tc.header["Accept-Encoding"] = []string{"gzip"}
 	}
+	if cfg.Timezone != nil {
+		tc.timezoneStr = url.QueryEscape(cfg.Timezone.String())
+		baseRawQueryBuilder.WriteString("&conn_tz=")
+		baseRawQueryBuilder.WriteString(tc.timezoneStr)
+	}
+	tc.baseRawQuery = baseRawQueryBuilder.String()
 	return tc, nil
 }
 
@@ -167,11 +184,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 	if reqIDValue == 0 {
 		reqIDValue = common.GetReqID()
 	}
-	if tc.baseRawQuery != "" {
-		tc.url.RawQuery = fmt.Sprintf("%s&req_id=%d", tc.baseRawQuery, reqIDValue)
-	} else {
-		tc.url.RawQuery = fmt.Sprintf("req_id=%d", reqIDValue)
-	}
+	tc.url.RawQuery = fmt.Sprintf("%s&req_id=%d", tc.baseRawQuery, reqIDValue)
 	body := ioutil.NopCloser(strings.NewReader(sql))
 	req := &http.Request{
 		Method:     http.MethodPost,
@@ -210,7 +223,7 @@ func (tc *taosConn) taosQuery(ctx context.Context, sql string, bufferSize int) (
 			return nil, err
 		}
 	}
-	data, err := common.UnmarshalRestfulBody(respBody, bufferSize)
+	data, err := common.UnmarshalRestfulBodyWithTimezone(respBody, bufferSize, tc.timezone)
 	if err != nil {
 		return nil, err
 	}

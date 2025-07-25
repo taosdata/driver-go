@@ -54,6 +54,8 @@ var (
 type taosConn struct {
 	buf          *bytes.Buffer
 	client       *websocket.Conn
+	timezone     *time.Location
+	timezoneStr  string
 	writeLock    sync.Mutex
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -100,12 +102,16 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	tc := &taosConn{
 		buf:          &bytes.Buffer{},
 		client:       ws,
+		timezone:     cfg.Timezone,
 		readTimeout:  cfg.ReadTimeout,
 		writeTimeout: cfg.WriteTimeout,
 		cfg:          cfg,
 		endpoint:     endpoint,
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
+	}
+	if cfg.Timezone != nil {
+		tc.timezoneStr = cfg.Timezone.String()
 	}
 	err = tdversion.WSCheckVersion(ws)
 	if err != nil {
@@ -472,6 +478,7 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 		resp.FieldsScales,
 		resp.Precision,
 		true,
+		tc.timezone,
 	)
 	return rs, nil
 }
@@ -517,6 +524,7 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		resp.FieldsScales,
 		resp.Precision,
 		false,
+		tc.timezone,
 	)
 	return rs, err
 }
@@ -574,6 +582,8 @@ func (tc *taosConn) connect() error {
 		User:     tc.cfg.User,
 		Password: tc.cfg.Passwd,
 		DB:       tc.cfg.DbName,
+		TZ:       tc.timezoneStr,
+		App:      common.GetProcessName(),
 	}
 	args, err := jsonI.Marshal(req)
 	if err != nil {

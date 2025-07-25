@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/types"
 )
 
@@ -568,4 +569,84 @@ func TestConnect(t *testing.T) {
 	assert.NoError(t, err)
 	driver := conn.Driver()
 	assert.Equal(t, &TDengineDriver{}, driver)
+}
+
+func TestTimezone(t *testing.T) {
+	parisConn, err := sql.Open("taosRestful", dataSourceNameWithParisTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shanghaiConn, err := sql.Open("taosRestful", dataSourceNameWithShanghaiTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err = parisConn.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = shanghaiConn.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	err = parisConn.Ping()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = shanghaiConn.Ping()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := "rest_test_timezone"
+	defer func() {
+		_, err = parisConn.Exec(fmt.Sprintf("drop database if exists %s", database))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	_, err = parisConn.Exec(fmt.Sprintf("create database if not exists %s", database))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = parisConn.Exec(fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v int)", database))
+	require.NoError(t, err)
+	shanghaiTimezone, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	now := time.Now().Round(time.Millisecond)
+	shanghaiNow := now.In(shanghaiTimezone)
+	shanghaiTime := shanghaiNow.Format("2006-01-02 15:04:05.000")
+	parisNow := now.In(parisTimezone)
+	parisTime := parisNow.Format("2006-01-02 15:04:05.000")
+	t.Log(shanghaiTime)
+	t.Log(parisTime)
+	t.Log(now)
+	t.Log(shanghaiNow)
+	t.Log(parisNow)
+	// insert with shanghai timezone
+	insertSql := fmt.Sprintf("insert into %s.ctb values ('%s',1)", database, shanghaiTime)
+	t.Log(insertSql)
+	_, err = shanghaiConn.Exec(insertSql)
+	require.NoError(t, err)
+	// query with paris timezone
+	querySql := fmt.Sprintf("select * from %s.ctb where ts = '%s'", database, parisTime)
+	t.Log(querySql)
+	rows, err := parisConn.Query(querySql)
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		var ts time.Time
+		var v int
+		err := rows.Scan(&ts, &v)
+		require.NoError(t, err)
+		t.Log(ts)
+		assert.NotEqual(t, ts, now)
+		assert.Equal(t, parisTimezone, ts.Location())
+		assert.Equal(t, shanghaiNow.UnixNano()/1e6, ts.UnixNano()/1e6)
+		assert.Equal(t, 1, v)
+		count += 1
+	}
+	assert.Equal(t, 1, count)
 }
