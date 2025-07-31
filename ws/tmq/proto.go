@@ -21,8 +21,6 @@ type SubscribeReq struct {
 	WithTableName        string            `json:"with_table_name"`
 	SessionTimeoutMS     string            `json:"session_timeout_ms"`
 	MaxPollIntervalMS    string            `json:"max_poll_interval_ms"`
-	TZ                   string            `json:"tz"`
-	App                  string            `json:"app"`
 	Config               map[string]string `json:"config"`
 }
 

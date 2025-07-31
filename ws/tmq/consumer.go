@@ -496,10 +496,6 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 		SessionTimeoutMS:  c.sessionTimeoutMS,
 		MaxPollIntervalMS: c.maxPollIntervalMS,
 		Config:            c.otherOptions,
-		App:               common.GetProcessName(),
-	}
-	if c.timezone != nil {
-		req.TZ = c.timezone.String()
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
