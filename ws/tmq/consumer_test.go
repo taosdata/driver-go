@@ -15,6 +15,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
@@ -1340,4 +1341,108 @@ func TestPollMultiTimes(t *testing.T) {
 		t.Error(err)
 		return
 	}
+}
+
+func prepareTimezoneEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_timezone_topic",
+		"drop database if exists test_ws_tmq_timezone",
+		"create database test_ws_tmq_timezone vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_timezone_topic as database test_ws_tmq_timezone",
+		"create table test_ws_tmq_timezone.t1(ts timestamp,v int)",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanTimezoneEnv() error {
+	steps := []string{
+		"drop topic if exists test_ws_tmq_timezone_topic",
+		"drop database if exists test_ws_tmq_timezone",
+	}
+	var err error
+	for i := 0; i < 10; i++ {
+		err = doClean(steps)
+		if err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		} else {
+			return nil
+		}
+	}
+	return err
+}
+
+func TestTimezone(t *testing.T) {
+	err := prepareTimezoneEnv()
+	assert.NoError(t, err)
+	defer func() {
+		err = cleanTimezoneEnv()
+		assert.NoError(t, err)
+	}()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:6041",
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      common.DefaultMessageTimeout,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
+		"timezone":                "Europe/Paris",
+	})
+	assert.NoError(t, err)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
+	}()
+	topic := []string{"test_ws_tmq_timezone_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	nowStr := now.Format(time.RFC3339Nano)
+	err = doRequest(fmt.Sprintf("insert into test_ws_tmq_timezone.t1 values('%s',1)", nowStr))
+	require.NoError(t, err)
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			data := e.Value().([]*tmq.Data)
+			assert.Equal(t, "test_ws_tmq_timezone", e.DBName())
+			assert.Equal(t, 1, len(data))
+			assert.Equal(t, "t1", data[0].TableName)
+			assert.Equal(t, 1, len(data[0].Data))
+			assert.Equal(t, 2, len(data[0].Data[0]))
+			recordTime := data[0].Data[0][0].(time.Time)
+			assert.Equal(t, parisTimezone, recordTime.Location())
+			assert.Equal(t, now.UnixNano()/1e6, recordTime.UnixNano()/1e6)
+			assert.Equal(t, int32(1), data[0].Data[0][1].(int32))
+			return
+		}
+	}
+	t.Error("no message got")
 }

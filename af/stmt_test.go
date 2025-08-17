@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 )
@@ -115,4 +116,53 @@ func TestStmtQueryResultWithDecimal(t *testing.T) {
 	assert.Equal(t, data[2].(string), "12345678901234567890.12300")
 	err = result.Next(data)
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+func TestStmtTimezone(t *testing.T) {
+	db := testDatabase(t)
+	tz := "Europe/Paris"
+	timezone, err := time.LoadLocation(tz)
+	require.NoError(t, err)
+	err = db.SetTimezone(tz)
+	require.NoError(t, err)
+	_, err = db.Exec("create table test_stmt_timezone (ts timestamp,v int)")
+	assert.NoError(t, err)
+	stmt := db.Stmt()
+	err = stmt.Prepare("insert into ? values(?,?)")
+	assert.NoError(t, err)
+	err = stmt.SetTableName("test_stmt_timezone")
+	assert.NoError(t, err)
+	now := time.Now().Round(time.Millisecond)
+	err = stmt.BindRow(param.NewParam(2).AddTimestamp(now, common.PrecisionMicroSecond).AddInt(1))
+	assert.NoError(t, err)
+	err = stmt.AddBatch()
+	assert.NoError(t, err)
+	err = stmt.Execute()
+	assert.NoError(t, err)
+	affected := stmt.GetAffectedRows()
+	assert.Equal(t, int(1), affected)
+	err = stmt.Prepare("select * from test_stmt_timezone where ts = ?")
+	assert.NoError(t, err)
+	err = stmt.BindRow(param.NewParam(1).AddBinary([]byte(now.Format("2006-01-02 15:04:05.000"))))
+	assert.NoError(t, err)
+	err = stmt.AddBatch()
+	assert.NoError(t, err)
+	err = stmt.Execute()
+	assert.NoError(t, err)
+	rows, err := stmt.UseResult()
+	assert.NoError(t, err)
+	dest := make([]driver.Value, 2)
+	err = rows.Next(dest)
+	assert.NoError(t, err)
+	assert.Equal(t, timezone, dest[0].(time.Time).Location())
+	assert.Equal(t, now.UnixNano(), dest[0].(time.Time).UnixNano())
+	assert.Equal(t, int32(1), dest[1].(int32))
+	err = rows.Next(dest)
+	assert.ErrorIs(t, err, io.EOF)
+	err = rows.Close()
+	assert.NoError(t, err)
+	err = stmt.Close()
+	assert.NoError(t, err)
+	err = db.Close()
+	assert.NoError(t, err)
 }

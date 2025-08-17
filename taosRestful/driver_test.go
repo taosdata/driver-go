@@ -41,14 +41,16 @@ func testMain(m *testing.M) int {
 }
 
 var (
-	driverName                    = "taosRestful"
-	user                          = "root"
-	password                      = "taosdata"
-	host                          = "127.0.0.1"
-	port                          = 6041
-	dbName                        = "test_taos_restful"
-	dataSourceName                = fmt.Sprintf("%s:%s@http(%s:%d)/", user, password, host, port)
-	dataSourceNameWithCompression = fmt.Sprintf("%s:%s@http(%s:%d)/?disableCompression=false", user, password, host, port)
+	driverName                         = "taosRestful"
+	user                               = "root"
+	password                           = "taosdata"
+	host                               = "127.0.0.1"
+	port                               = 6041
+	dbName                             = "test_taos_restful"
+	dataSourceName                     = fmt.Sprintf("%s:%s@http(%s:%d)/", user, password, host, port)
+	dataSourceNameWithCompression      = fmt.Sprintf("%s:%s@http(%s:%d)/?disableCompression=false", user, password, host, port)
+	dataSourceNameWithParisTimezone    = fmt.Sprintf("%s:%s@http(%s:%d)/?timezone=Europe%%2FParis", user, password, host, port)
+	dataSourceNameWithShanghaiTimezone = fmt.Sprintf("%s:%s@http(%s:%d)/?timezone=Asia%%2FShanghai", user, password, host, port)
 )
 
 type DBTest struct {

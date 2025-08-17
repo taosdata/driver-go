@@ -278,7 +278,7 @@ func rawConvertBlob(pHeader, pStart unsafe.Pointer, row int) driver.Value {
 	return result
 }
 
-func ReadBlockSimple(block unsafe.Pointer, precision int) ([][]driver.Value, error) {
+func ReadBlockSimpleWithTimeFormat(block unsafe.Pointer, precision int, formatFunc FormatTimeFunc) ([][]driver.Value, error) {
 	blockSize := RawBlockGetNumOfRows(block)
 	colCount := RawBlockGetNumOfCols(block)
 	colInfo := make([]RawBlockColInfo, colCount)
@@ -287,11 +287,14 @@ func ReadBlockSimple(block unsafe.Pointer, precision int) ([][]driver.Value, err
 	for i := int32(0); i < colCount; i++ {
 		colTypes[i] = uint8(colInfo[i].ColType)
 	}
-	return ReadBlock(block, int(blockSize), colTypes, precision)
+	return ReadBlockWithTimeFormat(block, int(blockSize), colTypes, precision, formatFunc)
 }
 
-// ReadBlock in-place
-func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int) ([][]driver.Value, error) {
+func ReadBlockSimple(block unsafe.Pointer, precision int) ([][]driver.Value, error) {
+	return ReadBlockSimpleWithTimeFormat(block, precision, nil)
+}
+
+func ReadBlockWithTimeFormat(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int, formatFunc FormatTimeFunc) ([][]driver.Value, error) {
 	err := validColumnType(colTypes)
 	if err != nil {
 		return nil, err
@@ -320,6 +323,9 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 			switch colTypes[column] {
 			case common.TSDB_DATA_TYPE_TIMESTAMP:
 				args = []interface{}{precision}
+				if formatFunc != nil {
+					args = append(args, formatFunc)
+				}
 			case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
 				_, _, scale := RawBlockGetDecimalInfo(block, column)
 				args = []interface{}{int(scale)}
@@ -340,7 +346,12 @@ func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision 
 	return r, nil
 }
 
-func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, colTypes []uint8, precision int, scales []int64) error {
+// ReadBlock in-place
+func ReadBlock(block unsafe.Pointer, blockSize int, colTypes []uint8, precision int) ([][]driver.Value, error) {
+	return ReadBlockWithTimeFormat(block, blockSize, colTypes, precision, nil)
+}
+
+func ReadRowWithTimeFormat(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, colTypes []uint8, precision int, scales []int64, formatFunc FormatTimeFunc) error {
 	err := validColumnType(colTypes)
 	if err != nil {
 		return err
@@ -364,7 +375,11 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 			} else {
 				switch colTypes[column] {
 				case common.TSDB_DATA_TYPE_TIMESTAMP:
-					dest[column] = convertF(pStart, row, precision)
+					if formatFunc != nil {
+						dest[column] = convertF(pStart, row, precision, formatFunc)
+					} else {
+						dest[column] = convertF(pStart, row, precision)
+					}
 				case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
 					dest[column] = convertF(pStart, row, int(scales[column]))
 				default:
@@ -375,6 +390,10 @@ func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, 
 		pHeader = pointer.AddUintptr(pStart, uintptr(colLength))
 	}
 	return nil
+}
+
+func ReadRow(dest []driver.Value, block unsafe.Pointer, blockSize int, row int, colTypes []uint8, precision int, scales []int64) error {
+	return ReadRowWithTimeFormat(dest, block, blockSize, row, colTypes, precision, scales, nil)
 }
 
 func validColumnType(colTypes []uint8) error {

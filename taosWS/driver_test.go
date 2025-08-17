@@ -42,14 +42,16 @@ func testMain(m *testing.M) int {
 }
 
 var (
-	driverName                    = "taosWS"
-	user                          = "root"
-	password                      = "taosdata"
-	host                          = "127.0.0.1"
-	port                          = 6041
-	dbName                        = "test_taos_ws"
-	dataSourceName                = fmt.Sprintf("%s:%s@ws(%s:%d)/", user, password, host, port)
-	dataSourceNameWithCompression = fmt.Sprintf("%s:%s@ws(%s:%d)/?enableCompression=true", user, password, host, port)
+	driverName                         = "taosWS"
+	user                               = "root"
+	password                           = "taosdata"
+	host                               = "127.0.0.1"
+	port                               = 6041
+	dbName                             = "test_taos_ws"
+	dataSourceName                     = fmt.Sprintf("%s:%s@ws(%s:%d)/", user, password, host, port)
+	dataSourceNameWithCompression      = fmt.Sprintf("%s:%s@ws(%s:%d)/?enableCompression=true", user, password, host, port)
+	dataSourceNameWithParisTimezone    = fmt.Sprintf("%s:%s@ws(%s:%d)/?timezone=Europe%%2FParis", user, password, host, port)
+	dataSourceNameWithShanghaiTimezone = fmt.Sprintf("%s:%s@ws(%s:%d)/?timezone=Asia%%2FShanghai", user, password, host, port)
 )
 
 type DBTest struct {

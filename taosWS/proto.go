@@ -27,6 +27,8 @@ type WSConnectReq struct {
 	User     string `json:"user"`
 	Password string `json:"password"`
 	DB       string `json:"db"`
+	TZ       string `json:"tz"`
+	App      string `json:"app"`
 }
 
 type WSConnectResp struct {

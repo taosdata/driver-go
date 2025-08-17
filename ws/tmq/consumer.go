@@ -3,6 +3,7 @@ package tmq
 import (
 	"container/list"
 	"context"
+	"database/sql/driver"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ type Consumer struct {
 	client              *client.Client
 	requestID           uint64
 	err                 error
+	timezone            *time.Location
 	dataParser          *parser.TMQRawDataParser
 	listLock            sync.RWMutex
 	sendChanList        *list.List
@@ -130,6 +132,7 @@ func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {
 		writeWait:           config.WriteWait,
 		otherOptions:        config.OtherOptions,
 		dialer:              &dialer,
+		timezone:            config.Timezone,
 	}
 	consumer.initClient(consumer.client)
 	return consumer, nil
@@ -201,6 +204,7 @@ var excludeConfig = map[string]struct{}{
 	"ws.reconnectRetryCount":       {},
 	"session.timeout.ms":           {},
 	"max.poll.interval.ms":         {},
+	"timezone":                     {},
 }
 
 func configMapToConfig(m tmq.ConfigMap) (*config, error) {
@@ -284,6 +288,10 @@ func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	timezone, err := m.Get("timezone", "")
+	if err != nil {
+		return nil, err
+	}
 	config := newConfig(url.(string), chanLen.(uint))
 	err = config.setMessageTimeout(messageTimeout.(time.Duration))
 	if err != nil {
@@ -308,6 +316,10 @@ func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	config.setReconnectRetryCount(reconnectRetryCount.(int))
 	config.setSessionTimeoutMS(sessionTimeoutMS.(string))
 	config.setMaxPollIntervalMS(maxPollIntervalMS.(string))
+	err = config.setTimezone(timezone.(string))
+	if err != nil {
+		return nil, err
+	}
 	for k, v := range m {
 		if _, ok := excludeConfig[k]; ok {
 			continue
@@ -728,7 +740,12 @@ func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 	}
 	tmqData := make([]*tmq.Data, len(blockInfo))
 	for i := 0; i < len(blockInfo); i++ {
-		data, err := parser.ReadBlockSimple(blockInfo[i].RawBlock, blockInfo[i].Precision)
+		var data [][]driver.Value
+		if c.timezone == nil {
+			data, err = parser.ReadBlockSimple(blockInfo[i].RawBlock, blockInfo[i].Precision)
+		} else {
+			data, err = parser.ReadBlockSimpleWithTimeFormat(blockInfo[i].RawBlock, blockInfo[i].Precision, c.FormatTime)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -738,6 +755,10 @@ func (c *Consumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 		}
 	}
 	return tmqData, nil
+}
+
+func (c *Consumer) FormatTime(ts int64, precision int) driver.Value {
+	return common.TimestampConvertToTimeWithLocation(ts, precision, c.timezone)
 }
 
 func (c *Consumer) Commit() ([]tmq.TopicPartition, error) {

@@ -11,7 +11,7 @@ import (
 // @date: 2022/1/27 16:18
 // @description: test dsn parse
 func TestParseDsn(t *testing.T) {
-	ShangHaiTimezone, err := time.LoadLocation("Asia/Shanghai")
+	shanghaiTimezone, err := time.LoadLocation("Asia/Shanghai")
 	assert.NoError(t, err)
 	tests := []struct {
 		name                    string
@@ -194,7 +194,6 @@ func TestParseDsn(t *testing.T) {
 					"maxWildCardsLength":    "100",
 					"maxNumOfOrderedRes":    "100000",
 					"keepColumnName":        "0",
-					"timezone":              "Asia/Shanghai",
 					"locale":                "C.UTF-8",
 					"charset":               "UTF-8",
 					"numOfLogLines":         "10000000",
@@ -221,6 +220,7 @@ func TestParseDsn(t *testing.T) {
 				ConfigPath:              "",
 				CgoThread:               0,
 				CgoAsyncHandlerPoolSize: 0,
+				Timezone:                shanghaiTimezone,
 			},
 		},
 		{
@@ -270,7 +270,7 @@ func TestParseDsn(t *testing.T) {
 				Port:                    0,
 				DbName:                  "wo",
 				Params:                  nil,
-				Loc:                     ShangHaiTimezone,
+				Loc:                     shanghaiTimezone,
 				InterpolateParams:       true,
 				ConfigPath:              "",
 				CgoThread:               8,
@@ -334,11 +334,11 @@ func TestParseDsn(t *testing.T) {
 		},
 		{
 			name: "ipv6",
-			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname",
+			dsn:  "user:passwd@tcp([ab:cd:ef:ab::cd:ef]:6041)/dbname",
 			want: &Config{
 				User:                    "user",
 				Passwd:                  "passwd",
-				Net:                     "http",
+				Net:                     "tcp",
 				Addr:                    "ab:cd:ef:ab::cd:ef",
 				Port:                    6041,
 				DbName:                  "dbname",
@@ -349,6 +349,64 @@ func TestParseDsn(t *testing.T) {
 				CgoThread:               0,
 				CgoAsyncHandlerPoolSize: 0,
 			},
+		},
+		{
+			name: "timezone",
+			dsn:  "user:passwd@net([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Asia%2FShanghai",
+			want: &Config{
+				User:                    "user",
+				Passwd:                  "passwd",
+				Net:                     "net",
+				Addr:                    "ab:cd:ef:ab::cd:ef",
+				Port:                    6041,
+				DbName:                  "dbname",
+				Params:                  nil,
+				Loc:                     time.UTC,
+				InterpolateParams:       true,
+				ConfigPath:              "",
+				CgoThread:               0,
+				CgoAsyncHandlerPoolSize: 0,
+				Timezone:                shanghaiTimezone,
+			},
+		},
+		{
+			name: "timezone with utc",
+			dsn:  "user:passwd@net([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=UTC",
+			want: &Config{
+				User:                    "user",
+				Passwd:                  "passwd",
+				Net:                     "net",
+				Addr:                    "ab:cd:ef:ab::cd:ef",
+				Port:                    6041,
+				DbName:                  "dbname",
+				Params:                  nil,
+				Loc:                     time.UTC,
+				InterpolateParams:       true,
+				ConfigPath:              "",
+				CgoThread:               0,
+				CgoAsyncHandlerPoolSize: 0,
+				Timezone:                time.UTC,
+			},
+		},
+		{
+			name: "empty timezone",
+			dsn:  "user:passwd@net([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=",
+			errs: "invalid timezone value: , empty string",
+		},
+		{
+			name: "invalid timezone",
+			dsn:  "user:passwd@net([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Invalid%2FTimezone",
+			errs: "invalid timezone value: Invalid/Timezone, unknown time zone Invalid/Timezone",
+		},
+		{
+			name: "timezone with invalid unescaped characters",
+			dsn:  "user:passwd@net([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Asia%2Shanghai",
+			errs: "can not unescape timezone value: Asia%2Shanghai, invalid URL escape \"%2S\"",
+		},
+		{
+			name: "timezone Local",
+			dsn:  "user:passwd@net([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Local",
+			errs: "invalid timezone value: Local, timezone cannot be 'Local'",
 		},
 	}
 	for _, tc := range tests {

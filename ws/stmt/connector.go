@@ -19,6 +19,7 @@ type Connector struct {
 	writeTimeout        time.Duration
 	readTimeout         time.Duration
 	config              *Config
+	timezone            *time.Location
 	customErrorHandler  func(*Connector, error)
 	customCloseHandler  func()
 	url                 string
@@ -74,7 +75,7 @@ func NewConnector(config *Config) (*Connector, error) {
 	if config.MessageTimeout <= 0 {
 		config.MessageTimeout = common.DefaultMessageTimeout
 	}
-	err = connect(ws, config.User, config.Password, config.DB, writeTimeout, readTimeout)
+	err = connect(ws, config.User, config.Password, config.DB, writeTimeout, readTimeout, config.Timezone)
 	if err != nil {
 		return nil, err
 	}
@@ -96,18 +97,23 @@ func NewConnector(config *Config) (*Connector, error) {
 		user:                config.User,
 		password:            config.Password,
 		db:                  config.DB,
+		timezone:            config.Timezone,
 	}
 	wsClient.ErrorHandler = connector.handleError
 	wsConn.initClient()
 	return connector, nil
 }
 
-func connect(ws *websocket.Conn, user string, password string, db string, writeTimeout time.Duration, readTimeout time.Duration) error {
+func connect(ws *websocket.Conn, user string, password string, db string, writeTimeout time.Duration, readTimeout time.Duration, timezone *time.Location) error {
 	req := &ConnectReq{
 		ReqID:    0,
 		User:     user,
 		Password: password,
 		DB:       db,
+		App:      common.GetProcessName(),
+	}
+	if timezone != nil {
+		req.TZ = timezone.String()
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {
@@ -168,7 +174,7 @@ func (c *Connector) reconnect() error {
 			continue
 		}
 		conn.EnableWriteCompression(c.dialer.EnableCompression)
-		err = connect(conn, c.user, c.password, c.db, c.writeTimeout, c.readTimeout)
+		err = connect(conn, c.user, c.password, c.db, c.writeTimeout, c.readTimeout, c.timezone)
 		if err != nil {
 			_ = conn.Close()
 			continue
@@ -250,6 +256,7 @@ func (c *Connector) Init() (*Stmt, error) {
 	s := &Stmt{
 		id:        resp.StmtID,
 		connector: c.client,
+		timezone:  c.timezone,
 	}
 	return s, nil
 }

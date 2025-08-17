@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common/stmt"
 )
 
@@ -81,7 +82,7 @@ func TestStmt2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	stmt2 := conn.Stmt2(0x12345678, false)
+	stmt2 := conn.Stmt2(0x12345678, true)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")
 		return
@@ -438,6 +439,80 @@ func TestStmt2QueryResultWithDecimal(t *testing.T) {
 	t.Log(data)
 	assert.Equal(t, data[1].(string), "123.4500")
 	assert.Equal(t, data[2].(string), "12345678901234567890.12300")
+	err = result.Next(data)
+	assert.ErrorIs(t, err, io.EOF)
+}
+
+func TestStmt2Timezone(t *testing.T) {
+	conn, err := Open("", "root", "taosdata", "", 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	tz := "Europe/Paris"
+	timezone, err := time.LoadLocation(tz)
+	require.NoError(t, err)
+	err = conn.SetTimezone(tz)
+	require.NoError(t, err)
+	stmt2 := conn.Stmt2(0x12345678, false)
+	if stmt2 == nil {
+		t.Errorf("Expected stmt to be not nil")
+		return
+	}
+	defer func() {
+		err = stmt2.Close()
+		assert.NoError(t, err)
+	}()
+	_, err = conn.Exec("create database if not exists stmt2_timezone_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		_, err = conn.Exec("drop database if exists stmt2_timezone_test")
+		assert.NoError(t, err)
+	}()
+	_, err = conn.Exec("use stmt2_timezone_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	_, err = conn.Exec("create table if not exists ctb(ts timestamp, v1 int)")
+	if !assert.NoError(t, err) {
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	ts := now.UnixNano() / 1e6
+	_, err = conn.Exec(fmt.Sprintf("insert into ctb values(%d,1)", ts))
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Prepare("select * from ctb where ts = ?")
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{now},
+			},
+		},
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Execute()
+	if !assert.NoError(t, err) {
+		return
+	}
+	result, err := stmt2.UseResult()
+	if !assert.NoError(t, err) {
+		return
+	}
+	var data = make([]driver.Value, 2)
+	err = result.Next(data)
+	assert.NoError(t, err)
+	t.Log(data)
+	assert.Equal(t, data[0].(time.Time).Location(), timezone)
+	assert.Equal(t, now.UnixNano(), data[0].(time.Time).UnixNano())
+	assert.Equal(t, int32(1), data[1].(int32))
 	err = result.Next(data)
 	assert.ErrorIs(t, err, io.EOF)
 }

@@ -11,6 +11,8 @@ import (
 // @date: 2023/10/13 11:26
 // @description: test parse dsn
 func TestParseDsn(t *testing.T) {
+	shangHaiTimezone, err := time.LoadLocation("Asia/Shanghai")
+	assert.NoError(t, err)
 	tests := []struct {
 		name string
 		dsn  string
@@ -77,6 +79,54 @@ func TestParseDsn(t *testing.T) {
 				DbName:            "dbname",
 				InterpolateParams: true,
 			},
+		},
+		{
+			name: "timezone",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Asia%2FShanghai",
+			want: &Config{
+				User:              "user",
+				Passwd:            "passwd",
+				Net:               "ws",
+				Addr:              "ab:cd:ef:ab::cd:ef",
+				Port:              6041,
+				DbName:            "dbname",
+				InterpolateParams: true,
+				Timezone:          shangHaiTimezone,
+			},
+		},
+		{
+			name: "timezone with utc",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=UTC",
+			want: &Config{
+				User:              "user",
+				Passwd:            "passwd",
+				Net:               "ws",
+				Addr:              "ab:cd:ef:ab::cd:ef",
+				Port:              6041,
+				DbName:            "dbname",
+				InterpolateParams: true,
+				Timezone:          time.UTC,
+			},
+		},
+		{
+			name: "empty timezone",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=",
+			errs: "invalid timezone value: , empty string",
+		},
+		{
+			name: "invalid timezone",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Invalid%2FTimezone",
+			errs: "invalid timezone value: Invalid/Timezone, unknown time zone Invalid/Timezone",
+		},
+		{
+			name: "timezone with invalid unescaped characters",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Asia%2Shanghai",
+			errs: "can not unescape timezone value: Asia%2Shanghai, invalid URL escape \"%2S\"",
+		},
+		{
+			name: "timezone Local",
+			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Local",
+			errs: "invalid timezone value: Local, timezone cannot be 'Local'",
 		},
 	}
 	for _, tc := range tests {

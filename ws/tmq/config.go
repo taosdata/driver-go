@@ -3,6 +3,8 @@ package tmq
 import (
 	"errors"
 	"time"
+
+	"github.com/taosdata/driver-go/v3/common"
 )
 
 type config struct {
@@ -10,6 +12,7 @@ type config struct {
 	ChanLength           uint
 	MessageTimeout       time.Duration
 	WriteWait            time.Duration
+	Timezone             *time.Location
 	User                 string
 	Password             string
 	GroupID              string
@@ -110,4 +113,16 @@ func (c *config) setSessionTimeoutMS(sessionTimeoutMS string) {
 
 func (c *config) setMaxPollIntervalMS(maxPollIntervalMS string) {
 	c.MaxPollIntervalMS = maxPollIntervalMS
+}
+
+func (c *config) setTimezone(timezone string) error {
+	if timezone == "" {
+		return nil
+	}
+	tz, err := common.ParseTimezone(timezone)
+	if err != nil {
+		return err
+	}
+	c.Timezone = tz
+	return nil
 }
