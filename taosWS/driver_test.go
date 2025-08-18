@@ -34,7 +34,7 @@ func testMain(m *testing.M) int {
 			log.Fatalf("error on:  sql.close %s", err.Error())
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+	_, err = exec(db, fmt.Sprintf("drop database if exists %s", dbName))
 	if err != nil {
 		log.Fatalf("error on:  drop database %s", err.Error())
 	}
@@ -131,8 +131,7 @@ func runTests(t *testing.T, tests ...func(dbt *DBTest)) {
 }
 
 func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result, err error) {
-	res, err = dbt.Exec(query, args...)
-	return
+	return exec(dbt.DB, query, args...)
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows, err error) {
@@ -270,28 +269,28 @@ func TestChinese(t *testing.T) {
 		}
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_chinese_ws")
+		_, err = exec(db, "drop database if exists test_chinese_ws")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_chinese_ws")
+	_, err = exec(db, "create database if not exists test_chinese_ws")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_chinese_ws.chinese")
+	_, err = exec(db, "drop table if exists test_chinese_ws.chinese")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_chinese_ws.chinese(ts timestamp,v nchar(32))")
+	_, err = exec(db, "create table if not exists test_chinese_ws.chinese(ts timestamp,v nchar(32))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`INSERT INTO test_chinese_ws.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	_, err = exec(db, `INSERT INTO test_chinese_ws.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
 	if err != nil {
 		t.Error(err)
 		return
@@ -380,10 +379,10 @@ func TestSpecialPassword(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			defer func() {
 				dropSql := fmt.Sprintf("drop user %s", test.user)
-				_, _ = db.Exec(dropSql)
+				_, _ = exec(db, dropSql)
 			}()
 			createSql := fmt.Sprintf("create user %s pass '%s'", test.user, test.pass)
-			_, err := db.Exec(createSql)
+			_, err := exec(db, createSql)
 			assert.NoError(t, err)
 			escapedPass := url.QueryEscape(test.pass)
 			newDsn := fmt.Sprintf("%s:%s@ws(%s:%d)/%s", test.user, escapedPass, host, port, "")

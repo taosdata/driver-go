@@ -15,7 +15,7 @@ import (
 
 func TestNewStmt(t *testing.T) {
 	db := testDatabase(t)
-	_, err := db.Exec("create table test_stmt (ts timestamp,v int)")
+	_, err := exec(db, "create table test_stmt (ts timestamp,v int)")
 	assert.NoError(t, err)
 	stmt := db.Stmt()
 	err = stmt.Prepare("insert into ? values(?,?)")
@@ -70,25 +70,25 @@ func TestStmtQueryResultWithDecimal(t *testing.T) {
 		err = stmt.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt_decimal_test")
+	_, err = exec(conn, "create database if not exists stmt_decimal_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt_decimal_test")
+		_, err = exec(conn, "drop database if exists stmt_decimal_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt_decimal_test")
+	_, err = exec(conn, "use stmt_decimal_test")
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = conn.Exec("create table if not exists ctb(ts timestamp, v1 decimal(8, 4), v2 decimal(30, 5))")
+	_, err = exec(conn, "create table if not exists ctb(ts timestamp, v1 decimal(8, 4), v2 decimal(30, 5))")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
 	ts := now.UnixNano() / 1e6
-	_, err = conn.Exec(fmt.Sprintf("insert into ctb values(%d,123.45,12345678901234567890.123)", ts))
+	_, err = exec(conn, fmt.Sprintf("insert into ctb values(%d,123.45,12345678901234567890.123)", ts))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -125,7 +125,7 @@ func TestStmtTimezone(t *testing.T) {
 	require.NoError(t, err)
 	err = db.SetTimezone(tz)
 	require.NoError(t, err)
-	_, err = db.Exec("create table test_stmt_timezone (ts timestamp,v int)")
+	_, err = exec(db, "create table test_stmt_timezone (ts timestamp,v int)")
 	assert.NoError(t, err)
 	stmt := db.Stmt()
 	err = stmt.Prepare("insert into ? values(?,?)")

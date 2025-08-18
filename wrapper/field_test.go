@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 )
@@ -21,68 +22,26 @@ func TestFetchLengths(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists test_fetch_lengths")
-		code := TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_fetch_lengths")
+		require.NoError(t, err)
 	}()
-	res := TaosQuery(conn, "create database if not exists test_fetch_lengths")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database if not exists test_fetch_lengths")
+	require.NoError(t, err)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists test_fetch_lengths")
-		code := TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_fetch_lengths")
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "drop table if exists test_fetch_lengths.test")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop table if exists test_fetch_lengths.test")
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, "create table if not exists test_fetch_lengths.test (ts timestamp, c1 int,c2 binary(10),c3 nchar(10))")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create table if not exists test_fetch_lengths.test (ts timestamp, c1 int,c2 binary(10),c3 nchar(10))")
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, "insert into test_fetch_lengths.test values(now,1,'123','456')")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "insert into test_fetch_lengths.test values(now,1,'123','456')")
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, "select * from test_fetch_lengths.test")
-	code = TaosError(res)
+	res := TaosQuery(conn, "select * from test_fetch_lengths.test")
+	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)

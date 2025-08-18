@@ -7,8 +7,10 @@ import (
 	"os"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -29,37 +31,16 @@ func TestReadRow(t *testing.T) {
 	}
 
 	defer wrapper.TaosClose(conn)
-	res := wrapper.TaosQuery(conn, "drop database if exists test_read_row")
-	code := wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_read_row")
+	require.NoError(t, err)
 	defer func() {
-		res = wrapper.TaosQuery(conn, "drop database if exists test_read_row")
-		code = wrapper.TaosError(res)
-		if code != 0 {
-			errStr := wrapper.TaosErrorStr(res)
-			wrapper.TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		wrapper.TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_read_row")
+		require.NoError(t, err)
 	}()
-	res = wrapper.TaosQuery(conn, "create database test_read_row")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, "create database test_read_row")
+	require.NoError(t, err)
 
-	res = wrapper.TaosQuery(conn, "create table if not exists test_read_row.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_read_row.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -79,30 +60,16 @@ func TestReadRow(t *testing.T) {
 		"c17 decimal(10,4),"+
 		"c18 blob"+
 		") tags (info json)")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into test_read_row.t0 using test_read_row.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','varbinary','point(100 100)','-123.4','1234.56','blob')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select * from test_read_row.all_type"
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
+	res := wrapper.TaosQuery(conn, sql)
+	code := wrapper.TaosError(res)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(res)
 		wrapper.TaosFreeResult(res)
@@ -182,37 +149,15 @@ func TestParseBlock(t *testing.T) {
 	}
 
 	defer wrapper.TaosClose(conn)
-	res := wrapper.TaosQuery(conn, "drop database if exists parse_block")
-	code := wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, "drop database if exists parse_block")
+	require.NoError(t, err)
 	defer func() {
-		res = wrapper.TaosQuery(conn, "drop database if exists parse_block")
-		code = wrapper.TaosError(res)
-		if code != 0 {
-			errStr := wrapper.TaosErrorStr(res)
-			wrapper.TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		wrapper.TaosFreeResult(res)
+		err = exec(conn, "drop database if exists parse_block")
+		require.NoError(t, err)
 	}()
-	res = wrapper.TaosQuery(conn, "create database parse_block vgroups 1")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
-
-	res = wrapper.TaosQuery(conn, "create table if not exists parse_block.all_type (ts timestamp,"+
+	err = exec(conn, "create database parse_block vgroups 1")
+	require.NoError(t, err)
+	err = exec(conn, "create table if not exists parse_block.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -232,32 +177,18 @@ func TestParseBlock(t *testing.T) {
 		"c17 decimal(10,4),"+
 		"c18 blob"+
 		") tags (info json)")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into parse_block.t0 using parse_block.all_type tags('{\"a\":1}') "+
 		"values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','POINT(100 100)',123456789.123,123.456,'blob')"+
 		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select * from parse_block.all_type"
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
+	res := wrapper.TaosQuery(conn, sql)
+	code := wrapper.TaosError(res)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(res)
 		wrapper.TaosFreeResult(res)
@@ -477,4 +408,21 @@ func Test_validColumnType(t *testing.T) {
 			tt.wantErr(t, validColumnType(tt.args.colTypes), fmt.Sprintf("validColumnType(%v)", tt.args.colTypes))
 		})
 	}
+}
+
+func exec(conn unsafe.Pointer, sql string) error {
+	res := wrapper.TaosQuery(conn, sql)
+	if code := wrapper.TaosError(res); code != 0 {
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			wrapper.TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return exec(conn, sql)
+		}
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		return errors.NewError(code, errStr)
+	}
+	wrapper.TaosFreeResult(res)
+	return nil
 }

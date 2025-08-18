@@ -91,36 +91,36 @@ func TestStmt2(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_prepare_test")
+	_, err = exec(conn, "create database if not exists stmt2_prepare_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_prepare_test")
+		_, err = exec(conn, "drop database if exists stmt2_prepare_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_prepare_test")
+	_, err = exec(conn, "use stmt2_prepare_test")
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = conn.Exec("create table if not exists all_type(" +
-		"ts timestamp, " +
-		"v1 bool, " +
-		"v2 tinyint, " +
-		"v3 smallint, " +
-		"v4 int, " +
-		"v5 bigint, " +
-		"v6 tinyint unsigned, " +
-		"v7 smallint unsigned, " +
-		"v8 int unsigned, " +
-		"v9 bigint unsigned, " +
-		"v10 float, " +
-		"v11 double, " +
-		"v12 binary(20), " +
-		"v13 varbinary(20), " +
-		"v14 geometry(100), " +
-		"v15 nchar(20), " +
-		"v16 blob" +
+	_, err = exec(conn, "create table if not exists all_type("+
+		"ts timestamp, "+
+		"v1 bool, "+
+		"v2 tinyint, "+
+		"v3 smallint, "+
+		"v4 int, "+
+		"v5 bigint, "+
+		"v6 tinyint unsigned, "+
+		"v7 smallint unsigned, "+
+		"v8 int unsigned, "+
+		"v9 bigint unsigned, "+
+		"v10 float, "+
+		"v11 double, "+
+		"v12 binary(20), "+
+		"v13 varbinary(20), "+
+		"v14 geometry(100), "+
+		"v15 nchar(20), "+
+		"v16 blob"+
 		") tags(tg binary(20))")
 	assert.NoError(t, err)
 	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
@@ -343,21 +343,21 @@ func TestStmt2_Prepare(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_prepare_wrong_test")
+	_, err = exec(conn, "create database if not exists stmt2_prepare_wrong_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_prepare_wrong_test")
+		_, err = exec(conn, "drop database if exists stmt2_prepare_wrong_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_prepare_wrong_test")
+	_, err = exec(conn, "use stmt2_prepare_wrong_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	err = stmt2.Prepare("insert into not_exist_table values(?,?,?)")
 	assert.Error(t, err)
-	_, err = conn.Exec("create table t (ts timestamp, b int, c int)")
+	_, err = exec(conn, "create table t (ts timestamp, b int, c int)")
 	assert.NoError(t, err)
 	err = stmt2.Prepare("")
 	assert.NoError(t, err)
@@ -389,25 +389,25 @@ func TestStmt2QueryResultWithDecimal(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_decimal_test")
+	_, err = exec(conn, "create database if not exists stmt2_decimal_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_decimal_test")
+		_, err = exec(conn, "drop database if exists stmt2_decimal_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_decimal_test")
+	_, err = exec(conn, "use stmt2_decimal_test")
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = conn.Exec("create table if not exists ctb(ts timestamp, v1 decimal(8, 4), v2 decimal(30, 5))")
+	_, err = exec(conn, "create table if not exists ctb(ts timestamp, v1 decimal(8, 4), v2 decimal(30, 5))")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
 	ts := now.UnixNano() / 1e6
-	_, err = conn.Exec(fmt.Sprintf("insert into ctb values(%d,123.45,12345678901234567890.123)", ts))
+	_, err = exec(conn, fmt.Sprintf("insert into ctb values(%d,123.45,12345678901234567890.123)", ts))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -462,25 +462,25 @@ func TestStmt2Timezone(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_timezone_test")
+	_, err = exec(conn, "create database if not exists stmt2_timezone_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_timezone_test")
+		_, err = exec(conn, "drop database if exists stmt2_timezone_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_timezone_test")
+	_, err = exec(conn, "use stmt2_timezone_test")
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = conn.Exec("create table if not exists ctb(ts timestamp, v1 int)")
+	_, err = exec(conn, "create table if not exists ctb(ts timestamp, v1 int)")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
 	ts := now.UnixNano() / 1e6
-	_, err = conn.Exec(fmt.Sprintf("insert into ctb values(%d,1)", ts))
+	_, err = exec(conn, fmt.Sprintf("insert into ctb values(%d,1)", ts))
 	if !assert.NoError(t, err) {
 		return
 	}

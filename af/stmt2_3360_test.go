@@ -26,35 +26,35 @@ func TestStmt2_3360(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(conn, fmt.Sprintf("create database if not exists %s", database))
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(conn, fmt.Sprintf("drop database if exists %s", database))
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec(fmt.Sprintf("use %s", database))
+	_, err = exec(conn, fmt.Sprintf("use %s", database))
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = conn.Exec("create table if not exists all_type(" +
-		"ts timestamp, " +
-		"v1 bool, " +
-		"v2 tinyint, " +
-		"v3 smallint, " +
-		"v4 int, " +
-		"v5 bigint, " +
-		"v6 tinyint unsigned, " +
-		"v7 smallint unsigned, " +
-		"v8 int unsigned, " +
-		"v9 bigint unsigned, " +
-		"v10 float, " +
-		"v11 double, " +
-		"v12 binary(20), " +
-		"v13 varbinary(20), " +
-		"v14 geometry(100), " +
-		"v15 nchar(20)" +
+	_, err = exec(conn, "create table if not exists all_type("+
+		"ts timestamp, "+
+		"v1 bool, "+
+		"v2 tinyint, "+
+		"v3 smallint, "+
+		"v4 int, "+
+		"v5 bigint, "+
+		"v6 tinyint unsigned, "+
+		"v7 smallint unsigned, "+
+		"v8 int unsigned, "+
+		"v9 bigint unsigned, "+
+		"v10 float, "+
+		"v11 double, "+
+		"v12 binary(20), "+
+		"v13 varbinary(20), "+
+		"v14 geometry(100), "+
+		"v15 nchar(20)"+
 		") tags(tg binary(20))")
 	assert.NoError(t, err)
 	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")

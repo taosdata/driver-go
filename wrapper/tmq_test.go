@@ -8,6 +8,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	tmqcommon "github.com/taosdata/driver-go/v3/common/tmq"
@@ -36,109 +37,39 @@ func TestTMQ(t *testing.T) {
 		}
 		TaosFreeResult(result)
 	}()
-	result := TaosQuery(conn, "create database if not exists abc1 vgroups 2 WAL_RETENTION_PERIOD 86400")
-	code := TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create database if not exists abc1 vgroups 2 WAL_RETENTION_PERIOD 86400")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "use abc1")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "use abc1")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create stable if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create stable if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct0 using st1 tags(1000)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct0 using st1 tags(1000)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct1 using st1 tags(2000)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct1 using st1 tags(2000)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct3 using st1 tags(3000)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct3 using st1 tags(3000)")
+	require.NoError(t, err)
 
 	//create topic
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists topic_ctb_column")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists topic_ctb_column")
+		require.NoError(t, err)
 	}()
-	result = TaosQuery(conn, "create topic if not exists topic_ctb_column as select ts, c1 from ct1")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create topic if not exists topic_ctb_column as select ts, c1 from ct1")
+	require.NoError(t, err)
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists topic_ctb_column")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists topic_ctb_column")
+		require.NoError(t, err)
 	}()
 	go func() {
 		for i := 0; i < 5; i++ {
-			result = TaosQuery(conn, "insert into ct1 values(now,1,2,'1')")
-			code = TaosError(result)
-			if code != 0 {
-				errStr := TaosErrorStr(result)
-				TaosFreeResult(result)
-				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-				return
-			}
-			TaosFreeResult(result)
+			err = exec(conn, "insert into ct1 values(now,1,2,'1')")
+			require.NoError(t, err)
 			time.Sleep(time.Millisecond)
 		}
 	}()
@@ -276,108 +207,37 @@ func TestTMQDB(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		result := TaosQuery(conn, "drop database if exists tmq_test_db")
-		code := TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop database if exists tmq_test_db")
+		require.NoError(t, err)
 	}()
-	result := TaosQuery(conn, "create database if not exists tmq_test_db vgroups 2 WAL_RETENTION_PERIOD 86400")
-	code := TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create database if not exists tmq_test_db vgroups 2 WAL_RETENTION_PERIOD 86400")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "use tmq_test_db")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "use tmq_test_db")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create stable if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create stable if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct0 using st1 tags(1000)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct0 using st1 tags(1000)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct1 using st1 tags(2000)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct1 using st1 tags(2000)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct3 using st1 tags(3000)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct3 using st1 tags(3000)")
+	require.NoError(t, err)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists test_tmq_db_topic as DATABASE tmq_test_db")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create topic if not exists test_tmq_db_topic as DATABASE tmq_test_db")
+	require.NoError(t, err)
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists test_tmq_db_topic")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists test_tmq_db_topic")
 	}()
 	go func() {
 		for i := 0; i < 5; i++ {
-			result = TaosQuery(conn, "insert into ct1 values(now,1,2,'1')")
-			code = TaosError(result)
-			if code != 0 {
-				errStr := TaosErrorStr(result)
-				TaosFreeResult(result)
-				t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-				return
-			}
-			TaosFreeResult(result)
+			err = exec(conn, "insert into ct1 values(now,1,2,'1')")
+			require.NoError(t, err)
 			time.Sleep(time.Millisecond)
 		}
 	}()
@@ -498,119 +358,42 @@ func TestTMQDBMultiTable(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		result := TaosQuery(conn, "drop database if exists tmq_test_db_multi")
-		code := TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop database if exists tmq_test_db_multi")
+		require.NoError(t, err)
 	}()
-	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi vgroups 2 WAL_RETENTION_PERIOD 86400")
-	code := TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create database if not exists tmq_test_db_multi vgroups 2 WAL_RETENTION_PERIOD 86400")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "use tmq_test_db_multi")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "use tmq_test_db_multi")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct0 (ts timestamp, c1 int)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct0 (ts timestamp, c1 int)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct1 (ts timestamp, c1 int, c2 float)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct1 (ts timestamp, c1 int, c2 float)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct2 (ts timestamp, c1 int, c2 float, c3 binary(10))")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct2 (ts timestamp, c1 int, c2 float, c3 binary(10))")
+	require.NoError(t, err)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists test_tmq_db_multi_topic as DATABASE tmq_test_db_multi")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create topic if not exists test_tmq_db_multi_topic as DATABASE tmq_test_db_multi")
+	require.NoError(t, err)
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists test_tmq_db_multi_topic")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists test_tmq_db_multi_topic")
+		require.NoError(t, err)
 	}()
 	{
-		result = TaosQuery(conn, "insert into ct0 values(now,1)")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "insert into ct0 values(now,1)")
+		require.NoError(t, err)
 	}
 	{
-		result = TaosQuery(conn, "insert into ct1 values(now,1,2)")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "insert into ct1 values(now,1,2)")
+		require.NoError(t, err)
 	}
 	{
-		result = TaosQuery(conn, "insert into ct2 values(now,1,2,'3')")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "insert into ct2 values(now,1,2,'3')")
+		require.NoError(t, err)
 	}
 	//build consumer
 	conf := TMQConfNew()
@@ -739,97 +522,34 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		result := TaosQuery(conn, "drop database if exists tmq_test_db_multi_insert")
-		code := TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop database if exists tmq_test_db_multi_insert")
+		require.NoError(t, err)
 	}()
-	result := TaosQuery(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2 wal_retention_period 3600")
-	code := TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create database if not exists tmq_test_db_multi_insert vgroups 2 wal_retention_period 3600")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "use tmq_test_db_multi_insert")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "use tmq_test_db_multi_insert")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct0 (ts timestamp, c1 int)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct0 (ts timestamp, c1 int)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct1 (ts timestamp, c1 int, c2 float)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct1 (ts timestamp, c1 int, c2 float)")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create table if not exists ct2 (ts timestamp, c1 int, c2 float, c3 binary(10))")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create table if not exists ct2 (ts timestamp, c1 int, c2 float, c3 binary(10))")
+	require.NoError(t, err)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists tmq_test_db_multi_insert_topic as DATABASE tmq_test_db_multi_insert")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create topic if not exists tmq_test_db_multi_insert_topic as DATABASE tmq_test_db_multi_insert")
+	require.NoError(t, err)
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists tmq_test_db_multi_insert_topic")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists tmq_test_db_multi_insert_topic")
+		require.NoError(t, err)
 	}()
 	{
-		result = TaosQuery(conn, "insert into ct0 values(now,1) ct1 values(now,1,2) ct2 values(now,1,2,'3')")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "insert into ct0 values(now,1) ct1 values(now,1,2) ct2 values(now,1,2,'3')")
+		require.NoError(t, err)
 	}
 	//build consumer
 	conf := TMQConfNew()
@@ -951,95 +671,32 @@ func TestTMQModify(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		result := TaosQuery(conn, "drop database if exists tmq_test_db_modify")
-		code := TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
-		result = TaosQuery(conn, "drop database if exists tmq_test_db_modify_target")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop database if exists tmq_test_db_modify")
+		require.NoError(t, err)
+		err = exec(conn, "drop database if exists tmq_test_db_modify_target")
+		require.NoError(t, err)
 	}()
 
-	result := TaosQuery(conn, "drop database if exists tmq_test_db_modify_target")
-	code := TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "drop database if exists tmq_test_db_modify_target")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "drop database if exists tmq_test_db_modify")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
-	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify_target vgroups 2 WAL_RETENTION_PERIOD 86400")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "drop database if exists tmq_test_db_modify")
+	require.NoError(t, err)
+	err = exec(conn, "create database if not exists tmq_test_db_modify_target vgroups 2 WAL_RETENTION_PERIOD 86400")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create database if not exists tmq_test_db_modify vgroups 5 WAL_RETENTION_PERIOD 86400")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create database if not exists tmq_test_db_modify vgroups 5 WAL_RETENTION_PERIOD 86400")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "use tmq_test_db_modify")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "use tmq_test_db_modify")
+	require.NoError(t, err)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists tmq_test_db_modify_topic with meta as DATABASE tmq_test_db_modify")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create topic if not exists tmq_test_db_modify_topic with meta as DATABASE tmq_test_db_modify")
+	require.NoError(t, err)
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists tmq_test_db_modify_topic")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists tmq_test_db_modify_topic")
+		require.NoError(t, err)
 	}()
 	//build consumer
 	conf := TMQConfNew()
@@ -1089,7 +746,7 @@ func TestTMQModify(t *testing.T) {
 	targetConn, err := TaosConnect("", "root", "taosdata", "tmq_test_db_modify_target", 0)
 	assert.NoError(t, err)
 	defer TaosClose(targetConn)
-	result = TaosQuery(conn, "create table stb (ts timestamp,"+
+	err = exec(conn, "create table stb (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -1119,15 +776,7 @@ func TestTMQModify(t *testing.T) {
 		"tc12 binary(20),"+
 		"tc13 nchar(20)"+
 		")")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
-
+	require.NoError(t, err)
 	pool := func(cb func(*tmqcommon.Meta, unsafe.Pointer)) {
 		message := TMQConsumerPoll(tmq, 500)
 		assert.NotNil(t, message)
@@ -1161,8 +810,7 @@ func TestTMQModify(t *testing.T) {
 		}
 		errCode, rawMeta := TMQGetRaw(message)
 		if errCode != errors.SUCCESS {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
+			errStr := TaosErrorStr(message)
 			t.Error(errors.NewError(int(errCode), errStr))
 			return
 		}
@@ -1242,76 +890,27 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		result := TaosQuery(conn, "drop database if exists tmq_test_auto_create")
-		code := TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop database if exists tmq_test_auto_create")
+		require.NoError(t, err)
 	}()
-	result := TaosQuery(conn, "create database if not exists tmq_test_auto_create vgroups 2 WAL_RETENTION_PERIOD 86400")
-	code := TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create database if not exists tmq_test_auto_create vgroups 2 WAL_RETENTION_PERIOD 86400")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "use tmq_test_auto_create")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "use tmq_test_auto_create")
+	require.NoError(t, err)
 
-	result = TaosQuery(conn, "create stable if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create stable if not exists st1 (ts timestamp, c1 int, c2 float, c3 binary(10)) tags(t1 int)")
+	require.NoError(t, err)
 
 	//create topic
-	result = TaosQuery(conn, "create topic if not exists test_tmq_auto_topic with meta as DATABASE tmq_test_auto_create")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "create topic if not exists test_tmq_auto_topic with meta as DATABASE tmq_test_auto_create")
+	require.NoError(t, err)
 	defer func() {
-		result = TaosQuery(conn, "drop topic if exists test_tmq_auto_topic")
-		code = TaosError(result)
-		if code != 0 {
-			errStr := TaosErrorStr(result)
-			TaosFreeResult(result)
-			t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-			return
-		}
-		TaosFreeResult(result)
+		err = exec(conn, "drop topic if exists test_tmq_auto_topic")
+		require.NoError(t, err)
 	}()
-	result = TaosQuery(conn, "insert into ct1 using st1 tags(2000) values(now,1,2,'1')")
-	code = TaosError(result)
-	if code != 0 {
-		errStr := TaosErrorStr(result)
-		TaosFreeResult(result)
-		t.Error(errors.TaosError{Code: int32(code), ErrStr: errStr})
-		return
-	}
-	TaosFreeResult(result)
+	err = exec(conn, "insert into ct1 using st1 tags(2000) values(now,1,2,'1')")
+	require.NoError(t, err)
 	//build consumer
 	conf := TMQConfNew()
 	// auto commit default is true then the commitCallback function will be called after 5 seconds
@@ -1442,32 +1041,32 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	defer TaosClose(conn)
 
 	defer func() {
-		if err = taosOperation(conn, "drop database if exists test_tmq_get_topic_assignment"); err != nil {
+		if err = exec(conn, "drop database if exists test_tmq_get_topic_assignment"); err != nil {
 			t.Error(err)
 		}
 	}()
 
-	if err = taosOperation(conn, "create database if not exists test_tmq_get_topic_assignment vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
+	if err = exec(conn, "create database if not exists test_tmq_get_topic_assignment vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "use test_tmq_get_topic_assignment"); err != nil {
+	if err = exec(conn, "use test_tmq_get_topic_assignment"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
+	if err = exec(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	// create topic
-	if err = taosOperation(conn, "create topic if not exists test_tmq_assignment as select * from t"); err != nil {
+	if err = exec(conn, "create topic if not exists test_tmq_assignment as select * from t"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	defer func() {
-		if err = taosOperation(conn, "drop topic if exists test_tmq_assignment"); err != nil {
+		if err = exec(conn, "drop topic if exists test_tmq_assignment"); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -1508,7 +1107,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	}
 	assert.Equal(t, int32(vgID), assignment[0].VGroupID)
 
-	_ = taosOperation(conn, "insert into t values(now,1)")
+	_ = exec(conn, "insert into t values(now,1)")
 	haveMessage := false
 	for i := 0; i < 3; i++ {
 		message := TMQConsumerPoll(tmq, 500)
@@ -1614,32 +1213,32 @@ func TestTMQPosition(t *testing.T) {
 	defer TaosClose(conn)
 
 	defer func() {
-		if err = taosOperation(conn, "drop database if exists test_tmq_position"); err != nil {
+		if err = exec(conn, "drop database if exists test_tmq_position"); err != nil {
 			t.Error(err)
 		}
 	}()
 
-	if err = taosOperation(conn, "create database if not exists test_tmq_position vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
+	if err = exec(conn, "create database if not exists test_tmq_position vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "use test_tmq_position"); err != nil {
+	if err = exec(conn, "use test_tmq_position"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
+	if err = exec(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	// create topic
-	if err = taosOperation(conn, "create topic if not exists test_tmq_position_topic as select * from t"); err != nil {
+	if err = exec(conn, "create topic if not exists test_tmq_position_topic as select * from t"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	defer func() {
-		if err = taosOperation(conn, "drop topic if exists test_tmq_position_topic"); err != nil {
+		if err = exec(conn, "drop topic if exists test_tmq_position_topic"); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -1665,7 +1264,7 @@ func TestTMQPosition(t *testing.T) {
 		t.Fatal(errors.NewError(int(errCode), errStr))
 		return
 	}
-	_ = taosOperation(conn, "insert into t values(now,1)")
+	_ = exec(conn, "insert into t values(now,1)")
 	code, assignment := TMQGetTopicAssignment(tmq, "test_tmq_position_topic")
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TMQErr2Str(code)))
@@ -1708,32 +1307,32 @@ func TestTMQCommitOffset(t *testing.T) {
 	defer TaosClose(conn)
 
 	defer func() {
-		if err = taosOperation(conn, "drop database if exists test_tmq_commit_offset"); err != nil {
+		if err = exec(conn, "drop database if exists test_tmq_commit_offset"); err != nil {
 			t.Error(err)
 		}
 	}()
 
-	if err = taosOperation(conn, "create database if not exists test_tmq_commit_offset vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
+	if err = exec(conn, "create database if not exists test_tmq_commit_offset vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "use test_tmq_commit_offset"); err != nil {
+	if err = exec(conn, "use test_tmq_commit_offset"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
+	if err = exec(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	// create topic
-	if err = taosOperation(conn, "create topic if not exists test_tmq_commit_offset_topic as select * from t"); err != nil {
+	if err = exec(conn, "create topic if not exists test_tmq_commit_offset_topic as select * from t"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	defer func() {
-		if err = taosOperation(conn, "drop topic if exists test_tmq_commit_offset_topic"); err != nil {
+		if err = exec(conn, "drop topic if exists test_tmq_commit_offset_topic"); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -1759,7 +1358,7 @@ func TestTMQCommitOffset(t *testing.T) {
 		t.Fatal(errors.NewError(int(errCode), errStr))
 		return
 	}
-	_ = taosOperation(conn, "insert into t values(now,1)")
+	_ = exec(conn, "insert into t values(now,1)")
 	code, assignment := TMQGetTopicAssignment(tmq, "test_tmq_commit_offset_topic")
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TMQErr2Str(code)))
@@ -1805,33 +1404,33 @@ func TestTMQCommitOffsetAsync(t *testing.T) {
 	defer TaosClose(conn)
 
 	defer func() {
-		if err = taosOperation(conn, "drop database if exists "+tableName); err != nil {
+		if err = exec(conn, "drop database if exists "+tableName); err != nil {
 			t.Error(err)
 		}
 	}()
 
-	if err = taosOperation(conn, "create database if not exists "+tableName+" vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
+	if err = exec(conn, "create database if not exists "+tableName+" vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "use "+tableName); err != nil {
+	if err = exec(conn, "use "+tableName); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
+	if err = exec(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	// create topic
 
-	if err = taosOperation(conn, "create topic if not exists "+topic+" as select * from t"); err != nil {
+	if err = exec(conn, "create topic if not exists "+topic+" as select * from t"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	defer func() {
-		if err = taosOperation(conn, "drop topic if exists "+topic); err != nil {
+		if err = exec(conn, "drop topic if exists "+topic); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -1857,7 +1456,7 @@ func TestTMQCommitOffsetAsync(t *testing.T) {
 		t.Fatal(errors.NewError(int(errCode), errStr))
 		return
 	}
-	_ = taosOperation(conn, "insert into t values(now,1)")
+	_ = exec(conn, "insert into t values(now,1)")
 	code, assignment := TMQGetTopicAssignment(tmq, topic)
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TMQErr2Str(code)))
@@ -1914,33 +1513,33 @@ func TestTMQCommitAsyncCallback(t *testing.T) {
 	defer TaosClose(conn)
 
 	defer func() {
-		if err = taosOperation(conn, "drop database if exists "+tableName); err != nil {
+		if err = exec(conn, "drop database if exists "+tableName); err != nil {
 			t.Error(err)
 		}
 	}()
 
-	if err = taosOperation(conn, "create database if not exists "+tableName+" vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
+	if err = exec(conn, "create database if not exists "+tableName+" vgroups 1 WAL_RETENTION_PERIOD 86400"); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "use "+tableName); err != nil {
+	if err = exec(conn, "use "+tableName); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if err = taosOperation(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
+	if err = exec(conn, "create table if not exists t (ts timestamp,v int)"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	// create topic
 
-	if err = taosOperation(conn, "create topic if not exists "+topic+" as select * from t"); err != nil {
+	if err = exec(conn, "create topic if not exists "+topic+" as select * from t"); err != nil {
 		t.Fatal(err)
 		return
 	}
 
 	defer func() {
-		if err = taosOperation(conn, "drop topic if exists "+topic); err != nil {
+		if err = exec(conn, "drop topic if exists "+topic); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -1977,7 +1576,7 @@ func TestTMQCommitAsyncCallback(t *testing.T) {
 		t.Fatal(errors.NewError(int(errCode), errStr))
 		return
 	}
-	_ = taosOperation(conn, "insert into t values(now,1)")
+	_ = exec(conn, "insert into t values(now,1)")
 	code, assignment := TMQGetTopicAssignment(tmq, topic)
 	if code != 0 {
 		t.Fatal(errors.NewError(int(code), TMQErr2Str(code)))
@@ -2023,14 +1622,4 @@ func TestTMQCommitAsyncCallback(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
-}
-
-func taosOperation(conn unsafe.Pointer, sql string) (err error) {
-	res := TaosQuery(conn, sql)
-	defer TaosFreeResult(res)
-	code := TaosError(res)
-	if code != 0 {
-		err = errors.NewError(code, TaosErrorStr(res))
-	}
-	return
 }

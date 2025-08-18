@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
@@ -181,33 +182,15 @@ func TestAffectedRows(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists affected_rows_test")
-		code := TaosError(res)
-		if code != 0 {
-			t.Error(errors.NewError(code, TaosErrorStr(res)))
-			TaosFreeResult(res)
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists affected_rows_test")
+		require.NoError(t, err)
 	}()
-	res := TaosQuery(conn, "create database if not exists affected_rows_test")
+	err = exec(conn, "create database if not exists affected_rows_test")
+	require.NoError(t, err)
+	err = exec(conn, "create table if not exists affected_rows_test.t0(ts timestamp,v int)")
+	require.NoError(t, err)
+	res := TaosQuery(conn, "insert into affected_rows_test.t0 values(now,1)")
 	code := TaosError(res)
-	if code != 0 {
-		t.Error(errors.NewError(code, TaosErrorStr(res)))
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, "create table if not exists affected_rows_test.t0(ts timestamp,v int)")
-	code = TaosError(res)
-	if code != 0 {
-		t.Error(errors.NewError(code, TaosErrorStr(res)))
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, "insert into affected_rows_test.t0 values(now,1)")
-	code = TaosError(res)
 	if code != 0 {
 		t.Error(errors.NewError(code, TaosErrorStr(res)))
 		TaosFreeResult(res)

@@ -1,7 +1,6 @@
 package wrapper
 
 import (
-	"database/sql/driver"
 	"fmt"
 	"math"
 	"os"
@@ -9,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taosdata/driver-go/v3/common/parser"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -28,37 +27,16 @@ func TestReadBlock(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_block_raw")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_block_raw")
+	assert.NoError(t, err)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_block_raw")
-		code = TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_block_raw")
+		assert.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "create database test_block_raw")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database test_block_raw")
+	assert.NoError(t, err)
 
-	res = TaosQuery(conn, "create table if not exists test_block_raw.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_block_raw.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -78,14 +56,7 @@ func TestReadBlock(t *testing.T) {
 		"c17 decimal(20,4),"+
 		"c18 blob"+
 		") tags (info json)")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	assert.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	after2s := now.Add(2 * time.Second)
@@ -107,50 +78,11 @@ func TestReadBlock(t *testing.T) {
 		math.MaxFloat32,
 		math.MaxFloat64,
 	)
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
-
+	err = exec(conn, sql)
+	assert.NoError(t, err)
 	sql = "select * from test_block_raw.all_type"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	fileCount := TaosNumFields(res)
-	rh, err := ReadColumn(res, fileCount)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	precision := TaosResultPrecision(res)
-	var data [][]driver.Value
-	for {
-		blockSize, errCode, block := TaosFetchRawBlock(res)
-		if errCode != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		if blockSize == 0 {
-			break
-		}
-		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
-		assert.NoError(t, err)
-		data = append(data, d...)
-	}
-	TaosFreeResult(res)
+	data, err := query(conn, sql)
+	require.NoError(t, err)
 	assert.Equal(t, 3, len(data))
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
@@ -261,37 +193,15 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_write_block_raw")
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw")
-		code = TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_write_block_raw")
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database test_write_block_raw")
+	require.NoError(t, err)
 	// todo: TDengine not support taos_write_raw_block with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_write_block_raw.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -310,52 +220,24 @@ func TestTaosWriteRawBlock(t *testing.T) {
 		"c16 decimal(8,4),"+
 		"c17 decimal(20,4)"+
 		") tags (info json)")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into test_write_block_raw.t0 using test_write_block_raw.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "create table test_write_block_raw.t1 using test_write_block_raw.all_type tags('{\"a\":2}')"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "use test_write_block_raw"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select * from test_write_block_raw.t0"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
+	res := TaosQuery(conn, sql)
+	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
@@ -387,40 +269,8 @@ func TestTaosWriteRawBlock(t *testing.T) {
 	TaosFreeResult(res)
 
 	sql = "select * from test_write_block_raw.t1"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	fileCount := TaosNumFields(res)
-	rh, err := ReadColumn(res, fileCount)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	precision := TaosResultPrecision(res)
-	var data [][]driver.Value
-	for {
-		blockSize, errCode, block := TaosFetchRawBlock(res)
-		if errCode != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		if blockSize == 0 {
-			break
-		}
-		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
-		assert.NoError(t, err)
-		data = append(data, d...)
-	}
-	TaosFreeResult(res)
-
+	data, err := query(conn, sql)
+	require.NoError(t, err)
 	assert.Equal(t, 2, len(data))
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)
@@ -485,37 +335,16 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_write_block_raw_fields")
+	require.NoError(t, err)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields")
-		code = TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_write_block_raw_fields")
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw_fields")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database test_write_block_raw_fields")
+	require.NoError(t, err)
 	// todo: TDengine not support taos_write_raw_block_with_fields with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_write_block_raw_fields.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -534,52 +363,24 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 		"c16 decimal(8,4),"+
 		"c17 decimal(20,4)"+
 		") tags (info json)")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into test_write_block_raw_fields.t0 using test_write_block_raw_fields.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "create table test_write_block_raw_fields.t1 using test_write_block_raw_fields.all_type tags('{\"a\":2}')"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "use test_write_block_raw_fields"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select ts,c1 from test_write_block_raw_fields.t0"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
+	res := TaosQuery(conn, sql)
+	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
@@ -613,39 +414,8 @@ func TestTaosWriteRawBlockWithFields(t *testing.T) {
 	TaosFreeResult(res)
 
 	sql = "select * from test_write_block_raw_fields.t1"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	fileCount := TaosNumFields(res)
-	rh, err := ReadColumn(res, fileCount)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	precision := TaosResultPrecision(res)
-	var data [][]driver.Value
-	for {
-		blockSize, errCode, block := TaosFetchRawBlock(res)
-		if errCode != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		if blockSize == 0 {
-			break
-		}
-		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
-		assert.NoError(t, err)
-		data = append(data, d...)
-	}
-	TaosFreeResult(res)
+	data, err := query(conn, sql)
+	require.NoError(t, err)
 
 	assert.Equal(t, 2, len(data))
 	row1 := data[0]
@@ -676,37 +446,16 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw_with_reqid")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_write_block_raw_with_reqid")
+	require.NoError(t, err)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw_with_reqid")
-		code = TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_write_block_raw_with_reqid")
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw_with_reqid")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database test_write_block_raw_with_reqid")
+	require.NoError(t, err)
 	// todo: TDengine not support taos_write_raw_block_with_reqid with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw_with_reqid.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_write_block_raw_with_reqid.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -725,54 +474,26 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 		"c16 decimal(8,4),"+
 		"c17 decimal(20,4)"+
 		") tags (info json)")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into test_write_block_raw_with_reqid.t0 using test_write_block_raw_with_reqid.all_type tags('{\"a\":1}') values"+
 		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')"+
 		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "create table test_write_block_raw_with_reqid.t1 using test_write_block_raw_with_reqid.all_type tags('{\"a\":2}')"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "use test_write_block_raw_with_reqid"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select * from test_write_block_raw_with_reqid.t0"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
+	res := TaosQuery(conn, sql)
+	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
@@ -804,39 +525,8 @@ func TestTaosWriteRawBlockWithReqID(t *testing.T) {
 	TaosFreeResult(res)
 
 	sql = "select * from test_write_block_raw_with_reqid.t1"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	fileCount := TaosNumFields(res)
-	rh, err := ReadColumn(res, fileCount)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	precision := TaosResultPrecision(res)
-	var data [][]driver.Value
-	for {
-		blockSize, errCode, block := TaosFetchRawBlock(res)
-		if errCode != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		if blockSize == 0 {
-			break
-		}
-		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
-		assert.NoError(t, err)
-		data = append(data, d...)
-	}
-	TaosFreeResult(res)
+	data, err := query(conn, sql)
+	require.NoError(t, err)
 
 	assert.Equal(t, 2, len(data))
 	row1 := data[0]
@@ -902,37 +592,16 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	}
 
 	defer TaosClose(conn)
-	res := TaosQuery(conn, "drop database if exists test_write_block_raw_fields_with_reqid")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_write_block_raw_fields_with_reqid")
+	require.NoError(t, err)
 	defer func() {
-		res = TaosQuery(conn, "drop database if exists test_write_block_raw_fields_with_reqid")
-		code = TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_write_block_raw_fields_with_reqid")
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "create database test_write_block_raw_fields_with_reqid")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database test_write_block_raw_fields_with_reqid")
+	require.NoError(t, err)
 	// todo: TDengine not support taos_write_raw_block_with_fields_with_reqid with blob data
-	res = TaosQuery(conn, "create table if not exists test_write_block_raw_fields_with_reqid.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_write_block_raw_fields_with_reqid.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -951,54 +620,26 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 		"c16 decimal(8,4),"+
 		"c17 decimal(20,4)"+
 		") tags (info json)")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into test_write_block_raw_fields_with_reqid.t0 using test_write_block_raw_fields_with_reqid.all_type tags('{\"a\":1}') values"+
 		"('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','point(100 100)','123.456','123456.456')"+
 		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "create table test_write_block_raw_fields_with_reqid.t1 using test_write_block_raw_fields_with_reqid.all_type tags('{\"a\":2}')"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "use test_write_block_raw_fields_with_reqid"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select ts,c1 from test_write_block_raw_fields_with_reqid.t0"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
+	res := TaosQuery(conn, sql)
+	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
@@ -1032,40 +673,8 @@ func TestTaosWriteRawBlockWithFieldsWithReqID(t *testing.T) {
 	TaosFreeResult(res)
 
 	sql = "select * from test_write_block_raw_fields_with_reqid.t1"
-	res = TaosQuery(conn, sql)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	fileCount := TaosNumFields(res)
-	rh, err := ReadColumn(res, fileCount)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	precision := TaosResultPrecision(res)
-	var data [][]driver.Value
-	for {
-		blockSize, errCode, block := TaosFetchRawBlock(res)
-		if errCode != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		if blockSize == 0 {
-			break
-		}
-		d, err := parser.ReadBlock(block, blockSize, rh.ColTypes, precision)
-		assert.NoError(t, err)
-		data = append(data, d...)
-	}
-	TaosFreeResult(res)
-
+	data, err := query(conn, sql)
+	require.NoError(t, err)
 	assert.Equal(t, 2, len(data))
 	row1 := data[0]
 	assert.Equal(t, now.UnixNano()/1e6, row1[0].(time.Time).UnixNano()/1e6)

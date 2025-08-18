@@ -326,13 +326,19 @@ func TestSeek(t *testing.T) {
 }
 
 func execWithoutResult(conn unsafe.Pointer, sql string) error {
-	result := wrapper.TaosQuery(conn, sql)
-	defer wrapper.TaosFreeResult(result)
-	code := wrapper.TaosError(result)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(result)
-		return &errors.TaosError{Code: int32(code), ErrStr: errStr}
+	res := wrapper.TaosQuery(conn, sql)
+	if code := wrapper.TaosError(res); code != 0 {
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			wrapper.TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return execWithoutResult(conn, sql)
+		}
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		return errors.NewError(code, errStr)
 	}
+	wrapper.TaosFreeResult(res)
 	return nil
 }
 

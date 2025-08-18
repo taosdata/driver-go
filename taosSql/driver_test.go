@@ -34,7 +34,7 @@ func testMain(m *testing.M) int {
 			log.Fatalf("error on:  db.close %s", err.Error())
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("drop database if exists %s", dbName))
+	_, err = exec(db, fmt.Sprintf("drop database if exists %s", dbName))
 	if err != nil {
 		log.Fatalf("error on:  drop database %s", err.Error())
 	}
@@ -136,8 +136,7 @@ func (dbt *DBTest) fail(method, query string, err error) {
 }
 
 func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result, err error) {
-	res, err = dbt.Exec(query, args...)
-	return
+	return exec(dbt.DB, query, args...)
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows, err error) {
@@ -308,38 +307,38 @@ func TestJson(t *testing.T) {
 		}
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_json_native")
+		_, err = exec(db, "drop database if exists test_json_native")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_json_native")
+	_, err = exec(db, "create database if not exists test_json_native")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_json_native.tjson")
+	_, err = exec(db, "drop table if exists test_json_native.tjson")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json_native.tjson(ts timestamp,v int )tags(t json)")
+	_, err = exec(db, "create stable if not exists test_json_native.tjson(ts timestamp,v int )tags(t json)")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native.tj_1 using test_json_native.tjson tags('{"a":1,"b":"b"}')values (now,1)`)
+	_, err = exec(db, `insert into test_json_native.tj_1 using test_json_native.tjson tags('{"a":1,"b":"b"}')values (now,1)`)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native.tj_2 using test_json_native.tjson tags('{"a":1,"c":"c"}')values (now,1)`)
+	_, err = exec(db, `insert into test_json_native.tj_2 using test_json_native.tjson tags('{"a":1,"c":"c"}')values (now,1)`)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native.tj_3 using test_json_native.tjson tags('null')values (now,1)`)
+	_, err = exec(db, `insert into test_json_native.tj_3 using test_json_native.tjson tags('null')values (now,1)`)
 	if err != nil {
 		t.Error(err)
 		return
@@ -390,33 +389,33 @@ func TestJsonSearch(t *testing.T) {
 		}
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_json_native_search")
+		_, err = exec(db, "drop database if exists test_json_native_search")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_json_native_search")
+	_, err = exec(db, "create database if not exists test_json_native_search")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_json_native_search.tjson_search")
+	_, err = exec(db, "drop table if exists test_json_native_search.tjson_search")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json_native_search.tjson_search(ts timestamp,v int )tags(t json)")
+	_, err = exec(db, "create stable if not exists test_json_native_search.tjson_search(ts timestamp,v int )tags(t json)")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native_search.tjs_1 using test_json_native_search.tjson_search tags('{"a":1,"b":"b"}')values (now,1)`)
+	_, err = exec(db, `insert into test_json_native_search.tjs_1 using test_json_native_search.tjson_search tags('{"a":1,"b":"b"}')values (now,1)`)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native_search.tjs_2 using test_json_native_search.tjson_search tags('{"a":1,"c":"c"}')values (now,2)`)
+	_, err = exec(db, `insert into test_json_native_search.tjs_2 using test_json_native_search.tjson_search tags('{"a":1,"c":"c"}')values (now,2)`)
 	if err != nil {
 		t.Error(err)
 		return
@@ -462,33 +461,33 @@ func TestJsonMatch(t *testing.T) {
 		}
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_json_native_match")
+		_, err = exec(db, "drop database if exists test_json_native_match")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_json_native_match")
+	_, err = exec(db, "create database if not exists test_json_native_match")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_json_native_match.tjson_match")
+	_, err = exec(db, "drop table if exists test_json_native_match.tjson_match")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists test_json_native_match.tjson_match(ts timestamp,v int )tags(t json)")
+	_, err = exec(db, "create stable if not exists test_json_native_match.tjson_match(ts timestamp,v int )tags(t json)")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native_match.tjm_1 using test_json_native_match.tjson_match tags('{"a":1,"b":"b"}')values (now,1)`)
+	_, err = exec(db, `insert into test_json_native_match.tjm_1 using test_json_native_match.tjson_match tags('{"a":1,"b":"b"}')values (now,1)`)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`insert into test_json_native_match.tjm_2 using test_json_native_match.tjson_match tags('{"a":1,"c":"c"}')values (now,2)`)
+	_, err = exec(db, `insert into test_json_native_match.tjm_2 using test_json_native_match.tjson_match tags('{"a":1,"c":"c"}')values (now,2)`)
 	if err != nil {
 		t.Error(err)
 		return
@@ -533,28 +532,28 @@ func TestChinese(t *testing.T) {
 		}
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_chinese_native")
+		_, err = exec(db, "drop database if exists test_chinese_native")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_chinese_native")
+	_, err = exec(db, "create database if not exists test_chinese_native")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("drop table if exists test_chinese_native.chinese")
+	_, err = exec(db, "drop table if exists test_chinese_native.chinese")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_chinese_native.chinese(ts timestamp,v nchar(32))")
+	_, err = exec(db, "create table if not exists test_chinese_native.chinese(ts timestamp,v nchar(32))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(`INSERT INTO test_chinese_native.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
+	_, err = exec(db, `INSERT INTO test_chinese_native.chinese (ts, v) VALUES (?, ?)`, "1641010332000", "'阴天'")
 	if err != nil {
 		t.Error(err)
 		return
@@ -643,10 +642,10 @@ func TestSpecialPassword(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			defer func() {
 				dropSql := fmt.Sprintf("drop user %s", test.user)
-				_, _ = db.Exec(dropSql)
+				_, _ = exec(db, dropSql)
 			}()
 			createSql := fmt.Sprintf("create user %s pass '%s'", test.user, test.pass)
-			_, err := db.Exec(createSql)
+			_, err := exec(db, createSql)
 			assert.NoError(t, err)
 			escapedPass := url.QueryEscape(test.pass)
 			newDsn := fmt.Sprintf("%s:%s@/tcp(%s:%d)/%s", test.user, escapedPass, host, port, "")

@@ -189,11 +189,10 @@ func exec(conn unsafe.Pointer, sql string) error {
 			wrapper.TaosFreeResult(res)
 			time.Sleep(100 * time.Millisecond)
 			return exec(conn, sql)
-		} else {
-			errStr := wrapper.TaosErrorStr(res)
-			wrapper.TaosFreeResult(res)
-			return taosError.NewError(code, errStr)
 		}
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		return taosError.NewError(code, errStr)
 	}
 	wrapper.TaosFreeResult(res)
 	return nil

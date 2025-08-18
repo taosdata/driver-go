@@ -135,6 +135,10 @@ func doRequest(payload string) error {
 	})
 	client.JsonI.ReturnIterator(iter)
 	if code != 0 {
+		if code == 0x3d3 {
+			time.Sleep(100 * time.Millisecond)
+			return doRequest(payload)
+		}
 		return taosErrors.NewError(int(code), desc)
 	}
 	return nil
