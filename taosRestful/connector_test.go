@@ -603,16 +603,16 @@ func TestTimezone(t *testing.T) {
 	}
 	database := "rest_test_timezone"
 	defer func() {
-		_, err = parisConn.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(parisConn, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = parisConn.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(parisConn, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = parisConn.Exec(fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v int)", database))
+	_, err = exec(parisConn, fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v int)", database))
 	require.NoError(t, err)
 	shanghaiTimezone, err := time.LoadLocation("Asia/Shanghai")
 	require.NoError(t, err)
@@ -631,7 +631,7 @@ func TestTimezone(t *testing.T) {
 	// insert with shanghai timezone
 	insertSql := fmt.Sprintf("insert into %s.ctb values ('%s',1)", database, shanghaiTime)
 	t.Log(insertSql)
-	_, err = shanghaiConn.Exec(insertSql)
+	_, err = exec(shanghaiConn, insertSql)
 	require.NoError(t, err)
 	// query with paris timezone
 	querySql := fmt.Sprintf("select * from %s.ctb where ts = '%s'", database, parisTime)
