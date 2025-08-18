@@ -743,6 +743,7 @@ func TestGetFields(t *testing.T) {
 	defer TaosClose(conn)
 	stmt := TaosStmtInit(conn)
 	defer func() {
+		TaosStmtClose(stmt)
 		err = exec(conn, "drop database if exists test_stmt_field")
 		if err != nil {
 			t.Error(err)
@@ -866,6 +867,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 	defer TaosClose(conn)
 	stmt := TaosStmtInit(conn)
 	defer func() {
+		TaosStmtClose(stmt)
 		err = exec(conn, "drop database if exists test_stmt_field")
 		if err != nil {
 			t.Error(err)

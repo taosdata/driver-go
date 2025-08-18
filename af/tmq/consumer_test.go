@@ -183,6 +183,7 @@ func TestSeek(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer wrapper.TaosClose(conn)
 	db := "af_test_tmq_seek"
 	topic := "af_test_tmq_seek_topic"
 	vgroups := 2

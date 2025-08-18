@@ -162,6 +162,7 @@ func TestError(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
 	res := TaosQuery(conn, "asd")
 	code := TaosError(res)
 	assert.NotEqual(t, code, 0)
@@ -184,6 +185,7 @@ func TestAffectedRows(t *testing.T) {
 		code := TaosError(res)
 		if code != 0 {
 			t.Error(errors.NewError(code, TaosErrorStr(res)))
+			TaosFreeResult(res)
 			return
 		}
 		TaosFreeResult(res)
@@ -192,6 +194,7 @@ func TestAffectedRows(t *testing.T) {
 	code := TaosError(res)
 	if code != 0 {
 		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		TaosFreeResult(res)
 		return
 	}
 	TaosFreeResult(res)
@@ -199,6 +202,7 @@ func TestAffectedRows(t *testing.T) {
 	code = TaosError(res)
 	if code != 0 {
 		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		TaosFreeResult(res)
 		return
 	}
 	TaosFreeResult(res)
@@ -206,9 +210,11 @@ func TestAffectedRows(t *testing.T) {
 	code = TaosError(res)
 	if code != 0 {
 		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		TaosFreeResult(res)
 		return
 	}
 	affected := TaosAffectedRows(res)
+	TaosFreeResult(res)
 	assert.Equal(t, 1, affected)
 }
 

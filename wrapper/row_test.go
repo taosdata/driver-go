@@ -496,6 +496,7 @@ func TestFetchRowAllType(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
 	db := "test_fetch_row_all"
 
 	res := TaosQuery(conn, "drop database if exists "+db)
@@ -615,6 +616,7 @@ func TestFetchRowAllType(t *testing.T) {
 			result[i] = FetchRow(rr, i, header.ColTypes[i], lengths[i], precision)
 		}
 	}
+	TaosFreeResult(res)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, now.UnixNano()/1e6, result[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, result[1].(bool))

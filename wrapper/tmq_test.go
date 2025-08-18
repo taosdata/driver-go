@@ -165,6 +165,7 @@ func TestTMQ(t *testing.T) {
 	TMQConfDestroy(conf)
 	//build_topic_list
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "topic_ctb_column")
 
 	//sync_consume_loop
@@ -182,6 +183,7 @@ func TestTMQ(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+	defer TMQListDestroy(list)
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"topic_ctb_column"}, r)
@@ -254,13 +256,13 @@ func TestTMQ(t *testing.T) {
 // @description: test TMQList
 func TestTMQList(t *testing.T) {
 	list := TMQListNew()
+	defer TMQListDestroy(list)
 	TMQListAppend(list, "1")
 	TMQListAppend(list, "2")
 	TMQListAppend(list, "3")
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"1", "2", "3"}, r)
-	TMQListDestroy(list)
 }
 
 // @author: xftan
@@ -402,6 +404,7 @@ func TestTMQDB(t *testing.T) {
 	TMQConfDestroy(conf)
 	//build_topic_list
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "test_tmq_db_topic")
 
 	//sync_consume_loop
@@ -417,6 +420,7 @@ func TestTMQDB(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+	defer TMQListDestroy(list)
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"test_tmq_db_topic"}, r)
@@ -631,6 +635,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 	TMQConfDestroy(conf)
 	//build_topic_list
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "test_tmq_db_multi_topic")
 
 	//sync_consume_loop
@@ -646,6 +651,7 @@ func TestTMQDBMultiTable(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+	defer TMQListDestroy(list)
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"test_tmq_db_multi_topic"}, r)
@@ -848,6 +854,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 	TMQConfDestroy(conf)
 	//build_topic_list
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "tmq_test_db_multi_insert_topic")
 
 	//sync_consume_loop
@@ -863,6 +870,7 @@ func TestTMQDBMultiInsert(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+	defer TMQListDestroy(list)
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"tmq_test_db_multi_insert_topic"}, r)
@@ -1056,6 +1064,7 @@ func TestTMQModify(t *testing.T) {
 	TMQConfDestroy(conf)
 	//build_topic_list
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "tmq_test_db_modify_topic")
 
 	//sync_consume_loop
@@ -1071,6 +1080,7 @@ func TestTMQModify(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+	defer TMQListDestroy(list)
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"tmq_test_db_modify_topic"}, r)
@@ -1128,6 +1138,7 @@ func TestTMQModify(t *testing.T) {
 		pointer := TMQGetJsonMeta(message)
 		assert.NotNil(t, pointer)
 		data := ParseJsonMeta(pointer)
+		TMQFreeJsonMeta(pointer)
 		var meta tmqcommon.Meta
 		err = jsoniter.Unmarshal(data, &meta)
 		assert.NoError(t, err)
@@ -1324,6 +1335,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 	TMQConfDestroy(conf)
 	//build_topic_list
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "test_tmq_auto_topic")
 
 	//sync_consume_loop
@@ -1339,6 +1351,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 		t.Error(errors.NewError(int(errCode), errStr))
 		return
 	}
+	defer TMQListDestroy(list)
 	size := TMQListGetSize(list)
 	r := TMQListToCArray(list, int(size))
 	assert.Equal(t, []string{"test_tmq_auto_topic"}, r)
@@ -1357,6 +1370,7 @@ func TestTMQAutoCreateTable(t *testing.T) {
 			}
 			pointer := TMQGetJsonMeta(message)
 			data := ParseJsonMeta(pointer)
+			TMQFreeJsonMeta(pointer)
 			t.Log(string(data))
 			var meta tmqcommon.Meta
 			err = jsoniter.Unmarshal(data, &meta)
@@ -1469,6 +1483,7 @@ func TestTMQGetTopicAssignment(t *testing.T) {
 	defer TMQConsumerClose(tmq)
 
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "test_tmq_assignment")
 
 	errCode := TMQSubscribe(tmq, topicList)
@@ -1641,6 +1656,7 @@ func TestTMQPosition(t *testing.T) {
 	defer TMQConsumerClose(tmq)
 
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "test_tmq_position_topic")
 
 	errCode := TMQSubscribe(tmq, topicList)
@@ -1734,6 +1750,7 @@ func TestTMQCommitOffset(t *testing.T) {
 	defer TMQConsumerClose(tmq)
 
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, "test_tmq_commit_offset_topic")
 
 	errCode := TMQSubscribe(tmq, topicList)
@@ -1831,6 +1848,7 @@ func TestTMQCommitOffsetAsync(t *testing.T) {
 	defer TMQConsumerClose(tmq)
 
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, topic)
 
 	errCode := TMQSubscribe(tmq, topicList)
@@ -1950,6 +1968,7 @@ func TestTMQCommitAsyncCallback(t *testing.T) {
 	defer TMQConsumerClose(tmq)
 
 	topicList := TMQListNew()
+	defer TMQListDestroy(topicList)
 	TMQListAppend(topicList, topic)
 
 	errCode := TMQSubscribe(tmq, topicList)

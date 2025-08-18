@@ -3860,6 +3860,15 @@ func TestStmt2QueryAllType(t *testing.T) {
 	caller := NewStmtCallBackTest()
 	handler := cgo.NewHandle(caller)
 	stmt2 := TaosStmt2Init(conn, 0xcc123, false, false, handler)
+	defer func() {
+		code := TaosStmt2Close(stmt2)
+		if code != 0 {
+			errStr := TaosStmt2Error(stmt2)
+			err = taosError.NewError(code, errStr)
+			t.Error(err)
+			return
+		}
+	}()
 	prepareInsertSql := "insert into t values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	colTypes := []*stmt.Stmt2AllField{
 		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond, BindType: stmt.TAOS_FIELD_COL},
@@ -4135,6 +4144,15 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 	caller := NewStmtCallBackTest()
 	handler := cgo.NewHandle(caller)
 	stmt2 := TaosStmt2Init(conn, 0xcc123, false, false, handler)
+	defer func() {
+		code := TaosStmt2Close(stmt2)
+		if code != 0 {
+			errStr := TaosStmt2Error(stmt2)
+			err = taosError.NewError(code, errStr)
+			t.Error(err)
+			return
+		}
+	}()
 	prepareInsertSql := "insert into t values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	colTypes := []*stmt.Stmt2AllField{
 		{FieldType: common.TSDB_DATA_TYPE_TIMESTAMP, Precision: common.PrecisionMilliSecond, BindType: stmt.TAOS_FIELD_COL},
