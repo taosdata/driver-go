@@ -16,6 +16,9 @@ func TestTmq_3360(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer func() {
+		wrapper.TaosClose(conn)
+	}()
 	topic := "test_tmq_common_3360"
 	database := "af_test_tmq_3360"
 	sqls := []string{

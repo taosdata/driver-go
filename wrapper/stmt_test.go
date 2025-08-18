@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/parser"
@@ -742,6 +743,7 @@ func TestGetFields(t *testing.T) {
 	defer TaosClose(conn)
 	stmt := TaosStmtInit(conn)
 	defer func() {
+		TaosStmtClose(stmt)
 		err = exec(conn, "drop database if exists test_stmt_field")
 		if err != nil {
 			t.Error(err)
@@ -865,6 +867,7 @@ func TestGetFieldsCommonTable(t *testing.T) {
 	defer TaosClose(conn)
 	stmt := TaosStmtInit(conn)
 	defer func() {
+		TaosStmtClose(stmt)
 		err = exec(conn, "drop database if exists test_stmt_field")
 		if err != nil {
 			t.Error(err)
@@ -935,12 +938,18 @@ func TestGetFieldsCommonTable(t *testing.T) {
 
 func exec(conn unsafe.Pointer, sql string) error {
 	res := TaosQuery(conn, sql)
-	defer TaosFreeResult(res)
-	code := TaosError(res)
-	if code != 0 {
+	if code := TaosError(res); code != 0 {
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return exec(conn, sql)
+		}
 		errStr := TaosErrorStr(res)
+		TaosFreeResult(res)
 		return taosError.NewError(code, errStr)
 	}
+	TaosFreeResult(res)
 	return nil
 }
 
@@ -1191,13 +1200,13 @@ func TestTaosStmtSetTags(t *testing.T) {
 
 func TestTaosStmtGetParam(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer TaosClose(conn)
 
 	err = exec(conn, "drop database if exists test_stmt_get_param")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = exec(conn, "create database if not exists test_stmt_get_param")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() {
 		err = exec(conn, "drop database if exists test_stmt_get_param")
 		assert.NoError(t, err)
@@ -1205,37 +1214,37 @@ func TestTaosStmtGetParam(t *testing.T) {
 
 	err = exec(conn,
 		"create table if not exists test_stmt_get_param.stb(ts TIMESTAMP,current float,voltage int,phase float) TAGS (groupid int,location varchar(24))")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	stmt := TaosStmtInit(conn)
-	assert.NotNilf(t, stmt, "failed to init stmt")
+	require.NotNilf(t, stmt, "failed to init stmt")
 	defer TaosStmtClose(stmt)
 
 	code := TaosStmtPrepare(stmt, "insert into test_stmt_get_param.tb_0 using test_stmt_get_param.stb tags(?,?) values (?,?,?,?)")
-	assert.Equal(t, 0, code, TaosStmtErrStr(stmt))
+	require.Equal(t, 0, code, TaosStmtErrStr(stmt))
 
 	dt, dl, err := TaosStmtGetParam(stmt, 0) // ts
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 9, dt)
 	assert.Equal(t, 8, dl)
 
 	dt, dl, err = TaosStmtGetParam(stmt, 1) // current
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
 
 	dt, dl, err = TaosStmtGetParam(stmt, 2) // voltage
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 4, dt)
 	assert.Equal(t, 4, dl)
 
 	dt, dl, err = TaosStmtGetParam(stmt, 3) // phase
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
 
 	_, _, err = TaosStmtGetParam(stmt, 4) // invalid index
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestStmtJson(t *testing.T) {

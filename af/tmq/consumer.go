@@ -103,6 +103,9 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 	if message == nil {
 		return nil
 	}
+	defer func() {
+		wrapper.TaosFreeResult(message)
+	}()
 	topic := wrapper.TMQGetTopicName(message)
 	db := wrapper.TMQGetDBName(message)
 	resultType := wrapper.TMQGetResType(message)
@@ -124,7 +127,6 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			Partition: vgID,
 			Offset:    offset,
 		}
-		wrapper.TaosFreeResult(message)
 		return result
 	case common.TMQ_RES_TABLE_META:
 		result := &tmq.MetaMessage{}
@@ -141,7 +143,6 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			Partition: vgID,
 			Offset:    offset,
 		}
-		wrapper.TaosFreeResult(message)
 		return result
 	case common.TMQ_RES_METADATA:
 		result := &tmq.MetaDataMessage{}
@@ -165,7 +166,6 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 			Partition: vgID,
 			Offset:    offset,
 		}
-		wrapper.TaosFreeResult(message)
 		return result
 	default:
 		return tmq.NewTMQError(0xfffff, "invalid tmq message type")

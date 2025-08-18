@@ -19,20 +19,20 @@ func TestNanosecond(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists test_go_ns_")
+		_, err = exec(db, "drop database if exists test_go_ns_")
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_go_ns_ precision 'ns'")
+	_, err = exec(db, "create database if not exists test_go_ns_ precision 'ns'")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("create table if not exists test_go_ns_.tb1 (ts timestamp, n int)")
+	_, err = exec(db, "create table if not exists test_go_ns_.tb1 (ts timestamp, n int)")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("insert into test_go_ns_.tb1 values(1629363529469478001, 1)(1629363529469478002,2)")
+	_, err = exec(db, "insert into test_go_ns_.tb1 values(1629363529469478001, 1)(1629363529469478002,2)")
 	if err != nil {
 		t.Fatal(err)
 	}

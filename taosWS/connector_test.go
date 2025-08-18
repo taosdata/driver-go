@@ -3,6 +3,8 @@ package taosWS
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
 )
 
@@ -116,21 +119,21 @@ func TestAllTypeQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,16 +185,16 @@ func TestAllTypeQueryNull(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +203,7 @@ func TestAllTypeQueryNull(t *testing.T) {
 	for i := 1; i < len(colValues); i++ {
 		builder.WriteString(",null")
 	}
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,21 +260,21 @@ func TestAllTypeQueryCompression(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,21 +326,21 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, false))
+	_, err = exec(db, generateCreateTableSql(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,16 +389,16 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, false))
+	_, err = exec(db, generateCreateTableSql(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +408,7 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 		builder.WriteString(",null")
 	}
 	insertSql := fmt.Sprintf(`insert into %s.alltype values('%s'%s)`, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String())
-	_, err = db.Exec(insertSql)
+	_, err = exec(db, insertSql)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +515,7 @@ func TestBatch(t *testing.T) {
 				assert.Equal(t, int(1), check[0][1].(int))
 				assert.Equal(t, int(2), check[1][1].(int))
 			} else {
-				_, err := db.Exec(tt.sql)
+				_, err := exec(db, tt.sql)
 				assert.NoError(t, err)
 			}
 		})
@@ -560,16 +563,16 @@ func TestTimezone(t *testing.T) {
 	}
 	database := "ws_test_timezone"
 	defer func() {
-		_, err = parisConn.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(parisConn, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = parisConn.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(parisConn, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = parisConn.Exec(fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v int)", database))
+	_, err = exec(parisConn, fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v int)", database))
 	require.NoError(t, err)
 	shanghaiTimezone, err := time.LoadLocation("Asia/Shanghai")
 	require.NoError(t, err)
@@ -609,4 +612,17 @@ func TestTimezone(t *testing.T) {
 		count += 1
 	}
 	assert.Equal(t, 1, count)
+}
+
+func exec(db *sql.DB, query string, args ...interface{}) (driver.Result, error) {
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		var taosErr *taosError.TaosError
+		if errors.As(err, &taosErr) && taosErr.Code == 0x3d3 {
+			time.Sleep(100 * time.Millisecond)
+			return exec(db, query, args...)
+		}
+		return nil, err
+	}
+	return result, nil
 }

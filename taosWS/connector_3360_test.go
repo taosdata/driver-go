@@ -106,21 +106,21 @@ func TestAllTypeQuery_3360(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreatetablesql3360(database, true))
+	_, err = exec(db, generateCreatetablesql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generatevalues3360()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,16 +168,16 @@ func TestAllTypeQueryNull_3360(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreatetablesql3360(database, true))
+	_, err = exec(db, generateCreatetablesql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestAllTypeQueryNull_3360(t *testing.T) {
 	for i := 1; i < len(colValues); i++ {
 		builder.WriteString(",null")
 	}
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,21 +239,21 @@ func TestAllTypeQueryCompression_3360(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreatetablesql3360(database, true))
+	_, err = exec(db, generateCreatetablesql3360(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generatevalues3360()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,21 +301,21 @@ func TestAllTypeQueryWithoutJson_3360(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreatetablesql3360(database, false))
+	_, err = exec(db, generateCreatetablesql3360(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generatevalues3360()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,16 +360,16 @@ func TestAllTypeQueryNullWithoutJson_3360(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreatetablesql3360(database, false))
+	_, err = exec(db, generateCreatetablesql3360(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +379,7 @@ func TestAllTypeQueryNullWithoutJson_3360(t *testing.T) {
 		builder.WriteString(",null")
 	}
 	insertSql := fmt.Sprintf(`insert into %s.alltype values('%s'%s)`, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String())
-	_, err = db.Exec(insertSql)
+	_, err = exec(db, insertSql)
 	if err != nil {
 		t.Fatal(err)
 	}

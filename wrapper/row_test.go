@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -23,102 +24,28 @@ func TestFetchRowJSON(t *testing.T) {
 
 	defer TaosClose(conn)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists test_json_wrapper")
-		code := TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_json_wrapper")
+		require.NoError(t, err)
 	}()
-	res := TaosQuery(conn, "create database if not exists test_json_wrapper")
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database if not exists test_json_wrapper")
+	require.NoError(t, err)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists test_json_wrapper")
-		code := TaosError(res)
-		if code != 0 {
-			errStr := TaosErrorStr(res)
-			TaosFreeResult(res)
-			t.Error(&errors.TaosError{
-				Code:   int32(code) & 0xffff,
-				ErrStr: errStr,
-			})
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_json_wrapper")
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "drop table if exists test_json_wrapper.tjsonr")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, "create stable if not exists test_json_wrapper.tjsonr(ts timestamp,v int )tags(t json)")
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, `insert into test_json_wrapper.tjr_1 using test_json_wrapper.tjsonr tags('{"a":1,"b":"b"}')values (now,1)`)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, `insert into test_json_wrapper.tjr_2 using test_json_wrapper.tjsonr tags('{"a":1,"c":"c"}')values (now+1s,1)`)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, `insert into test_json_wrapper.tjr_3 using test_json_wrapper.tjsonr tags('null')values (now+2s,1)`)
-	code = TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		TaosFreeResult(res)
-		t.Error(&errors.TaosError{
-			Code:   int32(code) & 0xffff,
-			ErrStr: errStr,
-		})
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop table if exists test_json_wrapper.tjsonr")
+	require.NoError(t, err)
+	err = exec(conn, "create stable if not exists test_json_wrapper.tjsonr(ts timestamp,v int )tags(t json)")
+	require.NoError(t, err)
+	err = exec(conn, `insert into test_json_wrapper.tjr_1 using test_json_wrapper.tjsonr tags('{"a":1,"b":"b"}')values (now,1)`)
+	require.NoError(t, err)
+	err = exec(conn, `insert into test_json_wrapper.tjr_2 using test_json_wrapper.tjsonr tags('{"a":1,"c":"c"}')values (now+1s,1)`)
+	require.NoError(t, err)
+	err = exec(conn, `insert into test_json_wrapper.tjr_3 using test_json_wrapper.tjsonr tags('null')values (now+2s,1)`)
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, `select * from test_json_wrapper.tjsonr order by ts`)
-	code = TaosError(res)
+	res := TaosQuery(conn, `select * from test_json_wrapper.tjsonr order by ts`)
+	code := TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
@@ -167,120 +94,32 @@ func TestFetchRow(t *testing.T) {
 	//insert into tb3 using stb1 tags(3) values(now, 'db02');
 	//insert into tb4 using stb1 tags(4) values(now, 'db3');
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists "+db)
-		code := TaosError(res)
-		if code != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists "+db)
+		require.NoError(t, err)
 	}()
-	res := TaosQuery(conn, "create database if not exists "+db)
-	code := TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("create stable if not exists %s.stb1 (ts timestamp, name binary(10)) tags(n int);", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags(1)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "create database if not exists "+db)
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("create stable if not exists %s.stb1 (ts timestamp, name binary(10)) tags(n int);", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags(1)", db, db))
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values(now, 'log');", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb2 using %s.stb1 tags(2)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb2 values(now, 'test');", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb3 using %s.stb1 tags(3)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb3 values(now, 'db02')", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb4 using %s.stb1 tags(4)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb4 values(now, 'db3');", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("select distinct(name) from %s.stb1;", db))
-	code = TaosError(res)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb1 values(now, 'log');", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb2 using %s.stb1 tags(2)", db, db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb2 values(now, 'test');", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb3 using %s.stb1 tags(3)", db, db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb3 values(now, 'db02')", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb4 using %s.stb1 tags(4)", db, db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb4 values(now, 'db3');", db))
+	require.NoError(t, err)
+	res := TaosQuery(conn, fmt.Sprintf("select distinct(name) from %s.stb1;", db))
+	code := TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
 		err := errors.NewError(code, errStr)
@@ -332,124 +171,36 @@ func TestFetchRowNchar(t *testing.T) {
 	//insert into tb3 using stb1 tags(3) values(now, 'db02');
 	//insert into tb4 using stb1 tags(4) values(now, 'db3');
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists "+db)
-		code := TaosError(res)
-		if code != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists "+db)
+		require.NoError(t, err)
 	}()
-	res := TaosQuery(conn, "create database if not exists "+db)
+	err = exec(conn, "create database if not exists "+db)
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("create stable if not exists %s.stb1 (ts timestamp, name nchar(10)) tags(n int);", db))
+	require.NoError(t, err)
+
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags(1)", db, db))
+	require.NoError(t, err)
+
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb2 using %s.stb1 tags(2)", db, db))
+	require.NoError(t, err)
+
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb3 using %s.stb1 tags(3)", db, db))
+	require.NoError(t, err)
+
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb4 using %s.stb1 tags(4)", db, db))
+	require.NoError(t, err)
+
+	err = exec(conn, fmt.Sprintf("insert into %s.tb1 values(now, 'log');", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb2 values(now, 'test');", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb3 values(now, 'db02')", db))
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb4 values(now, 'db3');", db))
+	require.NoError(t, err)
+	res := TaosQuery(conn, fmt.Sprintf("select distinct(name) from %s.stb1;", db))
 	code := TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("create stable if not exists %s.stb1 (ts timestamp, name nchar(10)) tags(n int);", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags(1)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb2 using %s.stb1 tags(2)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb3 using %s.stb1 tags(3)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb4 using %s.stb1 tags(4)", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values(now, 'log');", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb2 values(now, 'test');", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb3 values(now, 'db02')", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb4 values(now, 'db3');", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf("select distinct(name) from %s.stb1;", db))
-	code = TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
 		err := errors.NewError(code, errStr)
@@ -496,41 +247,18 @@ func TestFetchRowAllType(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
 	db := "test_fetch_row_all"
 
-	res := TaosQuery(conn, "drop database if exists "+db)
-	code := TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, "drop database if exists "+db)
+	require.NoError(t, err)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists "+db)
-		code := TaosError(res)
-		if code != int(errors.SUCCESS) {
-			errStr := TaosErrorStr(res)
-			err := errors.NewError(code, errStr)
-			t.Error(err)
-			TaosFreeResult(res)
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists "+db)
+		require.NoError(t, err)
 	}()
-	res = TaosQuery(conn, "create database if not exists "+db)
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, fmt.Sprintf(
+	err = exec(conn, "create database if not exists "+db)
+	require.NoError(t, err)
+	err = exec(conn, fmt.Sprintf(
 		"create stable if not exists %s.stb1 (ts timestamp,"+
 			"c1 bool,"+
 			"c2 tinyint,"+
@@ -552,40 +280,16 @@ func TestFetchRowAllType(t *testing.T) {
 			"c18 blob"+
 			")"+
 			"tags(t json)", db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags('{\"a\":1}')", db, db))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, fmt.Sprintf("create table if not exists %s.tb1 using %s.stb1 tags('{\"a\":1}')", db, db))
+	require.NoError(t, err)
 	now := time.Now()
-	res = TaosQuery(conn, fmt.Sprintf("insert into %s.tb1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar','varbinary','POINT(100 100)',123456789.123,123.456,'blob');", db, now.Format(time.RFC3339Nano)))
-	code = TaosError(res)
-	if code != int(errors.SUCCESS) {
-		errStr := TaosErrorStr(res)
-		err := errors.NewError(code, errStr)
-		t.Error(err)
-		TaosFreeResult(res)
-		return
-	}
-	TaosFreeResult(res)
+	err = exec(conn, fmt.Sprintf("insert into %s.tb1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar','varbinary','POINT(100 100)',123456789.123,123.456,'blob');", db, now.Format(time.RFC3339Nano)))
+	require.NoError(t, err)
 
-	res = TaosQuery(conn, fmt.Sprintf("select * from %s.stb1 where ts = '%s';", db, now.Format(time.RFC3339Nano)))
-	code = TaosError(res)
+	res := TaosQuery(conn, fmt.Sprintf("select * from %s.stb1 where ts = '%s';", db, now.Format(time.RFC3339Nano)))
+	code := TaosError(res)
 	if code != int(errors.SUCCESS) {
 		errStr := TaosErrorStr(res)
 		err := errors.NewError(code, errStr)
@@ -615,6 +319,7 @@ func TestFetchRowAllType(t *testing.T) {
 			result[i] = FetchRow(rr, i, header.ColTypes[i], lengths[i], precision)
 		}
 	}
+	TaosFreeResult(res)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, now.UnixNano()/1e6, result[0].(time.Time).UnixNano()/1e6)
 	assert.Equal(t, true, result[1].(bool))

@@ -24,21 +24,21 @@ func TestTaosConn_ExecContext(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	defer func() {
-		_, err = db.ExecContext(ctx, "drop database if exists test_connection")
+		_, err = execContext(ctx, db, "drop database if exists test_connection")
 	}()
-	_, err = db.ExecContext(ctx, "create database if not exists test_connection")
+	_, err = execContext(ctx, db, "create database if not exists test_connection")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.ExecContext(ctx, "use test_connection")
+	_, err = execContext(ctx, db, "use test_connection")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.ExecContext(ctx, "create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)")
+	_, err = execContext(ctx, db, "create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.ExecContext(ctx, "INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('?', ?, ?, ?)", "2021-07-13 14:06:32.272", 10.2, 219, 0.32)
+	_, err = execContext(ctx, db, "INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('?', ?, ?, ?)", "2021-07-13 14:06:32.272", 10.2, 219, 0.32)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +74,6 @@ func TestWrongReqID(t *testing.T) {
 	rs, err := db.QueryContext(ctx, "select 1")
 	assert.Error(t, err)
 	assert.Nil(t, rs)
-	_, err = db.ExecContext(ctx, "create database if not exists test_wrong_req_id")
+	_, err = execContext(ctx, db, "create database if not exists test_wrong_req_id")
 	assert.Error(t, err)
 }
