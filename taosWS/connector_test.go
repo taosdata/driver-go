@@ -591,7 +591,7 @@ func TestTimezone(t *testing.T) {
 	// insert with shanghai timezone
 	insertSql := fmt.Sprintf("insert into %s.ctb values ('%s',1)", database, shanghaiTime)
 	t.Log(insertSql)
-	_, err = shanghaiConn.Exec(insertSql)
+	_, err = exec(shanghaiConn, insertSql)
 	require.NoError(t, err)
 	// query with paris timezone
 	querySql := fmt.Sprintf("select * from %s.ctb where ts = '%s'", database, parisTime)
