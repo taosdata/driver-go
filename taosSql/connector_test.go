@@ -333,7 +333,7 @@ func TestTimezone(t *testing.T) {
 }
 
 func exec(db *sql.DB, query string, args ...interface{}) (driver.Result, error) {
-	result, err := db.Exec(query, args)
+	result, err := db.Exec(query, args...)
 	if err != nil {
 		var taosErr *taosError.TaosError
 		if errors.As(err, &taosErr) {

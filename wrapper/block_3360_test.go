@@ -142,6 +142,12 @@ func TestTaosWriteRawBlock_3360(t *testing.T) {
 	}()
 	err = exec(conn, fmt.Sprintf("create database %s", database))
 	require.NoError(t, err)
+	code := TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
 	err = exec(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
@@ -253,7 +259,12 @@ func TestTaosWriteRawBlockWithFields_3360(t *testing.T) {
 	}()
 	err = exec(conn, fmt.Sprintf("create database %s", database))
 	require.NoError(t, err)
-
+	code := TaosSelectDB(conn, database)
+	if code != 0 {
+		errStr := TaosErrorStr(nil)
+		t.Error(errors.NewError(code, errStr))
+		return
+	}
 	err = exec(conn, "create table if not exists all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
