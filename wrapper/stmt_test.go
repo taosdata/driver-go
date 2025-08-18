@@ -3,6 +3,7 @@ package wrapper
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 	"unsafe"
@@ -1191,13 +1192,13 @@ func TestTaosStmtSetTags(t *testing.T) {
 
 func TestTaosStmtGetParam(t *testing.T) {
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer TaosClose(conn)
 
 	err = exec(conn, "drop database if exists test_stmt_get_param")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = exec(conn, "create database if not exists test_stmt_get_param")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() {
 		err = exec(conn, "drop database if exists test_stmt_get_param")
 		assert.NoError(t, err)
@@ -1205,37 +1206,37 @@ func TestTaosStmtGetParam(t *testing.T) {
 
 	err = exec(conn,
 		"create table if not exists test_stmt_get_param.stb(ts TIMESTAMP,current float,voltage int,phase float) TAGS (groupid int,location varchar(24))")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	stmt := TaosStmtInit(conn)
-	assert.NotNilf(t, stmt, "failed to init stmt")
+	require.NotNilf(t, stmt, "failed to init stmt")
 	defer TaosStmtClose(stmt)
 
 	code := TaosStmtPrepare(stmt, "insert into test_stmt_get_param.tb_0 using test_stmt_get_param.stb tags(?,?) values (?,?,?,?)")
-	assert.Equal(t, 0, code, TaosStmtErrStr(stmt))
+	require.Equal(t, 0, code, TaosStmtErrStr(stmt))
 
 	dt, dl, err := TaosStmtGetParam(stmt, 0) // ts
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 9, dt)
 	assert.Equal(t, 8, dl)
 
 	dt, dl, err = TaosStmtGetParam(stmt, 1) // current
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
 
 	dt, dl, err = TaosStmtGetParam(stmt, 2) // voltage
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 4, dt)
 	assert.Equal(t, 4, dl)
 
 	dt, dl, err = TaosStmtGetParam(stmt, 3) // phase
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 6, dt)
 	assert.Equal(t, 4, dl)
 
 	_, _, err = TaosStmtGetParam(stmt, 4) // invalid index
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestStmtJson(t *testing.T) {
