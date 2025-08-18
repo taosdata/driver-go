@@ -3,12 +3,12 @@ package wrapper
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/parser"
@@ -938,12 +938,19 @@ func TestGetFieldsCommonTable(t *testing.T) {
 
 func exec(conn unsafe.Pointer, sql string) error {
 	res := TaosQuery(conn, sql)
-	defer TaosFreeResult(res)
-	code := TaosError(res)
-	if code != 0 {
-		errStr := TaosErrorStr(res)
-		return taosError.NewError(code, errStr)
+	if code := TaosError(res); code != 0 {
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return exec(conn, sql)
+		} else {
+			errStr := TaosErrorStr(res)
+			TaosFreeResult(res)
+			return taosError.NewError(code, errStr)
+		}
 	}
+	TaosFreeResult(res)
 	return nil
 }
 

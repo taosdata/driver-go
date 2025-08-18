@@ -183,12 +183,18 @@ func TestExecuteError(t *testing.T) {
 
 func exec(conn unsafe.Pointer, sql string) error {
 	res := wrapper.TaosQuery(conn, sql)
-	defer func() {
-		wrapper.TaosFreeResult(res)
-	}()
 	if code := wrapper.TaosError(res); code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		return taosError.NewError(code, errStr)
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			wrapper.TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return exec(conn, sql)
+		} else {
+			errStr := wrapper.TaosErrorStr(res)
+			wrapper.TaosFreeResult(res)
+			return taosError.NewError(code, errStr)
+		}
 	}
+	wrapper.TaosFreeResult(res)
 	return nil
 }
