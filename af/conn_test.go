@@ -1014,6 +1014,7 @@ func TestOpenTSDBInsertJsonPayloadWithReqID(t *testing.T) {
 func TestNewConnector(t *testing.T) {
 	tc, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	assert.NoError(t, err)
+	defer wrapper.TaosClose(tc)
 	conn, err := NewConnector(tc)
 	assert.NoError(t, err)
 	assert.Equal(t, tc, conn.taos)

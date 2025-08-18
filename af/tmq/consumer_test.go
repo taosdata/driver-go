@@ -28,6 +28,9 @@ func TestTmq(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer func() {
+		wrapper.TaosClose(conn)
+	}()
 	sqls := []string{
 		"drop topic if exists test_tmq_common",
 		"drop database if exists af_test_tmq",
