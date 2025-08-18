@@ -180,7 +180,7 @@ func TestTaosWriteRawBlock_3360(t *testing.T) {
 
 	sql = "select * from t0"
 	res := TaosQuery(conn, sql)
-	code := TaosError(res)
+	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
@@ -293,7 +293,7 @@ func TestTaosWriteRawBlockWithFields_3360(t *testing.T) {
 
 	sql = "select ts,c1 from t0"
 	res := TaosQuery(conn, sql)
-	code := TaosError(res)
+	code = TaosError(res)
 	if code != 0 {
 		errStr := TaosErrorStr(res)
 		TaosFreeResult(res)
