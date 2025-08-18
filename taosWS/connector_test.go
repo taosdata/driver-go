@@ -618,14 +618,11 @@ func exec(db *sql.DB, query string, args ...interface{}) (driver.Result, error) 
 	result, err := db.Exec(query, args...)
 	if err != nil {
 		var taosErr *taosError.TaosError
-		if errors.As(err, &taosErr) {
-			if taosErr.Code == 0x3d3 {
-				time.Sleep(100 * time.Millisecond)
-				return exec(db, query, args...)
-			}
-		} else {
-			return nil, err
+		if errors.As(err, &taosErr) && taosErr.Code == 0x3d3 {
+			time.Sleep(100 * time.Millisecond)
+			return exec(db, query, args...)
 		}
+		return nil, err
 	}
 	return result, nil
 }
