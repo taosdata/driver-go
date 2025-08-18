@@ -327,7 +327,6 @@ func execWithoutResult(conn unsafe.Pointer, sql string) error {
 	code := wrapper.TaosError(result)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(result)
-		wrapper.TaosFreeResult(result)
 		return &errors.TaosError{Code: int32(code), ErrStr: errStr}
 	}
 	return nil
