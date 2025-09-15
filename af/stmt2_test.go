@@ -330,6 +330,7 @@ func TestStmt2(t *testing.T) {
 }
 
 func TestStmt2_Prepare(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	conn, err := Open("", "root", "taosdata", "", 0)
 	if !assert.NoError(t, err) {
 		return
@@ -360,7 +361,11 @@ func TestStmt2_Prepare(t *testing.T) {
 	_, err = exec(conn, "create table t (ts timestamp, b int, c int)")
 	assert.NoError(t, err)
 	err = stmt2.Prepare("")
-	assert.NoError(t, err)
+	if is3360 {
+		assert.NoError(t, err)
+	} else {
+		assert.Error(t, err)
+	}
 	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
 		{
 			Cols: [][]driver.Value{
@@ -372,7 +377,11 @@ func TestStmt2_Prepare(t *testing.T) {
 	})
 	assert.Error(t, err)
 	err = stmt2.Prepare("insert into t values(?,?,?)")
-	assert.Error(t, err)
+	if is3360 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
 }
 
 func TestStmt2QueryResultWithDecimal(t *testing.T) {
