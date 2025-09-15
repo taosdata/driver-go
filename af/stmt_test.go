@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -119,6 +120,7 @@ func TestStmtQueryResultWithDecimal(t *testing.T) {
 }
 
 func TestStmtTimezone(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	db := testDatabase(t)
 	tz := "Europe/Paris"
 	timezone, err := time.LoadLocation(tz)
@@ -132,7 +134,12 @@ func TestStmtTimezone(t *testing.T) {
 	assert.NoError(t, err)
 	err = stmt.SetTableName("test_stmt_timezone")
 	assert.NoError(t, err)
-	now := time.Now().Round(time.Millisecond)
+	var now time.Time
+	if is3360 {
+		now = time.Now().Round(time.Millisecond)
+	} else {
+		now = time.Now().In(timezone).Round(time.Millisecond)
+	}
 	err = stmt.BindRow(param.NewParam(2).AddTimestamp(now, common.PrecisionMicroSecond).AddInt(1))
 	assert.NoError(t, err)
 	err = stmt.AddBatch()
@@ -143,6 +150,7 @@ func TestStmtTimezone(t *testing.T) {
 	assert.Equal(t, int(1), affected)
 	err = stmt.Prepare("select * from test_stmt_timezone where ts = ?")
 	assert.NoError(t, err)
+	t.Log(now.Format("2006-01-02 15:04:05.000"))
 	err = stmt.BindRow(param.NewParam(1).AddBinary([]byte(now.Format("2006-01-02 15:04:05.000"))))
 	assert.NoError(t, err)
 	err = stmt.AddBatch()
