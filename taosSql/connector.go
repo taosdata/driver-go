@@ -70,11 +70,13 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	code := wrapper.TaosOptionsConnection(taos, common.TSDB_OPTION_CONNECTION_TIMEZONE, &tc.timezoneStr)
-	if code != 0 {
-		err = errors.NewError(code, wrapper.TaosErrorStr(nil))
-		wrapper.TaosFreeResult(taos)
-		return nil, err
+	if tc.timezoneStr != "" {
+		code := wrapper.TaosOptionsConnection(taos, common.TSDB_OPTION_CONNECTION_TIMEZONE, &tc.timezoneStr)
+		if code != 0 {
+			err = errors.NewError(code, wrapper.TaosErrorStr(nil))
+			wrapper.TaosClose(taos)
+			return nil, err
+		}
 	}
 	tc.taos = taos
 	return tc, nil
