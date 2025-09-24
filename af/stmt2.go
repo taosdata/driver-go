@@ -148,7 +148,11 @@ func (s *Stmt2) Bind(params []*stmt.TaosStmt2BindData) error {
 	}
 	locker.Lock()
 	defer locker.Unlock()
-	err := wrapper.TaosStmt2BindParam(s.stmt2, *s.isInsert, params, s.fields, -1)
+	buffer, err := stmt.MarshalStmt2Binary2(params, *s.isInsert, s.fields, 0)
+	if err != nil {
+		return err
+	}
+	err = wrapper.TaosStmt2BindBinary(s.stmt2, buffer, -1)
 	return err
 }
 

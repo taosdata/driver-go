@@ -1518,6 +1518,50 @@ func TestMarshalBinary(t *testing.T) {
 					},
 				},
 				isInsert: false,
+				fieldType: []*Stmt2AllField{
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+				},
 			},
 			want: []byte{
 				// total Length
@@ -2384,8 +2428,12 @@ func TestMarshalBinary(t *testing.T) {
 						{false},
 					},
 				}},
-				isInsert:  false,
-				fieldType: nil,
+				isInsert: false,
+				fieldType: []*Stmt2AllField{
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+				},
 			},
 			want: []byte{
 				// total Length
@@ -2523,7 +2571,8 @@ func TestMarshalBinary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := MarshalStmt2Binary(tt.args.t, tt.args.isInsert, tt.args.fieldType)
+			got, err := MarshalStmt2Binary2(tt.args.t, tt.args.isInsert, tt.args.fieldType, 0)
+			//got, err := MarshalStmt2Binary(tt.args.t, tt.args.isInsert, tt.args.fieldType)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MarshalStmt2Binary() error = %v, wantErr %v", err, tt.wantErr)
 				return
