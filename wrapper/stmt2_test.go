@@ -4229,7 +4229,7 @@ func TestStmt2QueryAllType(t *testing.T) {
 		{FieldType: common.TSDB_DATA_TYPE_NCHAR, BindType: stmt.TAOS_FIELD_COL},
 	}
 
-	now := time.Now()
+	now := time.Now().Round(time.Millisecond)
 	params2 := []*stmt.TaosStmt2BindData{{
 		TableName: "t",
 		Cols: [][]driver.Value{
@@ -4449,6 +4449,79 @@ func TestStmt2QueryAllType(t *testing.T) {
 	}
 	t.Log(result)
 	assert.Len(t, result, 1)
+	code = TaosStmt2Prepare(stmt2, "select ts,v12,v13,v15 from t where v12 = ? and v13 = ? and v15 = ? ")
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	isInsert, code = TaosStmt2IsInsert(stmt2)
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	assert.False(t, isInsert)
+	params = []*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{""},
+				{[]byte{}},
+				{""},
+			},
+		},
+	}
+	err = TaosStmt2BindParam(stmt2, false, params, nil, -1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	code = TaosStmt2Exec(stmt2)
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	r = <-caller.ExecResult
+	if r.n != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(r.n, errStr)
+		t.Error(err)
+		return
+	}
+	res = r.res
+	fileCount = TaosNumFields(res)
+	rh, err = ReadColumn(res, fileCount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	precision = TaosResultPrecision(res)
+	result = nil
+	for {
+		columns, errCode, block := TaosFetchRawBlock(res)
+		if errCode != 0 {
+			errStr := TaosErrorStr(res)
+			err = taosError.NewError(errCode, errStr)
+			t.Error(err)
+			return
+		}
+		if columns == 0 {
+			break
+		}
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
+		result = append(result, r...)
+	}
+	t.Log(result)
+	assert.Len(t, result, 1)
+	assert.Equal(t, now.Add(time.Second*3).UnixNano(), result[0][0].(time.Time).UnixNano())
+	assert.Equal(t, "", result[0][1])
+	assert.Equal(t, []byte(""), result[0][2])
+	assert.Equal(t, "", result[0][3])
 }
 
 func TestStmt2QueryAllTypeBytes(t *testing.T) {
@@ -4529,7 +4602,7 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 		{FieldType: common.TSDB_DATA_TYPE_NCHAR, BindType: stmt.TAOS_FIELD_COL},
 	}
 
-	now := time.Now()
+	now := time.Now().Round(time.Millisecond)
 	params2 := []*stmt.TaosStmt2BindData{{
 		TableName: "t",
 		Cols: [][]driver.Value{
@@ -4759,6 +4832,79 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 	}
 	t.Log(result)
 	assert.Len(t, result, 1)
+	code = TaosStmt2Prepare(stmt2, "select ts,v12,v13,v15 from t where v12 = ? and v13 = ? and v15 = ? ")
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	isInsert, code = TaosStmt2IsInsert(stmt2)
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	assert.False(t, isInsert)
+	params = []*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{""},
+				{[]byte{}},
+				{""},
+			},
+		},
+	}
+	err = TaosStmt2BindParam(stmt2, false, params, nil, -1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	code = TaosStmt2Exec(stmt2)
+	if code != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(code, errStr)
+		t.Error(err)
+		return
+	}
+	r = <-caller.ExecResult
+	if r.n != 0 {
+		errStr := TaosStmt2Error(stmt2)
+		err = taosError.NewError(r.n, errStr)
+		t.Error(err)
+		return
+	}
+	res = r.res
+	fileCount = TaosNumFields(res)
+	rh, err = ReadColumn(res, fileCount)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	precision = TaosResultPrecision(res)
+	result = nil
+	for {
+		columns, errCode, block := TaosFetchRawBlock(res)
+		if errCode != 0 {
+			errStr := TaosErrorStr(res)
+			err = taosError.NewError(errCode, errStr)
+			t.Error(err)
+			return
+		}
+		if columns == 0 {
+			break
+		}
+		r, err := parser.ReadBlock(block, columns, rh.ColTypes, precision)
+		assert.NoError(t, err)
+		result = append(result, r...)
+	}
+	t.Log(result)
+	assert.Len(t, result, 1)
+	assert.Equal(t, now.Add(time.Second*3).UnixNano(), result[0][0].(time.Time).UnixNano())
+	assert.Equal(t, "", result[0][1])
+	assert.Equal(t, []byte(""), result[0][2])
+	assert.Equal(t, "", result[0][3])
 }
 
 func TestStmt2Json(t *testing.T) {
@@ -6234,7 +6380,7 @@ func TestStmt2BindTbnameAsValue(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		//err = exec(conn, "drop database if exists test_stmt2_bind_tbname_as_value")
+		err = exec(conn, "drop database if exists test_stmt2_bind_tbname_as_value")
 		if err != nil {
 			t.Error(err)
 			return
