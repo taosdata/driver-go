@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -66,6 +67,7 @@ func TestStmt2BindData(t *testing.T) {
 	now := time.Now().Round(time.Millisecond)
 	next1S := now.Add(time.Second)
 	next2S := now.Add(2 * time.Second)
+	next3S := now.Add(3 * time.Second)
 
 	tests := []struct {
 		name        string
@@ -783,7 +785,45 @@ func TestStmt2BindData(t *testing.T) {
 			},
 		},
 		{
-			name:   "binary null 3 cols",
+			name:   "binary empty string",
+			tbType: "ts timestamp, v binary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						"",
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+		},
+		{
+			name:   "binary empty bytes",
+			tbType: "ts timestamp, v binary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						[]byte{},
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+		},
+		{
+			name:   "binary null 4 cols",
 			tbType: "ts timestamp, v binary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -792,11 +832,13 @@ func TestStmt2BindData(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						[]byte("yes"),
 						nil,
 						[]byte("中文"),
+						[]byte(""),
 					},
 				},
 			}},
@@ -805,6 +847,7 @@ func TestStmt2BindData(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -848,7 +891,47 @@ func TestStmt2BindData(t *testing.T) {
 		},
 
 		{
-			name:   "varbinary null 3 cols",
+			name:   "varbinary empty string",
+			tbType: "ts timestamp, v varbinary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						"",
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, []byte{}},
+			},
+		},
+
+		{
+			name:   "varbinary empty bytes",
+			tbType: "ts timestamp, v varbinary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						[]byte{},
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, []byte{}},
+			},
+		},
+
+		{
+			name:   "varbinary null 4 cols",
 			tbType: "ts timestamp, v varbinary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -857,11 +940,13 @@ func TestStmt2BindData(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						[]byte("yes"),
 						nil,
 						[]byte("中文"),
+						[]byte{},
 					},
 				},
 			}},
@@ -870,6 +955,7 @@ func TestStmt2BindData(t *testing.T) {
 				{now, []byte("yes")},
 				{next1S, nil},
 				{next2S, []byte("中文")},
+				{next3S, []byte("")},
 			},
 		},
 
@@ -976,7 +1062,45 @@ func TestStmt2BindData(t *testing.T) {
 			},
 		},
 		{
-			name:   "nchar null 3 cols",
+			name:   "nchar empty string",
+			tbType: "ts timestamp, v nchar(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						"",
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+		},
+		{
+			name:   "nchar empty bytes",
+			tbType: "ts timestamp, v nchar(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						[]byte{},
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+		},
+		{
+			name:   "nchar null 4 cols",
 			tbType: "ts timestamp, v nchar(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -985,11 +1109,13 @@ func TestStmt2BindData(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						[]byte("yes"),
 						nil,
 						[]byte("中文"),
+						[]byte(""),
 					},
 				},
 			}},
@@ -998,6 +1124,7 @@ func TestStmt2BindData(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -1022,7 +1149,7 @@ func TestStmt2BindData(t *testing.T) {
 		},
 
 		{
-			name:   "nchar bind string null 3 cols",
+			name:   "nchar bind string null 4 cols",
 			tbType: "ts timestamp, v nchar(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -1031,11 +1158,13 @@ func TestStmt2BindData(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						"yes",
 						nil,
 						"中文",
+						"",
 					},
 				},
 			}},
@@ -1044,6 +1173,7 @@ func TestStmt2BindData(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -1068,7 +1198,7 @@ func TestStmt2BindData(t *testing.T) {
 		},
 
 		{
-			name:   "binary bind string null 3 cols",
+			name:   "binary bind string null 4 cols",
 			tbType: "ts timestamp, v binary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -1077,11 +1207,13 @@ func TestStmt2BindData(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						"yes",
 						nil,
 						"中文",
+						"",
 					},
 				},
 			}},
@@ -1090,6 +1222,7 @@ func TestStmt2BindData(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -1114,7 +1247,7 @@ func TestStmt2BindData(t *testing.T) {
 		},
 
 		{
-			name:   "varbinary bind string null 3 cols",
+			name:   "varbinary bind string null 4 cols",
 			tbType: "ts timestamp, v varbinary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -1123,11 +1256,13 @@ func TestStmt2BindData(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						"yes",
 						nil,
 						"中文",
+						"",
 					},
 				},
 			}},
@@ -1136,6 +1271,7 @@ func TestStmt2BindData(t *testing.T) {
 				{now, []byte("yes")},
 				{next1S, nil},
 				{next2S, []byte("中文")},
+				{next3S, []byte("")},
 			},
 		},
 
@@ -1245,6 +1381,7 @@ func TestStmt2BindData(t *testing.T) {
 }
 
 func TestStmt2BindBinary(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -1271,6 +1408,7 @@ func TestStmt2BindBinary(t *testing.T) {
 	now := time.Now().Round(time.Millisecond)
 	next1S := now.Add(time.Second)
 	next2S := now.Add(2 * time.Second)
+	next3S := now.Add(3 * time.Second)
 
 	tests := []struct {
 		name        string
@@ -1278,6 +1416,7 @@ func TestStmt2BindBinary(t *testing.T) {
 		pos         string
 		params      []*stmt.TaosStmt2BindData
 		expectValue [][]driver.Value
+		skip3360    bool
 	}{
 		{
 			name:   "int",
@@ -1336,10 +1475,20 @@ func TestStmt2BindBinary(t *testing.T) {
 			tbType: "ts timestamp, v bool",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
-				Cols: [][]driver.Value{{now}, {bool(true)}},
+				Cols: [][]driver.Value{{now}, {true}},
 			}},
 
 			expectValue: [][]driver.Value{{now, true}},
+		},
+		{
+			name:   "bool false",
+			tbType: "ts timestamp, v bool",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{{now}, {false}},
+			}},
+
+			expectValue: [][]driver.Value{{now, false}},
 		},
 		{
 			name:   "bool null",
@@ -1978,7 +2127,45 @@ func TestStmt2BindBinary(t *testing.T) {
 			},
 		},
 		{
-			name:   "binary null 3 cols",
+			name:   "binary empty string",
+			tbType: "ts timestamp, v binary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						"",
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+		},
+		{
+			name:   "binary empty bytes",
+			tbType: "ts timestamp, v binary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						[]byte{},
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+		},
+		{
+			name:   "binary null 4 cols",
 			tbType: "ts timestamp, v binary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -1987,11 +2174,13 @@ func TestStmt2BindBinary(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						[]byte("yes"),
 						nil,
 						[]byte("中文"),
+						[]byte(""),
 					},
 				},
 			}},
@@ -2000,6 +2189,7 @@ func TestStmt2BindBinary(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -2043,7 +2233,47 @@ func TestStmt2BindBinary(t *testing.T) {
 		},
 
 		{
-			name:   "varbinary null 3 cols",
+			name:   "varbinary empty string",
+			tbType: "ts timestamp, v varbinary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						"",
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, []byte{}},
+			},
+		},
+
+		{
+			name:   "varbinary empty bytes",
+			tbType: "ts timestamp, v varbinary(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						[]byte{},
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, []byte{}},
+			},
+		},
+
+		{
+			name:   "varbinary null 4 cols",
 			tbType: "ts timestamp, v varbinary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -2052,11 +2282,13 @@ func TestStmt2BindBinary(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						[]byte("yes"),
 						nil,
 						[]byte("中文"),
+						[]byte{},
 					},
 				},
 			}},
@@ -2065,6 +2297,7 @@ func TestStmt2BindBinary(t *testing.T) {
 				{now, []byte("yes")},
 				{next1S, nil},
 				{next2S, []byte("中文")},
+				{next3S, []byte("")},
 			},
 		},
 
@@ -2171,7 +2404,47 @@ func TestStmt2BindBinary(t *testing.T) {
 			},
 		},
 		{
-			name:   "nchar null 3 cols",
+			name:   "nchar empty string",
+			tbType: "ts timestamp, v nchar(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						"",
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+			skip3360: true,
+		},
+		{
+			name:   "nchar empty bytes",
+			tbType: "ts timestamp, v nchar(20)",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						[]byte{},
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, ""},
+			},
+			skip3360: true,
+		},
+		{
+			name:   "nchar null 4 cols",
 			tbType: "ts timestamp, v nchar(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -2180,11 +2453,13 @@ func TestStmt2BindBinary(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						[]byte("yes"),
 						nil,
 						[]byte("中文"),
+						[]byte(""),
 					},
 				},
 			}},
@@ -2193,6 +2468,7 @@ func TestStmt2BindBinary(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -2217,7 +2493,7 @@ func TestStmt2BindBinary(t *testing.T) {
 		},
 
 		{
-			name:   "nchar bind string null 3 cols",
+			name:   "nchar bind string null 4 cols",
 			tbType: "ts timestamp, v nchar(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -2226,11 +2502,13 @@ func TestStmt2BindBinary(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						"yes",
 						nil,
 						"中文",
+						"",
 					},
 				},
 			}},
@@ -2239,6 +2517,7 @@ func TestStmt2BindBinary(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -2263,7 +2542,7 @@ func TestStmt2BindBinary(t *testing.T) {
 		},
 
 		{
-			name:   "binary bind string null 3 cols",
+			name:   "binary bind string null 4 cols",
 			tbType: "ts timestamp, v binary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -2272,11 +2551,13 @@ func TestStmt2BindBinary(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						"yes",
 						nil,
 						"中文",
+						"",
 					},
 				},
 			}},
@@ -2285,6 +2566,7 @@ func TestStmt2BindBinary(t *testing.T) {
 				{now, "yes"},
 				{next1S, nil},
 				{next2S, "中文"},
+				{next3S, ""},
 			},
 		},
 
@@ -2309,7 +2591,7 @@ func TestStmt2BindBinary(t *testing.T) {
 		},
 
 		{
-			name:   "varbinary bind string null 3 cols",
+			name:   "varbinary bind string null 4 cols",
 			tbType: "ts timestamp, v varbinary(20)",
 			pos:    "?, ?",
 			params: []*stmt.TaosStmt2BindData{{
@@ -2318,11 +2600,13 @@ func TestStmt2BindBinary(t *testing.T) {
 						now,
 						next1S,
 						next2S,
+						next3S,
 					},
 					{
 						"yes",
 						nil,
 						"中文",
+						"",
 					},
 				},
 			}},
@@ -2331,11 +2615,35 @@ func TestStmt2BindBinary(t *testing.T) {
 				{now, []byte("yes")},
 				{next1S, nil},
 				{next2S, []byte("中文")},
+				{next3S, []byte("")},
+			},
+		},
+
+		{
+			name:   "timestamp",
+			tbType: "ts timestamp, v timestamp",
+			pos:    "?, ?",
+			params: []*stmt.TaosStmt2BindData{{
+				Cols: [][]driver.Value{
+					{
+						now,
+					},
+					{
+						now,
+					},
+				},
+			}},
+
+			expectValue: [][]driver.Value{
+				{now, now},
 			},
 		},
 	}
 	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip3360 && is3360 {
+				t.Skip("skip for 3360")
+			}
 			tbType := tc.tbType
 			tbName := fmt.Sprintf("test_fast_insert_%02d", i)
 			drop := fmt.Sprintf("drop table if exists %s", tbName)
@@ -3032,81 +3340,97 @@ func TestStmt2AllType(t *testing.T) {
 				now,
 				now.Add(time.Second),
 				now.Add(time.Second * 2),
+				now.Add(time.Second * 3),
 			},
 			{
 				true,
 				nil,
 				false,
+				true,
 			},
 			{
 				int8(11),
 				nil,
 				int8(12),
+				int8(13),
 			},
 			{
 				int16(11),
 				nil,
 				int16(12),
+				int16(13),
 			},
 			{
 				int32(11),
 				nil,
 				int32(12),
+				int32(13),
 			},
 			{
 				int64(11),
 				nil,
 				int64(12),
+				int64(13),
 			},
 			{
 				uint8(11),
 				nil,
 				uint8(12),
+				uint8(13),
 			},
 			{
 				uint16(11),
 				nil,
 				uint16(12),
+				uint16(13),
 			},
 			{
 				uint32(11),
 				nil,
 				uint32(12),
+				uint32(13),
 			},
 			{
 				uint64(11),
 				nil,
 				uint64(12),
+				uint64(13),
 			},
 			{
 				float32(11.2),
 				nil,
 				float32(12.2),
+				float32(13.2),
 			},
 			{
 				float64(11.2),
 				nil,
 				float64(12.2),
+				float64(13.2),
 			},
 			{
 				[]byte("binary1"),
 				nil,
 				[]byte("binary2"),
+				[]byte(""),
 			},
 			{
 				[]byte("varbinary1"),
 				nil,
 				[]byte("varbinary2"),
+				[]byte(""),
 			},
 			{
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 				nil,
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+				nil,
 			},
 			{
 				"nchar1",
 				nil,
 				"nchar2",
+				"",
 			},
 		},
 	}}
@@ -3131,7 +3455,7 @@ func TestStmt2AllType(t *testing.T) {
 		return
 	}
 	t.Log(r.affected)
-
+	assert.Equal(t, 4, int(r.affected))
 	code = TaosStmt2Close(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
@@ -3295,81 +3619,97 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 				now,
 				now.Add(time.Second),
 				now.Add(time.Second * 2),
+				now.Add(time.Second * 3),
 			},
 			{
 				true,
 				nil,
 				false,
+				true,
 			},
 			{
 				int8(11),
 				nil,
 				int8(12),
+				int8(13),
 			},
 			{
 				int16(11),
 				nil,
 				int16(12),
+				int16(13),
 			},
 			{
 				int32(11),
 				nil,
 				int32(12),
+				int32(13),
 			},
 			{
 				int64(11),
 				nil,
 				int64(12),
+				int64(13),
 			},
 			{
 				uint8(11),
 				nil,
 				uint8(12),
+				uint8(13),
 			},
 			{
 				uint16(11),
 				nil,
 				uint16(12),
+				uint16(13),
 			},
 			{
 				uint32(11),
 				nil,
 				uint32(12),
+				uint32(13),
 			},
 			{
 				uint64(11),
 				nil,
 				uint64(12),
+				uint64(13),
 			},
 			{
 				float32(11.2),
 				nil,
 				float32(12.2),
+				float32(13.2),
 			},
 			{
 				float64(11.2),
 				nil,
 				float64(12.2),
+				float64(13.2),
 			},
 			{
 				[]byte("binary1"),
 				nil,
 				[]byte("binary2"),
+				[]byte(""),
 			},
 			{
 				[]byte("varbinary1"),
 				nil,
 				[]byte("varbinary2"),
+				[]byte(""),
 			},
 			{
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 				nil,
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+				nil,
 			},
 			{
 				"nchar1",
 				nil,
 				"nchar2",
+				"",
 			},
 		},
 	}}
@@ -3398,7 +3738,7 @@ func TestStmt2AllTypeBytes(t *testing.T) {
 		return
 	}
 	t.Log(r.affected)
-
+	assert.Equal(t, 4, int(r.affected))
 	code = TaosStmt2Close(insertStmt)
 	if code != 0 {
 		errStr := TaosStmt2Error(insertStmt)
@@ -3897,81 +4237,97 @@ func TestStmt2QueryAllType(t *testing.T) {
 				now,
 				now.Add(time.Second),
 				now.Add(time.Second * 2),
+				now.Add(time.Second * 3),
 			},
 			{
 				true,
 				nil,
 				false,
+				true,
 			},
 			{
 				int8(11),
 				nil,
 				int8(12),
+				int8(13),
 			},
 			{
 				int16(11),
 				nil,
 				int16(12),
+				int16(13),
 			},
 			{
 				int32(11),
 				nil,
 				int32(12),
+				int32(13),
 			},
 			{
 				int64(11),
 				nil,
 				int64(12),
+				int64(13),
 			},
 			{
 				uint8(11),
 				nil,
 				uint8(12),
+				uint8(13),
 			},
 			{
 				uint16(11),
 				nil,
 				uint16(12),
+				uint16(13),
 			},
 			{
 				uint32(11),
 				nil,
 				uint32(12),
+				uint32(13),
 			},
 			{
 				uint64(11),
 				nil,
 				uint64(12),
+				uint64(13),
 			},
 			{
 				float32(11.2),
 				nil,
 				float32(12.2),
+				float32(13.2),
 			},
 			{
 				float64(11.2),
 				nil,
 				float64(12.2),
+				float64(13.2),
 			},
 			{
 				[]byte("binary1"),
 				nil,
 				[]byte("binary2"),
+				[]byte(""),
 			},
 			{
 				[]byte("varbinary1"),
 				nil,
 				[]byte("varbinary2"),
+				[]byte(""),
 			},
 			{
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 				nil,
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+				nil,
 			},
 			{
 				"nchar1",
 				nil,
 				"nchar2",
+				"",
 			},
 		},
 	}}
@@ -4010,7 +4366,7 @@ func TestStmt2QueryAllType(t *testing.T) {
 		return
 	}
 	t.Log(r.affected)
-	assert.Equal(t, 3, r.affected)
+	assert.Equal(t, 4, r.affected)
 	code = TaosStmt2Prepare(stmt2, "select * from t where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? ")
 	if code != 0 {
 		errStr := TaosStmt2Error(stmt2)
@@ -4181,81 +4537,97 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 				now,
 				now.Add(time.Second),
 				now.Add(time.Second * 2),
+				now.Add(time.Second * 3),
 			},
 			{
 				true,
 				nil,
 				false,
+				true,
 			},
 			{
 				int8(11),
 				nil,
 				int8(12),
+				int8(13),
 			},
 			{
 				int16(11),
 				nil,
 				int16(12),
+				int16(13),
 			},
 			{
 				int32(11),
 				nil,
 				int32(12),
+				int32(13),
 			},
 			{
 				int64(11),
 				nil,
 				int64(12),
+				int64(13),
 			},
 			{
 				uint8(11),
 				nil,
 				uint8(12),
+				uint8(13),
 			},
 			{
 				uint16(11),
 				nil,
 				uint16(12),
+				uint16(13),
 			},
 			{
 				uint32(11),
 				nil,
 				uint32(12),
+				uint32(13),
 			},
 			{
 				uint64(11),
 				nil,
 				uint64(12),
+				uint64(13),
 			},
 			{
 				float32(11.2),
 				nil,
 				float32(12.2),
+				float32(13.2),
 			},
 			{
 				float64(11.2),
 				nil,
 				float64(12.2),
+				float64(13.2),
 			},
 			{
 				[]byte("binary1"),
 				nil,
 				[]byte("binary2"),
+				[]byte(""),
 			},
 			{
 				[]byte("varbinary1"),
 				nil,
 				[]byte("varbinary2"),
+				[]byte(""),
 			},
 			{
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 				nil,
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+				nil,
 			},
 			{
 				"nchar1",
 				nil,
 				"nchar2",
+				"",
 			},
 		},
 	}}
@@ -4299,7 +4671,7 @@ func TestStmt2QueryAllTypeBytes(t *testing.T) {
 		return
 	}
 	t.Log(r.affected)
-	assert.Equal(t, 3, r.affected)
+	assert.Equal(t, 4, r.affected)
 	code = TaosStmt2Prepare(stmt2, "select * from t where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? ")
 	if code != 0 {
 		errStr := TaosStmt2Error(stmt2)
@@ -5862,7 +6234,7 @@ func TestStmt2BindTbnameAsValue(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		err = exec(conn, "drop database if exists test_stmt2_bind_tbname_as_value")
+		//err = exec(conn, "drop database if exists test_stmt2_bind_tbname_as_value")
 		if err != nil {
 			t.Error(err)
 			return
@@ -6198,81 +6570,97 @@ func TestStmt2BindTbnameAsValue(t *testing.T) {
 				now,
 				now.Add(time.Second),
 				now.Add(time.Second * 2),
+				now.Add(time.Second * 3),
 			},
 			{
 				true,
 				nil,
 				false,
+				true,
 			},
 			{
 				int8(11),
 				nil,
 				int8(12),
+				int8(13),
 			},
 			{
 				int16(11),
 				nil,
 				int16(12),
+				int16(13),
 			},
 			{
 				int32(11),
 				nil,
 				int32(12),
+				int32(13),
 			},
 			{
 				int64(11),
 				nil,
 				int64(12),
+				int64(13),
 			},
 			{
 				uint8(11),
 				nil,
 				uint8(12),
+				uint8(13),
 			},
 			{
 				uint16(11),
 				nil,
 				uint16(12),
+				uint16(13),
 			},
 			{
 				uint32(11),
 				nil,
 				uint32(12),
+				uint32(13),
 			},
 			{
 				uint64(11),
 				nil,
 				uint64(12),
+				uint64(13),
 			},
 			{
 				float32(11.2),
 				nil,
 				float32(12.2),
+				float32(13.2),
 			},
 			{
 				float64(11.2),
 				nil,
 				float64(12.2),
+				float64(13.2),
 			},
 			{
 				[]byte("binary1"),
 				nil,
 				[]byte("binary2"),
+				[]byte(""),
 			},
 			{
 				[]byte("varbinary1"),
 				nil,
 				[]byte("varbinary2"),
+				[]byte(""),
 			},
 			{
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
 				nil,
 				[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+				nil,
 			},
 			{
 				"nchar1",
 				nil,
 				"nchar2",
+				"",
 			},
 		},
 	}}
@@ -6297,7 +6685,7 @@ func TestStmt2BindTbnameAsValue(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	assert.Equal(t, 3, r.affected)
+	assert.Equal(t, 4, r.affected)
 
 	code = TaosStmt2Close(insertStmt)
 	if code != 0 {
