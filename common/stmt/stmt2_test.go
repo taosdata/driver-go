@@ -2,6 +2,7 @@ package stmt
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -2572,12 +2573,121 @@ func TestMarshalBinary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := MarshalStmt2Binary2(tt.args.t, tt.args.isInsert, tt.args.fieldType, 0)
-			//got, err := MarshalStmt2Binary(tt.args.t, tt.args.isInsert, tt.args.fieldType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarshalStmt2Binary() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.want, got)
+			got, err = MarshalStmt2Binary(tt.args.t, tt.args.isInsert, tt.args.fieldType)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MarshalStmt2Binary() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func BenchmarkMarshalBinary(b *testing.B) {
+	bindData := make([]*TaosStmt2BindData, 1000)
+	now := time.Now().UnixMilli()
+	for i := 0; i < 1000; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("d_%d", i),
+			Cols: [][]driver.Value{
+				{
+					now,
+				},
+				{
+					float32(i),
+				},
+				{
+					int32(i),
+				},
+				{
+					float32(i),
+				},
+			},
+		}
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			BindType:  TAOS_FIELD_COL,
+			Precision: common.PrecisionMilliSecond,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MarshalStmt2Binary(bindData, true, fields)
+	}
+}
+
+func BenchmarkMarshalBinary2(b *testing.B) {
+	bindData := make([]*TaosStmt2BindData, 1000)
+	now := time.Now().UnixMilli()
+	for i := 0; i < 1000; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("d_%d", i),
+			Cols: [][]driver.Value{
+				{
+					now,
+				},
+				{
+					float32(i),
+				},
+				{
+					int32(i),
+				},
+				{
+					float32(i),
+				},
+			},
+		}
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			BindType:  TAOS_FIELD_COL,
+			Precision: common.PrecisionMilliSecond,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	//debug.SetGCPercent(-1)
+	//defer debug.SetGCPercent(original) // 测试结束后恢复
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MarshalStmt2Binary2(bindData, true, fields, 0)
 	}
 }

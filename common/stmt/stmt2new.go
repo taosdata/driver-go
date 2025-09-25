@@ -13,13 +13,20 @@ import (
 
 const FixedHeaderLen = uint32(28)
 
+var isVarDataType = [common.TSDB_DATA_TYPE_MAX]bool{
+	common.TSDB_DATA_TYPE_BINARY:    true,
+	common.TSDB_DATA_TYPE_NCHAR:     true,
+	common.TSDB_DATA_TYPE_JSON:      true,
+	common.TSDB_DATA_TYPE_VARBINARY: true,
+	common.TSDB_DATA_TYPE_GEOMETRY:  true,
+	common.TSDB_DATA_TYPE_BLOB:      true,
+}
+
 func IsVarDataType(colType int8) bool {
-	return colType == common.TSDB_DATA_TYPE_BINARY ||
-		colType == common.TSDB_DATA_TYPE_NCHAR ||
-		colType == common.TSDB_DATA_TYPE_JSON ||
-		colType == common.TSDB_DATA_TYPE_VARBINARY ||
-		colType == common.TSDB_DATA_TYPE_GEOMETRY ||
-		colType == common.TSDB_DATA_TYPE_BLOB
+	if colType < 0 || colType >= common.TSDB_DATA_TYPE_MAX {
+		return false
+	}
+	return isVarDataType[colType]
 }
 
 func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []*Stmt2AllField, binaryHeaderLength int) ([]byte, error) {
@@ -185,7 +192,7 @@ func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []
 					tableTagLength += totalLength
 					tagsBufferLen += totalLength
 				} else {
-					var typeLength = uint32(common.TypeLengthMap[int(tagFields[i].FieldType)])
+					var typeLength = uint32(common.TypeLengthArr[int(tagFields[i].FieldType)])
 					if tagVal == nil {
 						typeLength = 0
 					}
@@ -238,7 +245,7 @@ func MarshalStmt2Binary2(bindData []*TaosStmt2BindData, isInsert bool, fields []
 					tableColLength += totalLength
 					colsBufferLen += totalLength
 				} else {
-					var typeLength = common.TypeLengthMap[int(colFields[i].FieldType)]
+					var typeLength = common.TypeLengthArr[int(colFields[i].FieldType)]
 					totalLength := 4 + // TotalLength field length
 						4 + // DataType field length
 						4 + // Num field length
@@ -414,7 +421,7 @@ func writeBindTag(tagFields []*Stmt2AllField, tagVal []driver.Value, buffer []by
 			writeU32(buffer, startOffset+TotalLengthOffset, totalLength)
 		} else {
 			if !isVarData {
-				var dataLength = uint32(common.TypeLengthMap[int(tagFields[i].FieldType)])
+				var dataLength = uint32(common.TypeLengthArr[int(tagFields[i].FieldType)])
 				switch tagFields[i].FieldType {
 				case common.TSDB_DATA_TYPE_BOOL:
 					val, ok := tagVal[i].(bool)
@@ -615,7 +622,7 @@ func writeBindCol(colFields []*Stmt2AllField, colVals [][]driver.Value, buffer [
 			writeU32(buffer, startOffset+variableBufferLengthOffset, (uint32)(totalVarBufferLength))
 		} else {
 			var totalFixedBufferLength = 0
-			var typeLength = common.TypeLengthMap[int(colField.FieldType)]
+			var typeLength = common.TypeLengthArr[int(colField.FieldType)]
 			var fixedOffset = startOffset + fixedBufferOffset
 			switch colField.FieldType {
 			case common.TSDB_DATA_TYPE_BOOL:
