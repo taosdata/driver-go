@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -1380,6 +1381,7 @@ func TestStmt2BindData(t *testing.T) {
 }
 
 func TestStmt2BindBinary(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -1414,6 +1416,7 @@ func TestStmt2BindBinary(t *testing.T) {
 		pos         string
 		params      []*stmt.TaosStmt2BindData
 		expectValue [][]driver.Value
+		skip3360    bool
 	}{
 		{
 			name:   "int",
@@ -2418,6 +2421,7 @@ func TestStmt2BindBinary(t *testing.T) {
 			expectValue: [][]driver.Value{
 				{now, ""},
 			},
+			skip3360: true,
 		},
 		{
 			name:   "nchar empty bytes",
@@ -2437,6 +2441,7 @@ func TestStmt2BindBinary(t *testing.T) {
 			expectValue: [][]driver.Value{
 				{now, ""},
 			},
+			skip3360: true,
 		},
 		{
 			name:   "nchar null 4 cols",
@@ -2636,6 +2641,9 @@ func TestStmt2BindBinary(t *testing.T) {
 	}
 	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip3360 && is3360 {
+				t.Skip("skip for 3360")
+			}
 			tbType := tc.tbType
 			tbName := fmt.Sprintf("test_fast_insert_%02d", i)
 			drop := fmt.Sprintf("drop table if exists %s", tbName)
