@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -70,9 +71,19 @@ func InterpolateParams(query string, args []driver.NamedValue) (string, error) {
 			buf.WriteString(t)
 			buf.WriteByte('\'')
 		case []byte:
+			if bytesHasBackslash(v) {
+				return "", driver.ErrSkip
+			}
+			buf.WriteByte('\'')
 			buf.Write(v)
+			buf.WriteByte('\'')
 		case string:
+			if stringHasBackslash(v) {
+				return "", driver.ErrSkip
+			}
+			buf.WriteByte('\'')
 			buf.WriteString(v)
+			buf.WriteByte('\'')
 		default:
 			return "", driver.ErrSkip
 		}
@@ -95,4 +106,24 @@ func ValueArgsToNamedValueArgs(args []driver.Value) (values []driver.NamedValue)
 		}
 	}
 	return
+}
+
+func bytesHasBackslash(v []byte) bool {
+	escapeRunes := []rune{'\'', '"', '\\', '\x00', '\n', '\r', '\x1a'}
+	for _, r := range escapeRunes {
+		if bytes.ContainsRune(v, r) {
+			return true
+		}
+	}
+	return false
+}
+
+func stringHasBackslash(v string) bool {
+	escapeRunes := []rune{'\'', '"', '\\', '\x00', '\n', '\r', '\x1a'}
+	for _, r := range escapeRunes {
+		if strings.ContainsRune(v, r) {
+			return true
+		}
+	}
+	return false
 }
