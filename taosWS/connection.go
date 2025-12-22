@@ -65,6 +65,7 @@ type taosConn struct {
 	endpoint     string
 	closed       uint32
 	closeCh      chan struct{}
+	closeOnce    sync.Once
 }
 
 type message struct {
@@ -161,16 +162,13 @@ func (tc *taosConn) Begin() (driver.Tx, error) {
 }
 
 func (tc *taosConn) Close() (err error) {
-	if !tc.isClosed() {
+	tc.closeOnce.Do(func() {
 		atomic.StoreUint32(&tc.closed, 1)
 		close(tc.closeCh)
-	}
-	if tc.client != nil {
-		err = tc.client.Close()
-	}
-	tc.client = nil
-	tc.cfg = nil
-	tc.endpoint = ""
+		if tc.client != nil {
+			err = tc.client.Close()
+		}
+	})
 	return err
 }
 
