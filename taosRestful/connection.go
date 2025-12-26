@@ -77,9 +77,13 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	baseRawQueryBuilder.WriteString("app=")
 	processName := common.GetProcessName()
 	baseRawQueryBuilder.WriteString(url.QueryEscape(processName))
+	// cloud token has higher priority
 	if cfg.Token != "" {
 		baseRawQueryBuilder.WriteString("&token=")
 		baseRawQueryBuilder.WriteString(cfg.Token)
+	} else if cfg.BearerToken != "" {
+		// bearer token has second priority
+		tc.header["Authorization"] = []string{fmt.Sprintf("Bearer %s", cfg.BearerToken)}
 	} else {
 		basic := base64.StdEncoding.EncodeToString([]byte(cfg.User + ":" + cfg.Passwd))
 		tc.header["Authorization"] = []string{fmt.Sprintf("Basic %s", basic)}

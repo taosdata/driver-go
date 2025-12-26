@@ -324,6 +324,17 @@ func TestParseDsn(t *testing.T) {
 			dsn:  "user:passwd@http([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Local",
 			errs: "invalid timezone value: Local, timezone cannot be 'Local'",
 		},
+		{
+			name: "bearer token",
+			dsn:  "@http(:0)/?bearerToken=ABmTXHdQAN9au7w4JcXcp4gpXgrDxLxhjaIOiumuA8f1bJDpE3YRDTirvsftPtP",
+			want: &Config{
+				DisableCompression: true,
+				ReadBufferSize:     4096,
+				InterpolateParams:  true,
+				Net:                "http",
+				BearerToken:        "ABmTXHdQAN9au7w4JcXcp4gpXgrDxLxhjaIOiumuA8f1bJDpE3YRDTirvsftPtP",
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
