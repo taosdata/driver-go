@@ -495,6 +495,8 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 		WithTableName:     c.withTableName,
 		SessionTimeoutMS:  c.sessionTimeoutMS,
 		MaxPollIntervalMS: c.maxPollIntervalMS,
+		App:               common.GetProcessName(),
+		Connector:         common.GetConnectorInfo("ws"),
 		Config:            c.otherOptions,
 	}
 	args, err := client.JsonI.Marshal(req)

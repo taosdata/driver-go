@@ -576,12 +576,15 @@ func (tc *taosConn) Ping(ctx context.Context) (err error) {
 func (tc *taosConn) connect() error {
 	redID := uint64(common.GetReqID())
 	req := &WSConnectReq{
-		ReqID:    redID,
-		User:     tc.cfg.User,
-		Password: tc.cfg.Passwd,
-		DB:       tc.cfg.DbName,
-		TZ:       tc.timezoneStr,
-		App:      common.GetProcessName(),
+		ReqID:       redID,
+		User:        tc.cfg.User,
+		Password:    tc.cfg.Passwd,
+		DB:          tc.cfg.DbName,
+		TZ:          tc.timezoneStr,
+		App:         common.GetProcessName(),
+		Connector:   common.GetConnectorInfo("ws"),
+		BearerToken: tc.cfg.BearerToken,
+		TOTPCode:    tc.cfg.TotpCode,
 	}
 	args, err := jsonI.Marshal(req)
 	if err != nil {

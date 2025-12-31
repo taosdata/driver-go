@@ -1,10 +1,14 @@
 package schemaless
 
 type wsConnectReq struct {
-	ReqID    uint64 `json:"req_id"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	DB       string `json:"db"`
+	ReqID       uint64 `json:"req_id"`
+	User        string `json:"user"`
+	Password    string `json:"password"`
+	DB          string `json:"db"`
+	App         string `json:"app"`
+	Connector   string `json:"connector"`
+	TOTPCode    string `json:"totp_code"`
+	BearerToken string `json:"bearer_token"`
 }
 
 type wsConnectResp struct {

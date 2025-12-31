@@ -31,6 +31,8 @@ type Connector struct {
 	user                string
 	password            string
 	db                  string
+	totpCode            string
+	bearerToken         string
 	closed              bool
 	sync.Mutex
 }
@@ -75,7 +77,7 @@ func NewConnector(config *Config) (*Connector, error) {
 	if config.MessageTimeout <= 0 {
 		config.MessageTimeout = common.DefaultMessageTimeout
 	}
-	err = connect(ws, config.User, config.Password, config.DB, writeTimeout, readTimeout, config.Timezone)
+	err = connect(ws, config.User, config.Password, config.DB, config.TotpCode, config.BearerToken, writeTimeout, readTimeout, config.Timezone)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +99,8 @@ func NewConnector(config *Config) (*Connector, error) {
 		user:                config.User,
 		password:            config.Password,
 		db:                  config.DB,
+		totpCode:            config.TotpCode,
+		bearerToken:         config.BearerToken,
 		timezone:            config.Timezone,
 	}
 	wsClient.ErrorHandler = connector.handleError
@@ -104,13 +108,16 @@ func NewConnector(config *Config) (*Connector, error) {
 	return connector, nil
 }
 
-func connect(ws *websocket.Conn, user string, password string, db string, writeTimeout time.Duration, readTimeout time.Duration, timezone *time.Location) error {
+func connect(ws *websocket.Conn, user string, password string, db string, totpCode string, bearerToken string, writeTimeout time.Duration, readTimeout time.Duration, timezone *time.Location) error {
 	req := &ConnectReq{
-		ReqID:    0,
-		User:     user,
-		Password: password,
-		DB:       db,
-		App:      common.GetProcessName(),
+		ReqID:       0,
+		User:        user,
+		Password:    password,
+		DB:          db,
+		App:         common.GetProcessName(),
+		Connector:   common.GetConnectorInfo("ws"),
+		TOTPCode:    totpCode,
+		BearerToken: bearerToken,
 	}
 	if timezone != nil {
 		req.TZ = timezone.String()
@@ -174,7 +181,7 @@ func (c *Connector) reconnect() error {
 			continue
 		}
 		conn.EnableWriteCompression(c.dialer.EnableCompression)
-		err = connect(conn, c.user, c.password, c.db, c.writeTimeout, c.readTimeout, c.timezone)
+		err = connect(conn, c.user, c.password, c.db, c.totpCode, c.bearerToken, c.writeTimeout, c.readTimeout, c.timezone)
 		if err != nil {
 			_ = conn.Close()
 			continue

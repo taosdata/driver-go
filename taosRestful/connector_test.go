@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/taosdata/driver-go/v3/common/testenv"
 	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
 )
@@ -655,6 +656,9 @@ func TestTimezone(t *testing.T) {
 }
 
 func TestBearerToken(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("token feature is only available in enterprise edition")
+	}
 	db, err := sql.Open("taosRestful", dataSourceName)
 	require.NoError(t, err)
 	defer func() {

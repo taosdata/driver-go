@@ -101,6 +101,22 @@ func doRequest(payload string) error {
 	return nil
 }
 
+func query(sql string) (*common.TDEngineRestfulResp, error) {
+	req, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1:6041/rest/sql", strings.NewReader(sql))
+	req.Header.Set("Authorization", "Taosd /KfeAzX/f9na8qdtNZmtONryp201ma04bEl8LcvLUd7a8qdtNZmtONryp201ma04")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http code: %d", resp.StatusCode)
+	}
+	return common.UnmarshalRestfulBody(resp.Body, 1024*4)
+}
+
 // @author: xftan
 // @date: 2023/10/13 11:36
 // @description: test tmq subscribe over websocket
@@ -178,6 +194,24 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	app := common.GetProcessName()[:23]
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
+	t.Log(checkSql)
+	require.Eventually(t, func() bool {
+		resp, err := query(checkSql)
+		if err != nil {
+			return false
+		}
+		if len(resp.Data) == 0 || len(resp.Data[0]) == 0 {
+			return false
+		}
+		count, ok := resp.Data[0][0].(int64)
+		if !ok {
+			return false
+		}
+		return count > 0
+	}, 500*time.Second, 500*time.Millisecond)
 	gotData := false
 	for i := 0; i < 5; i++ {
 		if gotData {

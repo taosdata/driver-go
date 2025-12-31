@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
+	"github.com/taosdata/driver-go/v3/common/testenv"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
@@ -1416,4 +1418,148 @@ func TestTimezone(t *testing.T) {
 		assert.Equal(t, "test_nchar", row3[13])
 		assert.Equal(t, []byte(`{"tb":1}`), row3[14])
 	}
+}
+
+func TestConnectorInfo(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
+	config := NewConfig("ws://127.0.0.1:6041", 0)
+	err := config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
+	config.SetEnableCompression(true)
+	require.NoError(t, err)
+	connector, err := NewConnector(config)
+	defer func() {
+		err = connector.Close()
+		assert.NoError(t, err)
+	}()
+
+	app := common.GetProcessName()[:23]
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
+	t.Log(checkSql)
+	assert.Eventually(t, func() bool {
+		resp, err := query(checkSql)
+		if err != nil {
+			return false
+		}
+		if len(resp.Data) == 0 || len(resp.Data[0]) == 0 {
+			return false
+		}
+		count, ok := resp.Data[0][0].(int64)
+		if !ok {
+			return false
+		}
+		return count > 0
+	}, 500*time.Second, 500*time.Millisecond)
+}
+
+func TestTotpCode(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("Skip totp test for community edition")
+	}
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
+	seed := "Z7Xxoy5E8h9IuVIpTH684cFSzRNVVzgc"
+	err := doRequest(fmt.Sprintf("create user totp_user_stmt pass 'totp_pass_1' TOTPSEED '%s'", seed))
+	require.NoError(t, err)
+	defer func() {
+		err = doRequest("drop user totp_user_stmt")
+		require.NoError(t, err)
+	}()
+	secret := common.GenerateTOTPSecret([]byte(seed))
+	code := common.GenerateTOTPCode(secret, uint64(time.Now().Unix()/30), 6)
+	config := NewConfig("ws://127.0.0.1:6041", 0)
+	err = config.SetConnectUser("totp_user_stmt")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("totp_pass_1")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
+	config.SetEnableCompression(true)
+	require.NoError(t, err)
+	config.SetTotpCode(strconv.Itoa(code))
+	connector, err := NewConnector(config)
+	defer func() {
+		err = connector.Close()
+		assert.NoError(t, err)
+	}()
+	app := common.GetProcessName()[:23]
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'totp_user_stmt'", app, connectorInfo)
+	t.Log(checkSql)
+	assert.Eventually(t, func() bool {
+		resp, err := query(checkSql)
+		if err != nil {
+			return false
+		}
+		if len(resp.Data) == 0 || len(resp.Data[0]) == 0 {
+			return false
+		}
+		count, ok := resp.Data[0][0].(int64)
+		if !ok {
+			return false
+		}
+		return count > 0
+	}, 5*time.Second, 500*time.Millisecond)
+}
+
+func TestBearerToken(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("Skip totp test for community edition")
+	}
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
+	result, err := query("create token test_token_stmt_ws from user root")
+	require.NoError(t, err)
+	token := result.Data[0][0].(string)
+	defer func() {
+		err = doRequest("drop token test_token_stmt_ws")
+		require.NoError(t, err)
+	}()
+	config := NewConfig("ws://127.0.0.1:6041", 0)
+	err = config.SetMessageTimeout(common.DefaultMessageTimeout)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(common.DefaultWriteWait)
+	assert.NoError(t, err)
+	config.SetEnableCompression(true)
+	require.NoError(t, err)
+	config.SetBearerToken(token)
+	connector, err := NewConnector(config)
+	defer func() {
+		err = connector.Close()
+		assert.NoError(t, err)
+	}()
+	app := common.GetProcessName()[:23]
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'root'", app, connectorInfo)
+	t.Log(checkSql)
+	assert.Eventually(t, func() bool {
+		resp, err := query(checkSql)
+		if err != nil {
+			return false
+		}
+		if len(resp.Data) == 0 || len(resp.Data[0]) == 0 {
+			return false
+		}
+		count, ok := resp.Data[0][0].(int64)
+		if !ok {
+			return false
+		}
+		return count > 0
+	}, 5*time.Second, 500*time.Millisecond)
 }
