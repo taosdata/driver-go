@@ -312,7 +312,10 @@ func TestConnectorInfo(t *testing.T) {
 	defer func() {
 		s.Close()
 	}()
-	app := common.GetProcessName()[:23]
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
 	connectorInfo := common.GetConnectorInfo("ws")
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
 	t.Log(checkSql)
@@ -361,7 +364,10 @@ func TestTotpCode(t *testing.T) {
 	defer func() {
 		s.Close()
 	}()
-	app := common.GetProcessName()[:23]
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
 	connectorInfo := common.GetConnectorInfo("ws")
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'totp_user_sml'", app, connectorInfo)
 	t.Log(checkSql)
@@ -406,7 +412,10 @@ func TestBearerToken(t *testing.T) {
 	defer func() {
 		s.Close()
 	}()
-	app := common.GetProcessName()[:23]
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
 	connectorInfo := common.GetConnectorInfo("ws")
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'root'", app, connectorInfo)
 	t.Log(checkSql)

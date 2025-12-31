@@ -648,7 +648,10 @@ func TestConnectorInfo(t *testing.T) {
 	}()
 	err = rootConn.Ping()
 	require.NoError(t, err)
-	app := common.GetProcessName()[:23]
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
 	connectorInfo := common.GetConnectorInfo("ws")
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
 	t.Log(checkSql)
