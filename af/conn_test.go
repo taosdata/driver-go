@@ -1053,6 +1053,10 @@ func TestSelectDB(t *testing.T) {
 
 func TestGetTableVGroupID(t *testing.T) {
 	db := testDatabase(t)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := exec(db, "create table test_vg (ts timestamp,v int)")
 	assert.NoError(t, err)
 	vgID, err := db.GetTableVGroupID("test_af", "test_vg")
@@ -1062,6 +1066,10 @@ func TestGetTableVGroupID(t *testing.T) {
 
 func TestDecimal(t *testing.T) {
 	db := testDatabase(t)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := exec(db, "create table test_decimal (ts timestamp, v1 decimal(10,2), v2 decimal (20,4))")
 	assert.NoError(t, err)
 	_, err = exec(db, "insert into test_decimal values (now, 10.2, 20.4)")
@@ -1095,7 +1103,15 @@ func TestDecimal(t *testing.T) {
 
 func TestTimezone(t *testing.T) {
 	db := testDatabase(t)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	dbParis := testDatabase(t)
+	defer func() {
+		err := dbParis.Close()
+		assert.NoError(t, err)
+	}()
 	tz := "Europe/Paris"
 	timezone, err := time.LoadLocation(tz)
 	require.NoError(t, err)
