@@ -18,7 +18,7 @@ func TestIsEnterpriseTest(t *testing.T) {
 			_ = os.Unsetenv(EnterpriseTestEnvVar)
 		}()
 	}
-	t.Setenv(EnterpriseTestEnvVar, "true")
+	_ = os.Setenv(EnterpriseTestEnvVar, "true")
 	assert.True(t, IsEnterpriseTest())
 	_ = os.Unsetenv(EnterpriseTestEnvVar)
 	assert.False(t, IsEnterpriseTest())
