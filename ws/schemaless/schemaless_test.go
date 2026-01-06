@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/testenv"
+	"github.com/taosdata/driver-go/v3/common/testtool"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
@@ -137,22 +138,6 @@ func doRequest(sql string) error {
 		return taosErrors.NewError(int(code), desc)
 	}
 	return nil
-}
-
-func query(sql string) (*common.TDEngineRestfulResp, error) {
-	req, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1:6041/rest/sql", strings.NewReader(sql))
-	req.Header.Set("Authorization", "Taosd /KfeAzX/f9na8qdtNZmtONryp201ma04bEl8LcvLUd7a8qdtNZmtONryp201ma04")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http code: %d", resp.StatusCode)
-	}
-	return common.UnmarshalRestfulBody(resp.Body, 1024*4)
 }
 
 func before() error {
@@ -320,7 +305,7 @@ func TestConnectorInfo(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
 	t.Log(checkSql)
 	assert.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}
@@ -372,7 +357,7 @@ func TestTotpCode(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'totp_user_sml'", app, connectorInfo)
 	t.Log(checkSql)
 	assert.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}
@@ -395,7 +380,7 @@ func TestBearerToken(t *testing.T) {
 	if ok {
 		t.Skip("Skip 3.3.6.0 test")
 	}
-	result, err := query("create token test_token_sml_ws from user root")
+	result, err := testtool.HTTPQuery("create token test_token_sml_ws from user root")
 	require.NoError(t, err)
 	token := result.Data[0][0].(string)
 	defer func() {
@@ -420,7 +405,7 @@ func TestBearerToken(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'root'", app, connectorInfo)
 	t.Log(checkSql)
 	assert.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}

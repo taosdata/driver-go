@@ -555,6 +555,10 @@ func TestConnectTotp(t *testing.T) {
 	seed := "Z7Xxoy5E8h9IuVIpTH684cFSzRNVVzgc"
 	_, err = exec(rootConn, fmt.Sprintf("create user totp_user pass 'totp_pass_1' TOTPSEED '%s'", seed))
 	require.NoError(t, err)
+	defer func() {
+		_, err = exec(rootConn, "drop user totp_user")
+		assert.NoError(t, err)
+	}()
 	secret := common.GenerateTOTPSecret([]byte(seed))
 	code := common.GenerateTOTPCode(secret, uint64(time.Now().Unix()/30), 6)
 	totpSource := fmt.Sprintf("totp_user:totp_pass_1@ws(%s:%d)/?totpCode=%d", host, port, code)

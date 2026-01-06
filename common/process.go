@@ -23,6 +23,7 @@ func GetProcessName() string {
 	return processName
 }
 
+// GetConnectorInfo returns connector information string
 func GetConnectorInfo(connectType string) string {
 	return fmt.Sprintf("go-%s-%s-%s", connectType, version.Tag, version.Commit)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/testtool"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
@@ -99,22 +100,6 @@ func doRequest(payload string) error {
 		return taosErrors.NewError(int(code), desc)
 	}
 	return nil
-}
-
-func query(sql string) (*common.TDEngineRestfulResp, error) {
-	req, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1:6041/rest/sql", strings.NewReader(sql))
-	req.Header.Set("Authorization", "Taosd /KfeAzX/f9na8qdtNZmtONryp201ma04bEl8LcvLUd7a8qdtNZmtONryp201ma04")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http code: %d", resp.StatusCode)
-	}
-	return common.UnmarshalRestfulBody(resp.Body, 1024*4)
 }
 
 // @author: xftan
@@ -202,7 +187,7 @@ func TestConsumer(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
 	t.Log(checkSql)
 	require.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}
@@ -214,7 +199,7 @@ func TestConsumer(t *testing.T) {
 			return false
 		}
 		return count > 0
-	}, 500*time.Second, 500*time.Millisecond)
+	}, 10*time.Second, 500*time.Millisecond)
 	gotData := false
 	for i := 0; i < 5; i++ {
 		if gotData {

@@ -22,6 +22,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/common/testenv"
+	"github.com/taosdata/driver-go/v3/common/testtool"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
@@ -146,23 +147,6 @@ func doRequest(payload string) error {
 	return nil
 }
 
-func query(payload string) (*common.TDEngineRestfulResp, error) {
-	body := strings.NewReader(payload)
-	req, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1:6041/rest/sql", body)
-	req.Header.Set("Authorization", "Taosd /KfeAzX/f9na8qdtNZmtONryp201ma04bEl8LcvLUd7a8qdtNZmtONryp201ma04")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http code: %d", resp.StatusCode)
-	}
-	return common.UnmarshalRestfulBody(resp.Body, 512)
-}
-
 // @author: xftan
 // @date: 2023/10/13 11:35
 // @description: test stmt over websocket
@@ -280,7 +264,7 @@ func TestStmt(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		result, err := query("select * from test_ws_stmt.all_json order by ts")
+		result, err := testtool.HTTPQuery("select * from test_ws_stmt.all_json order by ts")
 		if err != nil {
 			t.Error(err)
 			return
@@ -437,7 +421,7 @@ func TestStmt(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		result, err := query("select * from test_ws_stmt.all_all order by ts")
+		result, err := testtool.HTTPQuery("select * from test_ws_stmt.all_all order by ts")
 		if err != nil {
 			t.Error(err)
 			return
@@ -1435,8 +1419,8 @@ func TestConnectorInfo(t *testing.T) {
 	err = config.SetWriteWait(common.DefaultWriteWait)
 	assert.NoError(t, err)
 	config.SetEnableCompression(true)
-	require.NoError(t, err)
 	connector, err := NewConnector(config)
+	require.NoError(t, err)
 	defer func() {
 		err = connector.Close()
 		assert.NoError(t, err)
@@ -1450,7 +1434,7 @@ func TestConnectorInfo(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
 	t.Log(checkSql)
 	assert.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}
@@ -1462,7 +1446,7 @@ func TestConnectorInfo(t *testing.T) {
 			return false
 		}
 		return count > 0
-	}, 500*time.Second, 500*time.Millisecond)
+	}, 10*time.Second, 500*time.Millisecond)
 }
 
 func TestTotpCode(t *testing.T) {
@@ -1492,9 +1476,9 @@ func TestTotpCode(t *testing.T) {
 	err = config.SetWriteWait(common.DefaultWriteWait)
 	assert.NoError(t, err)
 	config.SetEnableCompression(true)
-	require.NoError(t, err)
 	config.SetTotpCode(strconv.Itoa(code))
 	connector, err := NewConnector(config)
+	require.NoError(t, err)
 	defer func() {
 		err = connector.Close()
 		assert.NoError(t, err)
@@ -1507,7 +1491,7 @@ func TestTotpCode(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'totp_user_stmt'", app, connectorInfo)
 	t.Log(checkSql)
 	assert.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}
@@ -1530,7 +1514,7 @@ func TestBearerToken(t *testing.T) {
 	if ok {
 		t.Skip("Skip 3.3.6.0 test")
 	}
-	result, err := query("create token test_token_stmt_ws from user root")
+	result, err := testtool.HTTPQuery("create token test_token_stmt_ws from user root")
 	require.NoError(t, err)
 	token := result.Data[0][0].(string)
 	defer func() {
@@ -1543,9 +1527,9 @@ func TestBearerToken(t *testing.T) {
 	err = config.SetWriteWait(common.DefaultWriteWait)
 	assert.NoError(t, err)
 	config.SetEnableCompression(true)
-	require.NoError(t, err)
 	config.SetBearerToken(token)
 	connector, err := NewConnector(config)
+	require.NoError(t, err)
 	defer func() {
 		err = connector.Close()
 		assert.NoError(t, err)
@@ -1558,7 +1542,7 @@ func TestBearerToken(t *testing.T) {
 	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s' and `user` = 'root'", app, connectorInfo)
 	t.Log(checkSql)
 	assert.Eventually(t, func() bool {
-		resp, err := query(checkSql)
+		resp, err := testtool.HTTPQuery(checkSql)
 		if err != nil {
 			return false
 		}
