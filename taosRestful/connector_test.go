@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/taosdata/driver-go/v3/common/testenv"
 	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
 )
@@ -652,6 +653,49 @@ func TestTimezone(t *testing.T) {
 		count += 1
 	}
 	assert.Equal(t, 1, count)
+}
+
+func TestBearerToken(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("token feature is only available in enterprise edition")
+	}
+	db, err := sql.Open("taosRestful", dataSourceName)
+	require.NoError(t, err)
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
+	rows, err := db.Query("create token go_rest_test_token from user root")
+	require.NoError(t, err)
+	defer func() {
+		err = rows.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		_, err = exec(db, "drop token go_rest_test_token")
+		assert.NoError(t, err)
+	}()
+	var token string
+	for rows.Next() {
+		err := rows.Scan(&token)
+		require.NoError(t, err)
+	}
+	assert.NotEmpty(t, token)
+
+	dbWithToken, err := sql.Open("taosRestful", fmt.Sprintf("@http(%s:%d)/?bearerToken=%s", host, port, token))
+	require.NoError(t, err)
+	defer func() {
+		err = dbWithToken.Close()
+		assert.NoError(t, err)
+	}()
+	err = dbWithToken.Ping()
+	require.NoError(t, err)
+
+	var v int
+	row := dbWithToken.QueryRow("select 1")
+	err = row.Scan(&v)
+	require.NoError(t, err)
+	assert.Equal(t, 1, v)
 }
 
 func exec(db *sql.DB, query string, args ...interface{}) (driver.Result, error) {

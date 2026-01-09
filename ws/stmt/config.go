@@ -21,6 +21,8 @@ type Config struct {
 	AutoReconnect       bool
 	ReconnectIntervalMs int
 	ReconnectRetryCount int
+	TotpCode            string
+	BearerToken         string
 }
 
 func NewConfig(url string, chanLength uint) *Config {
@@ -98,4 +100,12 @@ func (c *Config) SetReconnectIntervalMs(reconnectIntervalMs int) {
 
 func (c *Config) SetReconnectRetryCount(reconnectRetryCount int) {
 	c.ReconnectRetryCount = reconnectRetryCount
+}
+
+func (c *Config) SetTotpCode(totpCode string) {
+	c.TotpCode = totpCode
+}
+
+func (c *Config) SetBearerToken(bearerToken string) {
+	c.BearerToken = bearerToken
 }

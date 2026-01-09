@@ -35,6 +35,8 @@ type Config struct {
 	ReadTimeout       time.Duration     // read message timeout
 	WriteTimeout      time.Duration     // write message timeout
 	Timezone          *time.Location    // Timezone for connection, e.g., "Asia%2FShanghai" or "UTC"
+	BearerToken       string            // BearerToken for TSDB auth
+	TotpCode          string            // TOTP code for TSDB TOTP auth
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -172,6 +174,10 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if err != nil {
 				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid timezone value: " + escapedValue + ", " + err.Error()}
 			}
+		case "bearerToken":
+			cfg.BearerToken = value
+		case "totpCode":
+			cfg.TotpCode = value
 		default:
 			// lazy init
 			if cfg.Params == nil {

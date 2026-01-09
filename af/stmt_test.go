@@ -16,6 +16,10 @@ import (
 
 func TestNewStmt(t *testing.T) {
 	db := testDatabase(t)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	_, err := exec(db, "create table test_stmt (ts timestamp,v int)")
 	assert.NoError(t, err)
 	stmt := db.Stmt()
@@ -52,8 +56,6 @@ func TestNewStmt(t *testing.T) {
 	err = rows.Close()
 	assert.NoError(t, err)
 	err = stmt.Close()
-	assert.NoError(t, err)
-	err = db.Close()
 	assert.NoError(t, err)
 }
 
@@ -122,6 +124,10 @@ func TestStmtQueryResultWithDecimal(t *testing.T) {
 func TestStmtTimezone(t *testing.T) {
 	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	db := testDatabase(t)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
 	tz := "Europe/Paris"
 	timezone, err := time.LoadLocation(tz)
 	require.NoError(t, err)
@@ -170,7 +176,5 @@ func TestStmtTimezone(t *testing.T) {
 	err = rows.Close()
 	assert.NoError(t, err)
 	err = stmt.Close()
-	assert.NoError(t, err)
-	err = db.Close()
 	assert.NoError(t, err)
 }

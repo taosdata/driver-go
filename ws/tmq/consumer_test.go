@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/testtool"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
@@ -178,6 +179,27 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
+	t.Log(checkSql)
+	require.Eventually(t, func() bool {
+		resp, err := testtool.HTTPQuery(checkSql)
+		if err != nil {
+			return false
+		}
+		if len(resp.Data) == 0 || len(resp.Data[0]) == 0 {
+			return false
+		}
+		count, ok := resp.Data[0][0].(int64)
+		if !ok {
+			return false
+		}
+		return count > 0
+	}, 10*time.Second, 500*time.Millisecond)
 	gotData := false
 	for i := 0; i < 5; i++ {
 		if gotData {

@@ -128,6 +128,16 @@ func TestParseDsn(t *testing.T) {
 			dsn:  "user:passwd@ws([ab:cd:ef:ab::cd:ef]:6041)/dbname?timezone=Local",
 			errs: "invalid timezone value: Local, timezone cannot be 'Local'",
 		},
+		{
+			name: "totp",
+			dsn:  "user:passwd@ws(:0)/?totpCode=123456",
+			want: &Config{User: "user", Passwd: "passwd", Net: "ws", TotpCode: "123456", InterpolateParams: true},
+		},
+		{
+			name: "bearer token",
+			dsn:  "@ws(:0)/?bearerToken=myBearerToken",
+			want: &Config{Net: "ws", BearerToken: "myBearerToken", InterpolateParams: true},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

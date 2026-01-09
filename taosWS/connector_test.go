@@ -15,6 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/testenv"
 	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
 )
@@ -532,6 +534,146 @@ func TestConnect(t *testing.T) {
 	assert.NoError(t, err)
 	driver := conn.Driver()
 	assert.Equal(t, &TDengineDriver{}, driver)
+}
+
+func TestConnectTotp(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("Skip totp test for non-enterprise edition")
+	}
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
+	rootConn, err := sql.Open("taosWS", dataSourceName)
+	require.NoError(t, err)
+	defer func() {
+		err = rootConn.Close()
+		assert.NoError(t, err)
+	}()
+	err = rootConn.Ping()
+	require.NoError(t, err)
+	seed := "Z7Xxoy5E8h9IuVIpTH684cFSzRNVVzgc"
+	_, err = exec(rootConn, fmt.Sprintf("create user totp_user pass 'totp_pass_1' TOTPSEED '%s'", seed))
+	require.NoError(t, err)
+	defer func() {
+		_, err = exec(rootConn, "drop user totp_user")
+		assert.NoError(t, err)
+	}()
+	secret := common.GenerateTOTPSecret([]byte(seed))
+	code := common.GenerateTOTPCode(secret, uint64(time.Now().Unix()/30), 6)
+	totpSource := fmt.Sprintf("totp_user:totp_pass_1@ws(%s:%d)/?totpCode=%d", host, port, code)
+	db, err := sql.Open("taosWS", totpSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
+	err = db.Ping()
+	require.NoError(t, err)
+	rows, err := db.Query("select 1")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, rows.Close())
+	}()
+	for rows.Next() {
+		var v int
+		err := rows.Scan(&v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, 1, v)
+	}
+}
+
+func TestConnectToken(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("Skip totp test for non-enterprise edition")
+	}
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
+	rootConn, err := sql.Open("taosWS", dataSourceName)
+	require.NoError(t, err)
+	defer func() {
+		err = rootConn.Close()
+		assert.NoError(t, err)
+	}()
+	err = rootConn.Ping()
+	require.NoError(t, err)
+	rows, err := rootConn.Query("create token go_ws_test_token from user root")
+	require.NoError(t, err)
+	defer func() {
+		_, err = exec(rootConn, "drop token go_ws_test_token")
+		assert.NoError(t, err)
+	}()
+	var token string
+	for rows.Next() {
+		err = rows.Scan(&token)
+		require.NoError(t, err)
+	}
+	require.NotEmpty(t, token)
+	tokenSource := fmt.Sprintf("@ws(%s:%d)/?bearerToken=%s", host, port, token)
+	db, err := sql.Open("taosWS", tokenSource)
+	require.NoError(t, err)
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
+	err = db.Ping()
+	require.NoError(t, err)
+	rows, err = db.Query("select 1")
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, rows.Close())
+	}()
+	for rows.Next() {
+		var v int
+		err := rows.Scan(&v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, 1, v)
+	}
+}
+
+func TestConnectorInfo(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
+	rootConn, err := sql.Open("taosWS", dataSourceName)
+	require.NoError(t, err)
+	defer func() {
+		err = rootConn.Close()
+		assert.NoError(t, err)
+	}()
+	err = rootConn.Ping()
+	require.NoError(t, err)
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
+	t.Log(checkSql)
+	assert.Eventually(t, func() bool {
+		rows, err := rootConn.Query(checkSql)
+		if err != nil {
+			return false
+		}
+		var count int
+		for rows.Next() {
+			err = rows.Scan(&count)
+			if err != nil {
+				return false
+			}
+		}
+		return count > 0
+	}, 5*time.Second, 500*time.Millisecond)
+	require.NoError(t, err)
 }
 
 func TestTimezone(t *testing.T) {
