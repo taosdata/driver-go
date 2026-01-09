@@ -17,6 +17,10 @@ func TestStmt2_3360(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt2 := conn.Stmt2(0x12345678, false)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")

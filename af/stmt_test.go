@@ -64,6 +64,10 @@ func TestStmtQueryResultWithDecimal(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt := conn.Stmt()
 	if stmt == nil {
 		t.Errorf("Expected stmt to be not nil")

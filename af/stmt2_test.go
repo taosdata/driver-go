@@ -63,6 +63,10 @@ func TestStmt2CallBackCallerPool(t *testing.T) {
 func TestNewStmt2(t *testing.T) {
 	conn, err := Open("", "root", "taosdata", "", 0)
 	assert.NoError(t, err)
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt := conn.Stmt2(0x12345678, false)
 	if stmt == nil {
 		t.Errorf("Expected stmt to be not nil")
@@ -82,6 +86,10 @@ func TestStmt2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt2 := conn.Stmt2(0x12345678, true)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")
@@ -335,6 +343,10 @@ func TestStmt2_Prepare(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt2 := conn.Stmt2(0x123456789, false)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")
@@ -389,6 +401,10 @@ func TestStmt2QueryResultWithDecimal(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt2 := conn.Stmt2(0x12345678, false)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")
@@ -457,6 +473,10 @@ func TestStmt2Timezone(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	tz := "Europe/Paris"
 	timezone, err := time.LoadLocation(tz)
 	require.NoError(t, err)
