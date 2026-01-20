@@ -31,5 +31,5 @@ jobs:
 
       - name: check license report
         run: |
-          go-licenses report ./... > tmp_license_report.csv
+          go-licenses report --ignore github.com/taosdata/driver-go ./... > tmp_license_report.csv
           cmp -s tmp_license_report.csv license_report.csv

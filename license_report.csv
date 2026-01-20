@@ -4,4 +4,3 @@ github.com/hashicorp/go-version,https://github.com/hashicorp/go-version/blob/v1.
 github.com/json-iterator/go,https://github.com/json-iterator/go/blob/v1.1.12/LICENSE,MIT
 github.com/modern-go/concurrent,https://github.com/modern-go/concurrent/blob/e0a39a4cb421/LICENSE,Apache-2.0
 github.com/modern-go/reflect2,https://github.com/modern-go/reflect2/blob/v1.0.2/LICENSE,Apache-2.0
-github.com/taosdata/driver-go/v3,https://github.com/taosdata/driver-go/blob/HEAD/LICENSE,MIT
