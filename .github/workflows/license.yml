@@ -1,0 +1,35 @@
+name: license.yml
+on:
+  push:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get TDengine
+        run: |
+          wget "${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}/tsdb-nightly-main.tar.gz?v=$(date +%s)" -O tsdb-nightly-main.tar.gz
+
+      - name: install
+        run: |
+          tar -zxf tsdb-nightly-main.tar.gz
+          cd tsdb-nightly-main
+          ls -al
+          sudo ./install.sh
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses/v2@latest
+
+      - name: Run license check scan
+        run: go-licenses check ./...  --disallowed_types=forbidden,unknown,restricted
+
+      - name: check license report
+        run: |
+          go-licenses report ./... > tmp_license_report.csv
+          cmp -s tmp_license_report.csv license_report.csv
