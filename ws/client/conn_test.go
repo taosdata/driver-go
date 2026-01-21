@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 )
 
@@ -100,6 +101,11 @@ func TestClient(t *testing.T) {
 	case <-timeout.C:
 		t.Error("timeout")
 	}
+	close(c.sendChan)
+	env = c.GetEnvelope()
+	err = c.Send(env)
+	assert.Equal(t, ClosedError, err)
+	c.sendChan = make(chan *Envelope, 1)
 }
 
 func TestHandleResponseError(t *testing.T) {
