@@ -11,12 +11,6 @@ name: 'Dependency review'
 on:
   pull_request:
     branches: [ "main", "3.0" ]
-  schedule:
-    # Cron expression format: minute hour day month weekday (GitHub uses UTC time zone)
-    # Example 1: Run once daily at 00:00 UTC (equivalent to 08:00 Beijing time)
-    - cron: '0 0 * * *'
-    # Optional: To scan every Monday, replace with: 0 0 * * 1
-    # Optional: To scan hourly, replace with: 0 * * * *
 
 
 # If using a dependency submission action in this workflow this permission will need to be set to:
@@ -36,39 +30,10 @@ jobs:
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0  # Fetch full repository history for 30-day commit comparison
-
-      # Get commit hash from 30 days ago with fallback logic
-      # Fallback to the previous commit if no commits exist in the 30-day window
-      - name: Get commit hash from 30 days ago
-        if: github.event_name == 'schedule'
-        id: get_30d_commit
-        run: |
-          # Get the latest commit on main branch from 30 days ago
-          OLD_COMMIT=$(git rev-list -1 --before="30 days ago" main)
-          # Fallback logic: use the second last commit of main if no 30-day commit exists
-          # Use current main commit if the fallback also fails (single commit repository)
-          if [ -z "$OLD_COMMIT" ]; then
-            OLD_COMMIT=$(git rev-parse main~1 2>/dev/null || git rev-parse main)
-          fi
-          # Output commit hashes to GitHub Action outputs for subsequent steps
-          echo "old_commit_hash=$OLD_COMMIT" >> $GITHUB_OUTPUT
-          echo "latest_commit_hash=$(git rev-parse main)" >> $GITHUB_OUTPUT        
 
       - name: 'Dependency Review'
         uses: actions/dependency-review-action@v4
         # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
         with:
-          # Comment review summary in PR only for pull_request events, disable for schedule
-          comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}
-
           fail-on-severity: moderate
-          #   deny-licenses: GPL-1.0-or-later, LGPL-2.0-or-later
-          #   retry-on-snapshot-warnings: true
           allow-licenses: "AFL-1.1,AFL-1.2,AFL-2.0,AFL-2.1,AFL-3.0,Apache-1.0,Apache-1.1,Apache-2.0,Artistic-1.0-cl8,Artistic-1.0-Perl,Artistic-1.0,Artistic-2.0,BSL-1.0,BSD-2-Clause-FreeBSD,BSD-2-Clause-NetBSD,BSD-2-Clause,BSD-3-Clause-Attribution,BSD-3-Clause-Clear,BSD-3-Clause-LBNL,BSD-3-Clause,BSD-4-Clause,BSD-4-Clause-UC,BSD-Protection,CC-BY-1.0,CC-BY-2.0,CC-BY-2.5,CC-BY-3.0,CC-BY-4.0,FTL,ISC,ImageMagick,Libpng,Linux-OpenIB,LPL-1.02,LPL-1.0,MS-PL,MIT,NCSA,OpenSSL,PHP-3.01,PHP-3.0,Python-2.0,PostgreSQL,SGI-B-1.0,SGI-B-1.1,SGI-B-2.0,Unicode-DFS-2015,Unicode-DFS-2016,Unicode-TOU,UPL-1.0,W3C-19980720,W3C-20150513,W3C,X11,Xnet,Zend-2.0,zlib-acknowledgement,Zlib,ZPL-1.1,ZPL-2.0,ZPL-2.1"
-
-          # Manually specify base/head ref for schedule events (30-day comparison)
-          # Leave empty for pull_request events (auto-injected by GitHub)
-          base-ref: ${{ github.event_name == 'schedule' && steps.get_30d_commit.outputs.old_commit_hash || '' }}
-          head-ref: ${{ github.event_name == 'schedule' && steps.get_30d_commit.outputs.latest_commit_hash || '' }}
