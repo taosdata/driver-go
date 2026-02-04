@@ -1,0 +1,31 @@
+name: govulncheck.yml
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get TDengine
+        run: |
+          wget "${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}/tsdb-nightly-main.tar.gz?v=$(date +%s)" -O tsdb-nightly-main.tar.gz
+
+      - name: install
+        run: |
+          tar -zxf tsdb-nightly-main.tar.gz
+          cd tsdb-nightly-main
+          ls -al
+          sudo ./install.sh
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run vulnerability scan
+        run: govulncheck ./...
