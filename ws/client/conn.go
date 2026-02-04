@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
+
 	"github.com/taosdata/driver-go/v3/common"
 	errors2 "github.com/taosdata/driver-go/v3/errors"
 )
@@ -76,7 +77,7 @@ type Client struct {
 	TextMessageHandler   func(message []byte)
 	BinaryMessageHandler func(message []byte)
 	ErrorHandler         func(err error)
-	//SendMessageHandler   func(envelope *Envelope)
+	// SendMessageHandler   func(envelope *Envelope)
 	once           sync.Once
 	errHandlerOnce sync.Once
 }
@@ -168,11 +169,10 @@ func (c *Client) WritePump() {
 	}
 }
 
-func (c *Client) Send(envelope *Envelope) error {
+func (c *Client) Send(envelope *Envelope) (err error) {
 	if !c.IsRunning() {
 		return ClosedError
 	}
-	var err error
 	defer func() {
 		// maybe closed
 		if recover() != nil {
@@ -181,7 +181,7 @@ func (c *Client) Send(envelope *Envelope) error {
 		}
 	}()
 	c.sendChan <- envelope
-	return err
+	return
 }
 
 func (c *Client) GetEnvelope() *Envelope {
