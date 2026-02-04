@@ -180,15 +180,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.BearerToken = value
 		case "totpCode":
 			cfg.TotpCode = value
-		case "readBufferSize":
-			cfg.ReadBufferSize, err = strconv.Atoi(value)
+		case "readBufferSize", "writeBufferSize":
+			val, err := strconv.Atoi(value)
 			if err != nil {
-				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid readBufferSize value: " + value}
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid " + param[0] + " value: " + value}
 			}
-		case "writeBufferSize":
-			cfg.WriteBufferSize, err = strconv.Atoi(value)
-			if err != nil {
-				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid writeBufferSize value: " + value}
+			if param[0] == "readBufferSize" {
+				cfg.ReadBufferSize = val
+			} else {
+				cfg.WriteBufferSize = val
 			}
 		default:
 			// lazy init
