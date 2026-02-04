@@ -37,6 +37,8 @@ type Config struct {
 	Timezone          *time.Location    // Timezone for connection, e.g., "Asia%2FShanghai" or "UTC"
 	BearerToken       string            // BearerToken for TSDB auth
 	TotpCode          string            // TOTP code for TSDB TOTP auth
+	ReadBufferSize    int               // Read buffer size
+	WriteBufferSize   int               // Write buffer size
 }
 
 // NewConfig creates a new Config and sets default values.
@@ -88,7 +90,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 							if strings.ContainsRune(dsn[k+1:i], ')') {
 								return nil, ErrInvalidDSNUnescaped
 							}
-							//return nil, errInvalidDSNAddr
+							// return nil, errInvalidDSNAddr
 						}
 						addr := dsn[k+1 : i-1]
 						host, port, err := net.SplitHostPort(addr)
@@ -178,6 +180,16 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.BearerToken = value
 		case "totpCode":
 			cfg.TotpCode = value
+		case "readBufferSize", "writeBufferSize":
+			val, err := strconv.Atoi(value)
+			if err != nil {
+				return &errors.TaosError{Code: 0xffff, ErrStr: "invalid " + param[0] + " value: " + value}
+			}
+			if param[0] == "readBufferSize" {
+				cfg.ReadBufferSize = val
+			} else {
+				cfg.WriteBufferSize = val
+			}
 		default:
 			// lazy init
 			if cfg.Params == nil {
