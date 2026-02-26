@@ -17,6 +17,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
+
 	"github.com/taosdata/driver-go/v3/common"
 	stmtCommon "github.com/taosdata/driver-go/v3/common/stmt"
 	"github.com/taosdata/driver-go/v3/common/tdversion"
@@ -86,6 +87,12 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	}
 	endpoint := endpointUrl.String()
 	dialer := common.DefaultDialer
+	if cfg.ReadBufferSize > 0 {
+		dialer.ReadBufferSize = cfg.ReadBufferSize
+	}
+	if cfg.WriteBufferSize > 0 {
+		dialer.WriteBufferSize = cfg.WriteBufferSize
+	}
 	dialer.EnableCompression = cfg.EnableCompression
 	ws, _, err := dialer.Dial(endpoint, nil)
 	if err != nil {
