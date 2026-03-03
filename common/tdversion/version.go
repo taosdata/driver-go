@@ -3,14 +3,45 @@ package tdversion
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/websocket"
-	"github.com/hashicorp/go-version"
 	"github.com/taosdata/driver-go/v3/errors"
 )
 
-var MinimumVersion = version.Must(version.NewVersion("3.3.6.0"))
+var MinimumVersion = &Version{3, 3, 6, 0}
+
+type Version [4]int
+
+func NewVersion(v string) (*Version, error) {
+	parts := strings.Split(v, ".")
+	if len(parts) < 4 {
+		return nil, &UnknownVersionError{Version: v}
+	}
+	var ver Version
+	for i := 0; i < 4; i++ {
+		verPart, err := strconv.Atoi(parts[i])
+		if err != nil {
+			return nil, &UnknownVersionError{Version: v}
+		}
+		ver[i] = verPart
+	}
+	return &ver, nil
+}
+
+func (v *Version) LessThan(other *Version) bool {
+	for i := 0; i < 4; i++ {
+		if v[i] != other[i] {
+			return v[i] < other[i]
+		}
+	}
+	return false
+}
+
+func (v *Version) String() string {
+	return fmt.Sprintf("%d.%d.%d.%d", v[0], v[1], v[2], v[3])
+}
 
 type VersionMismatchError struct {
 	CurrentVersion string
@@ -29,13 +60,8 @@ func (e *UnknownVersionError) Error() string {
 	return fmt.Sprintf("Unknown TDengine version: %s.", e.Version)
 }
 
-func ParseVersion(v string) (*version.Version, error) {
-	parts := strings.Split(v, ".")
-	if len(parts) < 4 {
-		return nil, &UnknownVersionError{Version: v}
-	}
-	v = strings.Join(parts[:4], ".")
-	ver, err := version.NewVersion(v)
+func ParseVersion(v string) (*Version, error) {
+	ver, err := NewVersion(v)
 	if err != nil {
 		return nil, &UnknownVersionError{Version: v}
 	}

@@ -30,6 +30,8 @@ type Schemaless struct {
 	user                string
 	password            string
 	db                  string
+	totpCode            string
+	bearerToken         string
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
 	lock                sync.Mutex
@@ -70,6 +72,8 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 		user:         config.user,
 		password:     config.password,
 		db:           config.db,
+		totpCode:     config.totpCode,
+		bearerToken:  config.bearerToken,
 		closeChan:    make(chan struct{}),
 		errorHandler: config.errorHandler,
 		dialer:       &dialer,
@@ -90,7 +94,7 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 		s.writeTimeout = config.writeTimeout
 	}
 
-	if err = connect(conn, s.user, s.password, s.db, s.writeTimeout, s.readTimeout); err != nil {
+	if err = connect(conn, s.user, s.password, s.db, s.totpCode, s.bearerToken, s.writeTimeout, s.readTimeout); err != nil {
 		return nil, fmt.Errorf("connect ws error: %s", err)
 	}
 	s.initClient(s.client)
@@ -118,7 +122,7 @@ func (s *Schemaless) reconnect() error {
 			continue
 		}
 		conn.EnableWriteCompression(s.dialer.EnableCompression)
-		if err = connect(conn, s.user, s.password, s.db, s.writeTimeout, s.readTimeout); err != nil {
+		if err = connect(conn, s.user, s.password, s.db, s.totpCode, s.bearerToken, s.writeTimeout, s.readTimeout); err != nil {
 			_ = conn.Close()
 			continue
 		}
@@ -207,12 +211,16 @@ var (
 	ConnectTimeoutErr = errors.New("schemaless connect timeout")
 )
 
-func connect(ws *websocket.Conn, user string, password string, db string, writeTimeout time.Duration, readTimeout time.Duration) error {
+func connect(ws *websocket.Conn, user string, password string, db string, totpCode string, bearerToken string, writeTimeout time.Duration, readTimeout time.Duration) error {
 	req := &wsConnectReq{
-		ReqID:    0,
-		User:     user,
-		Password: password,
-		DB:       db,
+		ReqID:       0,
+		User:        user,
+		Password:    password,
+		DB:          db,
+		TOTPCode:    totpCode,
+		BearerToken: bearerToken,
+		App:         common.GetProcessName(),
+		Connector:   common.GetConnectorInfo("ws"),
 	}
 	args, err := client.JsonI.Marshal(req)
 	if err != nil {

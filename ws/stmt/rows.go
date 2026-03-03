@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -19,6 +20,7 @@ type Rows struct {
 	blockPtr         unsafe.Pointer
 	blockOffset      int
 	blockSize        int
+	timezone         *time.Location
 	resultID         uint64
 	block            []byte
 	conn             *WSConn
@@ -32,6 +34,22 @@ type Rows struct {
 	precision        int
 }
 
+func NewRows(conn *WSConn, client *client.Client, resp *UseResultResp, timezone *time.Location) *Rows {
+	return &Rows{
+		buf:              &bytes.Buffer{},
+		timezone:         timezone,
+		resultID:         resp.ResultID,
+		conn:             conn,
+		client:           client,
+		fieldsCount:      resp.FieldsCount,
+		fieldsNames:      resp.FieldsNames,
+		fieldsTypes:      resp.FieldsTypes,
+		fieldsLengths:    resp.FieldsLengths,
+		fieldsPrecisions: resp.FieldsPrecisions,
+		fieldsScales:     resp.FieldsScales,
+		precision:        resp.Precision,
+	}
+}
 func (rs *Rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	if rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || rs.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
 		return rs.fieldsPrecisions[index], rs.fieldsScales[index], true
@@ -77,12 +95,21 @@ func (rs *Rows) Next(dest []driver.Value) error {
 		rs.block = nil
 		return io.EOF
 	}
-	err := parser.ReadRow(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales)
+	var err error
+	if rs.timezone == nil {
+		err = parser.ReadRow(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales)
+	} else {
+		err = parser.ReadRowWithTimeFormat(dest, rs.blockPtr, rs.blockSize, rs.blockOffset, rs.fieldsTypes, rs.precision, rs.fieldsScales, rs.FormatTime)
+	}
 	if err != nil {
 		return err
 	}
 	rs.blockOffset += 1
 	return nil
+}
+
+func (rs *Rows) FormatTime(ts int64, precision int) driver.Value {
+	return common.TimestampConvertToTimeWithLocation(ts, precision, rs.timezone)
 }
 
 func (rs *Rows) taosFetchBlock() error {

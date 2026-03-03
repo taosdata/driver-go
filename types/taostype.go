@@ -26,6 +26,7 @@ type (
 	}
 	TaosJson     []byte
 	TaosGeometry []byte
+	TaosBlob     []byte
 )
 
 var (
@@ -46,6 +47,7 @@ var (
 	TaosTimestampType = reflect.TypeOf(TaosTimestamp{})
 	TaosJsonType      = reflect.TypeOf(TaosJson(""))
 	TaosGeometryType  = reflect.TypeOf(TaosGeometry(nil))
+	TaosBlobType      = reflect.TypeOf(TaosBlob(nil))
 )
 
 type ColumnType struct {

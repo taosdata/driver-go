@@ -2,12 +2,14 @@ package tmq
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -17,11 +19,18 @@ import (
 // @date: 2023/10/13 11:11
 // @description: test tmq
 func TestTmq(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	defer func() {
+		wrapper.TaosClose(conn)
+	}()
 	sqls := []string{
 		"drop topic if exists test_tmq_common",
 		"drop database if exists af_test_tmq",
@@ -43,12 +52,13 @@ func TestTmq(t *testing.T) {
 			"c13 nchar(20)," +
 			"c14 varbinary(20)," +
 			"c15 geometry(100)," +
-			"c16 decimal(20,4)" +
+			"c16 decimal(20,4)," +
+			"c17 blob" +
 			") tags(t1 int)",
 		"create table if not exists ct0 using all_type tags(1000)",
 		"create table if not exists ct1 using all_type tags(2000)",
 		"create table if not exists ct2 using all_type tags(3000)",
-		"create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16 from all_type",
+		"create topic if not exists test_tmq_common as select ts,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17 from all_type",
 	}
 
 	defer func() {
@@ -64,11 +74,11 @@ func TestTmq(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	now := time.Now()
-	err = execWithoutResult(conn, fmt.Sprintf("insert into ct0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
-	err = execWithoutResult(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct1 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
-	err = execWithoutResult(conn, fmt.Sprintf("insert into ct2 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
+	err = execWithoutResult(conn, fmt.Sprintf("insert into ct2 values('%s',true,2,3,4,5,6,7,8,9,10,11,'1','2','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
 	assert.NoError(t, err)
 
 	consumer, err := NewConsumer(&tmq.ConfigMap{
@@ -126,6 +136,7 @@ func TestTmq(t *testing.T) {
 			assert.Equal(t, []byte("varbinary"), row1[14].([]byte))
 			assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 			assert.Equal(t, "123456789.1230", row1[16].(string))
+			assert.Equal(t, []byte("blob"), row1[17].([]byte))
 
 			t.Log(e.Offset())
 			ass, err := consumer.Assignment()
@@ -172,6 +183,7 @@ func TestSeek(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer wrapper.TaosClose(conn)
 	db := "af_test_tmq_seek"
 	topic := "af_test_tmq_seek_topic"
 	vgroups := 2
@@ -314,14 +326,19 @@ func TestSeek(t *testing.T) {
 }
 
 func execWithoutResult(conn unsafe.Pointer, sql string) error {
-	result := wrapper.TaosQuery(conn, sql)
-	defer wrapper.TaosFreeResult(result)
-	code := wrapper.TaosError(result)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(result)
-		wrapper.TaosFreeResult(result)
-		return &errors.TaosError{Code: int32(code), ErrStr: errStr}
+	res := wrapper.TaosQuery(conn, sql)
+	if code := wrapper.TaosError(res); code != 0 {
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			wrapper.TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return execWithoutResult(conn, sql)
+		}
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		return errors.NewError(code, errStr)
 	}
+	wrapper.TaosFreeResult(res)
 	return nil
 }
 
@@ -530,4 +547,119 @@ func Test_tmqError(t *testing.T) {
 	err := tmqError(-1)
 	expectError := &errors.TaosError{Code: 65535, ErrStr: "fail"}
 	assert.Equal(t, expectError, err)
+}
+
+func prepareTimezoneEnv(conn unsafe.Pointer) error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_native_tmq_timezone_topic",
+		"drop database if exists test_native_tmq_timezone",
+		"create database test_native_tmq_timezone vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_native_tmq_timezone_topic as database test_native_tmq_timezone",
+		"create table test_native_tmq_timezone.t1(ts timestamp,v int)",
+	}
+	for _, step := range steps {
+		err = execWithoutResult(conn, step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func doClean(conn unsafe.Pointer, steps []string) error {
+	for _, step := range steps {
+		err := execWithoutResult(conn, step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func cleanTimezoneEnv(conn unsafe.Pointer) error {
+	steps := []string{
+		"drop topic if exists test_native_tmq_timezone_topic",
+		"drop database if exists test_native_tmq_timezone",
+	}
+	var err error
+	for i := 0; i < 10; i++ {
+		err = doClean(conn, steps)
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			continue
+		} else {
+			return nil
+		}
+	}
+	return err
+}
+
+func TestTimezone(t *testing.T) {
+	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer wrapper.TaosClose(conn)
+	err = prepareTimezoneEnv(conn)
+	assert.NoError(t, err)
+	defer func() {
+		err = cleanTimezoneEnv(conn)
+		assert.NoError(t, err)
+	}()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
+		"timezone":                "Europe/Paris",
+	})
+	assert.NoError(t, err)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
+	}()
+	topic := []string{"test_native_tmq_timezone_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	nowStr := now.Format(time.RFC3339Nano)
+	err = execWithoutResult(conn, fmt.Sprintf("insert into test_native_tmq_timezone.t1 values('%s',1)", nowStr))
+	require.NoError(t, err)
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			data := e.Value().([]*tmq.Data)
+			assert.Equal(t, "test_native_tmq_timezone", e.DBName())
+			assert.Equal(t, 1, len(data))
+			assert.Equal(t, "t1", data[0].TableName)
+			assert.Equal(t, 1, len(data[0].Data))
+			assert.Equal(t, 2, len(data[0].Data[0]))
+			recordTime := data[0].Data[0][0].(time.Time)
+			assert.Equal(t, parisTimezone, recordTime.Location())
+			assert.Equal(t, now.UnixNano()/1e6, recordTime.UnixNano()/1e6)
+			assert.Equal(t, int32(1), data[0].Data[0][1].(int32))
+			return
+		}
+	}
+	t.Error("no message got")
 }

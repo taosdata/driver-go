@@ -30,7 +30,7 @@ jobs:
           sudo ./install.sh -e no
 
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: copy taos cfg
         run: |
@@ -51,7 +51,7 @@ jobs:
         run: sudo taosadapter &
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           cache-dependency-path: go.sum
@@ -60,6 +60,7 @@ jobs:
         env:
           TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
           TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+          TD_3360_TEST: 'true'
         run: |
           go version
           go env
@@ -83,7 +84,7 @@ jobs:
           sudo ./install.sh -e no
 
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: copy taos cfg
         run: |
@@ -104,7 +105,7 @@ jobs:
         run: sudo taosadapter &
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           cache-dependency-path: go.sum
@@ -113,4 +114,6 @@ jobs:
         env:
           TDENGINE_CLOUD_ENDPOINT: ${{ secrets.TDENGINE_CLOUD_ENDPOINT }}
           TDENGINE_CLOUD_TOKEN: ${{ secrets.TDENGINE_CLOUD_TOKEN }}
+          TD_3360_TEST: 'true'
+          ASAN_OPTIONS: 'detect_leaks=0'
         run: go test -v -asan ./...

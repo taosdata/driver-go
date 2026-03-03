@@ -1,4 +1,4 @@
-package wrapper_test
+package wrapper
 
 import (
 	"strings"
@@ -7,22 +7,18 @@ import (
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/errors"
-	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
 func prepareEnv() unsafe.Pointer {
-	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		panic(err)
 	}
-	res := wrapper.TaosQuery(conn, "create database if not exists test_schemaless_common")
-	if wrapper.TaosError(res) != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		panic(errStr)
+	err = exec(conn, "create database if not exists test_schemaless_common")
+	if err != nil {
+		panic(err)
 	}
-	wrapper.TaosFreeResult(res)
-	code := wrapper.TaosSelectDB(conn, "test_schemaless_common")
+	code := TaosSelectDB(conn, "test_schemaless_common")
 	if code != 0 {
 		panic("use db test_schemaless_common fail")
 	}
@@ -30,31 +26,28 @@ func prepareEnv() unsafe.Pointer {
 }
 
 func cleanEnv(conn unsafe.Pointer) {
-	res := wrapper.TaosQuery(conn, "drop database if exists test_schemaless_common")
-	if wrapper.TaosError(res) != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		panic(errStr)
+	err := exec(conn, "drop database if exists test_schemaless_common")
+	if err != nil {
+		panic(err)
 	}
-	wrapper.TaosFreeResult(res)
 }
 
 func BenchmarkTelnetSchemaless(b *testing.B) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	for i := 0; i < b.N; i++ {
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
-		}, wrapper.OpenTSDBTelnetLineProtocol, "")
-		code := wrapper.TaosError(result)
+		}, OpenTSDBTelnetLineProtocol, "")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			b.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 }
 
@@ -63,31 +56,31 @@ func BenchmarkTelnetSchemaless(b *testing.B) {
 // @description: test schemaless opentsdb telnet
 func TestSchemalessTelnet(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
-	result := wrapper.TaosSchemalessInsert(conn, []string{
+	result := TaosSchemalessInsert(conn, []string{
 		"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
-	}, wrapper.OpenTSDBTelnetLineProtocol, "")
-	code := wrapper.TaosError(result)
+	}, OpenTSDBTelnetLineProtocol, "")
+	code := TaosError(result)
 	if code != 0 {
-		errStr := wrapper.TaosErrorStr(result)
-		wrapper.TaosFreeResult(result)
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
 		t.Error(errors.NewError(code, errStr))
 		return
 	}
-	wrapper.TaosFreeResult(result)
+	TaosFreeResult(result)
 	s := time.Now()
-	result = wrapper.TaosSchemalessInsert(conn, []string{
+	result = TaosSchemalessInsert(conn, []string{
 		"sys_if_bytes_out 1636626444 1.3E3 host=web01 interface=eth0",
-	}, wrapper.OpenTSDBTelnetLineProtocol, "")
-	code = wrapper.TaosError(result)
+	}, OpenTSDBTelnetLineProtocol, "")
+	code = TaosError(result)
 	if code != 0 {
-		errStr := wrapper.TaosErrorStr(result)
-		wrapper.TaosFreeResult(result)
+		errStr := TaosErrorStr(result)
+		TaosFreeResult(result)
 		t.Error(errors.NewError(code, errStr))
 		return
 	}
-	wrapper.TaosFreeResult(result)
+	TaosFreeResult(result)
 	t.Log("finish ", time.Since(s))
 }
 
@@ -96,111 +89,111 @@ func TestSchemalessTelnet(t *testing.T) {
 // @description: test schemaless influxDB
 func TestSchemalessInfluxDB(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
-		}, wrapper.InfluxDBLineProtocol, "")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000000",
-		}, wrapper.InfluxDBLineProtocol, "ns")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "ns")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000",
-		}, wrapper.InfluxDBLineProtocol, "u")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "u")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000000",
-		}, wrapper.InfluxDBLineProtocol, "μ")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "μ")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800000",
-		}, wrapper.InfluxDBLineProtocol, "ms")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "ms")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 1577836800",
-		}, wrapper.InfluxDBLineProtocol, "s")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "s")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 26297280",
-		}, wrapper.InfluxDBLineProtocol, "m")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "m")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 	{
-		result := wrapper.TaosSchemalessInsert(conn, []string{
+		result := TaosSchemalessInsert(conn, []string{
 			"measurement,host=host1 field1=2i,field2=2.0 438288",
-		}, wrapper.InfluxDBLineProtocol, "h")
-		code := wrapper.TaosError(result)
+		}, InfluxDBLineProtocol, "h")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Error(errors.NewError(code, errStr))
 			return
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 }
 
@@ -209,7 +202,7 @@ func TestSchemalessInfluxDB(t *testing.T) {
 // @description: test schemaless insert with opentsdb telnet line protocol
 func TestSchemalessRawTelnet(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	type in struct {
 		rows []string
@@ -224,11 +217,11 @@ func TestSchemalessRawTelnet(t *testing.T) {
 	}
 	for _, d := range data {
 		row := strings.Join(d.rows, "\n")
-		totalRows, result := wrapper.TaosSchemalessInsertRaw(conn, row, wrapper.OpenTSDBTelnetLineProtocol, "")
-		code := wrapper.TaosError(result)
+		totalRows, result := TaosSchemalessInsertRaw(conn, row, OpenTSDBTelnetLineProtocol, "")
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Log(row)
 			t.Error(errors.NewError(code, errStr))
 			return
@@ -237,12 +230,12 @@ func TestSchemalessRawTelnet(t *testing.T) {
 			t.Log(row)
 			t.Errorf("expect rows %d got %d", len(d.rows), totalRows)
 		}
-		affected := wrapper.TaosAffectedRows(result)
+		affected := TaosAffectedRows(result)
 		if affected != len(d.rows) {
 			t.Log(row)
 			t.Errorf("expect affected %d got %d", len(d.rows), affected)
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 }
 
@@ -251,7 +244,7 @@ func TestSchemalessRawTelnet(t *testing.T) {
 // @description: test schemaless insert with opentsdb telnet line protocol
 func TestSchemalessRawInfluxDB(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	type in struct {
 		rows      []string
@@ -297,11 +290,11 @@ func TestSchemalessRawInfluxDB(t *testing.T) {
 	}
 	for _, d := range data {
 		row := strings.Join(d.rows, "\n")
-		totalRows, result := wrapper.TaosSchemalessInsertRaw(conn, row, wrapper.InfluxDBLineProtocol, d.precision)
-		code := wrapper.TaosError(result)
+		totalRows, result := TaosSchemalessInsertRaw(conn, row, InfluxDBLineProtocol, d.precision)
+		code := TaosError(result)
 		if code != 0 {
-			errStr := wrapper.TaosErrorStr(result)
-			wrapper.TaosFreeResult(result)
+			errStr := TaosErrorStr(result)
+			TaosFreeResult(result)
 			t.Log(row)
 			t.Error(errors.NewError(code, errStr))
 			return
@@ -310,12 +303,12 @@ func TestSchemalessRawInfluxDB(t *testing.T) {
 			t.Log(row)
 			t.Errorf("expect rows %d got %d", len(d.rows), totalRows)
 		}
-		affected := wrapper.TaosAffectedRows(result)
+		affected := TaosAffectedRows(result)
 		if affected != len(d.rows) {
 			t.Log(row)
 			t.Errorf("expect affected %d got %d", len(d.rows), affected)
 		}
-		wrapper.TaosFreeResult(result)
+		TaosFreeResult(result)
 	}
 }
 
@@ -324,7 +317,7 @@ func TestSchemalessRawInfluxDB(t *testing.T) {
 // @description: test schemaless insert raw with reqid
 func TestTaosSchemalessInsertRawWithReqID(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -373,16 +366,16 @@ func TestTaosSchemalessInsertRawWithReqID(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rows, result := wrapper.TaosSchemalessInsertRawWithReqID(conn, c.row, wrapper.InfluxDBLineProtocol, c.precision, c.reqID)
+			rows, result := TaosSchemalessInsertRawWithReqID(conn, c.row, InfluxDBLineProtocol, c.precision, c.reqID)
 			if rows != c.rows {
 				t.Fatal("rows miss")
 			}
-			code := wrapper.TaosError(result)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }
@@ -392,7 +385,7 @@ func TestTaosSchemalessInsertRawWithReqID(t *testing.T) {
 // @description: test schemaless insert with reqid
 func TestTaosSchemalessInsertWithReqID(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -437,13 +430,13 @@ func TestTaosSchemalessInsertWithReqID(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			result := wrapper.TaosSchemalessInsertWithReqID(conn, c.rows, wrapper.InfluxDBLineProtocol, c.precision, c.reqID)
-			code := wrapper.TaosError(result)
+			result := TaosSchemalessInsertWithReqID(conn, c.rows, InfluxDBLineProtocol, c.precision, c.reqID)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }
@@ -453,7 +446,7 @@ func TestTaosSchemalessInsertWithReqID(t *testing.T) {
 // @description: test schemaless insert with ttl
 func TestTaosSchemalessInsertTTL(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -492,13 +485,13 @@ func TestTaosSchemalessInsertTTL(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			result := wrapper.TaosSchemalessInsertTTL(conn, c.rows, wrapper.InfluxDBLineProtocol, c.precision, c.ttl)
-			code := wrapper.TaosError(result)
+			result := TaosSchemalessInsertTTL(conn, c.rows, InfluxDBLineProtocol, c.precision, c.ttl)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }
@@ -508,7 +501,7 @@ func TestTaosSchemalessInsertTTL(t *testing.T) {
 // @description: test schemaless insert with ttl and reqid
 func TestTaosSchemalessInsertTTLWithReqID(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -552,13 +545,13 @@ func TestTaosSchemalessInsertTTLWithReqID(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			result := wrapper.TaosSchemalessInsertTTLWithReqID(conn, c.rows, wrapper.InfluxDBLineProtocol, c.precision, c.ttl, c.reqId)
-			code := wrapper.TaosError(result)
+			result := TaosSchemalessInsertTTLWithReqID(conn, c.rows, InfluxDBLineProtocol, c.precision, c.ttl, c.reqId)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }
@@ -568,7 +561,7 @@ func TestTaosSchemalessInsertTTLWithReqID(t *testing.T) {
 // @description: test schemaless insert raw with ttl
 func TestTaosSchemalessInsertRawTTL(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -603,16 +596,16 @@ func TestTaosSchemalessInsertRawTTL(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rows, result := wrapper.TaosSchemalessInsertRawTTL(conn, c.row, wrapper.InfluxDBLineProtocol, c.precision, c.ttl)
+			rows, result := TaosSchemalessInsertRawTTL(conn, c.row, InfluxDBLineProtocol, c.precision, c.ttl)
 			if rows != c.rows {
 				t.Fatal("rows miss")
 			}
-			code := wrapper.TaosError(result)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }
@@ -622,7 +615,7 @@ func TestTaosSchemalessInsertRawTTL(t *testing.T) {
 // @description: test schemaless insert raw with ttl and reqid
 func TestTaosSchemalessInsertRawTTLWithReqID(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -661,23 +654,23 @@ func TestTaosSchemalessInsertRawTTLWithReqID(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rows, result := wrapper.TaosSchemalessInsertRawTTLWithReqID(conn, c.row, wrapper.InfluxDBLineProtocol, c.precision, c.ttl, c.reqID)
+			rows, result := TaosSchemalessInsertRawTTLWithReqID(conn, c.row, InfluxDBLineProtocol, c.precision, c.ttl, c.reqID)
 			if rows != c.rows {
 				t.Fatal("rows miss")
 			}
-			code := wrapper.TaosError(result)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }
 
 func TestTaosSchemalessInsertRawTTLWithReqIDTBNameKey(t *testing.T) {
 	conn := prepareEnv()
-	defer wrapper.TaosClose(conn)
+	defer TaosClose(conn)
 	//defer cleanEnv(conn)
 	cases := []struct {
 		name      string
@@ -729,16 +722,16 @@ func TestTaosSchemalessInsertRawTTLWithReqIDTBNameKey(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rows, result := wrapper.TaosSchemalessInsertRawTTLWithReqIDTBNameKey(conn, c.row, wrapper.InfluxDBLineProtocol, c.precision, c.ttl, c.reqID, c.tbNameKey)
+			rows, result := TaosSchemalessInsertRawTTLWithReqIDTBNameKey(conn, c.row, InfluxDBLineProtocol, c.precision, c.ttl, c.reqID, c.tbNameKey)
 			if rows != c.rows {
 				t.Fatal("rows miss")
 			}
-			code := wrapper.TaosError(result)
+			code := TaosError(result)
 			if code != 0 {
-				errStr := wrapper.TaosErrorStr(result)
+				errStr := TaosErrorStr(result)
 				t.Fatal(errors.NewError(code, errStr))
 			}
-			wrapper.TaosFreeResult(result)
+			TaosFreeResult(result)
 		})
 	}
 }

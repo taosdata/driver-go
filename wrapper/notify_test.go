@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/testenv"
 	"github.com/taosdata/driver-go/v3/wrapper/cgo"
 )
 
@@ -71,17 +72,19 @@ func TestNotify(t *testing.T) {
 		t.Error("wait for notify callback timeout")
 	}
 
-	err = exec(conn, "ALTER USER t_notify ADD HOST '192.168.1.98/0','192.168.1.98/32'")
-	assert.NoError(t, err)
-	timeoutWhiteList, cancelWhitelist := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancelWhitelist()
-	now = time.Now()
-	select {
-	case version := <-notifyWhitelist:
-		t.Log(time.Since(now))
-		t.Log("whitelist changed", version)
-	case <-timeoutWhiteList.Done():
-		t.Error("wait for notifyWhitelist callback timeout")
+	if testenv.IsEnterpriseTest() {
+		err = exec(conn, "ALTER USER t_notify ADD HOST '192.168.1.98/0','192.168.1.98/32'")
+		assert.NoError(t, err)
+		timeoutWhiteList, cancelWhitelist := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancelWhitelist()
+		now = time.Now()
+		select {
+		case version := <-notifyWhitelist:
+			t.Log(time.Since(now))
+			t.Log("whitelist changed", version)
+		case <-timeoutWhiteList.Done():
+			t.Error("wait for notifyWhitelist callback timeout")
+		}
 	}
 
 	err = exec(conn, "drop USER t_notify")

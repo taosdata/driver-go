@@ -15,7 +15,9 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
+	"github.com/taosdata/driver-go/v3/common/testtool"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
@@ -91,6 +93,10 @@ func doRequest(payload string) error {
 	})
 	client.JsonI.ReturnIterator(iter)
 	if code != 0 {
+		if code == 0x3d3 {
+			time.Sleep(100 * time.Millisecond)
+			return doRequest(payload)
+		}
 		return taosErrors.NewError(int(code), desc)
 	}
 	return nil
@@ -100,6 +106,10 @@ func doRequest(payload string) error {
 // @date: 2023/10/13 11:36
 // @description: test tmq subscribe over websocket
 func TestConsumer(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	err := prepareEnv()
 	if err != nil {
 		t.Error(err)
@@ -112,35 +122,30 @@ func TestConsumer(t *testing.T) {
 		}
 	}()
 	now := time.Now()
-	go func() {
-		err = doRequest("create table test_ws_tmq.t_all(ts timestamp," +
-			"c1 bool," +
-			"c2 tinyint," +
-			"c3 smallint," +
-			"c4 int," +
-			"c5 bigint," +
-			"c6 tinyint unsigned," +
-			"c7 smallint unsigned," +
-			"c8 int unsigned," +
-			"c9 bigint unsigned," +
-			"c10 float," +
-			"c11 double," +
-			"c12 binary(20)," +
-			"c13 nchar(20)," +
-			"c14 varbinary(20)," +
-			"c15 geometry(100)," +
-			"c16 decimal(20,4)" +
-			")")
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		err = doRequest(fmt.Sprintf("insert into test_ws_tmq.t_all values('%s',true,2,3,4,5,6,7,8,9,10.123,11.123,'binary','nchar','varbinary','POINT(100 100)',123456789.123)", now.Format(time.RFC3339Nano)))
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+	err = doRequest("create table test_ws_tmq.t_all(ts timestamp," +
+		"c1 bool," +
+		"c2 tinyint," +
+		"c3 smallint," +
+		"c4 int," +
+		"c5 bigint," +
+		"c6 tinyint unsigned," +
+		"c7 smallint unsigned," +
+		"c8 int unsigned," +
+		"c9 bigint unsigned," +
+		"c10 float," +
+		"c11 double," +
+		"c12 binary(20)," +
+		"c13 nchar(20)," +
+		"c14 varbinary(20)," +
+		"c15 geometry(100)," +
+		"c16 decimal(20,4)," +
+		"c17 blob" +
+		")")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	consumer, err := NewConsumer(&tmq.ConfigMap{
 		"ws.url":                  "ws://127.0.0.1:6041",
 		"ws.message.channelLen":   uint(0),
@@ -174,12 +179,33 @@ func TestConsumer(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	app := common.GetProcessName()
+	if len(app) > 23 {
+		app = app[:23]
+	}
+	connectorInfo := common.GetConnectorInfo("ws")
+	checkSql := fmt.Sprintf("select count(*) from performance_schema.perf_connections where user_app = '%s'  and connector_info = '%s'", app, connectorInfo)
+	t.Log(checkSql)
+	require.Eventually(t, func() bool {
+		resp, err := testtool.HTTPQuery(checkSql)
+		if err != nil {
+			return false
+		}
+		if len(resp.Data) == 0 || len(resp.Data[0]) == 0 {
+			return false
+		}
+		count, ok := resp.Data[0][0].(int64)
+		if !ok {
+			return false
+		}
+		return count > 0
+	}, 10*time.Second, 500*time.Millisecond)
 	gotData := false
 	for i := 0; i < 5; i++ {
 		if gotData {
 			return
 		}
-		ev := consumer.Poll(500)
+		ev := consumer.Poll(10)
 		if ev != nil {
 			switch e := ev.(type) {
 			case *tmq.DataMessage:
@@ -207,6 +233,7 @@ func TestConsumer(t *testing.T) {
 				assert.Equal(t, []byte("varbinary"), v[14].([]byte))
 				assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, v[15].([]byte))
 				assert.Equal(t, "123456789.1230", v[16].(string))
+				assert.Equal(t, []byte("blob"), v[17].([]byte))
 				t.Log(e.Offset())
 				ass, err := consumer.Assignment()
 				assert.NoError(t, err)
@@ -236,11 +263,14 @@ func TestConsumer(t *testing.T) {
 				return
 			}
 
-		}
-
-		if err != nil {
-			t.Error(err)
-			return
+		} else {
+			if i == 0 {
+				err = doRequest(fmt.Sprintf("insert into test_ws_tmq.t_all values('%s',true,2,3,4,5,6,7,8,9,10.123,11.123,'binary','nchar','varbinary','POINT(100 100)',123456789.123,'blob')", now.Format(time.RFC3339Nano)))
+				if err != nil {
+					t.Error(err)
+					return
+				}
+			}
 		}
 	}
 	if !gotData {
@@ -1072,6 +1102,7 @@ func TestSubscribeReconnect(t *testing.T) {
 	startChan := make(chan struct{})
 	go func() {
 		time.Sleep(time.Second * 3)
+		cmd = newTaosadapter(port)
 		err = startTaosadapter(cmd, port)
 		if err != nil {
 			t.Error(err)
@@ -1103,6 +1134,7 @@ func TestSubscribeReconnect(t *testing.T) {
 			startChan <- struct{}{}
 		}()
 		time.Sleep(time.Second * 3)
+		cmd = newTaosadapter(port)
 		err = startTaosadapter(cmd, port)
 		if err != nil {
 			t.Errorf("start taosadapter failed: %v", err)
@@ -1337,4 +1369,108 @@ func TestPollMultiTimes(t *testing.T) {
 		t.Error(err)
 		return
 	}
+}
+
+func prepareTimezoneEnv() error {
+	var err error
+	steps := []string{
+		"drop topic if exists test_ws_tmq_timezone_topic",
+		"drop database if exists test_ws_tmq_timezone",
+		"create database test_ws_tmq_timezone vgroups 1 WAL_RETENTION_PERIOD 86400",
+		"create topic test_ws_tmq_timezone_topic as database test_ws_tmq_timezone",
+		"create table test_ws_tmq_timezone.t1(ts timestamp,v int)",
+	}
+	for _, step := range steps {
+		err = doRequest(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanTimezoneEnv() error {
+	steps := []string{
+		"drop topic if exists test_ws_tmq_timezone_topic",
+		"drop database if exists test_ws_tmq_timezone",
+	}
+	var err error
+	for i := 0; i < 10; i++ {
+		err = doClean(steps)
+		if err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		} else {
+			return nil
+		}
+	}
+	return err
+}
+
+func TestTimezone(t *testing.T) {
+	err := prepareTimezoneEnv()
+	assert.NoError(t, err)
+	defer func() {
+		err = cleanTimezoneEnv()
+		assert.NoError(t, err)
+	}()
+	consumer, err := NewConsumer(&tmq.ConfigMap{
+		"ws.url":                  "ws://127.0.0.1:6041",
+		"ws.message.channelLen":   uint(0),
+		"ws.message.timeout":      common.DefaultMessageTimeout,
+		"ws.message.writeWait":    common.DefaultWriteWait,
+		"td.connect.user":         "root",
+		"td.connect.pass":         "taosdata",
+		"group.id":                "test",
+		"client.id":               "test_consumer",
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "true",
+		"auto.commit.interval.ms": "1000",
+		"msg.with.table.name":     "true",
+		"timezone":                "Europe/Paris",
+	})
+	assert.NoError(t, err)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = consumer.Unsubscribe()
+		assert.NoError(t, err)
+		err = consumer.Close()
+		assert.NoError(t, err)
+	}()
+	topic := []string{"test_ws_tmq_timezone_topic"}
+	err = consumer.SubscribeTopics(topic, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	nowStr := now.Format(time.RFC3339Nano)
+	err = doRequest(fmt.Sprintf("insert into test_ws_tmq_timezone.t1 values('%s',1)", nowStr))
+	require.NoError(t, err)
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		switch e := event.(type) {
+		case *tmq.DataMessage:
+			data := e.Value().([]*tmq.Data)
+			assert.Equal(t, "test_ws_tmq_timezone", e.DBName())
+			assert.Equal(t, 1, len(data))
+			assert.Equal(t, "t1", data[0].TableName)
+			assert.Equal(t, 1, len(data[0].Data))
+			assert.Equal(t, 2, len(data[0].Data[0]))
+			recordTime := data[0].Data[0][0].(time.Time)
+			assert.Equal(t, parisTimezone, recordTime.Location())
+			assert.Equal(t, now.UnixNano()/1e6, recordTime.UnixNano()/1e6)
+			assert.Equal(t, int32(1), data[0].Data[0][1].(int32))
+			return
+		}
+	}
+	t.Error("no message got")
 }

@@ -35,7 +35,7 @@ func TestCloudWS(t *testing.T) {
 		}
 		for i := 0; i < len(dropSqls); i++ {
 			dropTableSql := dropSqls[i]
-			res, err := taos.Exec(dropTableSql)
+			res, err := exec(taos, dropTableSql)
 			assert.NoError(t, err)
 			affected, err := res.RowsAffected()
 			assert.NoError(t, err)
@@ -51,14 +51,14 @@ func TestCloudWS(t *testing.T) {
 	}
 	for i := 0; i < len(createSqls); i++ {
 		createTableSql := createSqls[i]
-		res, err := taos.Exec(createTableSql)
+		res, err := exec(taos, createTableSql)
 		assert.NoError(t, err)
 		affected, err := res.RowsAffected()
 		assert.NoError(t, err)
 		assert.Equal(t, int64(0), affected)
 	}
 	insertSql := fmt.Sprintf("insert into %s values (now, 1, 2, 3)", tbname)
-	res, err := taos.Exec(insertSql)
+	res, err := exec(taos, insertSql)
 	assert.NoError(t, err)
 	affected, err := res.RowsAffected()
 	assert.NoError(t, err)

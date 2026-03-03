@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/hashicorp/go-version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -19,7 +18,7 @@ func TestParseVersion(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *version.Version
+		want    *Version
 		wantErr bool
 	}{
 		{
@@ -34,7 +33,7 @@ func TestParseVersion(t *testing.T) {
 			args: args{
 				v: "3.3.6.0",
 			},
-			want:    version.Must(version.NewVersion("3.3.6.0")),
+			want:    &Version{3, 3, 6, 0},
 			wantErr: false,
 		},
 		{
@@ -42,7 +41,7 @@ func TestParseVersion(t *testing.T) {
 			args: args{
 				v: "3.3.6.0.alpha",
 			},
-			want:    version.Must(version.NewVersion("3.3.6.0")),
+			want:    &Version{3, 3, 6, 0},
 			wantErr: false,
 		},
 		{

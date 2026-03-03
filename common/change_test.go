@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // @author: xftan
@@ -98,4 +101,60 @@ func TestTimeToTimestamp(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTimestampConvertToTimeWithLocation(t *testing.T) {
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	type args struct {
+		timestamp int64
+		precision int
+		loc       *time.Location
+	}
+	tests := []struct {
+		name string
+		args args
+		want time.Time
+	}{
+		{
+			name: "ms",
+			args: args{
+				timestamp: 1643068800000,
+				precision: PrecisionMilliSecond,
+				loc:       parisTimezone,
+			},
+			want: time.Date(2022, 01, 25, 1, 0, 0, 0, parisTimezone),
+		},
+		{
+			name: "us",
+			args: args{
+				timestamp: 1643068800000000,
+				precision: PrecisionMicroSecond,
+				loc:       parisTimezone,
+			},
+			want: time.Date(2022, 01, 25, 1, 0, 0, 0, parisTimezone),
+		},
+		{
+			name: "ns",
+			args: args{
+				timestamp: 1643068800000000000,
+				precision: PrecisionNanoSecond,
+				loc:       parisTimezone,
+			},
+			want: time.Date(2022, 01, 25, 1, 0, 0, 0, parisTimezone),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, TimestampConvertToTimeWithLocation(tt.args.timestamp, tt.args.precision, tt.args.loc), "TimestampConvertToTimeWithLocation(%v, %v, %v)", tt.args.timestamp, tt.args.precision, tt.args.loc)
+		})
+	}
+}
+
+func TestTimestampConvertTotimeWithLocationPanic(t *testing.T) {
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	assert.Panics(t, func() {
+		TimestampConvertToTimeWithLocation(1643068800000, 3, parisTimezone)
+	}, "TimestampConvertToTimeWithLocation should panic")
 }

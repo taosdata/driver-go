@@ -4,6 +4,7 @@ import "C"
 import (
 	"database/sql/driver"
 	"fmt"
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/af/async"
@@ -17,6 +18,7 @@ type Stmt struct {
 	stmt       unsafe.Pointer
 	isInsert   bool
 	paramCount int
+	timezone   *time.Location
 }
 
 func NewStmt(taosConn unsafe.Pointer) *Stmt {
@@ -31,6 +33,10 @@ func NewStmtWithReqID(taosConn unsafe.Pointer, reqID int64) *Stmt {
 	stmt := wrapper.TaosStmtInitWithReqID(taosConn, reqID)
 	locker.Unlock()
 	return &Stmt{stmt: stmt}
+}
+
+func (s *Stmt) SetTimezone(tz *time.Location) {
+	s.timezone = tz
 }
 
 func (s *Stmt) Prepare(sql string) error {
@@ -140,13 +146,7 @@ func (s *Stmt) UseResult() (driver.Rows, error) {
 	}
 	h := async.GetHandler()
 	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    h,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-		isStmt:     true,
-	}
+	rs := newRows(h, res, rowsHeader, precision, true, s.timezone)
 	return rs, nil
 }
 

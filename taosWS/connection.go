@@ -54,6 +54,8 @@ var (
 type taosConn struct {
 	buf          *bytes.Buffer
 	client       *websocket.Conn
+	timezone     *time.Location
+	timezoneStr  string
 	writeLock    sync.Mutex
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -63,6 +65,7 @@ type taosConn struct {
 	endpoint     string
 	closed       uint32
 	closeCh      chan struct{}
+	closeOnce    sync.Once
 }
 
 type message struct {
@@ -100,12 +103,16 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 	tc := &taosConn{
 		buf:          &bytes.Buffer{},
 		client:       ws,
+		timezone:     cfg.Timezone,
 		readTimeout:  cfg.ReadTimeout,
 		writeTimeout: cfg.WriteTimeout,
 		cfg:          cfg,
 		endpoint:     endpoint,
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
+	}
+	if cfg.Timezone != nil {
+		tc.timezoneStr = cfg.Timezone.String()
 	}
 	err = tdversion.WSCheckVersion(ws)
 	if err != nil {
@@ -136,10 +143,7 @@ func (tc *taosConn) ping() {
 }
 
 func (tc *taosConn) read() {
-	for {
-		if tc.client == nil || tc.isClosed() {
-			break
-		}
+	for tc.client != nil && !tc.isClosed() {
 		mt, msg, err := tc.client.ReadMessage()
 		tc.messageChan <- &message{
 			mt:      mt,
@@ -150,9 +154,6 @@ func (tc *taosConn) read() {
 			tc.messageError = NewBadConnError(err)
 			break
 		}
-		if tc.isClosed() {
-			break
-		}
 	}
 }
 
@@ -161,16 +162,13 @@ func (tc *taosConn) Begin() (driver.Tx, error) {
 }
 
 func (tc *taosConn) Close() (err error) {
-	if !tc.isClosed() {
+	tc.closeOnce.Do(func() {
 		atomic.StoreUint32(&tc.closed, 1)
 		close(tc.closeCh)
-	}
-	if tc.client != nil {
-		err = tc.client.Close()
-	}
-	tc.client = nil
-	tc.cfg = nil
-	tc.endpoint = ""
+		if tc.client != nil {
+			err = tc.client.Close()
+		}
+	})
 	return err
 }
 
@@ -467,17 +465,19 @@ func (tc *taosConn) stmtUseResult(stmtID uint64) (*rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	rs := &rows{
-		buf:           &bytes.Buffer{},
-		conn:          tc,
-		resultID:      resp.ResultID,
-		fieldsCount:   resp.FieldsCount,
-		fieldsNames:   resp.FieldsNames,
-		fieldsTypes:   resp.FieldsTypes,
-		fieldsLengths: resp.FieldsLengths,
-		precision:     resp.Precision,
-		isStmt:        true,
-	}
+	rs := newRows(
+		tc,
+		resp.ResultID,
+		resp.FieldsCount,
+		resp.FieldsNames,
+		resp.FieldsTypes,
+		resp.FieldsLengths,
+		resp.FieldsPrecisions,
+		resp.FieldsScales,
+		resp.Precision,
+		true,
+		tc.timezone,
+	)
 	return rs, nil
 }
 
@@ -511,18 +511,19 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 	if resp.IsUpdate {
 		return nil, NotQueryError
 	}
-	rs := &rows{
-		buf:              &bytes.Buffer{},
-		conn:             tc,
-		resultID:         resp.ID,
-		fieldsCount:      resp.FieldsCount,
-		fieldsNames:      resp.FieldsNames,
-		fieldsTypes:      resp.FieldsTypes,
-		fieldsLengths:    resp.FieldsLengths,
-		precision:        resp.Precision,
-		fieldsPrecisions: resp.FieldsPrecisions,
-		fieldsScales:     resp.FieldsScales,
-	}
+	rs := newRows(
+		tc,
+		resp.ID,
+		resp.FieldsCount,
+		resp.FieldsNames,
+		resp.FieldsTypes,
+		resp.FieldsLengths,
+		resp.FieldsPrecisions,
+		resp.FieldsScales,
+		resp.Precision,
+		false,
+		tc.timezone,
+	)
 	return rs, err
 }
 
@@ -575,10 +576,15 @@ func (tc *taosConn) Ping(ctx context.Context) (err error) {
 func (tc *taosConn) connect() error {
 	redID := uint64(common.GetReqID())
 	req := &WSConnectReq{
-		ReqID:    redID,
-		User:     tc.cfg.User,
-		Password: tc.cfg.Passwd,
-		DB:       tc.cfg.DbName,
+		ReqID:       redID,
+		User:        tc.cfg.User,
+		Password:    tc.cfg.Passwd,
+		DB:          tc.cfg.DbName,
+		TZ:          tc.timezoneStr,
+		App:         common.GetProcessName(),
+		Connector:   common.GetConnectorInfo("ws"),
+		BearerToken: tc.cfg.BearerToken,
+		TOTPCode:    tc.cfg.TotpCode,
 	}
 	args, err := jsonI.Marshal(req)
 	if err != nil {

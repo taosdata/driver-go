@@ -15,6 +15,8 @@ type Config struct {
 	user                string
 	password            string
 	db                  string
+	totpCode            string
+	bearerToken         string
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
 	errorHandler        func(error)
@@ -90,5 +92,17 @@ func SetReconnectIntervalMs(reconnectIntervalMs int) func(*Config) {
 func SetReconnectRetryCount(reconnectRetryCount int) func(*Config) {
 	return func(c *Config) {
 		c.reconnectRetryCount = reconnectRetryCount
+	}
+}
+
+func SetTOTPCode(totpCode string) func(*Config) {
+	return func(c *Config) {
+		c.totpCode = totpCode
+	}
+}
+
+func SetBearerToken(bearerToken string) func(*Config) {
+	return func(c *Config) {
+		c.bearerToken = bearerToken
 	}
 }

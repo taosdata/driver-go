@@ -33,9 +33,10 @@ func MarshalStmt2Binary(bindData []*TaosStmt2BindData, isInsert bool, fields []*
 	var colType []*Stmt2AllField
 	var tagType []*Stmt2AllField
 	for i := 0; i < len(fields); i++ {
-		if fields[i].BindType == TAOS_FIELD_COL {
+		switch fields[i].BindType {
+		case TAOS_FIELD_COL:
 			colType = append(colType, fields[i])
-		} else if fields[i].BindType == TAOS_FIELD_TAG {
+		case TAOS_FIELD_TAG:
 			tagType = append(tagType, fields[i])
 		}
 	}
@@ -363,7 +364,7 @@ func generateBindColData(data []driver.Value, colType *Stmt2AllField, tmpBuffer 
 					}
 				}
 			}
-		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_JSON:
+		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_BLOB:
 			for i := 0; i < num; i++ {
 				if data[i] == nil {
 					isNull[i] = 1
@@ -582,7 +583,8 @@ func needLength(colType int8) bool {
 		common.TSDB_DATA_TYPE_NCHAR,
 		common.TSDB_DATA_TYPE_JSON,
 		common.TSDB_DATA_TYPE_VARBINARY,
-		common.TSDB_DATA_TYPE_GEOMETRY:
+		common.TSDB_DATA_TYPE_GEOMETRY,
+		common.TSDB_DATA_TYPE_BLOB:
 		return true
 	}
 	return false

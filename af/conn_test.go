@@ -2,6 +2,7 @@ package af
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,8 +11,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	param2 "github.com/taosdata/driver-go/v3/common/param"
+	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
 )
 
@@ -32,7 +35,7 @@ func testMain(m *testing.M) int {
 			panic(err)
 		}
 	}()
-	_, err = db.Exec("drop database if exists test_af")
+	_, err = exec(db, "drop database if exists test_af")
 	if err != nil {
 		panic(err)
 	}
@@ -48,12 +51,12 @@ func testDatabase(t *testing.T) *Connector {
 		t.Error(err)
 		return nil
 	}
-	_, err = db.Exec("create database if not exists test_af precision 'us'  keep 36500")
+	_, err = exec(db, "create database if not exists test_af precision 'us'  keep 36500")
 	if err != nil {
 		t.Error(err)
 		return nil
 	}
-	_, err = db.Exec("use test_af")
+	_, err = exec(db, "use test_af")
 	if err != nil {
 		t.Error(err)
 		return nil
@@ -71,7 +74,7 @@ func TestOpen(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	// select database
-	_, err := db.Exec("create database if not exists test_af")
+	_, err := exec(db, "create database if not exists test_af")
 	if err != nil {
 		t.Error(err)
 		return
@@ -87,17 +90,17 @@ func TestQuery(t *testing.T) {
 		err := db.Close()
 		assert.NoError(t, err)
 	}()
-	_, err := db.Exec("drop table if exists test_types")
+	_, err := exec(db, "drop table if exists test_types")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_types(ts timestamp, f_int int, f_bigint bigint, f_float float, f_double double, f_binary binary(16), f_smallint smallint, f_tinyint tinyint, f_bool bool, f_nchar nchar(16))")
+	_, err = exec(db, "create table if not exists test_types(ts timestamp, f_int int, f_bigint bigint, f_float float, f_double double, f_binary binary(16), f_smallint smallint, f_tinyint tinyint, f_bool bool, f_nchar nchar(16))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("insert into test_types values(now, 1, 2, 3000000.3, 400000000.4, '5binary', 6, 7, true, '9nchar')")
+	_, err = exec(db, "insert into test_types values(now, 1, 2, 3000000.3, 400000000.4, '5binary', 6, 7, true, '9nchar')")
 	if err != nil {
 		t.Error(err)
 		return
@@ -205,7 +208,7 @@ func TestStmtExec(t *testing.T) {
 		sql := fmt.Sprintf("insert into %s values(%s)", tbName, pos)
 		var err error
 		t.Run(name, func(t *testing.T) {
-			if _, err = db.Exec(create); err != nil {
+			if _, err = exec(db, create); err != nil {
 				t.Error(err)
 				return
 			}
@@ -281,7 +284,7 @@ func TestFastInsert(t *testing.T) {
 		sql := fmt.Sprintf("insert into %s values(%s)", tbName, pos)
 		var err error
 		t.Run(name, func(t *testing.T) {
-			if _, err = db.Exec(create); err != nil {
+			if _, err = exec(db, create); err != nil {
 				t.Error(err)
 				return
 			}
@@ -382,7 +385,7 @@ func TestFastInsertWithSetTableName(t *testing.T) {
 		sql := fmt.Sprintf("insert into ? values(%s)", pos)
 		var err error
 		t.Run(name, func(t *testing.T) {
-			if _, err = db.Exec(create); err != nil {
+			if _, err = exec(db, create); err != nil {
 				t.Error(err)
 				return
 			}
@@ -444,12 +447,12 @@ func TestFastInsertWithSetTableNameTag(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	now := time.Now()
-	_, err := db.Exec("create stable if not exists set_table_name_tag_int (ts timestamp,`value` int) tags(i smallint,v binary(8))")
+	_, err := exec(db, "create stable if not exists set_table_name_tag_int (ts timestamp,`value` int) tags(i smallint,v binary(8))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists set_table_name_tag_nchar (ts timestamp,`value` nchar(8)) tags(i smallint,v binary(8))")
+	_, err = exec(db, "create stable if not exists set_table_name_tag_nchar (ts timestamp,`value` nchar(8)) tags(i smallint,v binary(8))")
 	if err != nil {
 		t.Error(err)
 		return
@@ -532,12 +535,12 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	now := time.Now()
-	_, err := db.Exec("create stable if not exists set_table_name_sub_int (ts timestamp,`value` int) tags(i smallint,v binary(8))")
+	_, err := exec(db, "create stable if not exists set_table_name_sub_int (ts timestamp,`value` int) tags(i smallint,v binary(8))")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create stable if not exists set_table_name_sub_nchar (ts timestamp,`value` nchar(8)) tags(i smallint,v binary(8))")
+	_, err = exec(db, "create stable if not exists set_table_name_sub_nchar (ts timestamp,`value` nchar(8)) tags(i smallint,v binary(8))")
 	if err != nil {
 		t.Error(err)
 		return
@@ -581,7 +584,7 @@ func TestFastInsertWithSetSubTableName(t *testing.T) {
 		pos := tc.pos
 		sql := fmt.Sprintf("insert into ? values(%s)", pos)
 		t.Run(name, func(t *testing.T) {
-			_, err := db.Exec(create)
+			_, err := exec(db, create)
 			if err != nil {
 				t.Error(err)
 				return
@@ -818,7 +821,7 @@ func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 		err := db.Close()
 		assert.NoError(t, err)
 	}()
-	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+	_, err := execWithReqID(db, "create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
@@ -833,7 +836,7 @@ func TestConnector_StmtExecuteWithReqID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.ExecWithReqID("drop stable if exists meters",
+	_, err = execWithReqID(db, "drop stable if exists meters",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
@@ -849,13 +852,13 @@ func TestConnector_InsertStmtWithReqID(t *testing.T) {
 		err := db.Close()
 		assert.NoError(t, err)
 	}()
-	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+	_, err := execWithReqID(db, "create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = db.ExecWithReqID("drop stable if exists meters", common.GetReqID())
+		_, _ = execWithReqID(db, "drop stable if exists meters", common.GetReqID())
 	}()
 	params := []*param2.Param{
 		param2.NewParam(1).AddTimestamp(time.Now(), common.PrecisionMilliSecond),
@@ -893,15 +896,15 @@ func TestConnector_ExecWithReqID(t *testing.T) {
 		err := db.Close()
 		assert.NoError(t, err)
 	}()
-	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+	_, err := execWithReqID(db, "create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = db.ExecWithReqID("drop stable if exists meters", common.GetReqID())
+		_, _ = execWithReqID(db, "drop stable if exists meters", common.GetReqID())
 	}()
-	_, err = db.ExecWithReqID("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
+	_, err = execWithReqID(db, "INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
@@ -917,16 +920,16 @@ func TestConnector_QueryWithReqID(t *testing.T) {
 		err := db.Close()
 		assert.NoError(t, err)
 	}()
-	_, err := db.ExecWithReqID("create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
+	_, err := execWithReqID(db, "create stable if not exists meters (ts timestamp, current float, voltage int, phase float) tags (location binary(64), groupId int)",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = db.ExecWithReqID("drop stable if exists meters", common.GetReqID())
+		_, _ = execWithReqID(db, "drop stable if exists meters", common.GetReqID())
 	}()
 
-	_, err = db.ExecWithReqID("INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
+	_, err = execWithReqID(db, "INSERT INTO d21001 USING meters TAGS ('California.SanFrancisco', 2) VALUES ('2021-07-13 14:06:32.272', 10.2, 219, 0.32)",
 		common.GetReqID())
 	if err != nil {
 		t.Fatal(err)
@@ -1013,6 +1016,7 @@ func TestOpenTSDBInsertJsonPayloadWithReqID(t *testing.T) {
 func TestNewConnector(t *testing.T) {
 	tc, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	assert.NoError(t, err)
+	defer wrapper.TaosClose(tc)
 	conn, err := NewConnector(tc)
 	assert.NoError(t, err)
 	assert.Equal(t, tc, conn.taos)
@@ -1023,7 +1027,7 @@ func TestNewConnector(t *testing.T) {
 func TestSelectDB(t *testing.T) {
 	db, err := Open("", "", "", "", 0)
 	assert.NoError(t, err)
-	_, err = db.Exec("create database if not exists test_af precision 'us'  keep 36500")
+	_, err = exec(db, "create database if not exists test_af precision 'us'  keep 36500")
 	assert.NoError(t, err)
 	rows, err := db.Query("select database()")
 	assert.NoError(t, err)
@@ -1049,7 +1053,11 @@ func TestSelectDB(t *testing.T) {
 
 func TestGetTableVGroupID(t *testing.T) {
 	db := testDatabase(t)
-	_, err := db.Exec("create table test_vg (ts timestamp,v int)")
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
+	_, err := exec(db, "create table test_vg (ts timestamp,v int)")
 	assert.NoError(t, err)
 	vgID, err := db.GetTableVGroupID("test_af", "test_vg")
 	assert.NoError(t, err)
@@ -1058,9 +1066,13 @@ func TestGetTableVGroupID(t *testing.T) {
 
 func TestDecimal(t *testing.T) {
 	db := testDatabase(t)
-	_, err := db.Exec("create table test_decimal (ts timestamp, v1 decimal(10,2), v2 decimal (20,4))")
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
+	_, err := exec(db, "create table test_decimal (ts timestamp, v1 decimal(10,2), v2 decimal (20,4))")
 	assert.NoError(t, err)
-	_, err = db.Exec("insert into test_decimal values (now, 10.2, 20.4)")
+	_, err = exec(db, "insert into test_decimal values (now, 10.2, 20.4)")
 	assert.NoError(t, err)
 	rows, err := db.Query("select * from test_decimal")
 	assert.NoError(t, err)
@@ -1087,4 +1099,64 @@ func TestDecimal(t *testing.T) {
 	assert.Equal(t, io.EOF, err)
 	err = rows.Close()
 	assert.NoError(t, err)
+}
+
+func TestTimezone(t *testing.T) {
+	db := testDatabase(t)
+	defer func() {
+		err := db.Close()
+		assert.NoError(t, err)
+	}()
+	dbParis := testDatabase(t)
+	defer func() {
+		err := dbParis.Close()
+		assert.NoError(t, err)
+	}()
+	tz := "Europe/Paris"
+	timezone, err := time.LoadLocation(tz)
+	require.NoError(t, err)
+	err = dbParis.SetTimezone(tz)
+	require.NoError(t, err)
+	_, err = exec(db, "create table test_timezone (ts timestamp, v int)")
+	assert.NoError(t, err)
+	now := time.Now().Round(time.Millisecond)
+	_, err = exec(db, fmt.Sprintf("insert into test_timezone values ('%s', 10)", now.Format("2006-01-02 15:04:05.000")))
+	assert.NoError(t, err)
+	rows, err := dbParis.Query("select * from test_timezone")
+	assert.NoError(t, err)
+	values := make([]driver.Value, 2)
+	err = rows.Next(values)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(values))
+	t.Logf("ts: %v, v: %v", values[0], values[1])
+	assert.Equal(t, timezone, values[0].(time.Time).Location())
+	assert.Equal(t, now.UnixNano(), values[0].(time.Time).UnixNano())
+	err = rows.Close()
+	assert.NoError(t, err)
+}
+
+func exec(db *Connector, query string) (driver.Result, error) {
+	result, err := db.Exec(query)
+	if err != nil {
+		var taosErr *taosError.TaosError
+		if errors.As(err, &taosErr) && taosErr.Code == 0x3d3 {
+			time.Sleep(100 * time.Millisecond)
+			return exec(db, query)
+		}
+		return nil, err
+	}
+	return result, nil
+}
+
+func execWithReqID(db *Connector, query string, reqID int64) (driver.Result, error) {
+	result, err := db.ExecWithReqID(query, reqID)
+	if err != nil {
+		var taosErr *taosError.TaosError
+		if errors.As(err, &taosErr) && taosErr.Code == 0x3d3 {
+			time.Sleep(100 * time.Millisecond)
+			return execWithReqID(db, query, reqID)
+		}
+		return nil, err
+	}
+	return result, nil
 }

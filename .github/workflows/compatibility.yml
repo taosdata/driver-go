@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: checkout TDengine by pr
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
@@ -33,7 +33,7 @@ jobs:
       - name: Cache server by pr
         if: github.event_name == 'pull_request'
         id: cache-server-pr
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ matrix.td_version }}-${{ steps.get_commit_id.outputs.commit_id }}
@@ -93,7 +93,7 @@ jobs:
       - name: get cache server by pr
         if: github.event_name == 'pull_request'
         id: get-cache-server-pr
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: server.tar.gz
           key: ${{ runner.os }}-build-${{ matrix.td_version }}-${{ needs.build.outputs.commit_id }}
@@ -110,7 +110,7 @@ jobs:
           cd release && sudo sh install.sh
 
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: copy taos cfg
         run: |
@@ -131,7 +131,7 @@ jobs:
         run: sudo taosadapter &
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           cache-dependency-path: go.sum

@@ -100,13 +100,7 @@ func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		return nil, err
 	}
 	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    handler,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-		isStmt:     true,
-	}
+	rs := newRows(handler, rowsHeader, res, precision, true, stmt.tc.timezone)
 	return rs, nil
 }
 
@@ -471,6 +465,8 @@ func (stmt *Stmt) CheckNamedValue(v *driver.NamedValue) error {
 			default:
 				return fmt.Errorf("CheckNamedValue:%v can not convert to bigint unsigned", v)
 			}
+		default:
+			return fmt.Errorf("CheckNamedValue: unsupported field type %s", common.GetTypeName(int(stmt.cols[v.Ordinal-1].FieldType)))
 		}
 		return nil
 	}

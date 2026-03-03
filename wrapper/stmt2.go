@@ -46,9 +46,10 @@ func TaosStmt2BindParam(stmt2 unsafe.Pointer, isInsert bool, params []*stmt.Taos
 	var colTypes []*stmt.Stmt2AllField
 	var tagTypes []*stmt.Stmt2AllField
 	for i := 0; i < len(fields); i++ {
-		if fields[i].BindType == stmt.TAOS_FIELD_COL {
+		switch fields[i].BindType {
+		case stmt.TAOS_FIELD_COL:
 			colTypes = append(colTypes, fields[i])
-		} else if fields[i].BindType == stmt.TAOS_FIELD_TAG {
+		case stmt.TAOS_FIELD_TAG:
 			tagTypes = append(tagTypes, fields[i])
 		}
 	}
@@ -408,7 +409,7 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 					*(*C.int32_t)(l) = C.int32_t(8)
 				}
 			}
-		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_NCHAR:
+		case common.TSDB_DATA_TYPE_BINARY, common.TSDB_DATA_TYPE_VARBINARY, common.TSDB_DATA_TYPE_JSON, common.TSDB_DATA_TYPE_GEOMETRY, common.TSDB_DATA_TYPE_NCHAR, common.TSDB_DATA_TYPE_BLOB:
 			bind.buffer_type = C.int(columnType)
 			colOffset := make([]int, rowLen)
 			totalLen := 0
@@ -442,10 +443,14 @@ func generateTaosStmt2BindsInsert(multiBind [][]driver.Value, fieldTypes []*stmt
 				if rowData != nil {
 					switch value := rowData.(type) {
 					case string:
-						x := ToUnsafeBytes(value)
-						C.memcpy(unsafe.Pointer(uintptr(p)+uintptr(colOffset[i])), unsafe.Pointer(&x[0]), C.size_t(len(value)))
+						if len(value) > 0 {
+							x := ToUnsafeBytes(value)
+							C.memcpy(unsafe.Pointer(uintptr(p)+uintptr(colOffset[i])), unsafe.Pointer(&x[0]), C.size_t(len(value)))
+						}
 					case []byte:
-						C.memcpy(unsafe.Pointer(uintptr(p)+uintptr(colOffset[i])), unsafe.Pointer(&value[0]), C.size_t(len(value)))
+						if len(value) > 0 {
+							C.memcpy(unsafe.Pointer(uintptr(p)+uintptr(colOffset[i])), unsafe.Pointer(&value[0]), C.size_t(len(value)))
+						}
 					default:
 						return nil, needFreePointer, fmt.Errorf("data type error, expect string or []byte, but got %T, value: %v", rowData, value)
 					}
@@ -598,7 +603,9 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value) (unsafe.Pointer, []
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(valueLength))))
 			needFreePointer = append(needFreePointer, p)
 			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
-			C.memcpy(p, unsafe.Pointer(&rowData[0]), C.size_t(valueLength))
+			if valueLength > 0 {
+				C.memcpy(p, unsafe.Pointer(&rowData[0]), C.size_t(valueLength))
+			}
 			lengthList = unsafe.Pointer(C.calloc(C.size_t(C.uint(1)), C.size_t(C.uint(4))))
 			needFreePointer = append(needFreePointer, lengthList)
 			*(*C.int32_t)(lengthList) = C.int32_t(valueLength)
@@ -608,7 +615,9 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value) (unsafe.Pointer, []
 			needFreePointer = append(needFreePointer, p)
 			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
 			x := ToUnsafeBytes(rowData)
-			C.memcpy(p, unsafe.Pointer(&x[0]), C.size_t(valueLength))
+			if valueLength > 0 {
+				C.memcpy(p, unsafe.Pointer(&x[0]), C.size_t(valueLength))
+			}
 			lengthList = unsafe.Pointer(C.calloc(C.size_t(C.uint(1)), C.size_t(C.uint(4))))
 			needFreePointer = append(needFreePointer, lengthList)
 			*(*C.int32_t)(lengthList) = C.int32_t(valueLength)
@@ -619,7 +628,9 @@ func generateTaosStmt2BindsQuery(multiBind [][]driver.Value) (unsafe.Pointer, []
 			p = unsafe.Pointer(C.malloc(C.size_t(C.uint(valueLength))))
 			needFreePointer = append(needFreePointer, p)
 			bind.buffer_type = C.TSDB_DATA_TYPE_BINARY
-			C.memcpy(p, unsafe.Pointer(&value[0]), C.size_t(valueLength))
+			if valueLength > 0 {
+				C.memcpy(p, unsafe.Pointer(&value[0]), C.size_t(valueLength))
+			}
 			lengthList = unsafe.Pointer(C.calloc(C.size_t(C.uint(1)), C.size_t(C.uint(4))))
 			needFreePointer = append(needFreePointer, lengthList)
 			*(*C.int32_t)(lengthList) = C.int32_t(valueLength)

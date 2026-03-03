@@ -27,6 +27,9 @@ void taos_query_a_with_req_id_wrapper(TAOS *taos,const char *sql, void *param, i
 void taos_fetch_raw_block_a_wrapper(TAOS_RES *res, void *param){
 	return taos_fetch_raw_block_a(res,FetchRawBlockCallback,param);
 };
+int taos_options_connection_wrapper(TAOS *taos, TSDB_OPTION_CONNECTION option, void *arg) {
+	return taos_options_connection(taos,option,arg);
+};
 */
 import "C"
 import (
@@ -291,4 +294,14 @@ func TaosGetCurrentDB(conn unsafe.Pointer) (db string, err error) {
 func TaosGetServerInfo(conn unsafe.Pointer) string {
 	info := C.taos_get_server_info(conn)
 	return C.GoString(info)
+}
+
+// TaosOptionsConnection int taos_options_connection(TAOS *taos, TSDB_OPTION_CONNECTION option, const void *arg, ...)
+func TaosOptionsConnection(conn unsafe.Pointer, option int, value *string) int {
+	cValue := unsafe.Pointer(nil)
+	if value != nil {
+		cValue = unsafe.Pointer(C.CString(*value))
+		defer C.free(cValue)
+	}
+	return int(C.taos_options_connection_wrapper(conn, (C.TSDB_OPTION_CONNECTION)(option), cValue))
 }

@@ -26,34 +26,34 @@ func TestStmtExec(t *testing.T) {
 		t.Log("done3")
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_stmt_driver_ws")
+		_, err = exec(db, "drop database if exists test_stmt_driver_ws")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 		t.Log("done2")
 	}()
-	_, err = db.Exec("create database if not exists test_stmt_driver_ws")
+	_, err = exec(db, "create database if not exists test_stmt_driver_ws")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_stmt_driver_ws.ct(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)," +
-		"c14 varbinary(20)," +
-		"c15 geometry(100)" +
+	_, err = exec(db, "create table if not exists test_stmt_driver_ws.ct(ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20),"+
+		"c14 varbinary(20),"+
+		"c15 geometry(100)"+
 		")")
 	if err != nil {
 		t.Error(err)
@@ -89,32 +89,32 @@ func TestStmtQuery(t *testing.T) {
 		}
 	}()
 	defer func() {
-		_, err = db.Exec("drop database if exists test_stmt_driver_ws_q")
+		_, err = exec(db, "drop database if exists test_stmt_driver_ws_q")
 		if err != nil {
 			t.Error(err)
 		}
 	}()
-	_, err = db.Exec("create database if not exists test_stmt_driver_ws_q")
+	_, err = exec(db, "create database if not exists test_stmt_driver_ws_q")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table if not exists test_stmt_driver_ws_q.ct(ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)," +
-		"c14 varbinary(20)," +
-		"c15 geometry(100)" +
+	_, err = exec(db, "create table if not exists test_stmt_driver_ws_q.ct(ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20),"+
+		"c14 varbinary(20),"+
+		"c15 geometry(100)"+
 		")")
 	if err != nil {
 		t.Error(err)
@@ -228,24 +228,24 @@ func TestStmtConvertExec(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	_, err = db.Exec("drop database if exists test_stmt_driver_ws_convert")
+	_, err = exec(db, "drop database if exists test_stmt_driver_ws_convert")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists test_stmt_driver_ws_convert")
+		_, err = exec(db, "drop database if exists test_stmt_driver_ws_convert")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database test_stmt_driver_ws_convert")
+	_, err = exec(db, "create database test_stmt_driver_ws_convert")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("use test_stmt_driver_ws_convert")
+	_, err = exec(db, "use test_stmt_driver_ws_convert")
 	if err != nil {
 		t.Error(err)
 		return
@@ -1082,11 +1082,11 @@ func TestStmtConvertExec(t *testing.T) {
 			pos := tt.pos
 			sql := fmt.Sprintf("insert into %s values(%s)", tbName, pos)
 			var err error
-			if _, err = db.Exec(drop); err != nil {
+			if _, err = exec(db, drop); err != nil {
 				t.Error(err)
 				return
 			}
-			if _, err = db.Exec(create); err != nil {
+			if _, err = exec(db, create); err != nil {
 				t.Error(err)
 				return
 			}
@@ -1179,42 +1179,42 @@ func TestStmtConvertQuery(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	_, err = db.Exec("drop database if exists test_stmt_driver_ws_convert_q")
+	_, err = exec(db, "drop database if exists test_stmt_driver_ws_convert_q")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	defer func() {
-		_, err = db.Exec("drop database if exists test_stmt_driver_ws_convert_q")
+		_, err = exec(db, "drop database if exists test_stmt_driver_ws_convert_q")
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}()
-	_, err = db.Exec("create database test_stmt_driver_ws_convert_q")
+	_, err = exec(db, "create database test_stmt_driver_ws_convert_q")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("use test_stmt_driver_ws_convert_q")
+	_, err = exec(db, "use test_stmt_driver_ws_convert_q")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("create table t0 (ts timestamp," +
-		"c1 bool," +
-		"c2 tinyint," +
-		"c3 smallint," +
-		"c4 int," +
-		"c5 bigint," +
-		"c6 tinyint unsigned," +
-		"c7 smallint unsigned," +
-		"c8 int unsigned," +
-		"c9 bigint unsigned," +
-		"c10 float," +
-		"c11 double," +
-		"c12 binary(20)," +
-		"c13 nchar(20)" +
+	_, err = exec(db, "create table t0 (ts timestamp,"+
+		"c1 bool,"+
+		"c2 tinyint,"+
+		"c3 smallint,"+
+		"c4 int,"+
+		"c5 bigint,"+
+		"c6 tinyint unsigned,"+
+		"c7 smallint unsigned,"+
+		"c8 int unsigned,"+
+		"c9 bigint unsigned,"+
+		"c10 float,"+
+		"c11 double,"+
+		"c12 binary(20),"+
+		"c13 nchar(20)"+
 		")")
 	if err != nil {
 		t.Error(err)
@@ -1222,12 +1222,12 @@ func TestStmtConvertQuery(t *testing.T) {
 	}
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	_, err = db.Exec(fmt.Sprintf("insert into t0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now.Format(time.RFC3339Nano)))
+	_, err = exec(db, fmt.Sprintf("insert into t0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now.Format(time.RFC3339Nano)))
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec(fmt.Sprintf("insert into t0 values('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", after1s.Format(time.RFC3339Nano)))
+	_, err = exec(db, fmt.Sprintf("insert into t0 values('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", after1s.Format(time.RFC3339Nano)))
 	if err != nil {
 		t.Error(err)
 		return
@@ -2238,4 +2238,65 @@ func TestStmtConvertQuery(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStmtDecimal(t *testing.T) {
+	testDbName := "test_ws_stmt_decimal"
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}(db)
+	defer func() {
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", testDbName))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", testDbName))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = exec(db, fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v decimal(8,4),v2 decimal (30,5))", testDbName))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	ts := now.UnixNano() / 1e6
+	_, err = exec(db, fmt.Sprintf("insert into %s.ctb values(%d,123.456,12345678901234567890.12345)", testDbName, ts))
+	assert.NoError(t, err)
+	stmt, err := db.Prepare(fmt.Sprintf("select * from %s.ctb where ts = ?", testDbName))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() {
+		err = stmt.Close()
+		assert.NoError(t, err)
+	}()
+	rows, err := stmt.Query(now)
+	count := 0
+	assert.NoError(t, err)
+	for rows.Next() {
+		var c1 time.Time
+		var c2 string
+		var c3 string
+		err = rows.Scan(&c1, &c2, &c3)
+		assert.NoError(t, err)
+		count += 1
+		t.Log(c1, c2, c3)
+		assert.Equal(t, c2, "123.4560")
+		assert.Equal(t, c3, "12345678901234567890.12345")
+	}
+	assert.Equal(t, 1, count)
 }

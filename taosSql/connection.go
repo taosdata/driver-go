@@ -3,6 +3,7 @@ package taosSql
 import (
 	"context"
 	"database/sql/driver"
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -12,8 +13,21 @@ import (
 )
 
 type taosConn struct {
-	taos unsafe.Pointer
-	cfg  *Config
+	taos        unsafe.Pointer
+	cfg         *Config
+	timezone    *time.Location
+	timezoneStr string
+}
+
+func newTaosConn(cfg *Config) *taosConn {
+	conn := &taosConn{
+		cfg:      cfg,
+		timezone: cfg.Timezone,
+	}
+	if conn.timezone != nil {
+		conn.timezoneStr = conn.timezone.String()
+	}
+	return conn
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {
@@ -162,12 +176,7 @@ func (tc *taosConn) processRows(result *handler.AsyncResult, h *handler.Handler)
 		return nil, err
 	}
 	precision := wrapper.TaosResultPrecision(res)
-	rs := &rows{
-		handler:    h,
-		rowsHeader: rowsHeader,
-		result:     res,
-		precision:  precision,
-	}
+	rs := newRows(h, rowsHeader, res, precision, false, tc.timezone)
 	return rs, nil
 }
 

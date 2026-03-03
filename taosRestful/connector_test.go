@@ -9,7 +9,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -23,6 +25,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/taosdata/driver-go/v3/common/testenv"
+	taosError "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/types"
 )
 
@@ -117,21 +122,21 @@ func TestAllTypeQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,16 +182,16 @@ func TestAllTypeQueryNull(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +200,7 @@ func TestAllTypeQueryNull(t *testing.T) {
 	for i := 1; i < len(colValues); i++ {
 		builder.WriteString(",null")
 	}
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') values('%s'%s)`, database, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,21 +251,21 @@ func TestAllTypeQueryCompression(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,21 +311,21 @@ func TestAllTypeQueryWithoutJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, false))
+	_, err = exec(db, generateCreateTableSql(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.alltype %s`, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,16 +368,16 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, false))
+	_, err = exec(db, generateCreateTableSql(database, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -382,7 +387,7 @@ func TestAllTypeQueryNullWithoutJson(t *testing.T) {
 		builder.WriteString(",null")
 	}
 	insertSql := fmt.Sprintf(`insert into %s.alltype values('%s'%s)`, database, colValues[0].(time.Time).Format(time.RFC3339Nano), builder.String())
-	_, err = db.Exec(insertSql)
+	_, err = exec(db, insertSql)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -516,21 +521,21 @@ func TestSSL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, err = db.Exec(fmt.Sprintf("drop database if exists %s", database))
+		_, err = exec(db, fmt.Sprintf("drop database if exists %s", database))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	_, err = db.Exec(fmt.Sprintf("create database if not exists %s", database))
+	_, err = exec(db, fmt.Sprintf("create database if not exists %s", database))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(generateCreateTableSql(database, true))
+	_, err = exec(db, generateCreateTableSql(database, true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	colValues, scanValues, insertSql := generateValues()
-	_, err = db.Exec(fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
+	_, err = exec(db, fmt.Sprintf(`insert into %s.t1 using %s.alltype tags('{"a":"b"}') %s`, database, database, insertSql))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,4 +573,141 @@ func TestConnect(t *testing.T) {
 	assert.NoError(t, err)
 	driver := conn.Driver()
 	assert.Equal(t, &TDengineDriver{}, driver)
+}
+
+func TestTimezone(t *testing.T) {
+	parisConn, err := sql.Open("taosRestful", dataSourceNameWithParisTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shanghaiConn, err := sql.Open("taosRestful", dataSourceNameWithShanghaiTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err = parisConn.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = shanghaiConn.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	err = parisConn.Ping()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = shanghaiConn.Ping()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := "rest_test_timezone"
+	defer func() {
+		_, err = exec(parisConn, fmt.Sprintf("drop database if exists %s", database))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	_, err = exec(parisConn, fmt.Sprintf("create database if not exists %s", database))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = exec(parisConn, fmt.Sprintf("create table if not exists %s.ctb(ts timestamp,v int)", database))
+	require.NoError(t, err)
+	shanghaiTimezone, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	parisTimezone, err := time.LoadLocation("Europe/Paris")
+	require.NoError(t, err)
+	now := time.Now().Round(time.Millisecond)
+	shanghaiNow := now.In(shanghaiTimezone)
+	shanghaiTime := shanghaiNow.Format("2006-01-02 15:04:05.000")
+	parisNow := now.In(parisTimezone)
+	parisTime := parisNow.Format("2006-01-02 15:04:05.000")
+	t.Log(shanghaiTime)
+	t.Log(parisTime)
+	t.Log(now)
+	t.Log(shanghaiNow)
+	t.Log(parisNow)
+	// insert with shanghai timezone
+	insertSql := fmt.Sprintf("insert into %s.ctb values ('%s',1)", database, shanghaiTime)
+	t.Log(insertSql)
+	_, err = exec(shanghaiConn, insertSql)
+	require.NoError(t, err)
+	// query with paris timezone
+	querySql := fmt.Sprintf("select * from %s.ctb where ts = '%s'", database, parisTime)
+	t.Log(querySql)
+	rows, err := parisConn.Query(querySql)
+	require.NoError(t, err)
+	count := 0
+	for rows.Next() {
+		var ts time.Time
+		var v int
+		err := rows.Scan(&ts, &v)
+		require.NoError(t, err)
+		t.Log(ts)
+		assert.NotEqual(t, ts, now)
+		assert.Equal(t, parisTimezone, ts.Location())
+		assert.Equal(t, shanghaiNow.UnixNano()/1e6, ts.UnixNano()/1e6)
+		assert.Equal(t, 1, v)
+		count += 1
+	}
+	assert.Equal(t, 1, count)
+}
+
+func TestBearerToken(t *testing.T) {
+	if !testenv.IsEnterpriseTest() {
+		t.Skip("token feature is only available in enterprise edition")
+	}
+	db, err := sql.Open("taosRestful", dataSourceName)
+	require.NoError(t, err)
+	defer func() {
+		err = db.Close()
+		assert.NoError(t, err)
+	}()
+	rows, err := db.Query("create token go_rest_test_token from user root")
+	require.NoError(t, err)
+	defer func() {
+		err = rows.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		_, err = exec(db, "drop token go_rest_test_token")
+		assert.NoError(t, err)
+	}()
+	var token string
+	for rows.Next() {
+		err := rows.Scan(&token)
+		require.NoError(t, err)
+	}
+	assert.NotEmpty(t, token)
+
+	dbWithToken, err := sql.Open("taosRestful", fmt.Sprintf("@http(%s:%d)/?bearerToken=%s", host, port, token))
+	require.NoError(t, err)
+	defer func() {
+		err = dbWithToken.Close()
+		assert.NoError(t, err)
+	}()
+	err = dbWithToken.Ping()
+	require.NoError(t, err)
+
+	var v int
+	row := dbWithToken.QueryRow("select 1")
+	err = row.Scan(&v)
+	require.NoError(t, err)
+	assert.Equal(t, 1, v)
+}
+
+func exec(db *sql.DB, query string, args ...interface{}) (driver.Result, error) {
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		var taosErr *taosError.TaosError
+		if errors.As(err, &taosErr) && taosErr.Code == 0x3d3 {
+
+			time.Sleep(100 * time.Millisecond)
+			return exec(db, query, args...)
+		}
+		return nil, err
+	}
+	return result, nil
 }

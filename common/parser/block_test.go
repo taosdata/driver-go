@@ -4,10 +4,13 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
+	"os"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/wrapper"
@@ -17,6 +20,10 @@ import (
 // @date: 2023/10/13 11:18
 // @description: test read row
 func TestReadRow(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -24,37 +31,16 @@ func TestReadRow(t *testing.T) {
 	}
 
 	defer wrapper.TaosClose(conn)
-	res := wrapper.TaosQuery(conn, "drop database if exists test_read_row")
-	code := wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, "drop database if exists test_read_row")
+	require.NoError(t, err)
 	defer func() {
-		res = wrapper.TaosQuery(conn, "drop database if exists test_read_row")
-		code = wrapper.TaosError(res)
-		if code != 0 {
-			errStr := wrapper.TaosErrorStr(res)
-			wrapper.TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		wrapper.TaosFreeResult(res)
+		err = exec(conn, "drop database if exists test_read_row")
+		require.NoError(t, err)
 	}()
-	res = wrapper.TaosQuery(conn, "create database test_read_row")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, "create database test_read_row")
+	require.NoError(t, err)
 
-	res = wrapper.TaosQuery(conn, "create table if not exists test_read_row.all_type (ts timestamp,"+
+	err = exec(conn, "create table if not exists test_read_row.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -71,32 +57,19 @@ func TestReadRow(t *testing.T) {
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
 		"c16 decimal(20,4),"+
-		"c17 decimal(10,4)"+
+		"c17 decimal(10,4),"+
+		"c18 blob"+
 		") tags (info json)")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	sql := fmt.Sprintf("insert into test_read_row.t0 using test_read_row.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','varbinary','point(100 100)','-123.4','1234.56')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	sql := fmt.Sprintf("insert into test_read_row.t0 using test_read_row.all_type tags('{\"a\":1}') values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','varbinary','point(100 100)','-123.4','1234.56','blob')('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select * from test_read_row.all_type"
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
+	res := wrapper.TaosQuery(conn, sql)
+	code := wrapper.TaosError(res)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(res)
 		wrapper.TaosFreeResult(res)
@@ -151,19 +124,24 @@ func TestReadRow(t *testing.T) {
 	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 	assert.Equal(t, "-123.4000", row1[16].(string))
 	assert.Equal(t, "1234.5600", row1[17].(string))
-	assert.Equal(t, []byte(`{"a":1}`), row1[18].([]byte))
+	assert.Equal(t, []byte("blob"), row1[18].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row1[19].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 18; i++ {
+	for i := 1; i < 19; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[18].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[19].([]byte))
 }
 
 // @author: xftan
 // @date: 2023/10/13 11:18
 // @description: test parse block
 func TestParseBlock(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := wrapper.TaosConnect("", "root", "taosdata", "", 0)
 	if err != nil {
 		t.Error(err)
@@ -171,37 +149,15 @@ func TestParseBlock(t *testing.T) {
 	}
 
 	defer wrapper.TaosClose(conn)
-	res := wrapper.TaosQuery(conn, "drop database if exists parse_block")
-	code := wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	err = exec(conn, "drop database if exists parse_block")
+	require.NoError(t, err)
 	defer func() {
-		res = wrapper.TaosQuery(conn, "drop database if exists parse_block")
-		code = wrapper.TaosError(res)
-		if code != 0 {
-			errStr := wrapper.TaosErrorStr(res)
-			wrapper.TaosFreeResult(res)
-			t.Error(errors.NewError(code, errStr))
-			return
-		}
-		wrapper.TaosFreeResult(res)
+		err = exec(conn, "drop database if exists parse_block")
+		require.NoError(t, err)
 	}()
-	res = wrapper.TaosQuery(conn, "create database parse_block vgroups 1")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
-
-	res = wrapper.TaosQuery(conn, "create table if not exists parse_block.all_type (ts timestamp,"+
+	err = exec(conn, "create database parse_block vgroups 1")
+	require.NoError(t, err)
+	err = exec(conn, "create table if not exists parse_block.all_type (ts timestamp,"+
 		"c1 bool,"+
 		"c2 tinyint,"+
 		"c3 smallint,"+
@@ -218,34 +174,21 @@ func TestParseBlock(t *testing.T) {
 		"c14 varbinary(20),"+
 		"c15 geometry(100),"+
 		"c16 decimal(20,4),"+
-		"c17 decimal(10,4)"+
+		"c17 decimal(10,4),"+
+		"c18 blob"+
 		") tags (info json)")
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+	require.NoError(t, err)
 	now := time.Now()
 	after1s := now.Add(time.Second)
 	sql := fmt.Sprintf("insert into parse_block.t0 using parse_block.all_type tags('{\"a\":1}') "+
-		"values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','POINT(100 100)',123456789.123,123.456)"+
-		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
-	if code != 0 {
-		errStr := wrapper.TaosErrorStr(res)
-		wrapper.TaosFreeResult(res)
-		t.Error(errors.NewError(code, errStr))
-		return
-	}
-	wrapper.TaosFreeResult(res)
+		"values('%s',1,1,1,1,1,1,1,1,1,1,1,'test_binary','test_nchar','test_varbinary','POINT(100 100)',123456789.123,123.456,'blob')"+
+		"('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", now.Format(time.RFC3339Nano), after1s.Format(time.RFC3339Nano))
+	err = exec(conn, sql)
+	require.NoError(t, err)
 
 	sql = "select * from parse_block.all_type"
-	res = wrapper.TaosQuery(conn, sql)
-	code = wrapper.TaosError(res)
+	res := wrapper.TaosQuery(conn, sql)
+	code := wrapper.TaosError(res)
 	if code != 0 {
 		errStr := wrapper.TaosErrorStr(res)
 		wrapper.TaosFreeResult(res)
@@ -269,11 +212,11 @@ func TestParseBlock(t *testing.T) {
 		version := RawBlockGetVersion(block)
 		t.Log(version)
 		length := RawBlockGetLength(block)
-		assert.Equal(t, int32(516), length)
+		assert.Equal(t, int32(541), length)
 		rows := RawBlockGetNumOfRows(block)
 		assert.Equal(t, int32(2), rows)
 		columns := RawBlockGetNumOfCols(block)
-		assert.Equal(t, int32(19), columns)
+		assert.Equal(t, int32(20), columns)
 		hasColumnSegment := RawBlockGetHasColumnSegment(block)
 		assert.Equal(t, int32(-2147483648), hasColumnSegment)
 		groupId := RawBlockGetGroupID(block)
@@ -357,6 +300,11 @@ func TestParseBlock(t *testing.T) {
 					Bytes:   int32(binary.LittleEndian.Uint32([]byte{4, 10, 0, 8})),
 				},
 				{
+					ColType: common.TSDB_DATA_TYPE_BLOB,
+					// todo
+					Bytes: 5,
+				},
+				{
 					ColType: common.TSDB_DATA_TYPE_JSON,
 					Bytes:   16384,
 				},
@@ -388,13 +336,14 @@ func TestParseBlock(t *testing.T) {
 	assert.Equal(t, []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40}, row1[15].([]byte))
 	assert.Equal(t, "123456789.1230", row1[16].(string))
 	assert.Equal(t, "123.4560", row1[17].(string))
-	assert.Equal(t, []byte(`{"a":1}`), row1[18].([]byte))
+	assert.Equal(t, []byte("blob"), row1[18].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row1[19].([]byte))
 	row2 := data[1]
 	assert.Equal(t, after1s.UnixNano()/1e6, row2[0].(time.Time).UnixNano()/1e6)
-	for i := 1; i < 18; i++ {
+	for i := 1; i < 19; i++ {
 		assert.Nil(t, row2[i])
 	}
-	assert.Equal(t, []byte(`{"a":1}`), row2[18].([]byte))
+	assert.Equal(t, []byte(`{"a":1}`), row2[19].([]byte))
 }
 
 func Test_validColumnType(t *testing.T) {
@@ -429,6 +378,7 @@ func Test_validColumnType(t *testing.T) {
 					common.TSDB_DATA_TYPE_JSON,
 					common.TSDB_DATA_TYPE_VARBINARY,
 					common.TSDB_DATA_TYPE_GEOMETRY,
+					common.TSDB_DATA_TYPE_BLOB,
 				},
 			},
 			wantErr: assert.NoError,
@@ -438,7 +388,6 @@ func Test_validColumnType(t *testing.T) {
 			args: args{
 				colTypes: []uint8{
 					common.TSDB_DATA_TYPE_NULL,
-					common.TSDB_DATA_TYPE_BLOB,
 					common.TSDB_DATA_TYPE_MEDIUMBLOB,
 				},
 			},
@@ -459,4 +408,21 @@ func Test_validColumnType(t *testing.T) {
 			tt.wantErr(t, validColumnType(tt.args.colTypes), fmt.Sprintf("validColumnType(%v)", tt.args.colTypes))
 		})
 	}
+}
+
+func exec(conn unsafe.Pointer, sql string) error {
+	res := wrapper.TaosQuery(conn, sql)
+	if code := wrapper.TaosError(res); code != 0 {
+		if (code & 0xffff) == 0x3d3 {
+			//Conflict transaction not completed, retry in 100ms
+			wrapper.TaosFreeResult(res)
+			time.Sleep(100 * time.Millisecond)
+			return exec(conn, sql)
+		}
+		errStr := wrapper.TaosErrorStr(res)
+		wrapper.TaosFreeResult(res)
+		return errors.NewError(code, errStr)
+	}
+	wrapper.TaosFreeResult(res)
+	return nil
 }

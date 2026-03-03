@@ -2,11 +2,14 @@ package af
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"io"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common/stmt"
 )
 
@@ -60,6 +63,10 @@ func TestStmt2CallBackCallerPool(t *testing.T) {
 func TestNewStmt2(t *testing.T) {
 	conn, err := Open("", "root", "taosdata", "", 0)
 	assert.NoError(t, err)
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt := conn.Stmt2(0x12345678, false)
 	if stmt == nil {
 		t.Errorf("Expected stmt to be not nil")
@@ -71,11 +78,19 @@ func TestNewStmt2(t *testing.T) {
 }
 
 func TestStmt2(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	conn, err := Open("", "root", "taosdata", "", 0)
 	if !assert.NoError(t, err) {
 		return
 	}
-	stmt2 := conn.Stmt2(0x12345678, false)
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
+	stmt2 := conn.Stmt2(0x12345678, true)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")
 		return
@@ -84,41 +99,47 @@ func TestStmt2(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_prepare_test")
+	_, err = exec(conn, "create database if not exists stmt2_prepare_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_prepare_test")
+		_, err = exec(conn, "drop database if exists stmt2_prepare_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_prepare_test")
+	_, err = exec(conn, "use stmt2_prepare_test")
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = conn.Exec("create table if not exists all_type(" +
-		"ts timestamp, " +
-		"v1 bool, " +
-		"v2 tinyint, " +
-		"v3 smallint, " +
-		"v4 int, " +
-		"v5 bigint, " +
-		"v6 tinyint unsigned, " +
-		"v7 smallint unsigned, " +
-		"v8 int unsigned, " +
-		"v9 bigint unsigned, " +
-		"v10 float, " +
-		"v11 double, " +
-		"v12 binary(20), " +
-		"v13 varbinary(20), " +
-		"v14 geometry(100), " +
-		"v15 nchar(20)) tags(tg binary(20))")
+	_, err = exec(conn, "create table if not exists all_type("+
+		"ts timestamp, "+
+		"v1 bool, "+
+		"v2 tinyint, "+
+		"v3 smallint, "+
+		"v4 int, "+
+		"v5 bigint, "+
+		"v6 tinyint unsigned, "+
+		"v7 smallint unsigned, "+
+		"v8 int unsigned, "+
+		"v9 bigint unsigned, "+
+		"v10 float, "+
+		"v11 double, "+
+		"v12 binary(20), "+
+		"v13 varbinary(20), "+
+		"v14 geometry(100), "+
+		"v15 nchar(20), "+
+		"v16 blob"+
+		") tags(tg binary(20))")
 	assert.NoError(t, err)
-	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if !assert.NoError(t, err) {
 		return
 	}
 	now := time.Now().Round(time.Millisecond)
+	var largeBlob = make([]byte, 1024*1024) // 1MB blob
+	for i := 0; i < len(largeBlob); i++ {
+		largeBlob[i] = 'a'
+	}
 	params := []*stmt.TaosStmt2BindData{
 		{
 			TableName: "中文0",
@@ -220,6 +241,11 @@ func TestStmt2(t *testing.T) {
 					nil,
 					"nchar2",
 				},
+				{
+					largeBlob,
+					nil,
+					largeBlob,
+				},
 			},
 		},
 	}
@@ -235,31 +261,52 @@ func TestStmt2(t *testing.T) {
 	if !assert.Equal(t, 3, affectedRows) {
 		return
 	}
-
+	// blob not support in stmt2 query
+	//err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ? and v16 = ?")
 	err = stmt2.Prepare("select * from all_type where ts =? and v1 = ? and v2 = ? and v3 = ? and v4 = ? and v5 = ? and v6 = ? and v7 = ? and v8 = ? and v9 = ? and v10 = ? and v11 = ? and v12 = ? and v13 = ? and v14 = ? and v15 = ?")
 	if !assert.NoError(t, err) {
 		return
 	}
+	expect := []driver.Value{
+		now.Add(time.Second * 2),
+		false,
+		int8(12),
+		int16(12),
+		int32(12),
+		int64(12),
+		uint8(12),
+		uint16(12),
+		uint32(12),
+		uint64(12),
+		float32(12.2),
+		float64(12.2),
+		"binary2",
+		[]byte("varbinary2"),
+		[]byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x59, 0x40},
+		"nchar2",
+		largeBlob,
+	}
+	bind := [][]driver.Value{
+		{now.Add(time.Second * 2)},
+		{false},
+		{int8(12)},
+		{int16(12)},
+		{int32(12)},
+		{int64(12)},
+		{uint8(12)},
+		{uint16(12)},
+		{uint32(12)},
+		{uint64(12)},
+		{float32(12.2)},
+		{float64(12.2)},
+		{"binary2"},
+		{[]byte("varbinary2")},
+		{"point(100 100)"},
+		{"nchar2"},
+	}
 	queryParams := []*stmt.TaosStmt2BindData{
 		{
-			Cols: [][]driver.Value{
-				{now},
-				{true},
-				{int8(11)},
-				{int16(11)},
-				{int32(11)},
-				{int64(11)},
-				{uint8(11)},
-				{uint16(11)},
-				{uint32(11)},
-				{uint64(11)},
-				{float32(11.2)},
-				{float64(11.2)},
-				{"binary1"},
-				{[]byte("varbinary1")},
-				{"point(100 100)"},
-				{"nchar1"},
-			},
+			Cols: bind,
 		},
 	}
 	err = stmt2.Bind(queryParams)
@@ -278,23 +325,28 @@ func TestStmt2(t *testing.T) {
 		err = result.Close()
 		assert.NoError(t, err)
 	}()
-	dest := make([]driver.Value, 17)
+	dest := make([]driver.Value, 18)
 	err = result.Next(dest)
 	assert.NoError(t, err)
-	for i, col := range params[0].Cols {
-		assert.Equal(t, col[0], dest[i])
+	for i, col := range expect {
+		assert.Equal(t, col, dest[i])
 	}
-	assert.Equal(t, "中文 tag", dest[16])
+	assert.Equal(t, "中文 tag", dest[17])
 	err = result.Next(dest)
 	assert.ErrorIs(t, err, io.EOF)
 
 }
 
 func TestStmt2_Prepare(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	conn, err := Open("", "root", "taosdata", "", 0)
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
 	stmt2 := conn.Stmt2(0x123456789, false)
 	if stmt2 == nil {
 		t.Errorf("Expected stmt to be not nil")
@@ -304,24 +356,28 @@ func TestStmt2_Prepare(t *testing.T) {
 		err = stmt2.Close()
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("create database if not exists stmt2_prepare_wrong_test")
+	_, err = exec(conn, "create database if not exists stmt2_prepare_wrong_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		_, err = conn.Exec("drop database if exists stmt2_prepare_wrong_test")
+		_, err = exec(conn, "drop database if exists stmt2_prepare_wrong_test")
 		assert.NoError(t, err)
 	}()
-	_, err = conn.Exec("use stmt2_prepare_wrong_test")
+	_, err = exec(conn, "use stmt2_prepare_wrong_test")
 	if !assert.NoError(t, err) {
 		return
 	}
 	err = stmt2.Prepare("insert into not_exist_table values(?,?,?)")
 	assert.Error(t, err)
-	_, err = conn.Exec("create table t (ts timestamp, b int, c int)")
+	_, err = exec(conn, "create table t (ts timestamp, b int, c int)")
 	assert.NoError(t, err)
 	err = stmt2.Prepare("")
-	assert.NoError(t, err)
+	if is3360 {
+		assert.NoError(t, err)
+	} else {
+		assert.Error(t, err)
+	}
 	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
 		{
 			Cols: [][]driver.Value{
@@ -333,5 +389,159 @@ func TestStmt2_Prepare(t *testing.T) {
 	})
 	assert.Error(t, err)
 	err = stmt2.Prepare("insert into t values(?,?,?)")
-	assert.Error(t, err)
+	if is3360 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
+}
+
+func TestStmt2QueryResultWithDecimal(t *testing.T) {
+	conn, err := Open("", "root", "taosdata", "", 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
+	stmt2 := conn.Stmt2(0x12345678, false)
+	if stmt2 == nil {
+		t.Errorf("Expected stmt to be not nil")
+		return
+	}
+	defer func() {
+		err = stmt2.Close()
+		assert.NoError(t, err)
+	}()
+	_, err = exec(conn, "create database if not exists stmt2_decimal_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		_, err = exec(conn, "drop database if exists stmt2_decimal_test")
+		assert.NoError(t, err)
+	}()
+	_, err = exec(conn, "use stmt2_decimal_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	_, err = exec(conn, "create table if not exists ctb(ts timestamp, v1 decimal(8, 4), v2 decimal(30, 5))")
+	if !assert.NoError(t, err) {
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	ts := now.UnixNano() / 1e6
+	_, err = exec(conn, fmt.Sprintf("insert into ctb values(%d,123.45,12345678901234567890.123)", ts))
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Prepare("select * from ctb where ts = ?")
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{now},
+			},
+		},
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Execute()
+	if !assert.NoError(t, err) {
+		return
+	}
+	result, err := stmt2.UseResult()
+	if !assert.NoError(t, err) {
+		return
+	}
+	var data = make([]driver.Value, 3)
+	err = result.Next(data)
+	assert.NoError(t, err)
+	t.Log(data)
+	assert.Equal(t, data[1].(string), "123.4500")
+	assert.Equal(t, data[2].(string), "12345678901234567890.12300")
+	err = result.Next(data)
+	assert.ErrorIs(t, err, io.EOF)
+}
+
+func TestStmt2Timezone(t *testing.T) {
+	conn, err := Open("", "root", "taosdata", "", 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		err = conn.Close()
+		assert.NoError(t, err)
+	}()
+	tz := "Europe/Paris"
+	timezone, err := time.LoadLocation(tz)
+	require.NoError(t, err)
+	err = conn.SetTimezone(tz)
+	require.NoError(t, err)
+	stmt2 := conn.Stmt2(0x12345678, false)
+	if stmt2 == nil {
+		t.Errorf("Expected stmt to be not nil")
+		return
+	}
+	defer func() {
+		err = stmt2.Close()
+		assert.NoError(t, err)
+	}()
+	_, err = exec(conn, "create database if not exists stmt2_timezone_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		_, err = exec(conn, "drop database if exists stmt2_timezone_test")
+		assert.NoError(t, err)
+	}()
+	_, err = exec(conn, "use stmt2_timezone_test")
+	if !assert.NoError(t, err) {
+		return
+	}
+	_, err = exec(conn, "create table if not exists ctb(ts timestamp, v1 int)")
+	if !assert.NoError(t, err) {
+		return
+	}
+	now := time.Now().Round(time.Millisecond)
+	ts := now.UnixNano() / 1e6
+	_, err = exec(conn, fmt.Sprintf("insert into ctb values(%d,1)", ts))
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Prepare("select * from ctb where ts = ?")
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Bind([]*stmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{now},
+			},
+		},
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = stmt2.Execute()
+	if !assert.NoError(t, err) {
+		return
+	}
+	result, err := stmt2.UseResult()
+	if !assert.NoError(t, err) {
+		return
+	}
+	var data = make([]driver.Value, 2)
+	err = result.Next(data)
+	assert.NoError(t, err)
+	t.Log(data)
+	assert.Equal(t, data[0].(time.Time).Location(), timezone)
+	assert.Equal(t, now.UnixNano(), data[0].(time.Time).UnixNano())
+	assert.Equal(t, int32(1), data[1].(int32))
+	err = result.Next(data)
+	assert.ErrorIs(t, err, io.EOF)
 }

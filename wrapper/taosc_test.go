@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	"github.com/taosdata/driver-go/v3/errors"
@@ -162,6 +163,7 @@ func TestError(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer TaosClose(conn)
 	res := TaosQuery(conn, "asd")
 	code := TaosError(res)
 	assert.NotEqual(t, code, 0)
@@ -180,35 +182,22 @@ func TestAffectedRows(t *testing.T) {
 	}
 	defer TaosClose(conn)
 	defer func() {
-		res := TaosQuery(conn, "drop database if exists affected_rows_test")
-		code := TaosError(res)
-		if code != 0 {
-			t.Error(errors.NewError(code, TaosErrorStr(res)))
-			return
-		}
-		TaosFreeResult(res)
+		err = exec(conn, "drop database if exists affected_rows_test")
+		require.NoError(t, err)
 	}()
-	res := TaosQuery(conn, "create database if not exists affected_rows_test")
+	err = exec(conn, "create database if not exists affected_rows_test")
+	require.NoError(t, err)
+	err = exec(conn, "create table if not exists affected_rows_test.t0(ts timestamp,v int)")
+	require.NoError(t, err)
+	res := TaosQuery(conn, "insert into affected_rows_test.t0 values(now,1)")
 	code := TaosError(res)
 	if code != 0 {
 		t.Error(errors.NewError(code, TaosErrorStr(res)))
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, "create table if not exists affected_rows_test.t0(ts timestamp,v int)")
-	code = TaosError(res)
-	if code != 0 {
-		t.Error(errors.NewError(code, TaosErrorStr(res)))
-		return
-	}
-	TaosFreeResult(res)
-	res = TaosQuery(conn, "insert into affected_rows_test.t0 values(now,1)")
-	code = TaosError(res)
-	if code != 0 {
-		t.Error(errors.NewError(code, TaosErrorStr(res)))
+		TaosFreeResult(res)
 		return
 	}
 	affected := TaosAffectedRows(res)
+	TaosFreeResult(res)
 	assert.Equal(t, 1, affected)
 }
 
@@ -605,4 +594,113 @@ func TestTaosGetServerInfo(t *testing.T) {
 	defer TaosClose(conn)
 	info := TaosGetServerInfo(conn)
 	assert.NotEmpty(t, info)
+}
+
+func TestTaosOptionsConnection(t *testing.T) {
+	conn, err := TaosConnect("", "root", "taosdata", "", 0)
+	assert.NoError(t, err)
+	defer TaosClose(conn)
+	ip := "192.168.9.9"
+	app := "test_options_connection"
+	// set ip
+	code := TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_IP, &ip)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	// set app
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_APP, &app)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	var values [][]driver.Value
+	for i := 0; i < 10; i++ {
+		values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_ip = '192.168.9.9' and user_app = 'test_options_connection'")
+		assert.NoError(t, err)
+		if len(values) == 1 {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(t, 1, len(values))
+	connID := values[0][0].(uint32)
+
+	// clean app
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_APP, nil)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	for i := 0; i < 10; i++ {
+		values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_ip = '192.168.9.9' and user_app = 'test_options_connection'")
+		assert.NoError(t, err)
+		if len(values) == 0 {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(t, 0, len(values))
+	values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_ip = '192.168.9.9'")
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(values))
+	assert.Equal(t, connID, values[0][0].(uint32))
+
+	// set app
+	app = "test_options_2"
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_APP, &app)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	for i := 0; i < 20; i++ {
+		values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_ip = '192.168.9.9' and user_app = 'test_options_2'")
+		assert.NoError(t, err)
+		if len(values) == 1 {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(t, 1, len(values))
+	assert.Equal(t, connID, values[0][0].(uint32))
+
+	// clear ip
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_IP, nil)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	for i := 0; i < 10; i++ {
+		values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_ip = '192.168.9.9' and user_app = 'test_options_2'")
+		assert.NoError(t, err)
+		if len(values) == 0 {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(t, 0, len(values))
+	values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_app = 'test_options_2'")
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(values))
+	assert.Equal(t, connID, values[0][0].(uint32))
+
+	// clean all
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_CLEAR, nil)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	for i := 0; i < 10; i++ {
+		values, err = query(conn, fmt.Sprintf("select user_app,user_ip from performance_schema.perf_connections where conn_id = %d", connID))
+		assert.NoError(t, err)
+		if len(values) == 1 && values[0][0].(string) == "" && values[0][1].(string) == "" {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(t, 1, len(values))
+	assert.Equal(t, "", values[0][0].(string))
+	// todo: engine should return empty string when connection ip is cleared
+	//assert.Equal(t, "", values[0][1].(string))
+	assert.NotEqual(t, ip, values[0][1].(string))
+	ip = "192.168.9.9"
+	app = "test_options_connection"
+	// set ip
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_IP, &ip)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	// set app
+	code = TaosOptionsConnection(conn, common.TSDB_OPTION_CONNECTION_USER_APP, &app)
+	assert.Equal(t, 0, code, TaosErrorStr(nil))
+	for i := 0; i < 10; i++ {
+		values, err = query(conn, "select conn_id from performance_schema.perf_connections where user_ip = '192.168.9.9' and user_app = 'test_options_connection'")
+		assert.NoError(t, err)
+		if len(values) == 1 {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(t, 1, len(values))
+	assert.Equal(t, connID, values[0][0].(uint32))
 }

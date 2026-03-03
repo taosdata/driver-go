@@ -1,6 +1,7 @@
 package tmq
 
 import (
+	"time"
 	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/errors"
@@ -8,7 +9,8 @@ import (
 )
 
 type config struct {
-	cConfig unsafe.Pointer
+	cConfig  unsafe.Pointer
+	timezone *time.Location
 }
 
 func newConfig() *config {
