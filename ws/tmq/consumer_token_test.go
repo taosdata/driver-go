@@ -1,6 +1,7 @@
 package tmq
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -283,7 +284,7 @@ func executeStepsEventually(t *testing.T, steps []string, exec func(string) erro
 		return true
 	}, timeout, interval)
 	if !ok && lastErr == nil {
-		lastErr = fmt.Errorf(timeoutErrMsg)
+		lastErr = errors.New(timeoutErrMsg)
 	}
 	return lastErr
 }
