@@ -31,7 +31,7 @@ func TestConsumerWithToken(t *testing.T) {
 	}()
 
 	// Create a token for testing and get token value
-	tokenName := "test_tmq_token"
+	tokenName := fmt.Sprintf("ws_tk_v_%d", time.Now().Unix())
 	result, err := testtool.HTTPQuery(fmt.Sprintf("CREATE TOKEN %s FROM USER root", tokenName))
 	if !assert.NoError(t, err, "Token feature not available") {
 		return
@@ -74,7 +74,7 @@ func TestConsumerWithToken(t *testing.T) {
 		"ws.message.writeWait":  common.DefaultWriteWait,
 		"td.connect.token":      token, // Token will be passed in Config map
 		"td.connect.user":       "root",
-		"td.connect.pass":       "taosdata",
+		"td.connect.pass":       "wrong_password", // Ensure auth succeeds via token instead of password
 		"group.id":              "test_token",
 		"client.id":             "test_consumer_token",
 		"auto.offset.reset":     "earliest",
@@ -179,7 +179,7 @@ func TestConsumerTokenPriority(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	user := "root"
-	tokenName := "test_priority_token"
+	tokenName := fmt.Sprintf("ws_tk_p_%d", time.Now().Unix())
 	result, err := testtool.HTTPQuery(fmt.Sprintf("CREATE TOKEN %s FROM USER root", tokenName))
 	if !assert.NoError(t, err) {
 		return
@@ -239,47 +239,51 @@ func TestConsumerTokenPriority(t *testing.T) {
 }
 
 func prepareTokenEnv(t *testing.T, dbName, topicName string) error {
-	var lastErr error
 	steps := []string{
 		fmt.Sprintf("drop topic if exists %s", topicName),
 		fmt.Sprintf("drop database if exists %s", dbName),
 		fmt.Sprintf("create database %s WAL_RETENTION_PERIOD 86400", dbName),
 		fmt.Sprintf("create topic %s as database %s", topicName, dbName),
 	}
-	ok := assert.Eventually(t, func() bool {
-		for _, step := range steps {
-			if err := doRequest(step); err != nil {
-				lastErr = err
-				return false
-			}
-		}
-		lastErr = nil
-		return true
-	}, 6*time.Second, 500*time.Millisecond)
-	if !ok && lastErr == nil {
-		lastErr = fmt.Errorf("prepare token env timeout for db %s and topic %s", dbName, topicName)
-	}
-	return lastErr
+	return executeStepsEventually(
+		t,
+		steps,
+		doRequest,
+		6*time.Second,
+		500*time.Millisecond,
+		fmt.Sprintf("prepare token env timeout for db %s and topic %s", dbName, topicName),
+	)
 }
 
 func cleanTokenEnv(t *testing.T, dbName, topicName string) error {
-	var lastErr error
 	steps := []string{
 		fmt.Sprintf("drop topic if exists %s", topicName),
 		fmt.Sprintf("drop database if exists %s", dbName),
 	}
+	return executeStepsEventually(
+		t,
+		steps,
+		doRequest,
+		6*time.Second,
+		500*time.Millisecond,
+		fmt.Sprintf("clean token env timeout for db %s and topic %s", dbName, topicName),
+	)
+}
+
+func executeStepsEventually(t *testing.T, steps []string, exec func(string) error, timeout, interval time.Duration, timeoutErrMsg string) error {
+	var lastErr error
 	ok := assert.Eventually(t, func() bool {
 		for _, step := range steps {
-			if err := doRequest(step); err != nil {
+			if err := exec(step); err != nil {
 				lastErr = err
 				return false
 			}
 		}
 		lastErr = nil
 		return true
-	}, 6*time.Second, 500*time.Millisecond)
+	}, timeout, interval)
 	if !ok && lastErr == nil {
-		lastErr = fmt.Errorf("clean token env timeout for db %s and topic %s", dbName, topicName)
+		lastErr = fmt.Errorf(timeoutErrMsg)
 	}
 	return lastErr
 }
