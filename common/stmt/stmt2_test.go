@@ -2,6 +2,8 @@ package stmt
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -1518,6 +1520,50 @@ func TestMarshalBinary(t *testing.T) {
 					},
 				},
 				isInsert: false,
+				fieldType: []*Stmt2AllField{
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+				},
 			},
 			want: []byte{
 				// total Length
@@ -2384,8 +2430,12 @@ func TestMarshalBinary(t *testing.T) {
 						{false},
 					},
 				}},
-				isInsert:  false,
-				fieldType: nil,
+				isInsert: false,
+				fieldType: []*Stmt2AllField{
+					{
+						BindType: TAOS_FIELD_QUERY,
+					},
+				},
 			},
 			want: []byte{
 				// total Length
@@ -2529,6 +2579,260 @@ func TestMarshalBinary(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.want, got)
+			got, err = marshalStmt2BinaryLegacy(tt.args.t, tt.args.isInsert, tt.args.fieldType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarshalStmt2Binary() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func TestMarshalStmt2Binary2ColRowsMismatch(t *testing.T) {
+	fields := []*Stmt2AllField{
+		{
+			Name:      "c1",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			Name:      "c2",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	tests := []struct {
+		name string
+		cols [][]driver.Value
+	}{
+		{
+			name: "first col longer",
+			cols: [][]driver.Value{
+				{int32(1), int32(2)},
+				{int32(3)},
+			},
+		},
+		{
+			name: "first col shorter",
+			cols: [][]driver.Value{
+				{int32(1)},
+				{int32(2), int32(3)},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			assert.NotPanics(t, func() {
+				_, err = MarshalStmt2Binary([]*TaosStmt2BindData{
+					{
+						Cols: tt.cols,
+					},
+				}, true, fields)
+			})
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "col row count not match")
+			}
+		})
+	}
+}
+
+func TestMarshalStmt2Binary2BoolWithNil(t *testing.T) {
+	bindData := []*TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{true, nil, true},
+			},
+		},
+	}
+	fields := []*Stmt2AllField{
+		{
+			Name:      "b",
+			FieldType: common.TSDB_DATA_TYPE_BOOL,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	want, err := marshalStmt2BinaryLegacy(bindData, true, fields)
+	assert.NoError(t, err)
+	got, err := MarshalStmt2Binary(bindData, true, fields)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestMarshalStmt2Binary2AllNullFixedBufferLength(t *testing.T) {
+	bindData := []*TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{nil, nil},
+			},
+		},
+	}
+	fields := []*Stmt2AllField{
+		{
+			Name:      "c",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	want, err := marshalStmt2BinaryLegacy(bindData, true, fields)
+	assert.NoError(t, err)
+	got, err := MarshalStmt2Binary(bindData, true, fields)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+
+	colOffset := int(binary.LittleEndian.Uint32(got[ColsOffsetPosition : ColsOffsetPosition+4]))
+	colDataOffset := colOffset + 4
+	bufferLengthOffset := colDataOffset + BindDataIsNullOffset + 2 + 1
+	bufferLength := binary.LittleEndian.Uint32(got[bufferLengthOffset : bufferLengthOffset+4])
+	assert.EqualValues(t, 0, bufferLength)
+}
+
+func TestMarshalStmt2Binary2TBNameFieldWithEmptyTableNameInsert(t *testing.T) {
+	bindData := []*TaosStmt2BindData{
+		{
+			TableName: "",
+			Cols: [][]driver.Value{
+				{int32(1)},
+			},
+		},
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	want, err := marshalStmt2BinaryLegacy(bindData, true, fields)
+	assert.NoError(t, err)
+	got, err := MarshalStmt2Binary(bindData, true, fields)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestMarshalStmt2Binary2TBNameFieldWithEmptyTableNameQuery(t *testing.T) {
+	bindData := []*TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{int32(1)},
+			},
+		},
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+	}
+	want, err := marshalStmt2BinaryLegacy(bindData, false, fields)
+	assert.NoError(t, err)
+	got, err := MarshalStmt2Binary(bindData, false, fields)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func BenchmarkMarshalBinary(b *testing.B) {
+	bindData := make([]*TaosStmt2BindData, 1000)
+	now := time.Now().UnixMilli()
+	for i := 0; i < 1000; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("d_%d", i),
+			Cols: [][]driver.Value{
+				{
+					now,
+				},
+				{
+					float32(i),
+				},
+				{
+					int32(i),
+				},
+				{
+					float32(i),
+				},
+			},
+		}
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			BindType:  TAOS_FIELD_COL,
+			Precision: common.PrecisionMilliSecond,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MarshalStmt2Binary(bindData, true, fields)
+	}
+}
+
+func BenchmarkMarshalBinaryLegacy(b *testing.B) {
+	bindData := make([]*TaosStmt2BindData, 1000)
+	now := time.Now().UnixMilli()
+	for i := 0; i < 1000; i++ {
+		bindData[i] = &TaosStmt2BindData{
+			TableName: fmt.Sprintf("d_%d", i),
+			Cols: [][]driver.Value{
+				{
+					now,
+				},
+				{
+					float32(i),
+				},
+				{
+					int32(i),
+				},
+				{
+					float32(i),
+				},
+			},
+		}
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			BindType:  TAOS_FIELD_COL,
+			Precision: common.PrecisionMilliSecond,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_INT,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_FLOAT,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		marshalStmt2BinaryLegacy(bindData, true, fields)
 	}
 }
