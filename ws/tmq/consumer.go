@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"strconv"
 	"sync"
@@ -475,6 +474,27 @@ func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, er
 	return resp, err
 }
 
+func (c *Consumer) sendTextWithReconnect(reqID uint64, envelope *client.Envelope, reconnect bool) ([]byte, error) {
+	respBytes, failedClient, err := c.sendTextWithClient(reqID, envelope)
+	if err == nil {
+		return respBytes, nil
+	}
+	if !reconnect {
+		return nil, err
+	}
+	if !wsreconnect.IsReconnectableError(err, ClosedErr) {
+		return nil, err
+	}
+	if err = c.reconnect(failedClient); err != nil {
+		return nil, err
+	}
+	respBytes, _, err = c.sendTextWithClient(reqID, envelope)
+	if err != nil {
+		return nil, err
+	}
+	return respBytes, nil
+}
+
 func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) ([]byte, *client.Client, error) {
 	currentClient := c.loadClient()
 	if currentClient == nil {
@@ -640,24 +660,9 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 	if err != nil {
 		return err
 	}
-	respBytes, failedClient, err := c.sendTextWithClient(reqID, envelope)
+	respBytes, err := c.sendTextWithReconnect(reqID, envelope, reconnect)
 	if err != nil {
-		if !reconnect {
-			return err
-		}
-		var opError *net.OpError
-		if errors.Is(err, ClosedErr) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = c.reconnect(failedClient)
-			if err != nil {
-				return err
-			}
-			respBytes, _, err = c.sendTextWithClient(reqID, envelope)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+		return err
 	}
 	var resp SubscribeResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
@@ -705,24 +710,9 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 	if err != nil {
 		return tmq.NewTMQErrorWithErr(err)
 	}
-	respBytes, failedClient, err := c.sendTextWithClient(reqID, envelope)
+	respBytes, err := c.sendTextWithReconnect(reqID, envelope, c.autoReconnect)
 	if err != nil {
-		if !c.autoReconnect {
-			return tmq.NewTMQErrorWithErr(err)
-		}
-		var opError *net.OpError
-		if errors.Is(err, ClosedErr) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = c.reconnect(failedClient)
-			if err != nil {
-				return tmq.NewTMQErrorWithErr(err)
-			}
-			respBytes, _, err = c.sendTextWithClient(reqID, envelope)
-			if err != nil {
-				return tmq.NewTMQErrorWithErr(err)
-			}
-		} else {
-			return tmq.NewTMQErrorWithErr(err)
-		}
+		return tmq.NewTMQErrorWithErr(err)
 	}
 	var resp PollResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)

@@ -1,6 +1,8 @@
 package reconnect
 
 import (
+	"errors"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,4 +70,14 @@ func TestCloseMatchedClient(t *testing.T) {
 		return nil
 	}, target)
 	assert.False(t, closed)
+}
+
+func TestIsReconnectableError(t *testing.T) {
+	assert.False(t, IsReconnectableError(nil))
+	assert.True(t, IsReconnectableError(client.ClosedError))
+	assert.True(t, IsReconnectableError(&net.OpError{Op: "read"}))
+
+	customClosed := errors.New("custom closed")
+	assert.True(t, IsReconnectableError(customClosed, customClosed))
+	assert.False(t, IsReconnectableError(errors.New("other"), customClosed))
 }

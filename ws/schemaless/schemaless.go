@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -193,27 +192,9 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 	if err != nil {
 		return err
 	}
-	respBytes, failedClient, err := s.sendTextWithClient(uint64(reqID), envelope)
+	respBytes, err := s.sendTextWithReconnect(uint64(reqID), envelope)
 	if err != nil {
-		if !s.autoReconnect {
-			return err
-		}
-		if s.isClosed() {
-			return schemalessClosedErr
-		}
-		var opError *net.OpError
-		if errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = s.reconnect(failedClient)
-			if err != nil {
-				return err
-			}
-			respBytes, _, err = s.sendTextWithClient(uint64(reqID), envelope)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+		return err
 	}
 	var resp schemalessResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)
@@ -288,6 +269,30 @@ func connect(ws *websocket.Conn, user string, password string, db string, totpCo
 func (s *Schemaless) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	resp, _, err := s.sendTextWithClient(reqID, envelope)
 	return resp, err
+}
+
+func (s *Schemaless) sendTextWithReconnect(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	respBytes, failedClient, err := s.sendTextWithClient(reqID, envelope)
+	if err == nil {
+		return respBytes, nil
+	}
+	if !s.autoReconnect {
+		return nil, err
+	}
+	if s.isClosed() {
+		return nil, schemalessClosedErr
+	}
+	if !wsreconnect.IsReconnectableError(err) {
+		return nil, err
+	}
+	if err = s.reconnect(failedClient); err != nil {
+		return nil, err
+	}
+	respBytes, _, err = s.sendTextWithClient(reqID, envelope)
+	if err != nil {
+		return nil, err
+	}
+	return respBytes, nil
 }
 
 func (s *Schemaless) sendTextWithClient(reqID uint64, envelope *client.Envelope) ([]byte, *client.Client, error) {

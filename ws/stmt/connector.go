@@ -3,7 +3,6 @@ package stmt
 import (
 	"context"
 	"errors"
-	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/tdversion"
 	"github.com/taosdata/driver-go/v3/ws/client"
+	wsreconnect "github.com/taosdata/driver-go/v3/ws/internal/reconnect"
 )
 
 type Connector struct {
@@ -250,6 +250,33 @@ func (c *Connector) reconnectWithFailed(failedConn *WSConn) error {
 	return nil
 }
 
+func (c *Connector) sendTextWithReconnect(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	currentConn := c.client
+	if currentConn == nil {
+		return nil, client.ClosedError
+	}
+	respBytes, err := currentConn.sendText(reqID, envelope)
+	if err == nil {
+		return respBytes, nil
+	}
+	if !c.autoReconnect {
+		return nil, err
+	}
+	if !isWSConnRunning(currentConn) {
+		// keep old behavior: a stopped client should trigger reconnect even if error text is generic.
+	} else if !wsreconnect.IsReconnectableError(err) {
+		return nil, err
+	}
+	if err = c.reconnectWithFailed(currentConn); err != nil {
+		return nil, err
+	}
+	respBytes, err = c.client.sendText(reqID, envelope)
+	if err != nil {
+		return nil, err
+	}
+	return respBytes, nil
+}
+
 func (c *Connector) Init() (*Stmt, error) {
 	c.Lock()
 	defer c.Unlock()
@@ -274,29 +301,9 @@ func (c *Connector) Init() (*Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	currentConn := c.client
-	if currentConn == nil {
-		return nil, client.ClosedError
-	}
-	respBytes, err := currentConn.sendText(reqID, envelope)
+	respBytes, err := c.sendTextWithReconnect(reqID, envelope)
 	if err != nil {
-		if !c.autoReconnect {
-			return nil, err
-		}
-
-		var opError *net.OpError
-		if !isWSConnRunning(currentConn) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = c.reconnectWithFailed(currentConn)
-			if err != nil {
-				return nil, err
-			}
-			respBytes, err = c.client.sendText(reqID, envelope)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 	var resp InitResp
 	err = client.JsonI.Unmarshal(respBytes, &resp)

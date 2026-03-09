@@ -1,6 +1,11 @@
 package reconnect
 
-import "github.com/taosdata/driver-go/v3/ws/client"
+import (
+	"errors"
+	"net"
+
+	"github.com/taosdata/driver-go/v3/ws/client"
+)
 
 type ReplaceClientFunc func(next *client.Client) (*client.Client, bool)
 type ClearClientIfFunc func(target *client.Client) *client.Client
@@ -34,4 +39,21 @@ func CloseMatchedClient(clearIf ClearClientIfFunc, target *client.Client) bool {
 	}
 	currentClient.Close()
 	return true
+}
+
+// IsReconnectableError returns true for common transport-closure errors that should trigger reconnect.
+func IsReconnectableError(err error, extraClosedErrs ...error) bool {
+	if err == nil {
+		return false
+	}
+	var opError *net.OpError
+	if errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+		return true
+	}
+	for i := 0; i < len(extraClosedErrs); i++ {
+		if errors.Is(err, extraClosedErrs[i]) {
+			return true
+		}
+	}
+	return false
 }
