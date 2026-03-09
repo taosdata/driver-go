@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -1008,6 +1010,11 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		time.Sleep(time.Second)
 		return nil
 	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Signal(syscall.SIGINT)
+		_, _ = cmd.Process.Wait()
+		cmd.Process = nil
+	}
 	return errors.New("taosadapter start failed")
 }
 
@@ -1018,6 +1025,16 @@ func stopTaosadapter(cmd *exec.Cmd) {
 	_ = cmd.Process.Signal(syscall.SIGINT)
 	_, _ = cmd.Process.Wait()
 	cmd.Process = nil
+}
+
+func getAvailablePort(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+	}()
+	return strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
 }
 
 func prepareSubReconnectEnv() error {
@@ -1066,7 +1083,7 @@ func doClean(steps []string) error {
 }
 
 func TestSubscribeReconnect(t *testing.T) {
-	port := "36043"
+	port := getAvailablePort(t)
 	cmd := newTaosadapter(port)
 	err := startTaosadapter(cmd, port)
 	assert.NoError(t, err)

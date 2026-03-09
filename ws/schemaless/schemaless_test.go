@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -177,6 +178,11 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		time.Sleep(time.Second)
 		return nil
 	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Signal(syscall.SIGINT)
+		_, _ = cmd.Process.Wait()
+		cmd.Process = nil
+	}
 	return errors.New("taosadapter start failed")
 }
 
@@ -190,8 +196,18 @@ func stopTaosadapter(cmd *exec.Cmd) {
 	time.Sleep(time.Second)
 }
 
+func getAvailablePort(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+	}()
+	return strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+}
+
 func TestSchemalessReconnect(t *testing.T) {
-	port := "36041"
+	port := getAvailablePort(t)
 	cmd := newTaosadapter(port)
 	err := startTaosadapter(cmd, port)
 	if err != nil {

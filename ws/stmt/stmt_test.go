@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1100,6 +1101,11 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		time.Sleep(time.Second)
 		return nil
 	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Signal(syscall.SIGINT)
+		_, _ = cmd.Process.Wait()
+		cmd.Process = nil
+	}
 	return errors.New("taosadapter start failed")
 }
 
@@ -1123,8 +1129,18 @@ func stopTaosadapter(cmd *exec.Cmd, port string) {
 	panic("taosadapter stop failed")
 }
 
+func getAvailablePort(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+	}()
+	return strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+}
+
 func TestSTMTReconnect(t *testing.T) {
-	port := "36042"
+	port := getAvailablePort(t)
 	cmd := newTaosadapter(port)
 	err := startTaosadapter(cmd, port)
 	if err != nil {
@@ -1199,7 +1215,7 @@ func TestSTMTReconnect(t *testing.T) {
 }
 
 func TestSTMTDisconnectNoMessageTimeout(t *testing.T) {
-	port := "36052"
+	port := getAvailablePort(t)
 	cmd := newTaosadapter(port)
 	err := startTaosadapter(cmd, port)
 	if err != nil {
