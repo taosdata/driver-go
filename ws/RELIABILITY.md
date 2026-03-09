@@ -55,6 +55,15 @@ A change is release-ready only if all checks pass:
 4. Nightly heavy smoke (optional):
    - `./ws/reliability_gate.sh loop-full`
 
+## CI Report
+
+- Main CI (stable) runs `LOOP_COUNT=20 ./ws/reliability_gate.sh full`.
+- Scheduled/manual report workflow:
+  - file: `.github/workflows/ws-reliability-report.yml`
+  - trigger: daily schedule + `workflow_dispatch`
+  - command: `LOOP_COUNT=20 ./ws/reliability_gate.sh full-integration`
+  - artifacts: gate output, package summary, runtime logs
+
 ## Operational Notes
 
 - Integration tests that create databases must always clean up in `t.Cleanup`.

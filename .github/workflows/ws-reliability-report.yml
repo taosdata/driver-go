@@ -1,0 +1,150 @@
+name: ws-reliability-report
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reliability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: get TDengine nightly
+        run: |
+          wget "${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}/tsdb-nightly-main.tar.gz?v=$(date +%s)" -O tsdb-nightly-main.tar.gz
+
+      - name: install TDengine nightly
+        run: |
+          tar -zxf tsdb-nightly-main.tar.gz
+          cd tsdb-nightly-main
+          sudo ./install.sh
+
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: copy taos configs
+        run: |
+          sudo mkdir -p /etc/taos
+          sudo cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
+          sudo cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+
+      - name: start taosd
+        run: |
+          cat >start.sh<<EOF
+          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
+          EOF
+          nohup sudo sh ./start.sh >taosd.out 2>&1 &
+
+      - name: start taosadapter
+        run: |
+          nohup sudo taosadapter >taosadapter.out 2>&1 &
+
+      - name: wait for taosadapter ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:6041/-/ping" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "taosadapter readiness check failed" >&2
+          exit 1
+
+      - name: set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: run ws reliability gate
+        id: ws_gate
+        run: |
+          set -euo pipefail
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          started_epoch="$(date +%s)"
+          status="success"
+          if ! LOOP_COUNT=20 ./ws/reliability_gate.sh full-integration 2>&1 | tee ws_reliability_gate.out; then
+            status="failure"
+          fi
+          ended_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ended_epoch="$(date +%s)"
+          duration_seconds="$((ended_epoch - started_epoch))"
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "started_at=${started_at}" >> "$GITHUB_OUTPUT"
+          echo "ended_at=${ended_at}" >> "$GITHUB_OUTPUT"
+          echo "duration_seconds=${duration_seconds}" >> "$GITHUB_OUTPUT"
+          if [ "${status}" = "failure" ]; then
+            exit 1
+          fi
+
+      - name: build ws reliability report
+        if: always()
+        run: |
+          set +e
+          if [ -f ws_reliability_gate.out ]; then
+            grep -E '^ok[[:space:]]+github.com/taosdata/driver-go/v3/ws/' ws_reliability_gate.out > ws_reliability_packages.txt || true
+          else
+            : > ws_reliability_packages.txt
+          fi
+          {
+            echo "# WS Reliability Report"
+            echo
+            echo "- Workflow status: ${{ job.status }}"
+            echo "- Gate status: ${{ steps.ws_gate.outputs.status }}"
+            echo "- Started at (UTC): ${{ steps.ws_gate.outputs.started_at }}"
+            echo "- Ended at (UTC): ${{ steps.ws_gate.outputs.ended_at }}"
+            echo "- Duration (seconds): ${{ steps.ws_gate.outputs.duration_seconds }}"
+            echo
+            echo "## Gate Command"
+            echo
+            echo "- \`LOOP_COUNT=20 ./ws/reliability_gate.sh full-integration\`"
+            echo
+            echo "## Package Results"
+            echo
+            if [ -s ws_reliability_packages.txt ]; then
+              sed 's/^/- /' ws_reliability_packages.txt
+            else
+              echo "- no package results captured"
+            fi
+          } | tee ws_reliability_report.md
+          cat ws_reliability_report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: collect runtime logs on failure
+        if: failure()
+        run: |
+          mkdir -p ws-reliability-logs
+          cp -f taosd.out ws-reliability-logs/taosd.out || true
+          cp -f taosadapter.out ws-reliability-logs/taosadapter.out || true
+          cp -f ws_reliability_gate.out ws-reliability-logs/ws_reliability_gate.out || true
+          sudo cp -r /var/log/taos ws-reliability-logs/var-log-taos || true
+
+      - name: upload ws reliability report artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ws-reliability-report-${{ github.run_id }}
+          path: |
+            ws_reliability_report.md
+            ws_reliability_gate.out
+            ws_reliability_packages.txt
+            taosd.out
+            taosadapter.out
+          if-no-files-found: warn
+
+      - name: upload ws reliability failure logs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ws-reliability-failure-logs-${{ github.run_id }}
+          path: ws-reliability-logs
+          if-no-files-found: warn
+
+      - name: cleanup processes
+        if: always()
+        run: |
+          sudo pkill -f taosadapter || true
+          sudo pkill -f taosd || true
