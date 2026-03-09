@@ -32,6 +32,8 @@ type Consumer struct {
 	timezone            *time.Location
 	dataParser          *parser.TMQRawDataParser
 	listLock            sync.RWMutex
+	clientLock          sync.RWMutex
+	reconnectLock       sync.Mutex
 	sendChanList        *list.List
 	messageTimeout      time.Duration
 	autoCommit          bool
@@ -142,6 +144,7 @@ func (c *Consumer) initClient(client *client.Client) {
 	if c.writeWait > 0 {
 		client.WriteWait = c.writeWait
 	}
+	client.AsyncCallbacks = false
 	client.BinaryMessageHandler = c.handleBinaryMessage
 	client.TextMessageHandler = c.handleTextMessage
 	client.ErrorHandler = c.handleError
@@ -150,9 +153,20 @@ func (c *Consumer) initClient(client *client.Client) {
 }
 
 func (c *Consumer) reconnect() error {
+	c.reconnectLock.Lock()
+	defer c.reconnectLock.Unlock()
+	if c.isClosed() {
+		return ClosedErr
+	}
 	reconnected := false
 	for i := 0; i < c.reconnectRetryCount; i++ {
+		if c.isClosed() {
+			return ClosedErr
+		}
 		time.Sleep(time.Duration(c.reconnectIntervalMs) * time.Millisecond)
+		if c.isClosed() {
+			return ClosedErr
+		}
 		conn, _, err := c.dialer.Dial(c.url, nil)
 		if err != nil {
 			continue
@@ -162,16 +176,30 @@ func (c *Consumer) reconnect() error {
 			_ = conn.Close()
 			continue
 		}
+		if c.isClosed() {
+			_ = conn.Close()
+			return ClosedErr
+		}
 		cl := client.NewClient(conn, c.chanLength)
 		c.initClient(cl)
-		if c.client != nil {
-			c.client.Close()
+		if c.isClosed() {
+			cl.Close()
+			return ClosedErr
 		}
-		c.client = cl
+		oldClient, ok := c.replaceClient(cl)
+		if !ok {
+			cl.Close()
+			return ClosedErr
+		}
+		if oldClient != nil {
+			oldClient.Close()
+		}
 		if len(c.topics) > 0 {
 			err = c.doSubscribe(c.topics, false)
 			if err != nil {
-				c.client.Close()
+				if currentClient := c.clearClientIf(cl); currentClient != nil {
+					currentClient.Close()
+				}
 				continue
 			}
 		}
@@ -179,6 +207,12 @@ func (c *Consumer) reconnect() error {
 		break
 	}
 	if !reconnected {
+		if c.isClosed() {
+			return ClosedErr
+		}
+		if currentClient := c.clearClient(); currentClient != nil {
+			currentClient.Close()
+		}
 		return errors.New("reconnect failed")
 	}
 	return nil
@@ -350,8 +384,11 @@ func (c *Consumer) handleTextMessage(message []byte) {
 	c.listLock.Lock()
 	element := c.findOutChanByID(reqID)
 	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
 		c.sendChanList.Remove(element)
+		ch := element.Value.(*IndexedChan).channel
+		c.listLock.Unlock()
+		ch <- message
+		return
 	}
 	c.listLock.Unlock()
 }
@@ -361,8 +398,11 @@ func (c *Consumer) handleBinaryMessage(message []byte) {
 	c.listLock.Lock()
 	element := c.findOutChanByID(reqID)
 	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
 		c.sendChanList.Remove(element)
+		ch := element.Value.(*IndexedChan).channel
+		c.listLock.Unlock()
+		ch <- message
+		return
 	}
 	c.listLock.Unlock()
 }
@@ -381,7 +421,9 @@ func (c *Consumer) generateReqID() uint64 {
 func (c *Consumer) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.closeChan)
-		c.client.Close()
+		if currentClient := c.clearClient(); currentClient != nil {
+			currentClient.Close()
+		}
 	})
 	return nil
 }
@@ -432,13 +474,20 @@ const (
 var ClosedErr = errors.New("connection closed")
 
 func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	currentClient := c.loadClient()
+	if currentClient == nil {
+		if c.isClosed() {
+			return nil, ClosedErr
+		}
+		return nil, client.ClosedError
+	}
 	channel := &IndexedChan{
 		index:   reqID,
 		channel: make(chan []byte, 1),
 	}
 	element := c.addMessageOutChan(channel)
 	envelope.Type = websocket.TextMessage
-	err := c.client.Send(envelope)
+	err := currentClient.Send(envelope)
 	if err != nil {
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
@@ -454,17 +503,93 @@ func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, er
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.messageTimeout)
 	defer cancel()
+	if resp, ok := tryReadTMQResponse(channel.channel); ok {
+		return resp, nil
+	}
 	select {
-	case <-c.closeChan:
-		return nil, ClosedErr
 	case resp := <-channel.channel:
 		return resp, nil
+	case <-c.closeChan:
+		if resp, ok := tryReadTMQResponse(channel.channel); ok {
+			return resp, nil
+		}
+		return nil, ClosedErr
+	case <-currentClient.Done():
+		if resp, ok := tryReadTMQResponse(channel.channel); ok {
+			return resp, nil
+		}
+		c.listLock.Lock()
+		c.sendChanList.Remove(element)
+		c.listLock.Unlock()
+		if resp, ok := tryReadTMQResponse(channel.channel); ok {
+			return resp, nil
+		}
+		err = currentClient.LastError()
+		if err == nil {
+			return nil, ClosedErr
+		}
+		return nil, fmt.Errorf("%w: %v", ClosedErr, err)
 	case <-ctx.Done():
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
 		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
+}
+
+func tryReadTMQResponse(ch <-chan []byte) ([]byte, bool) {
+	select {
+	case resp := <-ch:
+		return resp, true
+	default:
+		return nil, false
+	}
+}
+
+func (c *Consumer) isClosed() bool {
+	select {
+	case <-c.closeChan:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Consumer) loadClient() *client.Client {
+	c.clientLock.RLock()
+	currentClient := c.client
+	c.clientLock.RUnlock()
+	return currentClient
+}
+
+func (c *Consumer) replaceClient(next *client.Client) (*client.Client, bool) {
+	c.clientLock.Lock()
+	defer c.clientLock.Unlock()
+	if c.isClosed() {
+		return nil, false
+	}
+	currentClient := c.client
+	c.client = next
+	return currentClient, true
+}
+
+func (c *Consumer) clearClient() *client.Client {
+	c.clientLock.Lock()
+	currentClient := c.client
+	c.client = nil
+	c.clientLock.Unlock()
+	return currentClient
+}
+
+func (c *Consumer) clearClientIf(target *client.Client) *client.Client {
+	c.clientLock.Lock()
+	defer c.clientLock.Unlock()
+	if c.client != target {
+		return nil
+	}
+	currentClient := c.client
+	c.client = nil
+	return currentClient
 }
 
 type RebalanceCb func(*Consumer, tmq.Event) error

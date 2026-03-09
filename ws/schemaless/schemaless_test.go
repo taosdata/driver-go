@@ -219,33 +219,22 @@ func TestSchemalessReconnect(t *testing.T) {
 			t.Log(err)
 		}),
 		SetAutoReconnect(true),
-		SetReconnectIntervalMs(2000),
-		SetReconnectRetryCount(3),
+		SetReconnectIntervalMs(500),
+		SetReconnectRetryCount(1),
 	))
 	if err != nil {
 		t.Fatal(err)
 	}
 	stopTaosadapter(cmd)
-	time.Sleep(time.Second * 3)
-	startChan := make(chan struct{})
-	go func() {
-		time.Sleep(time.Second * 10)
-		cmd = newTaosadapter(port)
-		err = startTaosadapter(cmd, port)
-		startChan <- struct{}{}
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
 	data := "measurement,host=host1 field1=2i,field2=2.0 1577837300000\n" +
 		"measurement,host=host1 field1=2i,field2=2.0 1577837400000\n" +
 		"measurement,host=host1 field1=2i,field2=2.0 1577837500000\n" +
 		"measurement,host=host1 field1=2i,field2=2.0 1577837600000"
 	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
 	assert.Error(t, err)
-	<-startChan
-	time.Sleep(time.Second)
+	cmd = newTaosadapter(port)
+	err = startTaosadapter(cmd, port)
+	assert.NoError(t, err)
 	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)
 	assert.NoError(t, err)
 	err = s.Insert(data, InfluxDBLineProtocol, "ms", 0, 0)

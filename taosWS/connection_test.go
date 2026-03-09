@@ -3,6 +3,13 @@ package taosWS
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	osexec "os/exec"
+	"runtime"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -123,4 +130,84 @@ func TestBegin(t *testing.T) {
 	tx, err := conn.Begin()
 	assert.Error(t, err)
 	assert.Nil(t, tx)
+}
+
+func newTaosadapter(port string) *osexec.Cmd {
+	command := "taosadapter"
+	if runtime.GOOS == "windows" {
+		command = "C:\\TDengine\\taosadapter.exe"
+	}
+	return osexec.Command(command, "--port", port, "--log.level", "debug")
+}
+
+func startTaosadapter(cmd *osexec.Cmd, port string) error {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond * 100)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
+		if err != nil {
+			continue
+		}
+		_ = resp.Body.Close()
+		time.Sleep(time.Second)
+		return nil
+	}
+	return errors.New("taosadapter start failed")
+}
+
+func stopTaosadapter(cmd *osexec.Cmd, port string) {
+	if cmd.Process == nil {
+		return
+	}
+	_ = cmd.Process.Signal(syscall.SIGINT)
+	_, _ = cmd.Process.Wait()
+	cmd.Process = nil
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond * 100)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
+		if err != nil {
+			return
+		}
+		_ = resp.Body.Close()
+		time.Sleep(time.Second)
+	}
+	panic("taosadapter stop failed")
+}
+
+func TestDisconnectNoReadTimeout(t *testing.T) {
+	port := "36054"
+	cmd := newTaosadapter(port)
+	err := startTaosadapter(cmd, port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		stopTaosadapter(cmd, port)
+	}()
+	dsn := fmt.Sprintf("%s:%s@ws(%s:%s)/", user, password, host, port)
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ReadTimeout = 10 * time.Second
+	cfg.WriteTimeout = 3 * time.Second
+	conn, err := newTaosConn(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	stopTaosadapter(cmd, port)
+	start := time.Now()
+	_, err = conn.QueryContext(context.Background(), "select 1", nil)
+	if assert.Error(t, err) {
+		assert.NotContains(t, strings.ToLower(err.Error()), "read timeout")
+	}
+	assert.Less(t, time.Since(start), cfg.ReadTimeout)
 }

@@ -70,6 +70,8 @@ type Client struct {
 	conn                 *websocket.Conn
 	status               uint32
 	sendChan             chan *Envelope
+	done                 chan struct{}
+	AsyncCallbacks       bool
 	BufferSize           int
 	WriteWait            time.Duration
 	PingPeriod           time.Duration
@@ -79,7 +81,11 @@ type Client struct {
 	ErrorHandler         func(err error)
 	// SendMessageHandler   func(envelope *Envelope)
 	once           sync.Once
+	doneOnce       sync.Once
 	errHandlerOnce sync.Once
+	sendLock       sync.RWMutex
+	errLock        sync.RWMutex
+	lastErr        error
 }
 
 func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
@@ -88,6 +94,8 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 		status:               StatusNormal,
 		BufferSize:           common.BufferSize4M,
 		sendChan:             make(chan *Envelope, sendChanLength),
+		done:                 make(chan struct{}),
+		AsyncCallbacks:       true,
 		WriteWait:            common.DefaultWriteWait,
 		PingPeriod:           common.DefaultPingPeriod,
 		PongWait:             common.DefaultPongWait,
@@ -108,17 +116,26 @@ func (c *Client) ReadPump() {
 	for {
 		messageType, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
-				break
+			if !c.IsRunning() {
+				return
 			}
 			c.handleError(err)
-			break
+			c.Close()
+			return
 		}
 		switch messageType {
 		case websocket.TextMessage:
-			go c.TextMessageHandler(message)
+			if c.AsyncCallbacks {
+				go c.TextMessageHandler(message)
+			} else {
+				c.TextMessageHandler(message)
+			}
 		case websocket.BinaryMessage:
-			go c.BinaryMessageHandler(message)
+			if c.AsyncCallbacks {
+				go c.BinaryMessageHandler(message)
+			} else {
+				c.BinaryMessageHandler(message)
+			}
 		}
 	}
 }
@@ -133,10 +150,9 @@ func (c *Client) WritePump() {
 		select {
 		case message, ok := <-c.sendChan:
 			if !ok {
-				if message == nil {
-					return
-				}
-				message.ErrorChan <- ClosedError
+				return
+			}
+			if message == nil {
 				continue
 			}
 			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
@@ -145,12 +161,8 @@ func (c *Client) WritePump() {
 				message.ErrorChan <- err
 				c.handleError(err)
 				c.Close()
-				for message := range c.sendChan {
-					if message == nil {
-						return
-					}
-					message.ErrorChan <- ClosedError
-				}
+				c.drainSendChan()
+				return
 			}
 			message.ErrorChan <- nil
 		case <-ticker.C:
@@ -158,30 +170,25 @@ func (c *Client) WritePump() {
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.handleError(err)
 				c.Close()
-				for message := range c.sendChan {
-					if message == nil {
-						return
-					}
-					message.ErrorChan <- ClosedError
-				}
+				c.drainSendChan()
+				return
 			}
 		}
 	}
 }
 
 func (c *Client) Send(envelope *Envelope) (err error) {
+	c.sendLock.RLock()
+	defer c.sendLock.RUnlock()
 	if !c.IsRunning() {
 		return ClosedError
 	}
-	defer func() {
-		// maybe closed
-		if recover() != nil {
-			err = ClosedError
-			return
-		}
-	}()
-	c.sendChan <- envelope
-	return
+	select {
+	case <-c.done:
+		return ClosedError
+	case c.sendChan <- envelope:
+		return nil
+	}
 }
 
 func (c *Client) GetEnvelope() *Envelope {
@@ -196,9 +203,29 @@ func (c *Client) IsRunning() bool {
 	return atomic.LoadUint32(&c.status) == StatusNormal
 }
 
+func (c *Client) Done() <-chan struct{} {
+	return c.done
+}
+
+func (c *Client) LastError() error {
+	c.errLock.RLock()
+	err := c.lastErr
+	c.errLock.RUnlock()
+	if err != nil {
+		return err
+	}
+	if !c.IsRunning() {
+		return ClosedError
+	}
+	return nil
+}
+
 func (c *Client) Close() {
 	c.once.Do(func() {
 		atomic.StoreUint32(&c.status, StatusStop)
+		c.closeDone()
+		c.sendLock.Lock()
+		defer c.sendLock.Unlock()
 		close(c.sendChan)
 		if c.conn != nil {
 			_ = c.conn.Close()
@@ -207,7 +234,28 @@ func (c *Client) Close() {
 }
 
 func (c *Client) handleError(err error) {
+	c.errLock.Lock()
+	if c.lastErr == nil {
+		c.lastErr = err
+	}
+	c.errLock.Unlock()
+	c.closeDone()
 	c.errHandlerOnce.Do(func() { c.ErrorHandler(err) })
+}
+
+func (c *Client) closeDone() {
+	c.doneOnce.Do(func() {
+		close(c.done)
+	})
+}
+
+func (c *Client) drainSendChan() {
+	for message := range c.sendChan {
+		if message == nil {
+			continue
+		}
+		message.ErrorChan <- ClosedError
+	}
 }
 
 func HandleResponseError(err error, code int, msg string) error {

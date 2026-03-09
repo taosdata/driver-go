@@ -69,6 +69,20 @@ func wsEchoServer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func wsCloseServer(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	time.Sleep(200 * time.Millisecond)
+	_ = conn.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "bye"),
+		time.Now().Add(time.Second),
+	)
+	_ = conn.Close()
+}
+
 func TestClient(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(wsEchoServer))
 	defer s.Close()
@@ -101,11 +115,65 @@ func TestClient(t *testing.T) {
 	case <-timeout.C:
 		t.Error("timeout")
 	}
-	close(c.sendChan)
+	c.Close()
 	env = c.GetEnvelope()
 	err = c.Send(env)
 	assert.Equal(t, ClosedError, err)
-	c.sendChan = make(chan *Envelope, 1)
+}
+
+func TestClientDoneWithServerClose(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(wsCloseServer))
+	defer s.Close()
+	ep := "ws" + strings.TrimPrefix(s.URL, "http")
+	ws, _, err := websocket.DefaultDialer.Dial(ep, nil)
+	assert.NoError(t, err)
+	c := NewClient(ws, 1)
+	defer c.Close()
+	go c.ReadPump()
+	go c.WritePump()
+
+	select {
+	case <-c.Done():
+	case <-time.After(3 * time.Second):
+		t.Fatal("client done timeout")
+	}
+	assert.False(t, c.IsRunning())
+	assert.Error(t, c.LastError())
+}
+
+func TestClientLastErrorAfterClose(t *testing.T) {
+	c := NewClient(nil, 1)
+	c.Close()
+	assert.Equal(t, ClosedError, c.LastError())
+	select {
+	case <-c.Done():
+	default:
+		t.Fatal("done channel should be closed after close")
+	}
+}
+
+func TestClientCloseUnblocksBlockedSend(t *testing.T) {
+	c := NewClient(nil, 1)
+	first := c.GetEnvelope()
+	second := c.GetEnvelope()
+	defer c.PutEnvelope(first)
+	defer c.PutEnvelope(second)
+
+	assert.NoError(t, c.Send(first))
+
+	result := make(chan error, 1)
+	go func() {
+		result <- c.Send(second)
+	}()
+
+	c.Close()
+
+	select {
+	case err := <-result:
+		assert.Equal(t, ClosedError, err)
+	case <-time.After(time.Second):
+		t.Fatal("blocked send was not released by close")
+	}
 }
 
 func TestHandleResponseError(t *testing.T) {

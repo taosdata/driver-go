@@ -35,6 +35,8 @@ type Schemaless struct {
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
 	lock                sync.Mutex
+	clientLock          sync.RWMutex
+	reconnectLock       sync.Mutex
 	once                sync.Once
 	closeChan           chan struct{}
 	errorHandler        func(error)
@@ -106,6 +108,7 @@ func (s *Schemaless) initClient(c *client.Client) {
 	if s.writeTimeout > 0 {
 		c.WriteWait = s.writeTimeout
 	}
+	c.AsyncCallbacks = false
 	c.ErrorHandler = s.handleError
 	c.TextMessageHandler = s.handleTextMessage
 
@@ -114,9 +117,20 @@ func (s *Schemaless) initClient(c *client.Client) {
 }
 
 func (s *Schemaless) reconnect() error {
+	s.reconnectLock.Lock()
+	defer s.reconnectLock.Unlock()
+	if s.isClosed() {
+		return schemalessClosedErr
+	}
 	reconnected := false
 	for i := 0; i < s.reconnectRetryCount; i++ {
+		if s.isClosed() {
+			return schemalessClosedErr
+		}
 		time.Sleep(time.Duration(s.reconnectIntervalMs) * time.Millisecond)
+		if s.isClosed() {
+			return schemalessClosedErr
+		}
 		conn, _, err := s.dialer.Dial(s.url, nil)
 		if err != nil {
 			continue
@@ -130,18 +144,26 @@ func (s *Schemaless) reconnect() error {
 			_ = conn.Close()
 			continue
 		}
-		if s.client != nil {
-			s.client.Close()
+		if s.isClosed() {
+			_ = conn.Close()
+			return schemalessClosedErr
 		}
 		c := client.NewClient(conn, s.chanLength)
 		s.initClient(c)
-		s.client = c
+		oldClient, ok := s.replaceClient(c)
+		if !ok {
+			c.Close()
+			return schemalessClosedErr
+		}
+		if oldClient != nil {
+			oldClient.Close()
+		}
 		reconnected = true
 		break
 	}
 	if !reconnected {
-		if s.client != nil {
-			s.client.Close()
+		if currentClient := s.clearClient(); currentClient != nil {
+			currentClient.Close()
 		}
 		return errors.New("reconnect failed")
 	}
@@ -177,6 +199,9 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 		if !s.autoReconnect {
 			return err
 		}
+		if s.isClosed() {
+			return schemalessClosedErr
+		}
 		var opError *net.OpError
 		if errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
 			err = s.reconnect()
@@ -199,16 +224,16 @@ func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl in
 func (s *Schemaless) Close() {
 	s.once.Do(func() {
 		close(s.closeChan)
-		if s.client != nil {
-			s.client.Close()
+		if currentClient := s.clearClient(); currentClient != nil {
+			currentClient.Close()
 		}
-		s.client = nil
 	})
 }
 
 var (
 	//revive:disable-next-line
-	ConnectTimeoutErr = errors.New("schemaless connect timeout")
+	ConnectTimeoutErr   = errors.New("schemaless connect timeout")
+	schemalessClosedErr = errors.New("connection closed")
 )
 
 func connect(ws *websocket.Conn, user string, password string, db string, totpCode string, bearerToken string, writeTimeout time.Duration, readTimeout time.Duration) error {
@@ -267,12 +292,19 @@ func (s *Schemaless) sendText(reqID uint64, envelope *client.Envelope) ([]byte, 
 }
 
 func (s *Schemaless) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	currentClient := s.loadClient()
+	if currentClient == nil {
+		if s.isClosed() {
+			return nil, schemalessClosedErr
+		}
+		return nil, client.ClosedError
+	}
 	channel := &IndexedChan{
 		index:   reqID,
 		channel: make(chan []byte, 1),
 	}
 	element := s.addMessageOutChan(channel)
-	err := s.client.Send(envelope)
+	err := currentClient.Send(envelope)
 	if err != nil {
 		s.lock.Lock()
 		s.sendList.Remove(element)
@@ -288,17 +320,85 @@ func (s *Schemaless) send(reqID uint64, envelope *client.Envelope) ([]byte, erro
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.readTimeout)
 	defer cancel()
+	if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
+		return resp, nil
+	}
 	select {
-	case <-s.closeChan:
-		return nil, errors.New("connection closed")
 	case resp := <-channel.channel:
 		return resp, nil
+	case <-s.closeChan:
+		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
+			return resp, nil
+		}
+		return nil, schemalessClosedErr
+	case <-currentClient.Done():
+		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
+			return resp, nil
+		}
+		s.lock.Lock()
+		s.sendList.Remove(element)
+		s.lock.Unlock()
+		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
+			return resp, nil
+		}
+		if s.isClosed() {
+			return nil, schemalessClosedErr
+		}
+		err = currentClient.LastError()
+		if err == nil {
+			return nil, client.ClosedError
+		}
+		return nil, fmt.Errorf("%w: %v", client.ClosedError, err)
 	case <-ctx.Done():
 		s.lock.Lock()
 		s.sendList.Remove(element)
 		s.lock.Unlock()
 		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
+}
+
+func tryReadSchemalessResponse(ch <-chan []byte) ([]byte, bool) {
+	select {
+	case resp := <-ch:
+		return resp, true
+	default:
+		return nil, false
+	}
+}
+
+func (s *Schemaless) isClosed() bool {
+	select {
+	case <-s.closeChan:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Schemaless) loadClient() *client.Client {
+	s.clientLock.RLock()
+	currentClient := s.client
+	s.clientLock.RUnlock()
+	return currentClient
+}
+
+func (s *Schemaless) replaceClient(next *client.Client) (*client.Client, bool) {
+	s.clientLock.Lock()
+	defer s.clientLock.Unlock()
+	if s.isClosed() {
+		return nil, false
+	}
+	currentClient := s.client
+	s.client = next
+	return currentClient, true
+}
+
+func (s *Schemaless) clearClient() *client.Client {
+	s.clientLock.Lock()
+	currentClient := s.client
+	s.client = nil
+	s.clientLock.Unlock()
+	return currentClient
 }
 
 type IndexedChan struct {
@@ -328,13 +428,15 @@ func (s *Schemaless) handleTextMessage(message []byte) {
 	})
 	client.JsonI.ReturnIterator(iter)
 	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	element := s.findOutChanByID(reqID)
 	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
 		s.sendList.Remove(element)
+		ch := element.Value.(*IndexedChan).channel
+		s.lock.Unlock()
+		ch <- message
+		return
 	}
+	s.lock.Unlock()
 }
 
 func (s *Schemaless) findOutChanByID(index uint64) *list.Element {

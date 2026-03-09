@@ -52,20 +52,23 @@ var (
 //revive:enable
 
 type taosConn struct {
-	buf          *bytes.Buffer
-	client       *websocket.Conn
-	timezone     *time.Location
-	timezoneStr  string
-	writeLock    sync.Mutex
-	readTimeout  time.Duration
-	writeTimeout time.Duration
-	cfg          *Config
-	messageChan  chan *message
-	messageError error
-	endpoint     string
-	closed       uint32
-	closeCh      chan struct{}
-	closeOnce    sync.Once
+	buf              *bytes.Buffer
+	client           *websocket.Conn
+	timezone         *time.Location
+	timezoneStr      string
+	writeLock        sync.Mutex
+	readTimeout      time.Duration
+	writeTimeout     time.Duration
+	cfg              *Config
+	messageChan      chan *message
+	messageError     error
+	messageErrorLock sync.RWMutex
+	messageErrCh     chan struct{}
+	messageErrOnce   sync.Once
+	endpoint         string
+	closed           uint32
+	closeCh          chan struct{}
+	closeOnce        sync.Once
 }
 
 type message struct {
@@ -110,6 +113,7 @@ func newTaosConn(cfg *Config) (*taosConn, error) {
 		endpoint:     endpoint,
 		closeCh:      make(chan struct{}),
 		messageChan:  make(chan *message, 10),
+		messageErrCh: make(chan struct{}),
 	}
 	if cfg.Timezone != nil {
 		tc.timezoneStr = cfg.Timezone.String()
@@ -137,7 +141,12 @@ func (tc *taosConn) ping() {
 		case <-tc.closeCh:
 			return
 		case <-ticker.C:
-			_ = tc.writePing()
+			err := tc.writePing()
+			if err != nil {
+				tc.setMessageError(err)
+				_ = tc.Close()
+				return
+			}
 		}
 	}
 }
@@ -145,15 +154,27 @@ func (tc *taosConn) ping() {
 func (tc *taosConn) read() {
 	for tc.client != nil && !tc.isClosed() {
 		mt, msg, err := tc.client.ReadMessage()
-		tc.messageChan <- &message{
+		if err != nil {
+			tc.setMessageError(NewBadConnError(err))
+			_ = tc.Close()
+			return
+		}
+		if !tc.enqueueMessage(&message{
 			mt:      mt,
 			message: msg,
-			err:     err,
+			err:     nil,
+		}) {
+			return
 		}
-		if err != nil {
-			tc.messageError = NewBadConnError(err)
-			break
-		}
+	}
+}
+
+func (tc *taosConn) enqueueMessage(msg *message) bool {
+	select {
+	case tc.messageChan <- msg:
+		return true
+	case <-tc.closeCh:
+		return false
 	}
 }
 
@@ -174,6 +195,29 @@ func (tc *taosConn) Close() (err error) {
 
 func (tc *taosConn) isClosed() bool {
 	return atomic.LoadUint32(&tc.closed) != 0
+}
+
+func (tc *taosConn) setMessageError(err error) {
+	if err == nil {
+		return
+	}
+	tc.messageErrorLock.Lock()
+	if tc.messageError != nil {
+		tc.messageErrorLock.Unlock()
+		return
+	}
+	tc.messageError = err
+	tc.messageErrorLock.Unlock()
+	tc.messageErrOnce.Do(func() {
+		close(tc.messageErrCh)
+	})
+}
+
+func (tc *taosConn) getMessageError() error {
+	tc.messageErrorLock.RLock()
+	err := tc.messageError
+	tc.messageErrorLock.RUnlock()
+	return err
 }
 
 func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
@@ -626,16 +670,20 @@ func (tc *taosConn) write(messageType int, data []byte) error {
 	if tc.isClosed() {
 		return driver.ErrBadConn
 	}
-	if tc.messageError != nil {
-		return tc.messageError
+	if err := tc.getMessageError(); err != nil {
+		return err
 	}
 	err := tc.client.SetWriteDeadline(time.Now().Add(tc.writeTimeout))
 	if err != nil {
-		return NewBadConnError(err)
+		badErr := NewBadConnError(err)
+		tc.setMessageError(badErr)
+		return badErr
 	}
 	err = tc.client.WriteMessage(messageType, data)
 	if err != nil {
-		return NewBadConnErrorWithCtx(err, string(data))
+		badErr := NewBadConnErrorWithCtx(err, string(data))
+		tc.setMessageError(badErr)
+		return badErr
 	}
 	return nil
 }
@@ -672,24 +720,57 @@ func (tc *taosConn) readBytes() ([]byte, error) {
 }
 
 func (tc *taosConn) readResponse() (int, []byte, error) {
+	if msg, ok := tc.tryReadQueuedMessage(); ok {
+		if msg.err != nil {
+			return 0, nil, NewBadConnError(msg.err)
+		}
+		return msg.mt, msg.message, nil
+	}
+	if err := tc.getMessageError(); err != nil {
+		return 0, nil, err
+	}
 	if tc.isClosed() {
 		return 0, nil, driver.ErrBadConn
-	}
-	if tc.messageError != nil {
-		return 0, nil, tc.messageError
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), tc.readTimeout)
 	defer cancel()
 	select {
-	case <-tc.closeCh:
-		return 0, nil, driver.ErrBadConn
 	case msg := <-tc.messageChan:
 		if msg.err != nil {
 			return 0, nil, NewBadConnError(msg.err)
 		}
 		return msg.mt, msg.message, nil
+	case <-tc.closeCh:
+		if msg, ok := tc.tryReadQueuedMessage(); ok {
+			if msg.err != nil {
+				return 0, nil, NewBadConnError(msg.err)
+			}
+			return msg.mt, msg.message, nil
+		}
+		return 0, nil, driver.ErrBadConn
+	case <-tc.messageErrCh:
+		if msg, ok := tc.tryReadQueuedMessage(); ok {
+			if msg.err != nil {
+				return 0, nil, NewBadConnError(msg.err)
+			}
+			return msg.mt, msg.message, nil
+		}
+		err := tc.getMessageError()
+		if err == nil {
+			return 0, nil, driver.ErrBadConn
+		}
+		return 0, nil, err
 	case <-ctx.Done():
 		return 0, nil, NewBadConnError(ReadTimeoutError)
+	}
+}
+
+func (tc *taosConn) tryReadQueuedMessage() (*message, bool) {
+	select {
+	case msg := <-tc.messageChan:
+		return msg, true
+	default:
+		return nil, false
 	}
 }
 

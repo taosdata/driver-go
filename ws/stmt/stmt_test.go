@@ -1150,8 +1150,8 @@ func TestSTMTReconnect(t *testing.T) {
 		t.Log("stmt websocket closed")
 	})
 	config.SetAutoReconnect(true)
-	config.SetReconnectRetryCount(10)
-	config.SetReconnectIntervalMs(2000)
+	config.SetReconnectRetryCount(1)
+	config.SetReconnectIntervalMs(500)
 	connector, err := NewConnector(config)
 	if err != nil {
 		t.Error(err)
@@ -1162,22 +1162,12 @@ func TestSTMTReconnect(t *testing.T) {
 	err = stmt.Close()
 	assert.NoError(t, err)
 	stopTaosadapter(cmd, port)
-	startChan := make(chan struct{})
-	go func() {
-		time.Sleep(time.Second * 3)
-		cmd = newTaosadapter(port)
-		err = startTaosadapter(cmd, port)
-		startChan <- struct{}{}
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
 	stmt, err = connector.Init()
 	assert.Error(t, err)
 	assert.Nil(t, stmt)
-	<-startChan
-	time.Sleep(time.Second)
+	cmd = newTaosadapter(port)
+	err = startTaosadapter(cmd, port)
+	assert.NoError(t, err)
 	stmt, err = connector.Init()
 	assert.NoError(t, err)
 	stopTaosadapter(cmd, port)
@@ -1200,6 +1190,52 @@ func TestSTMTReconnect(t *testing.T) {
 	assert.NoError(t, err)
 	err = stmtNew.Close()
 	assert.NoError(t, err)
+}
+
+func TestSTMTDisconnectNoMessageTimeout(t *testing.T) {
+	port := "36052"
+	cmd := newTaosadapter(port)
+	err := startTaosadapter(cmd, port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		stopTaosadapter(cmd, port)
+	}()
+
+	config := NewConfig("ws://127.0.0.1:"+port, 0)
+	err = config.SetConnectUser("root")
+	assert.NoError(t, err)
+	err = config.SetConnectPass("taosdata")
+	assert.NoError(t, err)
+	err = config.SetMessageTimeout(10 * time.Second)
+	assert.NoError(t, err)
+	err = config.SetWriteWait(3 * time.Second)
+	assert.NoError(t, err)
+	config.SetEnableCompression(true)
+
+	connector, err := NewConnector(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = connector.Close()
+	}()
+
+	stmt, err := connector.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = stmt.Close()
+	assert.NoError(t, err)
+
+	stopTaosadapter(cmd, port)
+	start := time.Now()
+	stmt, err = connector.Init()
+	require.Error(t, err)
+	assert.Nil(t, stmt)
+	assert.NotContains(t, err.Error(), "message timeout")
+	assert.Less(t, time.Since(start), 10*time.Second)
 }
 
 func TestTimezone(t *testing.T) {

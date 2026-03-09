@@ -1093,27 +1093,16 @@ func TestSubscribeReconnect(t *testing.T) {
 		"auto.commit.interval.ms": "1000",
 		"msg.with.table.name":     "true",
 		"ws.autoReconnect":        true,
-		"ws.reconnectIntervalMs":  3000,
-		"ws.reconnectRetryCount":  3,
+		"ws.reconnectIntervalMs":  500,
+		"ws.reconnectRetryCount":  1,
 	})
 	assert.NoError(t, err)
 	stopTaosadapter(cmd)
-	time.Sleep(time.Second)
-	startChan := make(chan struct{})
-	go func() {
-		time.Sleep(time.Second * 3)
-		cmd = newTaosadapter(port)
-		err = startTaosadapter(cmd, port)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		startChan <- struct{}{}
-	}()
 	err = consumer.Subscribe("test_ws_tmq_sub_reconnect_topic", nil)
 	assert.Error(t, err)
-	<-startChan
-	time.Sleep(time.Second)
+	cmd = newTaosadapter(port)
+	err = startTaosadapter(cmd, port)
+	assert.NoError(t, err)
 	err = consumer.Subscribe("test_ws_tmq_sub_reconnect_topic", nil)
 	assert.NoError(t, err)
 	defer func() {
@@ -1129,26 +1118,17 @@ func TestSubscribeReconnect(t *testing.T) {
 	err = doRequest("insert into test_ws_tmq_sub_reconnect.t1 values (now,1)")
 	assert.NoError(t, err)
 	stopTaosadapter(cmd)
-	go func() {
-		defer func() {
-			startChan <- struct{}{}
-		}()
-		time.Sleep(time.Second * 3)
-		cmd = newTaosadapter(port)
-		err = startTaosadapter(cmd, port)
-		if err != nil {
-			t.Errorf("start taosadapter failed: %v", err)
-			return
-		}
-	}()
-	time.Sleep(time.Second)
 	event := consumer.Poll(500)
 	assert.NotNil(t, event)
 	_, ok := event.(tmq.Error)
 	assert.True(t, ok)
-	<-startChan
+	cmd = newTaosadapter(port)
+	err = startTaosadapter(cmd, port)
+	assert.NoError(t, err)
+	err = doRequest("insert into test_ws_tmq_sub_reconnect.t1 values (now,2)")
+	assert.NoError(t, err)
 	haveMessage := false
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
 		event := consumer.Poll(500)
 		if event == nil {
 			continue
@@ -1158,6 +1138,7 @@ func TestSubscribeReconnect(t *testing.T) {
 			t.Log(e)
 			assert.Equal(t, "test_ws_tmq_sub_reconnect", e.DBName())
 			haveMessage = true
+			break
 		default:
 			t.Log(e)
 		}

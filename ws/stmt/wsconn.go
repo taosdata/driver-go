@@ -41,6 +41,7 @@ func (c *WSConn) initClient() {
 	if c.writeTimeout > 0 {
 		c.client.WriteWait = c.writeTimeout
 	}
+	c.client.AsyncCallbacks = false
 	c.client.TextMessageHandler = c.handleTextMessage
 	c.client.BinaryMessageHandler = c.handleBinaryMessage
 	go c.client.WritePump()
@@ -69,8 +70,11 @@ func (c *WSConn) handleTextMessage(message []byte) {
 	c.listLock.Lock()
 	element := c.findOutChanByID(reqID)
 	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
 		c.sendChanList.Remove(element)
+		ch := element.Value.(*IndexedChan).channel
+		c.listLock.Unlock()
+		ch <- message
+		return
 	}
 	c.listLock.Unlock()
 }
@@ -80,8 +84,11 @@ func (c *WSConn) handleBinaryMessage(message []byte) {
 	c.listLock.Lock()
 	element := c.findOutChanByID(reqID)
 	if element != nil {
-		element.Value.(*IndexedChan).channel <- message
 		c.sendChanList.Remove(element)
+		ch := element.Value.(*IndexedChan).channel
+		c.listLock.Unlock()
+		ch <- message
+		return
 	}
 	c.listLock.Unlock()
 }
@@ -143,16 +150,46 @@ func (c *WSConn) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.readTimeout)
 	defer cancel()
+	if resp, ok := tryReadWSResponse(channel.channel); ok {
+		return resp, nil
+	}
 	select {
-	case <-c.closeChan:
-		return nil, errors.New("connection closed")
 	case resp := <-channel.channel:
 		return resp, nil
+	case <-c.closeChan:
+		if resp, ok := tryReadWSResponse(channel.channel); ok {
+			return resp, nil
+		}
+		return nil, errors.New("connection closed")
+	case <-c.client.Done():
+		if resp, ok := tryReadWSResponse(channel.channel); ok {
+			return resp, nil
+		}
+		c.listLock.Lock()
+		c.sendChanList.Remove(element)
+		c.listLock.Unlock()
+		if resp, ok := tryReadWSResponse(channel.channel); ok {
+			return resp, nil
+		}
+		err = c.client.LastError()
+		if err == nil {
+			return nil, client.ClosedError
+		}
+		return nil, fmt.Errorf("%w: %v", client.ClosedError, err)
 	case <-ctx.Done():
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
 		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
+	}
+}
+
+func tryReadWSResponse(ch <-chan []byte) ([]byte, bool) {
+	select {
+	case resp := <-ch:
+		return resp, true
+	default:
+		return nil, false
 	}
 }
 
