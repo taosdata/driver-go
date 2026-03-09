@@ -1133,6 +1133,10 @@ func TestSTMTReconnect(t *testing.T) {
 	defer func() {
 		stopTaosadapter(cmd, port)
 	}()
+	defer func() {
+		cleanErr := doRequest("drop database if exists test_ws_stmt_reconnect")
+		assert.NoError(t, cleanErr)
+	}()
 	config := NewConfig("ws://127.0.0.1:"+port, 0)
 	err = config.SetConnectUser("root")
 	assert.NoError(t, err)
@@ -1173,6 +1177,8 @@ func TestSTMTReconnect(t *testing.T) {
 	stopTaosadapter(cmd, port)
 	cmd = newTaosadapter(port)
 	err = startTaosadapter(cmd, port)
+	assert.NoError(t, err)
+	err = doRequest("drop database if exists test_ws_stmt_reconnect")
 	assert.NoError(t, err)
 	err = doRequest("create database if not exists test_ws_stmt_reconnect")
 	assert.NoError(t, err)

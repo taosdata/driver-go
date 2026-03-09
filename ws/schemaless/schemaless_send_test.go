@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/ws/client"
@@ -56,4 +57,66 @@ func TestSendUsesStableClientDuringReconnect(t *testing.T) {
 
 func clientSendChanLen(c *client.Client) int {
 	return reflect.ValueOf(c).Elem().FieldByName("sendChan").Len()
+}
+
+func TestReconnectStaleFailureDoesNotClearActiveClient(t *testing.T) {
+	staleClient := client.NewClient(nil, 1)
+	defer staleClient.Close()
+	activeClient := client.NewClient(nil, 1)
+	defer activeClient.Close()
+
+	s := &Schemaless{
+		client:              activeClient,
+		sendList:            list.New(),
+		closeChan:           make(chan struct{}),
+		reconnectIntervalMs: 0,
+		reconnectRetryCount: 1,
+		dialer:              &websocket.Dialer{},
+		url:                 "://invalid-url",
+	}
+
+	err := s.reconnect(staleClient)
+	require.NoError(t, err)
+	assert.Same(t, activeClient, s.loadClient())
+	assert.True(t, activeClient.IsRunning())
+}
+
+func TestReconnectFailureClearsMatchedClient(t *testing.T) {
+	failedClient := client.NewClient(nil, 1)
+
+	s := &Schemaless{
+		client:              failedClient,
+		sendList:            list.New(),
+		closeChan:           make(chan struct{}),
+		reconnectIntervalMs: 0,
+		reconnectRetryCount: 1,
+		dialer:              &websocket.Dialer{},
+		url:                 "://invalid-url",
+	}
+
+	err := s.reconnect(failedClient)
+	require.EqualError(t, err, "reconnect failed")
+	assert.Nil(t, s.loadClient())
+	assert.False(t, failedClient.IsRunning())
+}
+
+func TestReconnectDeadReplacementDoesNotShortCircuit(t *testing.T) {
+	failedClient := client.NewClient(nil, 1)
+	deadReplacement := client.NewClient(nil, 1)
+	deadReplacement.Close()
+
+	s := &Schemaless{
+		client:              deadReplacement,
+		sendList:            list.New(),
+		closeChan:           make(chan struct{}),
+		reconnectIntervalMs: 0,
+		reconnectRetryCount: 1,
+		dialer:              &websocket.Dialer{},
+		url:                 "://invalid-url",
+	}
+
+	err := s.reconnect(failedClient)
+	require.EqualError(t, err, "reconnect failed")
+	assert.Same(t, deadReplacement, s.loadClient())
+	assert.False(t, deadReplacement.IsRunning())
 }

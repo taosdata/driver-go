@@ -208,6 +208,10 @@ func TestSchemalessReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		cleanErr := doRequest("drop database if exists test_schemaless_reconnect")
+		assert.NoError(t, cleanErr)
+	}()
 	s, err := NewSchemaless(NewConfig(fmt.Sprintf("ws://localhost:%s", port), 1,
 		SetDb("test_schemaless_reconnect"),
 		SetReadTimeout(3*time.Second),

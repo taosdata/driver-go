@@ -152,11 +152,14 @@ func (c *Consumer) initClient(client *client.Client) {
 	go client.ReadPump()
 }
 
-func (c *Consumer) reconnect() error {
+func (c *Consumer) reconnect(failedClient *client.Client) error {
 	c.reconnectLock.Lock()
 	defer c.reconnectLock.Unlock()
 	if c.isClosed() {
 		return ClosedErr
+	}
+	if currentClient := c.loadClient(); currentClient != failedClient && currentClient != nil && currentClient.IsRunning() {
+		return nil
 	}
 	reconnected := false
 	for i := 0; i < c.reconnectRetryCount; i++ {
@@ -210,7 +213,7 @@ func (c *Consumer) reconnect() error {
 		if c.isClosed() {
 			return ClosedErr
 		}
-		if currentClient := c.clearClient(); currentClient != nil {
+		if currentClient := c.clearClientIf(failedClient); currentClient != nil {
 			currentClient.Close()
 		}
 		return errors.New("reconnect failed")
@@ -474,12 +477,17 @@ const (
 var ClosedErr = errors.New("connection closed")
 
 func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+	resp, _, err := c.sendTextWithClient(reqID, envelope)
+	return resp, err
+}
+
+func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) ([]byte, *client.Client, error) {
 	currentClient := c.loadClient()
 	if currentClient == nil {
 		if c.isClosed() {
-			return nil, ClosedErr
+			return nil, nil, ClosedErr
 		}
-		return nil, client.ClosedError
+		return nil, nil, client.ClosedError
 	}
 	channel := &IndexedChan{
 		index:   reqID,
@@ -492,48 +500,48 @@ func (c *Consumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, er
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
-		return nil, err
+		return nil, currentClient, err
 	}
 	err = <-envelope.ErrorChan
 	if err != nil {
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
-		return nil, err
+		return nil, currentClient, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.messageTimeout)
 	defer cancel()
 	if resp, ok := tryReadTMQResponse(channel.channel); ok {
-		return resp, nil
+		return resp, currentClient, nil
 	}
 	select {
 	case resp := <-channel.channel:
-		return resp, nil
+		return resp, currentClient, nil
 	case <-c.closeChan:
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
-			return resp, nil
+			return resp, currentClient, nil
 		}
-		return nil, ClosedErr
+		return nil, currentClient, ClosedErr
 	case <-currentClient.Done():
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
-			return resp, nil
+			return resp, currentClient, nil
 		}
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
-			return resp, nil
+			return resp, currentClient, nil
 		}
 		err = currentClient.LastError()
 		if err == nil {
-			return nil, ClosedErr
+			return nil, currentClient, ClosedErr
 		}
-		return nil, fmt.Errorf("%w: %v", ClosedErr, err)
+		return nil, currentClient, fmt.Errorf("%w: %v", ClosedErr, err)
 	case <-ctx.Done():
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)
 		c.listLock.Unlock()
-		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
+		return nil, currentClient, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }
 
@@ -638,18 +646,18 @@ func (c *Consumer) doSubscribe(topics []string, reconnect bool) error {
 	if err != nil {
 		return err
 	}
-	respBytes, err := c.sendText(reqID, envelope)
+	respBytes, failedClient, err := c.sendTextWithClient(reqID, envelope)
 	if err != nil {
 		if !reconnect {
 			return err
 		}
 		var opError *net.OpError
 		if errors.Is(err, ClosedErr) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = c.reconnect()
+			err = c.reconnect(failedClient)
 			if err != nil {
 				return err
 			}
-			respBytes, err = c.sendText(reqID, envelope)
+			respBytes, _, err = c.sendTextWithClient(reqID, envelope)
 			if err != nil {
 				return err
 			}
@@ -703,18 +711,18 @@ func (c *Consumer) Poll(timeoutMs int) tmq.Event {
 	if err != nil {
 		return tmq.NewTMQErrorWithErr(err)
 	}
-	respBytes, err := c.sendText(reqID, envelope)
+	respBytes, failedClient, err := c.sendTextWithClient(reqID, envelope)
 	if err != nil {
 		if !c.autoReconnect {
 			return tmq.NewTMQErrorWithErr(err)
 		}
 		var opError *net.OpError
 		if errors.Is(err, ClosedErr) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = c.reconnect()
+			err = c.reconnect(failedClient)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
 			}
-			respBytes, err = c.sendText(reqID, envelope)
+			respBytes, _, err = c.sendTextWithClient(reqID, envelope)
 			if err != nil {
 				return tmq.NewTMQErrorWithErr(err)
 			}
