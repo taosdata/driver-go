@@ -173,6 +173,37 @@ func (c *Connector) generateReqID() uint64 {
 }
 
 func (c *Connector) reconnect() error {
+	return c.reconnectWithFailed(c.client)
+}
+
+func isWSConnRunning(conn *WSConn) bool {
+	return conn != nil && conn.client != nil && conn.client.IsRunning()
+}
+
+func (c *Connector) replaceWSConn(next *WSConn) (*WSConn, bool) {
+	if c.closed {
+		return nil, false
+	}
+	old := c.client
+	c.client = next
+	return old, true
+}
+
+func (c *Connector) closeWSConnIf(target *WSConn) *WSConn {
+	if c.client != target {
+		return nil
+	}
+	current := c.client
+	return current
+}
+
+func (c *Connector) reconnectWithFailed(failedConn *WSConn) error {
+	if c.closed {
+		return ErrConnIsClosed
+	}
+	if c.client != failedConn && isWSConnRunning(c.client) {
+		return nil
+	}
 	reconnected := false
 	for i := 0; i < c.reconnectRetryCount; i++ {
 		time.Sleep(time.Duration(c.reconnectIntervalMs) * time.Millisecond)
@@ -197,13 +228,22 @@ func (c *Connector) reconnect() error {
 		cl.ErrorHandler = c.handleError
 		wsConn := NewWSConn(cl, c.writeTimeout, c.readTimeout)
 		wsConn.initClient()
+		oldConn, ok := c.replaceWSConn(wsConn)
+		if !ok {
+			wsConn.Close()
+			return ErrConnIsClosed
+		}
+		if oldConn != nil {
+			oldConn.Close()
+		}
 		reconnected = true
-		c.client = wsConn
 		break
 	}
 	if !reconnected {
-		if c.client != nil {
-			c.client.Close()
+		if failedConn != nil {
+			if current := c.closeWSConnIf(failedConn); current != nil {
+				current.Close()
+			}
 		}
 		return errors.New("reconnect failed")
 	}
@@ -234,15 +274,19 @@ func (c *Connector) Init() (*Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	respBytes, err := c.client.sendText(reqID, envelope)
+	currentConn := c.client
+	if currentConn == nil {
+		return nil, client.ClosedError
+	}
+	respBytes, err := currentConn.sendText(reqID, envelope)
 	if err != nil {
 		if !c.autoReconnect {
 			return nil, err
 		}
 
 		var opError *net.OpError
-		if !c.client.client.IsRunning() || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
-			err = c.reconnect()
+		if !isWSConnRunning(currentConn) || errors.Is(err, client.ClosedError) || errors.As(err, &opError) {
+			err = c.reconnectWithFailed(currentConn)
 			if err != nil {
 				return nil, err
 			}

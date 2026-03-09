@@ -231,6 +231,12 @@ jobs:
           go env
           go test -coverpkg=./... -v --count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
+      - name: WS reliability gate
+        if: matrix.go == 'stable'
+        run: |
+          ./ws/reliability_gate.sh quick
+          LOOP_COUNT=20 ./ws/reliability_gate.sh loop
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

@@ -1,0 +1,62 @@
+# WebSocket Reliability Contract
+
+This document defines what "safe to use" means for the `ws` stack and how to verify it.
+
+## Scope
+
+Packages in scope:
+
+- `ws/client`
+- `ws/stmt`
+- `ws/schemaless`
+- `ws/tmq`
+
+## Lifecycle Contract
+
+Every websocket client instance must follow this lifecycle:
+
+1. `Init` -> client created and handlers installed.
+2. `Running` -> read/write pumps active and requests accepted.
+3. `Reconnecting` -> old client may fail requests, replacement is dialed.
+4. `Closed` -> no new requests accepted, all waits unblocked.
+
+Required guarantees:
+
+- Only one active client pointer is published at a time.
+- A stale reconnect flow must never clear a newer healthy client.
+- Reconnect short-circuit is allowed only when replacement client is still running.
+- Failed request waiters are removed from pending lists before return.
+
+## Fault Matrix
+
+Each case must have test coverage.
+
+- Normal request/response path succeeds.
+- Send returns closed/network error and auto-reconnect is enabled.
+- Connection dies while waiting for response (`Done` closes).
+- Message timeout is reached.
+- Consumer/schemaless object is closed while request is in flight.
+- Reconnect dial retries are exhausted.
+- Reconnect succeeds but post-reconnect subscribe/bootstrap fails.
+- Concurrent reconnect calls from multiple goroutines.
+
+## Acceptance Gate
+
+A change is release-ready only if all checks pass:
+
+1. Deterministic race gate:
+   - `./ws/reliability_gate.sh full`
+2. Core reconnect loop:
+   - `go test -race ./ws/tmq -run 'TestReconnectStaleFailureDoesNotClearActiveClient|TestReconnectDeadReplacementDoesNotShortCircuit' -count=20`
+   - `go test -race ./ws/schemaless -run 'TestReconnectStaleFailureDoesNotClearActiveClient|TestReconnectDeadReplacementDoesNotShortCircuit' -count=20`
+   - `go test -race ./ws/stmt -run 'TestReconnectHealthyReplacementShortCircuit|TestReconnectDeadReplacementDoesNotShortCircuit|TestReconnectFailureClosesMatchedFailedConn|TestReconnectFailureDoesNotCloseActiveReplacement' -count=20`
+3. Full integration race gate (requires clean TDengine + taosadapter test env):
+   - `./ws/reliability_gate.sh full-integration`
+4. Nightly heavy smoke (optional):
+   - `./ws/reliability_gate.sh loop-full`
+
+## Operational Notes
+
+- Integration tests that create databases must always clean up in `t.Cleanup`.
+- Use unique db names in reconnect/failure tests to avoid cross-test pollution.
+- Temporary local artifacts (patch files, test binaries) must not be committed.

@@ -15,6 +15,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/tdversion"
 	"github.com/taosdata/driver-go/v3/ws/client"
+	wsreconnect "github.com/taosdata/driver-go/v3/ws/internal/reconnect"
 )
 
 const (
@@ -122,7 +123,7 @@ func (s *Schemaless) reconnect(failedClient *client.Client) error {
 	if s.isClosed() {
 		return schemalessClosedErr
 	}
-	if currentClient := s.loadClient(); currentClient != failedClient && currentClient != nil && currentClient.IsRunning() {
+	if wsreconnect.HasHealthyReplacement(s.loadClient(), failedClient) {
 		return nil
 	}
 	reconnected := false
@@ -153,21 +154,16 @@ func (s *Schemaless) reconnect(failedClient *client.Client) error {
 		}
 		c := client.NewClient(conn, s.chanLength)
 		s.initClient(c)
-		oldClient, ok := s.replaceClient(c)
+		oldClient, ok := wsreconnect.ReplaceClientOrClose(c, s.replaceClient)
 		if !ok {
-			c.Close()
 			return schemalessClosedErr
 		}
-		if oldClient != nil {
-			oldClient.Close()
-		}
+		wsreconnect.CloseClient(oldClient)
 		reconnected = true
 		break
 	}
 	if !reconnected {
-		if currentClient := s.clearClientIf(failedClient); currentClient != nil {
-			currentClient.Close()
-		}
+		wsreconnect.CloseMatchedClient(s.clearClientIf, failedClient)
 		return errors.New("reconnect failed")
 	}
 	return nil

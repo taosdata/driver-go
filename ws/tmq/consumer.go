@@ -23,6 +23,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	"github.com/taosdata/driver-go/v3/ws/client"
+	wsreconnect "github.com/taosdata/driver-go/v3/ws/internal/reconnect"
 )
 
 type Consumer struct {
@@ -158,7 +159,7 @@ func (c *Consumer) reconnect(failedClient *client.Client) error {
 	if c.isClosed() {
 		return ClosedErr
 	}
-	if currentClient := c.loadClient(); currentClient != failedClient && currentClient != nil && currentClient.IsRunning() {
+	if wsreconnect.HasHealthyReplacement(c.loadClient(), failedClient) {
 		return nil
 	}
 	reconnected := false
@@ -189,20 +190,15 @@ func (c *Consumer) reconnect(failedClient *client.Client) error {
 			cl.Close()
 			return ClosedErr
 		}
-		oldClient, ok := c.replaceClient(cl)
+		oldClient, ok := wsreconnect.ReplaceClientOrClose(cl, c.replaceClient)
 		if !ok {
-			cl.Close()
 			return ClosedErr
 		}
-		if oldClient != nil {
-			oldClient.Close()
-		}
+		wsreconnect.CloseClient(oldClient)
 		if len(c.topics) > 0 {
 			err = c.doSubscribe(c.topics, false)
 			if err != nil {
-				if currentClient := c.clearClientIf(cl); currentClient != nil {
-					currentClient.Close()
-				}
+				wsreconnect.CloseMatchedClient(c.clearClientIf, cl)
 				continue
 			}
 		}
@@ -213,9 +209,7 @@ func (c *Consumer) reconnect(failedClient *client.Client) error {
 		if c.isClosed() {
 			return ClosedErr
 		}
-		if currentClient := c.clearClientIf(failedClient); currentClient != nil {
-			currentClient.Close()
-		}
+		wsreconnect.CloseMatchedClient(c.clearClientIf, failedClient)
 		return errors.New("reconnect failed")
 	}
 	return nil
