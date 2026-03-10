@@ -13,54 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: get TDengine nightly
-        run: |
-          wget "${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}/tsdb-nightly-main.tar.gz?v=$(date +%s)" -O tsdb-nightly-main.tar.gz
-
-      - name: install TDengine nightly
-        run: |
-          tar -zxf tsdb-nightly-main.tar.gz
-          cd tsdb-nightly-main
-          sudo ./install.sh
-
-      - name: checkout
+      - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: copy taos configs
-        run: |
-          sudo mkdir -p /etc/taos
-          sudo cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
-          sudo cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+      - name: Setup TDengine nightly
+        uses: ./.github/actions/setup-tdengine
+        with:
+          mode: 'nightly'
+          branch: 'main'
+          start-services: 'true'
+          nightly-url: ${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}
 
-      - name: start taosd
-        run: |
-          cat >start.sh<<EOF
-          ulimit -n 65535 && TAOS_SUPPORT_VNODES=256 taosd
-          EOF
-          nohup sudo sh ./start.sh >taosd.out 2>&1 &
-
-      - name: start taosadapter
-        run: |
-          nohup sudo taosadapter >taosadapter.out 2>&1 &
-
-      - name: wait for taosadapter ready
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sf "http://127.0.0.1:6041/-/ping" >/dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "taosadapter readiness check failed" >&2
-          exit 1
-
-      - name: set up Go
+      - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: stable
           cache-dependency-path: go.sum
 
-      - name: run ws reliability gate
+      - name: Run ws reliability gate
         id: ws_gate
         run: |
           set -euo pipefail
@@ -81,7 +51,7 @@ jobs:
             exit 1
           fi
 
-      - name: build ws reliability report
+      - name: Build reliability report
         if: always()
         run: |
           set +e
@@ -113,7 +83,7 @@ jobs:
           } | tee ws_reliability_report.md
           cat ws_reliability_report.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: collect runtime logs on failure
+      - name: Collect failure logs
         if: failure()
         run: |
           mkdir -p ws-reliability-logs
@@ -122,7 +92,7 @@ jobs:
           cp -f ws_reliability_gate.out ws-reliability-logs/ws_reliability_gate.out || true
           sudo cp -r /var/log/taos ws-reliability-logs/var-log-taos || true
 
-      - name: upload ws reliability report artifact
+      - name: Upload report artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -135,7 +105,7 @@ jobs:
             taosadapter.out
           if-no-files-found: warn
 
-      - name: upload ws reliability failure logs
+      - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@v6
         with:
@@ -143,7 +113,7 @@ jobs:
           path: ws-reliability-logs
           if-no-files-found: warn
 
-      - name: cleanup processes
+      - name: Cleanup
         if: always()
         run: |
           sudo pkill -f taosadapter || true
