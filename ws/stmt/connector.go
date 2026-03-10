@@ -165,15 +165,10 @@ func (c *Connector) handleError(err error) {
 	if c.customErrorHandler != nil {
 		c.customErrorHandler(c, err)
 	}
-	//c.Close()
 }
 
 func (c *Connector) generateReqID() uint64 {
 	return uint64(common.GetReqID())
-}
-
-func (c *Connector) reconnect() error {
-	return c.reconnectWithFailed(c.client)
 }
 
 func isWSConnRunning(conn *WSConn) bool {

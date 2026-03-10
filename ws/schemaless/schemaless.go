@@ -120,7 +120,7 @@ func (s *Schemaless) reconnect(failedClient *client.Client) error {
 	s.reconnectLock.Lock()
 	defer s.reconnectLock.Unlock()
 	if s.isClosed() {
-		return schemalessClosedErr
+		return SchemalessClosedErr
 	}
 	if wsreconnect.HasHealthyReplacement(s.loadClient(), failedClient) {
 		return nil
@@ -128,11 +128,11 @@ func (s *Schemaless) reconnect(failedClient *client.Client) error {
 	reconnected := false
 	for i := 0; i < s.reconnectRetryCount; i++ {
 		if s.isClosed() {
-			return schemalessClosedErr
+			return SchemalessClosedErr
 		}
 		time.Sleep(time.Duration(s.reconnectIntervalMs) * time.Millisecond)
 		if s.isClosed() {
-			return schemalessClosedErr
+			return SchemalessClosedErr
 		}
 		conn, _, err := s.dialer.Dial(s.url, nil)
 		if err != nil {
@@ -149,13 +149,13 @@ func (s *Schemaless) reconnect(failedClient *client.Client) error {
 		}
 		if s.isClosed() {
 			_ = conn.Close()
-			return schemalessClosedErr
+			return SchemalessClosedErr
 		}
 		c := client.NewClient(conn, s.chanLength)
 		s.initClient(c)
 		oldClient, ok := wsreconnect.ReplaceClientOrClose(c, s.replaceClient)
 		if !ok {
-			return schemalessClosedErr
+			return SchemalessClosedErr
 		}
 		wsreconnect.CloseClient(oldClient)
 		reconnected = true
@@ -212,8 +212,9 @@ func (s *Schemaless) Close() {
 
 var (
 	//revive:disable-next-line
-	ConnectTimeoutErr   = errors.New("schemaless connect timeout")
-	schemalessClosedErr = errors.New("connection closed")
+	ConnectTimeoutErr = errors.New("schemaless connect timeout")
+	//revive:disable-next-line
+	SchemalessClosedErr = errors.New("connection closed")
 )
 
 func connect(ws *websocket.Conn, user string, password string, db string, totpCode string, bearerToken string, writeTimeout time.Duration, readTimeout time.Duration) error {
@@ -280,7 +281,7 @@ func (s *Schemaless) sendTextWithReconnect(reqID uint64, envelope *client.Envelo
 		return nil, err
 	}
 	if s.isClosed() {
-		return nil, schemalessClosedErr
+		return nil, SchemalessClosedErr
 	}
 	if !wsreconnect.IsReconnectableError(err) {
 		return nil, err
@@ -309,7 +310,7 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 	currentClient := s.loadClient()
 	if currentClient == nil {
 		if s.isClosed() {
-			return nil, nil, schemalessClosedErr
+			return nil, nil, SchemalessClosedErr
 		}
 		return nil, nil, client.ClosedError
 	}
@@ -344,7 +345,7 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
-		return nil, currentClient, schemalessClosedErr
+		return nil, currentClient, SchemalessClosedErr
 	case <-currentClient.Done():
 		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
 			return resp, currentClient, nil
@@ -356,7 +357,7 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 			return resp, currentClient, nil
 		}
 		if s.isClosed() {
-			return nil, currentClient, schemalessClosedErr
+			return nil, currentClient, SchemalessClosedErr
 		}
 		err = currentClient.LastError()
 		if err == nil {

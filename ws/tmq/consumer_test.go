@@ -941,6 +941,7 @@ func TestMeta(t *testing.T) {
 		"auto.commit.interval.ms": "1000",
 		"msg.with.table.name":     "true",
 	})
+	assert.NoError(t, err)
 	err = consumer.Subscribe("test_ws_tmq_meta_topic", nil)
 	assert.NoError(t, err)
 	defer func() {
@@ -1155,7 +1156,6 @@ func TestSubscribeReconnect(t *testing.T) {
 			t.Log(e)
 			assert.Equal(t, "test_ws_tmq_sub_reconnect", e.DBName())
 			haveMessage = true
-			break
 		default:
 			t.Log(e)
 		}

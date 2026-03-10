@@ -39,7 +39,7 @@ func TestSchemalessSendWithNilClientAfterClose(t *testing.T) {
 	envelope.Msg.WriteString(`{"action":"insert","args":{"req_id":1}}`)
 
 	_, err := sl.sendText(1, envelope)
-	assert.Equal(t, schemalessClosedErr, err)
+	assert.Equal(t, SchemalessClosedErr, err)
 	assert.False(t, errors.Is(err, client.ClosedError))
 }
 
@@ -60,6 +60,6 @@ func TestSchemalessInsertAfterCloseDoesNotReconnect(t *testing.T) {
 		0,
 		1,
 	)
-	assert.Equal(t, schemalessClosedErr, err)
+	assert.Equal(t, SchemalessClosedErr, err)
 	assert.NotContains(t, err.Error(), "reconnect failed")
 }
