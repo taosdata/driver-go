@@ -160,6 +160,12 @@ func (c *WSConn) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
 			return resp, nil
 		}
+		c.listLock.Lock()
+		c.sendChanList.Remove(element)
+		c.listLock.Unlock()
+		if resp, ok := tryReadWSResponse(channel.channel); ok {
+			return resp, nil
+		}
 		return nil, errors.New("connection closed")
 	case <-c.client.Done():
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
@@ -171,11 +177,7 @@ func (c *WSConn) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
 			return resp, nil
 		}
-		err = c.client.LastError()
-		if err == nil {
-			return nil, client.ClosedError
-		}
-		return nil, fmt.Errorf("%w: %v", client.ClosedError, err)
+		return nil, client.WrapClosedError(client.ClosedError, c.client.LastError())
 	case <-ctx.Done():
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)

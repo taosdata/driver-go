@@ -3,6 +3,8 @@ package client
 import (
 	"bytes"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -174,6 +176,22 @@ func TestClientCloseUnblocksBlockedSend(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("blocked send was not released by close")
 	}
+}
+
+func TestWrapClosedError(t *testing.T) {
+	cause := &net.OpError{Op: "read", Err: io.ErrUnexpectedEOF}
+
+	err := WrapClosedError(ClosedError, cause)
+
+	assert.True(t, errors.Is(err, ClosedError))
+	assert.True(t, errors.Is(err, io.ErrUnexpectedEOF))
+	var opErr *net.OpError
+	assert.True(t, errors.As(err, &opErr))
+	assert.Same(t, cause, opErr)
+}
+
+func TestWrapClosedErrorWithoutCause(t *testing.T) {
+	assert.Equal(t, ClosedError, WrapClosedError(ClosedError, nil))
 }
 
 func TestHandleResponseError(t *testing.T) {

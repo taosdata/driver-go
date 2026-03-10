@@ -747,6 +747,9 @@ func (tc *taosConn) readResponse() (int, []byte, error) {
 			}
 			return msg.mt, msg.message, nil
 		}
+		if err := tc.getMessageError(); err != nil {
+			return 0, nil, err
+		}
 		return 0, nil, driver.ErrBadConn
 	case <-tc.messageErrCh:
 		if msg, ok := tc.tryReadQueuedMessage(); ok {

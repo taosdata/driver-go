@@ -535,6 +535,12 @@ func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) (
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
+		c.listLock.Lock()
+		c.sendChanList.Remove(element)
+		c.listLock.Unlock()
+		if resp, ok := tryReadTMQResponse(channel.channel); ok {
+			return resp, currentClient, nil
+		}
 		return nil, currentClient, ClosedErr
 	case <-currentClient.Done():
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
@@ -546,11 +552,10 @@ func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) (
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
-		err = currentClient.LastError()
-		if err == nil {
+		if c.isClosed() {
 			return nil, currentClient, ClosedErr
 		}
-		return nil, currentClient, fmt.Errorf("%w: %v", ClosedErr, err)
+		return nil, currentClient, client.WrapClosedError(ClosedErr, currentClient.LastError())
 	case <-ctx.Done():
 		c.listLock.Lock()
 		c.sendChanList.Remove(element)

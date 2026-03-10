@@ -3,6 +3,7 @@ package taosWS
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -28,11 +29,11 @@ var pingDisconnectABUpgrader = websocket.Upgrader{
 
 type failingWriteConn struct {
 	net.Conn
-	failWrites atomic.Bool
+	failWrites uint32
 }
 
 func (c *failingWriteConn) Write(p []byte) (int, error) {
-	if c.failWrites.Load() {
+	if atomic.LoadUint32(&c.failWrites) != 0 {
 		return 0, io.ErrClosedPipe
 	}
 	return c.Conn.Write(p)
@@ -174,7 +175,7 @@ func runPingFailureWhileWaitingScenario(t *testing.T) (time.Duration, error, err
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	wrappedConn.failWrites.Store(true)
+	atomic.StoreUint32(&wrappedConn.failWrites, 1)
 	pingErr := conn.writePing()
 	require.Error(t, pingErr)
 
@@ -213,6 +214,24 @@ func TestReadResponsePrefersQueuedMessageOverClose(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, websocket.TextMessage, mt)
 	assert.Equal(t, []byte("ok"), resp)
+}
+
+func TestReadResponseReturnsMessageErrorOnClose(t *testing.T) {
+	tc := &taosConn{
+		messageChan:  make(chan *message, 1),
+		messageErrCh: make(chan struct{}),
+		closeCh:      make(chan struct{}),
+		readTimeout:  time.Second,
+	}
+	specificErr := errors.New("specific message error")
+	tc.setMessageError(specificErr)
+	close(tc.closeCh)
+
+	mt, resp, err := tc.readResponse()
+	require.Error(t, err)
+	assert.Equal(t, 0, mt)
+	assert.Nil(t, resp)
+	assert.Equal(t, specificErr, err)
 }
 
 func TestEnqueueMessageUnblocksOnCloseWhenQueueFull(t *testing.T) {

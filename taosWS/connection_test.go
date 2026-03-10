@@ -157,6 +157,11 @@ func startTaosadapter(cmd *osexec.Cmd, port string) error {
 		time.Sleep(time.Second)
 		return nil
 	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Signal(syscall.SIGINT)
+		_, _ = cmd.Process.Wait()
+		cmd.Process = nil
+	}
 	return errors.New("taosadapter start failed")
 }
 
