@@ -184,11 +184,12 @@ func (c *Connector) replaceWSConn(next *WSConn) (*WSConn, bool) {
 	return old, true
 }
 
-func (c *Connector) closeWSConnIf(target *WSConn) *WSConn {
+func (c *Connector) clearWSConnIf(target *WSConn) *WSConn {
 	if c.client != target {
 		return nil
 	}
 	current := c.client
+	c.client = nil
 	return current
 }
 
@@ -236,7 +237,7 @@ func (c *Connector) reconnectWithFailed(failedConn *WSConn) error {
 	}
 	if !reconnected {
 		if failedConn != nil {
-			if current := c.closeWSConnIf(failedConn); current != nil {
+			if current := c.clearWSConnIf(failedConn); current != nil {
 				current.Close()
 			}
 		}

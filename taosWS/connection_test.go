@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	osexec "os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -184,8 +186,20 @@ func stopTaosadapter(cmd *osexec.Cmd, port string) {
 	panic("taosadapter stop failed")
 }
 
+func getAvailablePort(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen on ephemeral port: %v", err)
+	}
+	defer func() {
+		_ = listener.Close()
+	}()
+	return strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+}
+
 func TestDisconnectNoReadTimeout(t *testing.T) {
-	port := "36054"
+	port := getAvailablePort(t)
 	cmd := newTaosadapter(port)
 	err := startTaosadapter(cmd, port)
 	if err != nil {

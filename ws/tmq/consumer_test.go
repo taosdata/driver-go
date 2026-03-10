@@ -941,7 +941,7 @@ func TestMeta(t *testing.T) {
 		"auto.commit.interval.ms": "1000",
 		"msg.with.table.name":     "true",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = consumer.Subscribe("test_ws_tmq_meta_topic", nil)
 	assert.NoError(t, err)
 	defer func() {

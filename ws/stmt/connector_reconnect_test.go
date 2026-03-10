@@ -56,6 +56,7 @@ func TestReconnectFailureClosesMatchedFailedConn(t *testing.T) {
 	err := connector.reconnectWithFailed(failed)
 	assert.EqualError(t, err, "reconnect failed")
 	assert.False(t, isWSConnRunning(failed))
+	assert.Nil(t, connector.client)
 }
 
 func TestReconnectFailureDoesNotCloseActiveReplacement(t *testing.T) {

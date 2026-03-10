@@ -234,6 +234,7 @@ func (c *Client) Close() {
 }
 
 func (c *Client) handleError(err error) {
+	atomic.StoreUint32(&c.status, StatusStop)
 	c.errLock.Lock()
 	if c.lastErr == nil {
 		c.lastErr = err

@@ -178,6 +178,28 @@ func TestClientCloseUnblocksBlockedSend(t *testing.T) {
 	}
 }
 
+func TestClientHandleErrorRejectsNewSends(t *testing.T) {
+	c := NewClient(nil, 1)
+	env := c.GetEnvelope()
+	defer c.PutEnvelope(env)
+
+	specificErr := errors.New("write failed")
+	c.handleError(specificErr)
+
+	assert.False(t, c.IsRunning())
+	assert.Equal(t, specificErr, c.LastError())
+
+	err := c.Send(env)
+	assert.Equal(t, ClosedError, err)
+	assert.Len(t, c.sendChan, 0)
+
+	select {
+	case <-c.Done():
+	default:
+		t.Fatal("done channel should be closed after handleError")
+	}
+}
+
 func TestWrapClosedError(t *testing.T) {
 	cause := &net.OpError{Op: "read", Err: io.ErrUnexpectedEOF}
 

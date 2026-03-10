@@ -143,7 +143,7 @@ func (s *Schemaless) reconnect(failedClient *client.Client) error {
 			_ = conn.Close()
 			continue
 		}
-		if tdversion.WSCheckVersion(conn) != nil {
+		if err = tdversion.WSCheckVersion(conn); err != nil {
 			_ = conn.Close()
 			continue
 		}
