@@ -74,3 +74,16 @@ func TestReconnectFailureDoesNotCloseActiveReplacement(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, isWSConnRunning(active))
 }
+
+func TestSendTextWithReconnectNilClientTriggersReconnect(t *testing.T) {
+	connector := &Connector{
+		client:              nil,
+		autoReconnect:       true,
+		reconnectRetryCount: 0,
+	}
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
+
+	_, err := connector.sendTextWithReconnect(1, envelope)
+	assert.EqualError(t, err, "reconnect failed")
+}

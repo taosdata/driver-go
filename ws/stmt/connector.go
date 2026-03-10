@@ -249,7 +249,16 @@ func (c *Connector) reconnectWithFailed(failedConn *WSConn) error {
 func (c *Connector) sendTextWithReconnect(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	currentConn := c.client
 	if currentConn == nil {
-		return nil, client.ClosedError
+		if !c.autoReconnect {
+			return nil, client.ClosedError
+		}
+		if err := c.reconnectWithFailed(nil); err != nil {
+			return nil, err
+		}
+		currentConn = c.client
+		if currentConn == nil {
+			return nil, client.ClosedError
+		}
 	}
 	respBytes, err := currentConn.sendText(reqID, envelope)
 	if err == nil {
@@ -266,7 +275,11 @@ func (c *Connector) sendTextWithReconnect(reqID uint64, envelope *client.Envelop
 	if err = c.reconnectWithFailed(currentConn); err != nil {
 		return nil, err
 	}
-	respBytes, err = c.client.sendText(reqID, envelope)
+	currentConn = c.client
+	if currentConn == nil {
+		return nil, client.ClosedError
+	}
+	respBytes, err = currentConn.sendText(reqID, envelope)
 	if err != nil {
 		return nil, err
 	}
