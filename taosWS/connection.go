@@ -681,7 +681,8 @@ func (tc *taosConn) write(messageType int, data []byte) error {
 	}
 	err = tc.client.WriteMessage(messageType, data)
 	if err != nil {
-		badErr := NewBadConnErrorWithCtx(err, string(data))
+		// Outbound payloads may contain credentials or user data; do not retain them in errors.
+		badErr := NewBadConnError(err)
 		tc.setMessageError(badErr)
 		return badErr
 	}
@@ -721,10 +722,7 @@ func (tc *taosConn) readBytes() ([]byte, error) {
 
 func (tc *taosConn) readResponse() (int, []byte, error) {
 	if msg, ok := tc.tryReadQueuedMessage(); ok {
-		if msg.err != nil {
-			return 0, nil, NewBadConnError(msg.err)
-		}
-		return msg.mt, msg.message, nil
+		return unwrapQueuedMessage(msg)
 	}
 	if err := tc.getMessageError(); err != nil {
 		return 0, nil, err
@@ -736,36 +734,31 @@ func (tc *taosConn) readResponse() (int, []byte, error) {
 	defer cancel()
 	select {
 	case msg := <-tc.messageChan:
-		if msg.err != nil {
-			return 0, nil, NewBadConnError(msg.err)
-		}
-		return msg.mt, msg.message, nil
+		return unwrapQueuedMessage(msg)
 	case <-tc.closeCh:
-		if msg, ok := tc.tryReadQueuedMessage(); ok {
-			if msg.err != nil {
-				return 0, nil, NewBadConnError(msg.err)
-			}
-			return msg.mt, msg.message, nil
-		}
-		if err := tc.getMessageError(); err != nil {
-			return 0, nil, err
-		}
-		return 0, nil, driver.ErrBadConn
+		return tc.readQueuedMessageOrBadConn()
 	case <-tc.messageErrCh:
-		if msg, ok := tc.tryReadQueuedMessage(); ok {
-			if msg.err != nil {
-				return 0, nil, NewBadConnError(msg.err)
-			}
-			return msg.mt, msg.message, nil
-		}
-		err := tc.getMessageError()
-		if err == nil {
-			return 0, nil, driver.ErrBadConn
-		}
-		return 0, nil, err
+		return tc.readQueuedMessageOrBadConn()
 	case <-ctx.Done():
 		return 0, nil, NewBadConnError(ReadTimeoutError)
 	}
+}
+
+func unwrapQueuedMessage(msg *message) (int, []byte, error) {
+	if msg.err != nil {
+		return 0, nil, NewBadConnError(msg.err)
+	}
+	return msg.mt, msg.message, nil
+}
+
+func (tc *taosConn) readQueuedMessageOrBadConn() (int, []byte, error) {
+	if msg, ok := tc.tryReadQueuedMessage(); ok {
+		return unwrapQueuedMessage(msg)
+	}
+	if err := tc.getMessageError(); err != nil {
+		return 0, nil, err
+	}
+	return 0, nil, driver.ErrBadConn
 }
 
 func (tc *taosConn) tryReadQueuedMessage() (*message, bool) {

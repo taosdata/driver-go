@@ -325,16 +325,12 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 	element := s.addMessageOutChan(channel)
 	err := currentClient.Send(envelope)
 	if err != nil {
-		s.lock.Lock()
-		s.sendList.Remove(element)
-		s.lock.Unlock()
+		s.removeMessageOutChan(element)
 		return nil, currentClient, false, err
 	}
 	err = <-envelope.ErrorChan
 	if err != nil {
-		s.lock.Lock()
-		s.sendList.Remove(element)
-		s.lock.Unlock()
+		s.removeMessageOutChan(element)
 		return nil, currentClient, false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.readTimeout)
@@ -349,9 +345,7 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
 			return resp, currentClient, true, nil
 		}
-		s.lock.Lock()
-		s.sendList.Remove(element)
-		s.lock.Unlock()
+		s.removeMessageOutChan(element)
 		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
 			return resp, currentClient, true, nil
 		}
@@ -360,9 +354,7 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
 			return resp, currentClient, true, nil
 		}
-		s.lock.Lock()
-		s.sendList.Remove(element)
-		s.lock.Unlock()
+		s.removeMessageOutChan(element)
 		if resp, ok := tryReadSchemalessResponse(channel.channel); ok {
 			return resp, currentClient, true, nil
 		}
@@ -371,9 +363,7 @@ func (s *Schemaless) sendWithClient(reqID uint64, envelope *client.Envelope) ([]
 		}
 		return nil, currentClient, true, client.WrapClosedError(client.ClosedError, currentClient.LastError())
 	case <-ctx.Done():
-		s.lock.Lock()
-		s.sendList.Remove(element)
-		s.lock.Unlock()
+		s.removeMessageOutChan(element)
 		return nil, currentClient, true, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }
@@ -443,6 +433,12 @@ func (s *Schemaless) addMessageOutChan(outChan *IndexedChan) *list.Element {
 	defer s.lock.Unlock()
 	element := s.sendList.PushBack(outChan)
 	return element
+}
+
+func (s *Schemaless) removeMessageOutChan(element *list.Element) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.sendList.Remove(element)
 }
 
 func (s *Schemaless) handleTextMessage(message []byte) {

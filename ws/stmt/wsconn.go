@@ -136,16 +136,12 @@ func (c *WSConn) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	element := c.addMessageOutChan(channel)
 	err := c.client.Send(envelope)
 	if err != nil {
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		return nil, err
 	}
 	err = <-envelope.ErrorChan
 	if err != nil {
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.readTimeout)
@@ -160,9 +156,7 @@ func (c *WSConn) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
 			return resp, nil
 		}
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
 			return resp, nil
 		}
@@ -171,17 +165,13 @@ func (c *WSConn) send(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
 			return resp, nil
 		}
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		if resp, ok := tryReadWSResponse(channel.channel); ok {
 			return resp, nil
 		}
 		return nil, client.WrapClosedError(client.ClosedError, c.client.LastError())
 	case <-ctx.Done():
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		return nil, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }
@@ -209,6 +199,12 @@ func (c *WSConn) addMessageOutChan(outChan *IndexedChan) *list.Element {
 	element := c.sendChanList.PushBack(outChan)
 	c.listLock.Unlock()
 	return element
+}
+
+func (c *WSConn) removeMessageOutChan(element *list.Element) {
+	c.listLock.Lock()
+	defer c.listLock.Unlock()
+	c.sendChanList.Remove(element)
 }
 
 func (c *WSConn) Close() {

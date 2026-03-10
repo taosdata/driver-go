@@ -431,6 +431,12 @@ func (c *Consumer) addMessageOutChan(outChan *IndexedChan) *list.Element {
 	return element
 }
 
+func (c *Consumer) removeMessageOutChan(element *list.Element) {
+	c.listLock.Lock()
+	defer c.listLock.Unlock()
+	c.sendChanList.Remove(element)
+}
+
 func (c *Consumer) findOutChanByID(index uint64) *list.Element {
 	root := c.sendChanList.Front()
 	if root == nil {
@@ -511,16 +517,12 @@ func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) (
 	envelope.Type = websocket.TextMessage
 	err := currentClient.Send(envelope)
 	if err != nil {
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		return nil, currentClient, err
 	}
 	err = <-envelope.ErrorChan
 	if err != nil {
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		return nil, currentClient, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), c.messageTimeout)
@@ -535,9 +537,7 @@ func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) (
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
@@ -546,9 +546,7 @@ func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) (
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		if resp, ok := tryReadTMQResponse(channel.channel); ok {
 			return resp, currentClient, nil
 		}
@@ -557,9 +555,7 @@ func (c *Consumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) (
 		}
 		return nil, currentClient, client.WrapClosedError(ClosedErr, currentClient.LastError())
 	case <-ctx.Done():
-		c.listLock.Lock()
-		c.sendChanList.Remove(element)
-		c.listLock.Unlock()
+		c.removeMessageOutChan(element)
 		return nil, currentClient, fmt.Errorf("message timeout :%s", envelope.Msg.String())
 	}
 }
