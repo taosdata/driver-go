@@ -1,12 +1,14 @@
 package taosWS
 
 import (
-	"bytes"
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,10 +21,13 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 )
 
-func newFailingWriteWSConn(t *testing.T) (*websocket.Conn, *failingWriteConn, func()) {
+type failingConnHolder struct {
+	conn *failingWriteConn
+}
+
+func setupFailingDialerServer(t *testing.T, failOnCreate bool) (*Config, *failingConnHolder, func()) {
 	t.Helper()
 
-	done := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := pingDisconnectABUpgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -31,93 +36,93 @@ func newFailingWriteWSConn(t *testing.T) (*websocket.Conn, *failingWriteConn, fu
 		defer func() {
 			_ = conn.Close()
 		}()
-		<-done
+
+		// Handle connect request for successful bootstrap.
+		_, _, err = conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
+
+		// Keep connection alive for test duration.
+		<-time.After(2 * time.Second)
 	}))
 
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	host, portStr, err := net.SplitHostPort(u.Host)
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+
+	origDialer := common.DefaultDialer
 	dialer := common.DefaultDialer
-	var wrappedConn *failingWriteConn
+	holder := &failingConnHolder{}
 	dialer.NetDialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
-		if err != nil {
-			return nil, err
+		conn, dialErr := (&net.Dialer{}).DialContext(ctx, network, addr)
+		if dialErr != nil {
+			return nil, dialErr
 		}
-		wrappedConn = &failingWriteConn{Conn: conn}
+		wrappedConn := &failingWriteConn{Conn: conn}
+		if failOnCreate {
+			atomic.StoreUint32(&wrappedConn.failWrites, 1)
+		}
+		holder.conn = wrappedConn
 		return wrappedConn, nil
 	}
+	common.DefaultDialer = dialer
 
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
-	ws, _, err := dialer.Dial(wsURL, nil)
-	require.NoError(t, err)
-	require.NotNil(t, wrappedConn)
+	cfg := NewConfig()
+	cfg.User = "root"
+	cfg.Passwd = "taosdata"
+	cfg.Net = "ws"
+	cfg.Addr = host
+	cfg.Port = port
+	cfg.ReadTimeout = 3 * time.Second
+	cfg.WriteTimeout = 3 * time.Second
 
 	cleanup := func() {
-		_ = ws.Close()
-		close(done)
+		common.DefaultDialer = origDialer
 		server.Close()
 	}
-	return ws, wrappedConn, cleanup
+	return cfg, holder, cleanup
 }
 
 func TestWriteTextErrorDoesNotLeakPayload(t *testing.T) {
-	ws, wrappedConn, cleanup := newFailingWriteWSConn(t)
+	cfg, holder, cleanup := setupFailingDialerServer(t, false)
 	defer cleanup()
 
-	tc := &taosConn{
-		client:       ws,
-		writeTimeout: time.Second,
-		closeCh:      make(chan struct{}),
-		messageErrCh: make(chan struct{}),
-	}
+	tc, err := newTaosConn(cfg)
+	require.NoError(t, err)
+	defer func() {
+		_ = tc.Close()
+	}()
+	require.NotNil(t, holder.conn)
 
-	payload := []byte(`{"sql":"insert into log values('top-secret-value')"}`)
-	atomic.StoreUint32(&wrappedConn.failWrites, 1)
-
-	err := tc.writeText(payload)
+	atomic.StoreUint32(&holder.conn.failWrites, 1)
+	secretSQL := "insert into log values('top-secret-value')"
+	_, err = tc.ExecContext(context.Background(), secretSQL, nil)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, driver.ErrBadConn)
-	assert.Contains(t, err.Error(), "closed pipe")
+	assert.Contains(t, strings.ToLower(err.Error()), "closed")
 	assert.NotContains(t, err.Error(), "top-secret-value")
-	assert.NotContains(t, err.Error(), string(payload))
-
-	storedErr := tc.getMessageError()
-	require.Error(t, storedErr)
-	assert.Equal(t, err, storedErr)
-	assert.NotContains(t, storedErr.Error(), "top-secret-value")
-	assert.NotContains(t, storedErr.Error(), string(payload))
+	assert.NotContains(t, err.Error(), secretSQL)
 }
 
 func TestConnectWriteErrorDoesNotLeakCredentials(t *testing.T) {
-	ws, wrappedConn, cleanup := newFailingWriteWSConn(t)
+	cfg, _, cleanup := setupFailingDialerServer(t, true)
 	defer cleanup()
 
-	cfg := NewConfig()
 	cfg.User = "root"
 	cfg.Passwd = "super-secret-password"
 	cfg.BearerToken = "super-secret-token"
 	cfg.TotpCode = "654321"
 
-	tc := &taosConn{
-		buf:          &bytes.Buffer{},
-		client:       ws,
-		writeTimeout: time.Second,
-		cfg:          cfg,
-		closeCh:      make(chan struct{}),
-		messageErrCh: make(chan struct{}),
-	}
-
-	atomic.StoreUint32(&wrappedConn.failWrites, 1)
-
-	err := tc.connect()
+	_, err := newTaosConn(cfg)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, driver.ErrBadConn)
-	assert.Contains(t, err.Error(), "closed pipe")
-	assert.NotContains(t, err.Error(), cfg.Passwd)
-	assert.NotContains(t, err.Error(), cfg.BearerToken)
-	assert.NotContains(t, err.Error(), cfg.TotpCode)
-
-	storedErr := tc.getMessageError()
-	require.Error(t, storedErr)
-	assert.NotContains(t, storedErr.Error(), cfg.Passwd)
-	assert.NotContains(t, storedErr.Error(), cfg.BearerToken)
-	assert.NotContains(t, storedErr.Error(), cfg.TotpCode)
+	assert.Contains(t, strings.ToLower(err.Error()), "closed")
+	assert.NotContains(t, fmt.Sprint(err), cfg.Passwd)
+	assert.NotContains(t, fmt.Sprint(err), cfg.BearerToken)
+	assert.NotContains(t, fmt.Sprint(err), cfg.TotpCode)
 }

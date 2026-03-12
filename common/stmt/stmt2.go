@@ -155,7 +155,7 @@ func marshalStmt2BinaryWithHeader(bindData []*TaosStmt2BindData, isInsert bool, 
 		return nil, fmt.Errorf("no data")
 	}
 	var tableNameLengthLen = uint32(0)
-	var tableNameBufferLen uint32 = 0
+	var tableNameBufferLen uint32
 
 	var tagsDataLengthLen = uint32(0)
 	var tagsBufferLen = uint32(0)
@@ -192,11 +192,11 @@ func marshalStmt2BinaryWithHeader(bindData []*TaosStmt2BindData, isInsert bool, 
 				if IsVarDataType(tagFields[i].FieldType) {
 					bsCount := uint32(0)
 					if tagVal != nil {
-						switch tagVal.(type) {
+						switch tagVal := tagVal.(type) {
 						case []byte:
-							bsCount = uint32(len(tagVal.([]byte)))
+							bsCount = uint32(len(tagVal))
 						case string:
-							bsCount = uint32(len(tagVal.(string)))
+							bsCount = uint32(len(tagVal))
 						default:
 							return nil, fmt.Errorf("unsupported tag type %T", tagVal)
 						}
@@ -250,11 +250,11 @@ func marshalStmt2BinaryWithHeader(bindData []*TaosStmt2BindData, isInsert bool, 
 						if colVal == nil {
 							continue
 						}
-						switch colVal.(type) {
+						switch colVal := colVal.(type) {
 						case []byte:
-							bsCount += uint32(len(colVal.([]byte)))
+							bsCount += uint32(len(colVal))
 						case string:
-							bsCount += uint32(len(colVal.(string)))
+							bsCount += uint32(len(colVal))
 						default:
 							return nil, fmt.Errorf("unsupported column type %T", colVal)
 						}
@@ -624,16 +624,16 @@ func writeBindCol(colFields []*Stmt2AllField, colVals [][]driver.Value, buffer [
 				if value == nil {
 					buffer[startOffset+IsNullOffset+rowIndex] = 1
 				} else {
-					switch value.(type) {
+					switch value := value.(type) {
 					case []byte:
-						bs := value.([]byte)
+						bs := value
 						// write length
 						writeU32(buffer, startOffset+variableLengthOffset+(4*rowIndex), uint32(len(bs)))
 						copy(buffer[variableOffset:], bs)
 						totalVarBufferLength += len(bs)
 						variableOffset += len(bs)
 					case string:
-						str := value.(string)
+						str := value
 						// write length
 						writeU32(buffer, startOffset+variableLengthOffset+(4*rowIndex), uint32(len(str)))
 						copy(buffer[variableOffset:], str)
@@ -657,7 +657,6 @@ func writeBindCol(colFields []*Stmt2AllField, colVals [][]driver.Value, buffer [
 			// write BufferLength
 			writeU32(buffer, startOffset+variableBufferLengthOffset, (uint32)(totalVarBufferLength))
 		} else {
-			var totalFixedBufferLength = 0
 			var typeLength = common.TypeLengthArr[int(colField.FieldType)]
 			var fixedOffset = startOffset + fixedBufferOffset
 			if checkAllNull(colData) {
@@ -786,11 +785,11 @@ func writeBindCol(colFields []*Stmt2AllField, colVals [][]driver.Value, buffer [
 					if value == nil {
 						buffer[startOffset+IsNullOffset+rowIndex] = 1
 					} else {
-						switch value.(type) {
+						switch value := value.(type) {
 						case int64:
-							writeI64(buffer, fixedOffset, value.(int64))
+							writeI64(buffer, fixedOffset, value)
 						case time.Time:
-							v := value.(time.Time)
+							v := value
 							ts := common.TimeToTimestamp(v, int(colField.Precision))
 							writeI64(buffer, fixedOffset, ts)
 						default:
@@ -858,7 +857,7 @@ func writeBindCol(colFields []*Stmt2AllField, colVals [][]driver.Value, buffer [
 			default:
 				return 0, fmt.Errorf("col field type not support: %d, col_name: %s", colField.FieldType, colField.Name)
 			}
-			totalFixedBufferLength = typeLength * rows
+			totalFixedBufferLength := typeLength * rows
 			totalLength = 4 + // TotalLength field length
 				4 + // DataType field length
 				4 + // Num field length

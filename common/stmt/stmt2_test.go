@@ -2782,7 +2782,9 @@ func BenchmarkMarshalBinary(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MarshalStmt2Binary(bindData, true, fields)
+		if _, err := MarshalStmt2Binary(bindData, true, fields); err != nil {
+			b.Fatalf("MarshalStmt2Binary failed: %v", err)
+		}
 	}
 }
 
@@ -2833,6 +2835,8 @@ func BenchmarkMarshalBinaryLegacy(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		marshalStmt2BinaryLegacy(bindData, true, fields)
+		if _, err := marshalStmt2BinaryLegacy(bindData, true, fields); err != nil {
+			b.Fatalf("marshalStmt2BinaryLegacy failed: %v", err)
+		}
 	}
 }

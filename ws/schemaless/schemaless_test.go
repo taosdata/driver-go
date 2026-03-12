@@ -207,6 +207,9 @@ func getAvailablePort(t *testing.T) string {
 }
 
 func TestSchemalessReconnect(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping reconnect test in short mode - requires taosadapter restart")
+	}
 	port := getAvailablePort(t)
 	cmd := newTaosadapter(port)
 	err := startTaosadapter(cmd, port)

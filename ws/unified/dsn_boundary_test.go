@@ -1,0 +1,163 @@
+package unified
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestParseDSNParamsAllKnownKeys(t *testing.T) {
+	cfg := &Config{
+		InterpolateParams: true,
+	}
+	err := parseDSNParams(cfg, "flagOnly&interpolateParams=false&token=tk1&enableCompression=true&readTimeout=1s&writeTimeout=2s&timezone=Asia%2FShanghai&bearerToken=b1&totpCode=123456&custom=a%2Bb")
+	require.NoError(t, err)
+
+	assert.False(t, cfg.InterpolateParams)
+	assert.Equal(t, "tk1", cfg.Token)
+	assert.True(t, cfg.EnableCompression)
+	assert.Equal(t, time.Second, cfg.ReadTimeout)
+	assert.Equal(t, 2*time.Second, cfg.WriteTimeout)
+	require.NotNil(t, cfg.Timezone)
+	assert.Equal(t, "Asia/Shanghai", cfg.Timezone.String())
+	assert.Equal(t, "b1", cfg.BearerToken)
+	assert.Equal(t, "123456", cfg.TotpCode)
+	require.NotNil(t, cfg.Params)
+	assert.Equal(t, "a+b", cfg.Params["custom"])
+}
+
+func TestParseDSNParamsErrorBranches(t *testing.T) {
+	tests := []struct {
+		name       string
+		rawParams  string
+		wantErrMsg string
+	}{
+		{
+			name:       "invalid interpolateParams",
+			rawParams:  "interpolateParams=abc",
+			wantErrMsg: "invalid bool value",
+		},
+		{
+			name:       "invalid enableCompression",
+			rawParams:  "enableCompression=abc",
+			wantErrMsg: "invalid enableCompression value",
+		},
+		{
+			name:       "invalid readTimeout",
+			rawParams:  "readTimeout=abc",
+			wantErrMsg: "invalid duration value",
+		},
+		{
+			name:       "invalid writeTimeout",
+			rawParams:  "writeTimeout=abc",
+			wantErrMsg: "invalid duration value",
+		},
+		{
+			name:       "invalid timezone unescape",
+			rawParams:  "timezone=Asia%2Shanghai",
+			wantErrMsg: "can not unescape timezone value",
+		},
+		{
+			name:       "invalid timezone value",
+			rawParams:  "timezone=Invalid%2FTimezone",
+			wantErrMsg: "invalid timezone value",
+		},
+		{
+			name:       "invalid custom param unescape",
+			rawParams:  "custom=%2S",
+			wantErrMsg: "invalid URL escape",
+		},
+	}
+	for i := 0; i < len(tests); i++ {
+		tc := tests[i]
+		t.Run(tc.name, func(t *testing.T) {
+			err := parseDSNParams(&Config{}, tc.rawParams)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErrMsg)
+		})
+	}
+}
+
+func TestParseDSNAddressListBoundaries(t *testing.T) {
+	_, err := parseDSNAddressList("")
+	require.ErrorIs(t, err, ErrInvalidDSNAddr)
+
+	_, err = parseDSNAddressList("host_without_port")
+	require.ErrorIs(t, err, ErrInvalidDSNAddr)
+
+	_, err = parseDSNAddressList("a:b")
+	require.ErrorIs(t, err, ErrInvalidDSNPort)
+
+	_, err = parseDSNAddressList("127.0.0.1:6041,,127.0.0.1:6042")
+	require.ErrorIs(t, err, ErrInvalidDSNAddr)
+
+	addrs, err := parseDSNAddressList(":,:0,127.0.0.1:,127.0.0.1:6041")
+	require.NoError(t, err)
+	require.Len(t, addrs, 4)
+	assert.Equal(t, "", addrs[0].host)
+	assert.Equal(t, 0, addrs[0].port)
+	assert.Equal(t, "", addrs[1].host)
+	assert.Equal(t, 0, addrs[1].port)
+	assert.Equal(t, "127.0.0.1", addrs[2].host)
+	assert.Equal(t, 0, addrs[2].port)
+	assert.Equal(t, "127.0.0.1", addrs[3].host)
+	assert.Equal(t, 6041, addrs[3].port)
+}
+
+func TestParseDSNBoundaryPaths(t *testing.T) {
+	cfg, err := ParseDSN("")
+	require.NoError(t, err)
+	assert.True(t, cfg.InterpolateParams)
+	assert.Equal(t, "", cfg.User)
+	assert.Equal(t, "", cfg.Passwd)
+	assert.Equal(t, "", cfg.DbName)
+
+	cfg, err = ParseDSN("user@ws(127.0.0.1:6041)/db")
+	require.NoError(t, err)
+	assert.Equal(t, "user", cfg.User)
+	assert.Equal(t, "", cfg.Passwd)
+
+	cfg, err = ParseDSN("%@ws(127.0.0.1:6041)/db")
+	require.NoError(t, err)
+	// QueryUnescape fails for "%", TryUnescape should keep original value.
+	assert.Equal(t, "%", cfg.User)
+
+	_, err = ParseDSN("u:p@ws(127.0.0.1:6041)extra/db")
+	require.ErrorIs(t, err, ErrInvalidDSNUnescaped)
+
+	_, err = ParseDSN("u:p@ws()/db")
+	require.ErrorIs(t, err, ErrInvalidDSNAddr)
+
+	_, err = ParseDSN("u:p@ws(a:b)/db")
+	require.ErrorIs(t, err, ErrInvalidDSNPort)
+
+	cfg, err = ParseDSN("u:p@ws(:,:0,127.0.0.1:)/db?token=tk")
+	require.NoError(t, err)
+	require.Len(t, cfg.Endpoints, 3)
+	assert.Equal(t, "ws://127.0.0.1:6041?token=tk", cfg.Endpoints[0])
+	assert.Equal(t, "ws://127.0.0.1:6041?token=tk", cfg.Endpoints[1])
+	assert.Equal(t, "ws://127.0.0.1:6041?token=tk", cfg.Endpoints[2])
+}
+
+func TestNewConfigFromDSNBoundaryPaths(t *testing.T) {
+	cfg, err := NewConfigFromDSN("u:p@ws(127.0.0.1:6041)/db?token=tk", "/ws")
+	require.NoError(t, err)
+	require.Len(t, cfg.Endpoints, 1)
+	assert.Equal(t, "ws://127.0.0.1:6041/ws?token=tk", cfg.Endpoints[0])
+
+	cfg, err = NewConfigFromDSN("u:p@ws(a:6041,b:6042)/db?token=tk", "/ws")
+	require.NoError(t, err)
+	require.Len(t, cfg.Endpoints, 2)
+	assert.Equal(t, "ws://a:6041/ws?token=tk", cfg.Endpoints[0])
+	assert.Equal(t, "ws://b:6042/ws?token=tk", cfg.Endpoints[1])
+
+	_, err = NewConfigFromDSN("/db", "/ws")
+	require.ErrorIs(t, err, ErrNoEndpoints)
+}
+
+func TestMapDSNErrorHelpers(t *testing.T) {
+	assert.Equal(t, "?", TryUnescape("%3F"))
+	assert.Equal(t, "%", TryUnescape("%"))
+}

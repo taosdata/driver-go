@@ -14,29 +14,30 @@ type connector struct {
 // Connect implements driver.Connector interface.
 // Connect returns a connection to the database.
 func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
+	cfg := *c.cfg
 	// Connect to Server
-	if len(c.cfg.User) == 0 {
-		c.cfg.User = common.DefaultUser
+	if len(cfg.User) == 0 {
+		cfg.User = common.DefaultUser
 	}
-	if len(c.cfg.Passwd) == 0 {
-		c.cfg.Passwd = common.DefaultPassword
+	if len(cfg.Passwd) == 0 {
+		cfg.Passwd = common.DefaultPassword
 	}
-	if c.cfg.Port == 0 {
-		c.cfg.Port = common.DefaultHttpPort
+	if cfg.Port == 0 {
+		cfg.Port = common.DefaultHttpPort
 	}
-	if len(c.cfg.Net) == 0 {
-		c.cfg.Net = "ws"
+	if len(cfg.Net) == 0 {
+		cfg.Net = "ws"
 	}
-	if len(c.cfg.Addr) == 0 {
-		c.cfg.Addr = "127.0.0.1"
+	if len(cfg.Addr) == 0 {
+		cfg.Addr = "127.0.0.1"
 	}
-	if c.cfg.ReadTimeout == 0 {
-		c.cfg.ReadTimeout = common.DefaultMessageTimeout
+	if cfg.ReadTimeout == 0 {
+		cfg.ReadTimeout = common.DefaultMessageTimeout
 	}
-	if c.cfg.WriteTimeout == 0 {
-		c.cfg.WriteTimeout = common.DefaultWriteWait
+	if cfg.WriteTimeout == 0 {
+		cfg.WriteTimeout = common.DefaultWriteWait
 	}
-	tc, err := newTaosConn(c.cfg)
+	tc, err := newTaosConn(&cfg)
 	return tc, err
 }
 

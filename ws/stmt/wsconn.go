@@ -11,11 +11,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
 // WSConn is a websocket connection, which is used to communicate with the server.
+// Deprecated: use unified.Client internals from package ws/unified instead.
 type WSConn struct {
 	client       *client.Client
 	listLock     sync.RWMutex
@@ -26,6 +26,7 @@ type WSConn struct {
 	closeOnce    sync.Once
 }
 
+// Deprecated: use unified.NewClient from package ws/unified instead.
 func NewWSConn(client *client.Client, writeTimeout time.Duration, readTimeout time.Duration) *WSConn {
 	return &WSConn{
 		client:       client,
@@ -114,17 +115,8 @@ func (c *WSConn) findOutChanByID(index uint64) *list.Element {
 	}
 }
 
-func (c *WSConn) generateReqID() uint64 {
-	return uint64(common.GetReqID())
-}
-
 func (c *WSConn) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
 	envelope.Type = websocket.TextMessage
-	return c.send(reqID, envelope)
-}
-
-func (c *WSConn) sendBinary(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	envelope.Type = websocket.BinaryMessage
 	return c.send(reqID, envelope)
 }
 
@@ -185,15 +177,6 @@ func tryReadWSResponse(ch <-chan []byte) ([]byte, bool) {
 	}
 }
 
-func (c *WSConn) sendTextWithoutResp(envelope *client.Envelope) {
-	envelope.Type = websocket.TextMessage
-	err := c.client.Send(envelope)
-	if err != nil {
-		return
-	}
-	<-envelope.ErrorChan
-}
-
 func (c *WSConn) addMessageOutChan(outChan *IndexedChan) *list.Element {
 	c.listLock.Lock()
 	element := c.sendChanList.PushBack(outChan)
@@ -207,6 +190,7 @@ func (c *WSConn) removeMessageOutChan(element *list.Element) {
 	c.sendChanList.Remove(element)
 }
 
+// Deprecated: use unified.Client internals from package ws/unified instead.
 func (c *WSConn) Close() {
 	c.closeOnce.Do(func() {
 		close(c.closeChan)

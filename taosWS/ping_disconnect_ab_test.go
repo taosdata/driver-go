@@ -2,8 +2,8 @@ package taosWS
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -20,6 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/taosdata/driver-go/v3/common"
+	wsClient "github.com/taosdata/driver-go/v3/ws/client"
+	"github.com/taosdata/driver-go/v3/ws/unified"
+	unifiedproto "github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
 var pingDisconnectABUpgrader = websocket.Upgrader{
@@ -48,44 +51,24 @@ func taosWSSilentAfterQuery(w http.ResponseWriter, r *http.Request, queryRead ch
 		_ = conn.Close()
 	}()
 
-	_, _, err = conn.ReadMessage()
-	if err != nil {
-		return
-	}
-	versionResp := map[string]interface{}{
-		"code":    0,
-		"message": "",
-		"action":  "version",
-		"version": "3.3.6.0",
-		"timing":  0,
-	}
-	versionRespBytes, err := json.Marshal(versionResp)
-	if err != nil {
-		return
-	}
-	err = conn.WriteMessage(websocket.TextMessage, versionRespBytes)
-	if err != nil {
-		return
-	}
-
 	_, connectPayload, err := conn.ReadMessage()
 	if err != nil {
 		return
 	}
-	var connectAction WSAction
+	var connectAction wsClient.WSAction
 	err = json.Unmarshal(connectPayload, &connectAction)
 	if err != nil {
 		return
 	}
-	var connectReq WSConnectReq
+	var connectReq unifiedproto.WSConnectReq
 	err = json.Unmarshal(connectAction.Args, &connectReq)
 	if err != nil {
 		return
 	}
-	connectResp := &WSConnectResp{
-		BaseResp: BaseResp{
+	connectResp := &unifiedproto.WSConnectResp{
+		BaseResp: unifiedproto.BaseResp{
 			Code:   0,
-			Action: WSConnect,
+			Action: unifiedproto.Connect,
 			ReqID:  connectReq.ReqID,
 		},
 	}
@@ -176,7 +159,7 @@ func runPingFailureWhileWaitingScenario(t *testing.T) (time.Duration, error, err
 
 	time.Sleep(100 * time.Millisecond)
 	atomic.StoreUint32(&wrappedConn.failWrites, 1)
-	pingErr := conn.writePing()
+	pingErr := conn.Ping(context.Background())
 	require.Error(t, pingErr)
 
 	result := <-queryDone
@@ -200,64 +183,24 @@ func TestPingFailureWhileWaitingFixedBehavior(t *testing.T) {
 	assert.Less(t, elapsed, 2*time.Second)
 }
 
-func TestReadResponsePrefersQueuedMessageOverClose(t *testing.T) {
-	tc := &taosConn{
-		messageChan:  make(chan *message, 1),
-		messageErrCh: make(chan struct{}),
-		closeCh:      make(chan struct{}),
-	}
-	tc.messageChan <- &message{mt: websocket.TextMessage, message: []byte("ok")}
-	close(tc.messageErrCh)
-	close(tc.closeCh)
-
-	mt, resp, err := tc.readResponse()
-	require.NoError(t, err)
-	assert.Equal(t, websocket.TextMessage, mt)
-	assert.Equal(t, []byte("ok"), resp)
+func TestMapUnifiedConnErrorPreservesBadConn(t *testing.T) {
+	in := NewBadConnError(io.ErrClosedPipe)
+	out := mapUnifiedConnError(in)
+	require.Error(t, out)
+	assert.Equal(t, in, out)
+	assert.ErrorIs(t, out, driver.ErrBadConn)
 }
 
-func TestReadResponseReturnsMessageErrorOnClose(t *testing.T) {
-	tc := &taosConn{
-		messageChan:  make(chan *message, 1),
-		messageErrCh: make(chan struct{}),
-		closeCh:      make(chan struct{}),
-		readTimeout:  time.Second,
-	}
-	specificErr := errors.New("specific message error")
-	tc.setMessageError(specificErr)
-	close(tc.closeCh)
+func TestMapUnifiedConnErrorWrapsUnifiedClosed(t *testing.T) {
+	out := mapUnifiedConnError(unified.ErrUnifiedClosed)
+	require.Error(t, out)
+	assert.ErrorIs(t, out, driver.ErrBadConn)
+}
 
-	mt, resp, err := tc.readResponse()
+func TestPingClosedConnectionReturnsBadConn(t *testing.T) {
+	tc := &taosConn{}
+	_ = tc.Close()
+	err := tc.Ping(context.Background())
 	require.Error(t, err)
-	assert.Equal(t, 0, mt)
-	assert.Nil(t, resp)
-	assert.Equal(t, specificErr, err)
-}
-
-func TestEnqueueMessageUnblocksOnCloseWhenQueueFull(t *testing.T) {
-	tc := &taosConn{
-		messageChan: make(chan *message, 1),
-		closeCh:     make(chan struct{}),
-	}
-	tc.messageChan <- &message{mt: websocket.TextMessage, message: []byte("first")}
-
-	done := make(chan bool, 1)
-	go func() {
-		done <- tc.enqueueMessage(&message{mt: websocket.TextMessage, message: []byte("second")})
-	}()
-
-	select {
-	case <-done:
-		t.Fatal("enqueueMessage should block before close when queue is full")
-	case <-time.After(50 * time.Millisecond):
-	}
-
-	close(tc.closeCh)
-
-	select {
-	case ok := <-done:
-		assert.False(t, ok)
-	case <-time.After(time.Second):
-		t.Fatal("enqueueMessage did not unblock after close")
-	}
+	assert.ErrorIs(t, err, driver.ErrBadConn)
 }

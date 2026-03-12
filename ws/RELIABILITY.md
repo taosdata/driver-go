@@ -48,12 +48,25 @@ A change is release-ready only if all checks pass:
    - `./ws/reliability_gate.sh full`
 2. Core reconnect loop:
    - `go test -race ./ws/tmq -run 'TestReconnectStaleFailureDoesNotClearActiveClient|TestReconnectDeadReplacementDoesNotShortCircuit' -count=20`
-   - `go test -race ./ws/schemaless -run 'TestReconnectStaleFailureDoesNotClearActiveClient|TestReconnectDeadReplacementDoesNotShortCircuit' -count=20`
-   - `go test -race ./ws/stmt -run 'TestReconnectHealthyReplacementShortCircuit|TestReconnectDeadReplacementDoesNotShortCircuit|TestReconnectFailureClosesMatchedFailedConn|TestReconnectFailureDoesNotCloseActiveReplacement' -count=20`
+   - `go test -race ./ws/schemaless -run 'TestSchemalessReconnect' -count=20`
+   - `go test -race ./ws/stmt -run 'TestSTMTReconnect' -count=20`
 3. Full integration race gate (requires clean TDengine + taosadapter test env):
    - `./ws/reliability_gate.sh full-integration`
 4. Nightly heavy smoke (optional):
    - `./ws/reliability_gate.sh loop-full`
+
+## Unified Cross-Failover Suite
+
+- Script: `ws/reliability_gate.sh`
+- Modes:
+  - `cross-smoke`: fast local verification
+  - `cross-full`: run all cross-failover integration tests once (schemaless + query/fetch + stmt)
+  - `cross-loop`: run jitter loop tests (`LOOP_COUNT` controls rounds)
+  - `cross-full-loop`: run `cross-full` then `cross-loop`
+- To add new tests later, append test names to `CROSS_FAILOVER_TESTS`/`LOOP_TESTS` in `ws/reliability_gate.sh`.
+- Dedicated workflow: `.github/workflows/ws-unified-cross-failover.yml`
+  - triggers: daily schedule + `workflow_dispatch`
+  - scheduled command: `LOOP_COUNT=20 ./ws/reliability_gate.sh cross-full-loop`
 
 ## CI Report
 

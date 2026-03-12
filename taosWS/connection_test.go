@@ -2,6 +2,7 @@ package taosWS
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"net"
@@ -16,49 +17,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	taosErrors "github.com/taosdata/driver-go/v3/errors"
+	wsClient "github.com/taosdata/driver-go/v3/ws/client"
+	"github.com/taosdata/driver-go/v3/ws/unified"
 )
-
-// @author: xftan
-// @date: 2023/10/13 11:22
-// @description: test format bytes
-func Test_formatBytes(t *testing.T) {
-	type args struct {
-		bs []byte
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "nothing",
-			args: args{
-				bs: nil,
-			},
-			want: "",
-		},
-		{
-			name: "one byte",
-			args: args{
-				bs: []byte{'a'},
-			},
-			want: "[0x61]",
-		},
-		{
-			name: "two byes",
-			args: args{
-				bs: []byte{'a', 'b'},
-			},
-			want: "[0x61,0x62]",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, formatBytes(tt.args.bs), "formatBytes(%v)", tt.args.bs)
-		})
-	}
-}
 
 func TestBadConnection(t *testing.T) {
 	defer func() {
@@ -91,25 +52,26 @@ func TestBadConnection(t *testing.T) {
 	}
 }
 
-func TestHandleResponseError(t *testing.T) {
-	t.Run("Error not nil", func(t *testing.T) {
-		err := errors.New("some error")
-		result := handleResponseError(err, 0, "ignored message")
-		assert.Equal(t, err, result, "Expected the original error to be returned")
+func TestMapUnifiedConnError(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		assert.NoError(t, mapUnifiedConnError(nil))
 	})
 
-	t.Run("Error nil and non-zero code", func(t *testing.T) {
-		code := 123
-		msg := "some error message"
-		expectedErr := taosErrors.NewError(code, msg)
-
-		result := handleResponseError(nil, code, msg)
-		assert.EqualError(t, result, expectedErr.Error(), "Expected a new error to be returned based on code and message")
+	t.Run("plain error", func(t *testing.T) {
+		in := assert.AnError
+		assert.Equal(t, in, mapUnifiedConnError(in))
 	})
 
-	t.Run("Error nil and zero code", func(t *testing.T) {
-		result := handleResponseError(nil, 0, "ignored message")
-		assert.Nil(t, result, "Expected nil to be returned when there is no error and code is zero")
+	t.Run("closed error", func(t *testing.T) {
+		err := mapUnifiedConnError(wsClient.ClosedError)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, driver.ErrBadConn)
+	})
+
+	t.Run("unified closed", func(t *testing.T) {
+		err := mapUnifiedConnError(unified.ErrUnifiedClosed)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, driver.ErrBadConn)
 	})
 }
 

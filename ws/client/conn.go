@@ -95,7 +95,7 @@ func NewClient(conn *websocket.Conn, sendChanLength uint) *Client {
 		BufferSize:           common.BufferSize4M,
 		sendChan:             make(chan *Envelope, sendChanLength),
 		done:                 make(chan struct{}),
-		AsyncCallbacks:       true,
+		AsyncCallbacks:       false,
 		WriteWait:            common.DefaultWriteWait,
 		PingPeriod:           common.DefaultPingPeriod,
 		PongWait:             common.DefaultPongWait,
@@ -205,6 +205,11 @@ func (c *Client) IsRunning() bool {
 
 func (c *Client) Done() <-chan struct{} {
 	return c.done
+}
+
+// HasConnection reports whether this runtime has an underlying websocket connection.
+func (c *Client) HasConnection() bool {
+	return c != nil && c.conn != nil
 }
 
 func (c *Client) LastError() error {

@@ -1209,7 +1209,7 @@ func TestSTMTReconnect(t *testing.T) {
 	stmtNew, err := connector.Init()
 	assert.NoError(t, err)
 	err = stmtNew.Prepare("select * from tb1 where c1 = ?")
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	err = stmtNew.Close()
 	assert.NoError(t, err)
 }

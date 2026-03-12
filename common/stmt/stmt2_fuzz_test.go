@@ -60,10 +60,10 @@ func FuzzMarshalStmt2BinaryParity(f *testing.F) {
 
 func assertMarshalParity(t *testing.T, bindData []*TaosStmt2BindData, isInsert bool, fields []*Stmt2AllField) {
 	t.Helper()
-	oldBuf, oldErr, oldPanic := marshalStmt2WithRecover(func() ([]byte, error) {
+	oldBuf, oldPanic, oldErr := marshalStmt2WithRecover(func() ([]byte, error) {
 		return marshalStmt2BinaryLegacy(bindData, isInsert, fields)
 	})
-	newBuf, newErr, newPanic := marshalStmt2WithRecover(func() ([]byte, error) {
+	newBuf, newPanic, newErr := marshalStmt2WithRecover(func() ([]byte, error) {
 		return MarshalStmt2Binary(bindData, isInsert, fields)
 	})
 	if oldPanic != nil || newPanic != nil {
@@ -77,7 +77,7 @@ func assertMarshalParity(t *testing.T, bindData []*TaosStmt2BindData, isInsert b
 	}
 }
 
-func marshalStmt2WithRecover(fn func() ([]byte, error)) (buffer []byte, err error, panicValue interface{}) {
+func marshalStmt2WithRecover(fn func() ([]byte, error)) (buffer []byte, panicValue interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			panicValue = r
