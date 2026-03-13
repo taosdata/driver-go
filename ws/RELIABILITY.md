@@ -60,10 +60,16 @@ A change is release-ready only if all checks pass:
 - Script: `ws/reliability_gate.sh`
 - Modes:
   - `cross-smoke`: fast local verification
-  - `cross-full`: run all cross-failover integration tests once (schemaless + query/fetch + stmt)
+  - `cross-full`: run all cross-failover integration tests once (schemaless + tmq + query/fetch + stmt)
   - `cross-loop`: run jitter loop tests (`LOOP_COUNT` controls rounds)
   - `cross-full-loop`: run `cross-full` then `cross-loop`
-- To add new tests later, append test names to `CROSS_FAILOVER_TESTS`/`LOOP_TESTS` in `ws/reliability_gate.sh`.
+- TMQ cross scenarios are aligned with other protocol adapters:
+  - `TestUnifiedTMQCrossFailoverDisconnectDetectionAndImmediateReconnect`
+  - `TestUnifiedTMQCrossConcurrentPollFailoverAndSwitchBack`
+  - `TestUnifiedTMQCrossMultiNodeFailoverChainUnderConcurrency`
+  - `TestUnifiedTMQCrossDualNodeJitterWithConcurrentPoll`
+  - `TestUnifiedTMQCrossDualNodeJitterLoop`
+- To add new cross tests later, append test names to `CROSS_FAILOVER_TESTS`/`LOOP_TESTS` in `ws/reliability_gate.sh`.
 - Dedicated workflow: `.github/workflows/ws-unified-cross-failover.yml`
   - triggers: daily schedule + `workflow_dispatch`
   - scheduled command: `LOOP_COUNT=20 ./ws/reliability_gate.sh cross-full-loop`
@@ -81,4 +87,5 @@ A change is release-ready only if all checks pass:
 
 - Integration tests that create databases must always clean up in `t.Cleanup`.
 - Use unique db names in reconnect/failure tests to avoid cross-test pollution.
+- Exception: unified cross-failover helpers may reuse one fixed database to reduce vgroup/vnode pressure in stress loops.
 - Temporary local artifacts (patch files, test binaries) must not be committed.

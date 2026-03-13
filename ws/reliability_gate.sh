@@ -16,6 +16,10 @@ CROSS_FAILOVER_TESTS=(
   "TestUnifiedCrossConcurrentSendFailoverAndSwitchBack"
   "TestUnifiedCrossMultiNodeFailoverChainUnderConcurrency"
   "TestUnifiedCrossDualNodeJitterWithConcurrentSchemalessWrites"
+  "TestUnifiedTMQCrossFailoverDisconnectDetectionAndImmediateReconnect"
+  "TestUnifiedTMQCrossConcurrentPollFailoverAndSwitchBack"
+  "TestUnifiedTMQCrossMultiNodeFailoverChainUnderConcurrency"
+  "TestUnifiedTMQCrossDualNodeJitterWithConcurrentPoll"
   "TestUnifiedQueryCrossFailoverDisconnectDetectionAndImmediateReconnect"
   "TestUnifiedQueryResultStatefulFetchNoReconnectOnDisconnect"
   "TestUnifiedQueryCrossConcurrentExecFailoverAndSwitchBack"
@@ -29,6 +33,7 @@ CROSS_FAILOVER_TESTS=(
 
 LOOP_TESTS=(
   "TestUnifiedCrossDualNodeJitterLoop"
+  "TestUnifiedTMQCrossDualNodeJitterLoop"
   "TestUnifiedQueryCrossDualNodeJitterLoop"
   "TestUnifiedStmtCrossDualNodeJitterLoop"
 )
@@ -49,7 +54,7 @@ join_by_pipe() {
 }
 
 run_unified_cross_failover_smoke() {
-  go test ./ws/unified -run "${CROSS_FAILOVER_TESTS[0]}|${CROSS_FAILOVER_TESTS[1]}|${CROSS_FAILOVER_TESTS[4]}|${CROSS_FAILOVER_TESTS[9]}" -count=1
+  go test ./ws/unified -run "TestUnifiedCrossFailoverDisconnectDetectionAndImmediateReconnect|TestUnifiedTMQCrossFailoverDisconnectDetectionAndImmediateReconnect|TestUnifiedQueryCrossFailoverDisconnectDetectionAndImmediateReconnect|TestUnifiedStmtCrossFailoverDisconnectDetectionAndImmediateReconnect" -count=1
 }
 
 run_unified_cross_failover_once() {

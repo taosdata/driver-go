@@ -1,4 +1,4 @@
-package tmq
+package unified
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 
 type config struct {
 	Url                  string
+	Endpoints            []string
 	ChanLength           uint
 	MessageTimeout       time.Duration
 	WriteWait            time.Duration
@@ -34,8 +35,21 @@ type config struct {
 func newConfig(url string, chanLength uint) *config {
 	return &config{
 		Url:          url,
+		Endpoints:    []string{url},
 		ChanLength:   chanLength,
 		OtherOptions: make(map[string]string),
+	}
+}
+
+func (c *config) setEndpoints(endpoints []string) {
+	if len(endpoints) == 0 {
+		c.Endpoints = nil
+		return
+	}
+	c.Endpoints = make([]string, len(endpoints))
+	copy(c.Endpoints, endpoints)
+	if len(c.Endpoints) > 0 {
+		c.Url = c.Endpoints[0]
 	}
 }
 

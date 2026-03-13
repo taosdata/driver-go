@@ -348,6 +348,9 @@ func stopByPort(t *testing.T, port string, stops map[string]func()) {
 	if stop != nil {
 		stop()
 		delete(stops, port)
+		require.Eventuallyf(t, func() bool {
+			return !pingAdapter(port)
+		}, 3*time.Second, 100*time.Millisecond, "taosadapter on port %s should be down after stop", port)
 	}
 }
 

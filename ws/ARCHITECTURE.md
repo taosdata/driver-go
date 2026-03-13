@@ -7,7 +7,8 @@ This document describes the current websocket architecture and the intended dire
 - `ws/client`: low-level websocket client, read/write pumps, send queue, lifecycle flags.
 - `ws/stmt`: stmt protocol wrapper and reconnect around `WSConn`.
 - `ws/schemaless`: schemaless protocol wrapper with auto-reconnect.
-- `ws/tmq`: tmq consumer protocol wrapper with auto-reconnect.
+- `ws/tmq`: tmq consumer compatibility wrapper (delegates to unified adapter).
+- `ws/unified`: unified websocket adapters (query/stmt/schemaless/tmq) with failover/reconnect.
 - `ws/internal/reconnect`: shared reconnect safety helpers used by higher-level packages.
 
 ## Layering
@@ -16,13 +17,13 @@ This document describes the current websocket architecture and the intended dire
    - Owned by `ws/client`.
    - Responsibilities: send queue, ping/pong, close signaling, last error tracking.
 2. Protocol layer
-   - Owned by `stmt`, `schemaless`, `tmq`.
+   - Owned by unified adapters and protocol codecs.
    - Responsibilities: encode request, route response by request id, parse protocol payload.
 3. Recovery layer
    - Auto-reconnect orchestration and client swap safety checks.
    - Shared safety invariants live in `ws/internal/reconnect`.
-   - `tmq` and `schemaless` consume shared replacement/cleanup helpers.
-   - `stmt` follows the same invariants with package-local implementation.
+   - `tmq`/`schemaless`/`stmt`/`query` unified adapters share the same invariants.
+   - Compatibility wrappers (`ws/tmq`, `ws/schemaless`, `ws/stmt`) delegate to unified.
 
 ## Request Flow (schemaless/tmq)
 

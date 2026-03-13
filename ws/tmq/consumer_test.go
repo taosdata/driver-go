@@ -878,9 +878,11 @@ func Test_configMapToConfigWrong(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := configMapToConfig(tt.args.m)
-			assert.Nil(t, got)
-			assert.Equal(t, tt.wantErr, err.Error())
+			consumer, err := NewConsumer(&tt.args.m)
+			assert.Nil(t, consumer)
+			if assert.Error(t, err) {
+				assert.Equal(t, tt.wantErr, err.Error())
+			}
 		})
 	}
 }
