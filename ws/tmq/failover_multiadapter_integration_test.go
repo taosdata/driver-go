@@ -245,7 +245,9 @@ func cleanupTMQWrapperStaleTopics(ports []string) {
 		if !ok {
 			continue
 		}
-		if strings.HasPrefix(name, "tmq_cross_topic_") || strings.HasPrefix(name, "tmq_wrapper_topic_") {
+		if (strings.HasPrefix(name, "tmq_cross_") && strings.HasSuffix(name, "_topic")) ||
+			strings.HasPrefix(name, "tmq_cross_topic_") ||
+			strings.HasPrefix(name, "tmq_wrapper_topic_") {
 			_ = execTMQSQLOnAnyPort(ports, fmt.Sprintf("drop topic if exists %s", name))
 		}
 	}
