@@ -2735,6 +2735,249 @@ func TestMarshalStmt2Binary2TBNameFieldWithEmptyTableNameQuery(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+func TestIsVarDataTypeIncludesDecimal(t *testing.T) {
+	assert.True(t, IsVarDataType(common.TSDB_DATA_TYPE_DECIMAL))
+	assert.True(t, IsVarDataType(common.TSDB_DATA_TYPE_DECIMAL64))
+	assert.True(t, IsVarDataType(common.TSDB_DATA_TYPE_BLOB))
+	assert.False(t, IsVarDataType(common.TSDB_DATA_TYPE_INT))
+	assert.False(t, IsVarDataType(-1))
+	assert.False(t, IsVarDataType(common.TSDB_DATA_TYPE_MAX))
+}
+
+func TestMarshalStmt2Binary2InsertDecimalAndBlob(t *testing.T) {
+	bindData := []*TaosStmt2BindData{
+		{
+			TableName: "tb1",
+			Tags: []driver.Value{
+				"12.3456",
+				[]byte("98.7654"),
+				[]byte{0x61, 0x62},
+			},
+			Cols: [][]driver.Value{
+				{"1.2300", nil},
+				{[]byte("4.5600"), "7.8900"},
+				{[]byte{0x01, 0x02}, "blob_text"},
+			},
+		},
+	}
+	fields := []*Stmt2AllField{
+		{
+			FieldType: common.TSDB_DATA_TYPE_BINARY,
+			BindType:  TAOS_FIELD_TBNAME,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+			BindType:  TAOS_FIELD_TAG,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL64,
+			BindType:  TAOS_FIELD_TAG,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_BLOB,
+			BindType:  TAOS_FIELD_TAG,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL64,
+			BindType:  TAOS_FIELD_COL,
+		},
+		{
+			FieldType: common.TSDB_DATA_TYPE_BLOB,
+			BindType:  TAOS_FIELD_COL,
+		},
+	}
+	got, err := MarshalStmt2Binary(bindData, true, fields)
+	assert.NoError(t, err)
+	if assert.Greater(t, len(got), DataPosition) {
+		assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(got[CountPosition:CountPosition+4]))
+		assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(got[TagCountPosition:TagCountPosition+4]))
+		assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(got[ColCountPosition:ColCountPosition+4]))
+	}
+}
+
+func TestMarshalStmt2Binary2InsertDecimalTypeMismatch(t *testing.T) {
+	tests := []struct {
+		name   string
+		field  int8
+		isTag  bool
+		value  driver.Value
+		errMsg string
+	}{
+		{
+			name:   "decimal col type mismatch",
+			field:  common.TSDB_DATA_TYPE_DECIMAL,
+			isTag:  false,
+			value:  int32(1),
+			errMsg: "unsupported column type",
+		},
+		{
+			name:   "decimal64 col type mismatch",
+			field:  common.TSDB_DATA_TYPE_DECIMAL64,
+			isTag:  false,
+			value:  true,
+			errMsg: "unsupported column type",
+		},
+		{
+			name:   "decimal tag type mismatch",
+			field:  common.TSDB_DATA_TYPE_DECIMAL,
+			isTag:  true,
+			value:  int32(1),
+			errMsg: "unsupported tag type",
+		},
+		{
+			name:   "decimal64 tag type mismatch",
+			field:  common.TSDB_DATA_TYPE_DECIMAL64,
+			isTag:  true,
+			value:  float64(1.2),
+			errMsg: "unsupported tag type",
+		},
+	}
+
+	for i := 0; i < len(tests); i++ {
+		tc := tests[i]
+		t.Run(tc.name, func(t *testing.T) {
+			item := &TaosStmt2BindData{TableName: "tb1"}
+			field := &Stmt2AllField{
+				FieldType: tc.field,
+			}
+			if tc.isTag {
+				item.Tags = []driver.Value{tc.value}
+				field.BindType = TAOS_FIELD_TAG
+			} else {
+				item.Cols = [][]driver.Value{{tc.value}}
+				field.BindType = TAOS_FIELD_COL
+			}
+			_, err := MarshalStmt2Binary([]*TaosStmt2BindData{item}, true, []*Stmt2AllField{
+				{
+					FieldType: common.TSDB_DATA_TYPE_BINARY,
+					BindType:  TAOS_FIELD_TBNAME,
+				},
+				field,
+			})
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errMsg)
+		})
+	}
+}
+
+func TestWriteBindTagErrorBranches(t *testing.T) {
+	buffer := make([]byte, 256)
+
+	_, err := writeBindTag([]*Stmt2AllField{
+		{
+			Name:      "unsupported",
+			FieldType: common.TSDB_DATA_TYPE_NULL,
+		},
+	}, []driver.Value{int32(1)}, buffer, 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tag field type not support")
+
+	_, err = writeBindTag([]*Stmt2AllField{
+		{
+			Name:      "decimal",
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+		},
+	}, []driver.Value{int32(1)}, buffer, 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expect string or []byte")
+}
+
+func TestWriteBindColErrorBranches(t *testing.T) {
+	buffer := make([]byte, 256)
+
+	_, err := writeBindCol([]*Stmt2AllField{
+		{
+			Name:      "c1",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+		},
+	}, [][]driver.Value{}, buffer, 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "col count not match")
+
+	_, err = writeBindCol([]*Stmt2AllField{
+		{
+			Name:      "c1",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+		},
+		{
+			Name:      "c2",
+			FieldType: common.TSDB_DATA_TYPE_INT,
+		},
+	}, [][]driver.Value{
+		{int32(1)},
+		{},
+	}, buffer, 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "col row count not match")
+
+	_, err = writeBindCol([]*Stmt2AllField{
+		{
+			Name:      "decimal",
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+		},
+	}, [][]driver.Value{
+		{int32(1)},
+	}, buffer, 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "col field type not support")
+}
+
+func TestWriteBindColFixedTypeMismatchBranches(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldType int8
+		value     driver.Value
+		errMsg    string
+	}{
+		{name: "bool", fieldType: common.TSDB_DATA_TYPE_BOOL, value: "x", errMsg: "expect bool"},
+		{name: "tinyint", fieldType: common.TSDB_DATA_TYPE_TINYINT, value: "x", errMsg: "expect int8"},
+		{name: "smallint", fieldType: common.TSDB_DATA_TYPE_SMALLINT, value: "x", errMsg: "expect int16"},
+		{name: "int", fieldType: common.TSDB_DATA_TYPE_INT, value: "x", errMsg: "expect int32"},
+		{name: "bigint", fieldType: common.TSDB_DATA_TYPE_BIGINT, value: "x", errMsg: "expect int64"},
+		{name: "float", fieldType: common.TSDB_DATA_TYPE_FLOAT, value: "x", errMsg: "expect float32"},
+		{name: "double", fieldType: common.TSDB_DATA_TYPE_DOUBLE, value: "x", errMsg: "expect float64"},
+		{name: "timestamp", fieldType: common.TSDB_DATA_TYPE_TIMESTAMP, value: "x", errMsg: "expect int64 or time.Time"},
+		{name: "utinyint", fieldType: common.TSDB_DATA_TYPE_UTINYINT, value: "x", errMsg: "expect uint8"},
+		{name: "usmallint", fieldType: common.TSDB_DATA_TYPE_USMALLINT, value: "x", errMsg: "expect uint16"},
+		{name: "uint", fieldType: common.TSDB_DATA_TYPE_UINT, value: "x", errMsg: "expect uint32"},
+		{name: "ubigint", fieldType: common.TSDB_DATA_TYPE_UBIGINT, value: "x", errMsg: "expect uint64"},
+	}
+
+	for i := 0; i < len(tests); i++ {
+		tc := tests[i]
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := writeBindCol([]*Stmt2AllField{
+				{
+					Name:      tc.name,
+					FieldType: tc.fieldType,
+				},
+			}, [][]driver.Value{
+				{tc.value},
+			}, make([]byte, 256), 0)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errMsg)
+		})
+	}
+}
+
+func TestWriteBindColTimestampInt64Branch(t *testing.T) {
+	offset, err := writeBindCol([]*Stmt2AllField{
+		{
+			Name:      "ts",
+			FieldType: common.TSDB_DATA_TYPE_TIMESTAMP,
+			Precision: common.PrecisionMilliSecond,
+		},
+	}, [][]driver.Value{
+		{int64(1711111111000)},
+	}, make([]byte, 256), 0)
+	assert.NoError(t, err)
+	assert.Greater(t, offset, 0)
+}
+
 func BenchmarkMarshalBinary(b *testing.B) {
 	bindData := make([]*TaosStmt2BindData, 1000)
 	now := time.Now().UnixNano() / int64(time.Millisecond)

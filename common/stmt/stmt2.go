@@ -36,6 +36,8 @@ var isVarDataType = [common.TSDB_DATA_TYPE_MAX]bool{
 	common.TSDB_DATA_TYPE_NCHAR:     true,
 	common.TSDB_DATA_TYPE_JSON:      true,
 	common.TSDB_DATA_TYPE_VARBINARY: true,
+	common.TSDB_DATA_TYPE_DECIMAL:   true,
+	common.TSDB_DATA_TYPE_DECIMAL64: true,
 	common.TSDB_DATA_TYPE_GEOMETRY:  true,
 	common.TSDB_DATA_TYPE_BLOB:      true,
 }

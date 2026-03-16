@@ -145,6 +145,8 @@ func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
 // VARBINARY            | []byte
 // GEOMETRY             | []byte
 // JSON                 | []byte
+// DECIMAL/DECIMAL64    | string
+// BLOB                 | []byte/string
 func (s *Stmt) Bind(params []*commonstmt.TaosStmt2BindData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

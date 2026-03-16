@@ -2,11 +2,13 @@ package unified
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	commonstmt "github.com/taosdata/driver-go/v3/common/stmt"
 )
@@ -215,4 +217,47 @@ func TestStmtBuildExecPayloadUsesRawBindData(t *testing.T) {
 	payload, err := s.buildExecPayloadLocked()
 	require.NoError(t, err)
 	require.NotEmpty(t, payload)
+}
+
+// TestStmtBuildExecPayloadWithRawDecimalAndBlob verifies the expected behavior for this scenario.
+func TestStmtBuildExecPayloadWithRawDecimalAndBlob(t *testing.T) {
+	s := &Stmt{
+		sql:      "insert into t values(?, ?, ?)",
+		isInsert: true,
+		colCount: 3,
+		fields: []*commonstmt.Stmt2AllField{
+			{
+				Name:      "v1",
+				FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+				BindType:  commonstmt.TAOS_FIELD_COL,
+			},
+			{
+				Name:      "v2",
+				FieldType: common.TSDB_DATA_TYPE_DECIMAL64,
+				BindType:  commonstmt.TAOS_FIELD_COL,
+			},
+			{
+				Name:      "v3",
+				FieldType: common.TSDB_DATA_TYPE_BLOB,
+				BindType:  commonstmt.TAOS_FIELD_COL,
+			},
+		},
+		state: newStmtCompatState(),
+	}
+
+	err := s.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{"123.456", "789.012"},
+				{[]byte("3.1415"), "2.7182"},
+				{[]byte{0x01, 0x02}, "blob-text"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	payload, err := s.buildExecPayloadLocked()
+	require.NoError(t, err)
+	require.Greater(t, len(payload), 28)
+	assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(payload[12:16]))
 }

@@ -142,6 +142,8 @@ func (s *Stmt2) Prepare(sql string) error {
 // VARBINARY            | []byte
 // GEOMETRY             | []byte
 // JSON                 | []byte
+// DECIMAL/DECIMAL64    | string
+// BLOB                 | []byte/string
 func (s *Stmt2) Bind(params []*stmt.TaosStmt2BindData) error {
 	if s.isInsert == nil {
 		return errors.New("stmt2 is not prepared")
