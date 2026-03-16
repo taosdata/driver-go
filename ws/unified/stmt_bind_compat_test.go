@@ -17,12 +17,13 @@ type stmt2Binder interface {
 
 var _ stmt2Binder = (*Stmt)(nil)
 
+// TestStmtBindWithParamColumnsStillWorks verifies the expected behavior for this scenario.
 func TestStmtBindWithParamColumnsStillWorks(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?, ?)",
 		isInsert: true,
 		colCount: 2,
-		state:    NewStmtCompatState(),
+		state:    newStmtCompatState(),
 	}
 
 	now := time.Now()
@@ -34,7 +35,7 @@ func TestStmtBindWithParamColumnsStillWorks(t *testing.T) {
 
 	err = s.AddBatch()
 	require.NoError(t, err)
-	bindData := s.state.BindData(true)
+	bindData := s.state.bindData(true)
 	require.Len(t, bindData, 1)
 	assert.Equal(t, 2, len(bindData[0].Cols))
 	_, ok := bindData[0].Cols[0][0].(int64)
@@ -47,15 +48,16 @@ func TestStmtBindWithParamColumnsStillWorks(t *testing.T) {
 	require.NoError(t, err)
 	err = s.AddBatch()
 	require.NoError(t, err)
-	require.Len(t, s.state.BindData(true), 1)
+	require.Len(t, s.state.bindData(true), 1)
 }
 
+// TestStmtBindWithStmt2BindData verifies the expected behavior for this scenario.
 func TestStmtBindWithStmt2BindData(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?, ?)",
 		isInsert: true,
 		colCount: 2,
-		state:    NewStmtCompatState(),
+		state:    newStmtCompatState(),
 	}
 
 	params := []*commonstmt.TaosStmt2BindData{
@@ -75,18 +77,19 @@ func TestStmtBindWithStmt2BindData(t *testing.T) {
 
 	err := s.Bind(params)
 	require.NoError(t, err)
-	bindData := s.state.BindData(true)
+	bindData := s.state.bindData(true)
 	require.Len(t, bindData, 1)
 	require.Len(t, bindData[0].Cols[0], 2)
 	assert.Same(t, params[0], bindData[0], "stmt2 bind path should keep raw bind data without cloning")
 }
 
+// TestStmtBindWithStmt2BindDataRejectsQueryTableNameOrTags verifies the expected behavior for this scenario.
 func TestStmtBindWithStmt2BindDataRejectsQueryTableNameOrTags(t *testing.T) {
 	s := &Stmt{
 		sql:         "select * from t where v > ?",
 		isInsert:    false,
 		fieldsCount: 1,
-		state:       NewStmtCompatState(),
+		state:       newStmtCompatState(),
 	}
 
 	err := s.Bind([]*commonstmt.TaosStmt2BindData{
@@ -108,12 +111,13 @@ func TestStmtBindWithStmt2BindDataRejectsQueryTableNameOrTags(t *testing.T) {
 	assert.Contains(t, err.Error(), "query statement does not support tags")
 }
 
+// TestStmtBindWithStmt2BindDataAppendsAcrossCalls verifies the expected behavior for this scenario.
 func TestStmtBindWithStmt2BindDataAppendsAcrossCalls(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?, ?)",
 		isInsert: true,
 		colCount: 2,
-		state:    NewStmtCompatState(),
+		state:    newStmtCompatState(),
 	}
 
 	first := []*commonstmt.TaosStmt2BindData{
@@ -124,7 +128,7 @@ func TestStmtBindWithStmt2BindDataAppendsAcrossCalls(t *testing.T) {
 	}
 	err := s.Bind(first)
 	require.NoError(t, err)
-	require.Len(t, s.state.BindData(true), 1)
+	require.Len(t, s.state.bindData(true), 1)
 
 	second := []*commonstmt.TaosStmt2BindData{
 		{
@@ -134,18 +138,19 @@ func TestStmtBindWithStmt2BindDataAppendsAcrossCalls(t *testing.T) {
 	}
 	err = s.Bind(second)
 	require.NoError(t, err)
-	bindData := s.state.BindData(true)
+	bindData := s.state.bindData(true)
 	require.Len(t, bindData, 1)
 	require.Len(t, bindData[0].Cols[0], 2)
 	require.Same(t, first[0], bindData[0], "same table should append to existing cached bind data")
 }
 
+// TestStmtBindWithStmt2BindDataRejectsCompatToRawModeSwitch verifies the expected behavior for this scenario.
 func TestStmtBindWithStmt2BindDataRejectsCompatToRawModeSwitch(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?, ?)",
 		isInsert: true,
 		colCount: 2,
-		state:    NewStmtCompatState(),
+		state:    newStmtCompatState(),
 	}
 
 	err := s.BindParam([]*param.Param{
@@ -164,12 +169,13 @@ func TestStmtBindWithStmt2BindDataRejectsCompatToRawModeSwitch(t *testing.T) {
 	require.ErrorIs(t, err, ErrStmtBindAfterCompatAPI)
 }
 
+// TestStmtBindParamRejectsRawToCompatModeSwitch verifies the expected behavior for this scenario.
 func TestStmtBindParamRejectsRawToCompatModeSwitch(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?, ?)",
 		isInsert: true,
 		colCount: 2,
-		state:    NewStmtCompatState(),
+		state:    newStmtCompatState(),
 	}
 
 	err := s.Bind([]*commonstmt.TaosStmt2BindData{
@@ -189,12 +195,13 @@ func TestStmtBindParamRejectsRawToCompatModeSwitch(t *testing.T) {
 	require.ErrorIs(t, err, ErrStmtCompatAPIAfterBind)
 }
 
+// TestStmtBuildExecPayloadUsesRawBindData verifies the expected behavior for this scenario.
 func TestStmtBuildExecPayloadUsesRawBindData(t *testing.T) {
 	s := &Stmt{
 		sql:         "select * from t where v > ?",
 		isInsert:    false,
 		fieldsCount: 1,
-		state:       NewStmtCompatState(),
+		state:       newStmtCompatState(),
 	}
 
 	err := s.Bind([]*commonstmt.TaosStmt2BindData{
@@ -203,7 +210,7 @@ func TestStmtBuildExecPayloadUsesRawBindData(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Len(t, s.state.BindData(false), 1)
+	require.Len(t, s.state.bindData(false), 1)
 
 	payload, err := s.buildExecPayloadLocked()
 	require.NoError(t, err)

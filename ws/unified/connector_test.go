@@ -13,6 +13,7 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
+// TestNewConnectorNilConfig verifies the expected behavior for this scenario.
 func TestNewConnectorNilConfig(t *testing.T) {
 	connector, err := NewConnector(nil, "/ws")
 	require.Error(t, err)
@@ -20,6 +21,7 @@ func TestNewConnectorNilConfig(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNilConfig)
 }
 
+// TestConnectorConnect verifies the expected behavior for this scenario.
 func TestConnectorConnect(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -30,19 +32,28 @@ func TestConnectorConnect(t *testing.T) {
 			_ = conn.Close()
 		}()
 
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
+		for {
+			_, msg, readErr := conn.ReadMessage()
+			if readErr != nil {
+				return
+			}
+			if isVersionActionText(string(msg)) {
+				if err = writeVersionResponse(conn); err != nil {
+					return
+				}
+				continue
+			}
+			var action client.WSAction
+			if err = json.Unmarshal(msg, &action); err != nil {
+				return
+			}
+			var req proto.WSConnectReq
+			if err = json.Unmarshal(action.Args, &req); err != nil {
+				return
+			}
+			_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			return
 		}
-		var action client.WSAction
-		if err = json.Unmarshal(msg, &action); err != nil {
-			return
-		}
-		var req proto.WSConnectReq
-		if err = json.Unmarshal(action.Args, &req); err != nil {
-			return
-		}
-		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 	}))
 	defer s.Close()
 
@@ -59,6 +70,7 @@ func TestConnectorConnect(t *testing.T) {
 	c.Close()
 }
 
+// TestNewConnectorFromDSN verifies the expected behavior for this scenario.
 func TestNewConnectorFromDSN(t *testing.T) {
 	connector, err := NewConnectorFromDSN("user:passwd@ws(127.0.0.1:6041)/db", "/ws")
 	require.NoError(t, err)

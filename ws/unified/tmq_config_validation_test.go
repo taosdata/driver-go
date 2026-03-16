@@ -8,6 +8,7 @@ import (
 	commontmq "github.com/taosdata/driver-go/v3/common/tmq"
 )
 
+// TestTMQConfigMapToConfigWrong verifies the expected behavior for this scenario.
 func TestTMQConfigMapToConfigWrong(t *testing.T) {
 	type args struct {
 		m commontmq.ConfigMap

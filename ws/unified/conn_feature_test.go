@@ -1,7 +1,6 @@
 package unified
 
 import (
-	"container/list"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -19,6 +18,7 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
+// TestDefaultBootstrapIncludesAuthAndSecurityFields verifies the expected behavior for this scenario.
 func TestDefaultBootstrapIncludesAuthAndSecurityFields(t *testing.T) {
 	reqCh := make(chan proto.WSConnectReq, 1)
 	errCh := make(chan error, 1)
@@ -32,25 +32,39 @@ func TestDefaultBootstrapIncludesAuthAndSecurityFields(t *testing.T) {
 		defer func() {
 			_ = conn.Close()
 		}()
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			errCh <- err
+		for {
+			_, msg, readErr := conn.ReadMessage()
+			if readErr != nil {
+				errCh <- readErr
+				return
+			}
+			text := string(msg)
+			if isVersionActionText(text) {
+				if writeErr := writeVersionResponse(conn); writeErr != nil {
+					errCh <- writeErr
+					return
+				}
+				continue
+			}
+			var action client.WSAction
+			if err = json.Unmarshal(msg, &action); err != nil {
+				errCh <- err
+				return
+			}
+			if strings.ToLower(action.Action) != "conn" {
+				continue
+			}
+			var req proto.WSConnectReq
+			if err = json.Unmarshal(action.Args, &req); err != nil {
+				errCh <- err
+				return
+			}
+			reqCh <- req
+			err = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
+			if err != nil {
+				errCh <- err
+			}
 			return
-		}
-		var action client.WSAction
-		if err = json.Unmarshal(msg, &action); err != nil {
-			errCh <- err
-			return
-		}
-		var req proto.WSConnectReq
-		if err = json.Unmarshal(action.Args, &req); err != nil {
-			errCh <- err
-			return
-		}
-		reqCh <- req
-		err = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
-		if err != nil {
-			errCh <- err
 		}
 	}))
 	defer s.Close()
@@ -88,6 +102,7 @@ func TestDefaultBootstrapIncludesAuthAndSecurityFields(t *testing.T) {
 	}
 }
 
+// TestDefaultBootstrapTimeout verifies the expected behavior for this scenario.
 func TestDefaultBootstrapTimeout(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -97,6 +112,15 @@ func TestDefaultBootstrapTimeout(t *testing.T) {
 		defer func() {
 			_ = conn.Close()
 		}()
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if isVersionActionText(string(msg)) {
+			if err = writeVersionResponse(conn); err != nil {
+				return
+			}
+		}
 		_, _, _ = conn.ReadMessage()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -119,6 +143,7 @@ func TestDefaultBootstrapTimeout(t *testing.T) {
 	}
 }
 
+// TestDefaultBootstrapHandlesServerErrorResponse verifies the expected behavior for this scenario.
 func TestDefaultBootstrapHandlesServerErrorResponse(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -128,6 +153,15 @@ func TestDefaultBootstrapHandlesServerErrorResponse(t *testing.T) {
 		defer func() {
 			_ = conn.Close()
 		}()
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if isVersionActionText(string(msg)) {
+			if err = writeVersionResponse(conn); err != nil {
+				return
+			}
+		}
 		_, _, _ = conn.ReadMessage()
 		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":65535,"message":"mock failure","action":"conn","req_id":0}`))
 	}))
@@ -146,6 +180,7 @@ func TestDefaultBootstrapHandlesServerErrorResponse(t *testing.T) {
 	assert.Contains(t, strings.ToLower(err.Error()), "mock failure")
 }
 
+// TestDefaultBootstrapHandlesInvalidJSONResponse verifies the expected behavior for this scenario.
 func TestDefaultBootstrapHandlesInvalidJSONResponse(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -155,6 +190,15 @@ func TestDefaultBootstrapHandlesInvalidJSONResponse(t *testing.T) {
 		defer func() {
 			_ = conn.Close()
 		}()
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if isVersionActionText(string(msg)) {
+			if err = writeVersionResponse(conn); err != nil {
+				return
+			}
+		}
 		_, _, _ = conn.ReadMessage()
 		_ = conn.WriteMessage(websocket.TextMessage, []byte(`not-json`))
 	}))
@@ -172,11 +216,21 @@ func TestDefaultBootstrapHandlesInvalidJSONResponse(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestDefaultBootstrapHandlesReadError verifies the expected behavior for this scenario.
 func TestDefaultBootstrapHandlesReadError(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
+		}
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if isVersionActionText(string(msg)) {
+			if err = writeVersionResponse(conn); err != nil {
+				return
+			}
 		}
 		_, _, _ = conn.ReadMessage()
 		_ = conn.Close()
@@ -196,19 +250,20 @@ func TestDefaultBootstrapHandlesReadError(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestHandleBinaryMessageRoutesPendingRequest verifies the expected behavior for this scenario.
 func TestHandleBinaryMessageRoutesPendingRequest(t *testing.T) {
 	respCh := make(chan []byte, 1)
 	c := &Client{
-		pendingRequests: list.New(),
+		pendingRequests: make(map[uint64]*pendingRequest),
 	}
-	c.pendingRequests.PushBack(&PendingRequest{
+	registerPendingRequestForTest(c, &pendingRequest{
 		reqID:   42,
 		channel: respCh,
 	})
 
 	msg := make([]byte, 16)
 	binary.LittleEndian.PutUint64(msg[8:16], 42)
-	c.HandleBinaryMessage(msg)
+	c.handleBinaryMessage(msg)
 
 	select {
 	case got := <-respCh:
@@ -216,15 +271,16 @@ func TestHandleBinaryMessageRoutesPendingRequest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting routed binary response")
 	}
-	assert.Equal(t, 0, c.pendingRequests.Len())
+	assert.Equal(t, 0, pendingRequestCountForTest(c))
 }
 
+// TestHandleTextMessageRoutesPendingRequest verifies the expected behavior for this scenario.
 func TestHandleTextMessageRoutesPendingRequest(t *testing.T) {
 	respCh := make(chan []byte, 1)
 	c := &Client{
-		pendingRequests: list.New(),
+		pendingRequests: make(map[uint64]*pendingRequest),
 	}
-	c.pendingRequests.PushBack(&PendingRequest{
+	registerPendingRequestForTest(c, &pendingRequest{
 		reqID:   66,
 		channel: respCh,
 	})
@@ -238,15 +294,16 @@ func TestHandleTextMessageRoutesPendingRequest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting routed text response")
 	}
-	assert.Equal(t, 0, c.pendingRequests.Len())
+	assert.Equal(t, 0, pendingRequestCountForTest(c))
 }
 
+// TestHandleTextMessageIgnoresInvalidPayload verifies the expected behavior for this scenario.
 func TestHandleTextMessageIgnoresInvalidPayload(t *testing.T) {
 	respCh := make(chan []byte, 1)
 	c := &Client{
-		pendingRequests: list.New(),
+		pendingRequests: make(map[uint64]*pendingRequest),
 	}
-	c.pendingRequests.PushBack(&PendingRequest{
+	registerPendingRequestForTest(c, &pendingRequest{
 		reqID:   77,
 		channel: respCh,
 	})
@@ -259,29 +316,38 @@ func TestHandleTextMessageIgnoresInvalidPayload(t *testing.T) {
 		t.Fatal("unexpected routed response for invalid text payload")
 	default:
 	}
-	assert.Equal(t, 1, c.pendingRequests.Len())
+	assert.Equal(t, 1, pendingRequestCountForTest(c))
 }
 
+// TestHandleBinaryMessageIgnoresInvalidFrame verifies the expected behavior for this scenario.
 func TestHandleBinaryMessageIgnoresInvalidFrame(t *testing.T) {
 	respCh := make(chan []byte, 1)
 	c := &Client{
-		pendingRequests: list.New(),
+		pendingRequests: make(map[uint64]*pendingRequest),
 	}
-	c.pendingRequests.PushBack(&PendingRequest{
+	registerPendingRequestForTest(c, &pendingRequest{
 		reqID:   7,
 		channel: respCh,
 	})
 
-	c.HandleBinaryMessage([]byte{1, 2, 3})
+	c.handleBinaryMessage([]byte{1, 2, 3})
 
 	select {
 	case <-respCh:
 		t.Fatal("unexpected routed response for invalid frame")
 	default:
 	}
-	assert.Equal(t, 1, c.pendingRequests.Len())
+	assert.Equal(t, 1, pendingRequestCountForTest(c))
 }
 
+func pendingRequestCountForTest(c *Client) int {
+	c.pendingLock.RLock()
+	count := len(c.pendingRequests)
+	c.pendingLock.RUnlock()
+	return count
+}
+
+// TestExtractReqIDFromBinaryMessageExtendedHeader verifies the expected behavior for this scenario.
 func TestExtractReqIDFromBinaryMessageExtendedHeader(t *testing.T) {
 	msg := make([]byte, 34)
 	binary.LittleEndian.PutUint64(msg[0:8], 0xffffffffffffffff)
@@ -292,6 +358,7 @@ func TestExtractReqIDFromBinaryMessageExtendedHeader(t *testing.T) {
 	assert.Equal(t, uint64(99), reqID)
 }
 
+// TestExtractReqIDFromBinaryMessageErrors verifies the expected behavior for this scenario.
 func TestExtractReqIDFromBinaryMessageErrors(t *testing.T) {
 	_, err := ExtractReqIDFromBinaryMessage([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrBinaryMessageTooShort)
@@ -302,16 +369,43 @@ func TestExtractReqIDFromBinaryMessageErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrBinaryMessageExtendedHeaderTooShort)
 }
 
+// TestExtractReqIDFromTextMessage verifies the expected behavior for this scenario.
 func TestExtractReqIDFromTextMessage(t *testing.T) {
 	reqID, err := ExtractReqIDFromTextMessage([]byte(`{"code":0,"req_id":123,"message":""}`))
 	require.NoError(t, err)
 	assert.Equal(t, uint64(123), reqID)
 }
 
+// TestExtractReqIDFromTextMessageErrors verifies the expected behavior for this scenario.
 func TestExtractReqIDFromTextMessageErrors(t *testing.T) {
 	_, err := ExtractReqIDFromTextMessage([]byte(`{"code":0,"message":""}`))
 	require.ErrorIs(t, err, ErrReqIDNotFound)
 
 	_, err = ExtractReqIDFromTextMessage([]byte(`{"code":0,`))
 	require.Error(t, err)
+}
+
+// TestExtractReqIDFromTextMessageUint64Boundaries verifies uint64 boundary handling.
+func TestExtractReqIDFromTextMessageUint64Boundaries(t *testing.T) {
+	reqID, err := ExtractReqIDFromTextMessage([]byte(`{"req_id":18446744073709551615}`))
+	require.NoError(t, err)
+	require.Equal(t, uint64(^uint64(0)), reqID)
+
+	_, err = ExtractReqIDFromTextMessage([]byte(`{"req_id":18446744073709551616}`))
+	require.Error(t, err)
+}
+
+// TestExtractReqIDFromTextMessageRejectsInvalidTrailingTokens verifies malformed
+// tails are rejected even when there is whitespace after req_id.
+func TestExtractReqIDFromTextMessageRejectsInvalidTrailingTokens(t *testing.T) {
+	invalidMessages := []string{
+		`{"req_id":1 abc}`,
+		`{"req_id":1    xyz}`,
+		`{"req_id":1}xyz`,
+		`{"req_id":1    `,
+	}
+	for _, message := range invalidMessages {
+		_, err := ExtractReqIDFromTextMessage([]byte(message))
+		require.Error(t, err, "message=%s", message)
+	}
 }

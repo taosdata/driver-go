@@ -10,11 +10,11 @@ import (
 	"github.com/taosdata/driver-go/v3/types"
 )
 
-// NormalizeStmt2Value converts one compatibility-layer value into stmt2 bind value.
+// normalizeStmt2Value converts one compatibility-layer value into stmt2 bind value.
 // queryMode controls timestamp encoding:
 //   - query mode: RFC3339Nano string
 //   - insert mode: integer timestamp by precision
-func NormalizeStmt2Value(v driver.Value, queryMode bool) (driver.Value, error) {
+func normalizeStmt2Value(v driver.Value, queryMode bool) (driver.Value, error) {
 	switch typed := v.(type) {
 	case nil:
 		return nil, nil
@@ -64,12 +64,12 @@ func NormalizeStmt2Value(v driver.Value, queryMode bool) (driver.Value, error) {
 	}
 }
 
-// NormalizeStmt2Column converts one Param column into stmt2 bind column data.
-func NormalizeStmt2Column(paramColumn *param.Param, queryMode bool) ([]driver.Value, error) {
+// normalizeStmt2Column converts one Param column into stmt2 bind column data.
+func normalizeStmt2Column(paramColumn *param.Param, queryMode bool) ([]driver.Value, error) {
 	values := paramColumn.GetValues()
 	normalized := make([]driver.Value, len(values))
 	for i := 0; i < len(values); i++ {
-		v, err := NormalizeStmt2Value(values[i], queryMode)
+		v, err := normalizeStmt2Value(values[i], queryMode)
 		if err != nil {
 			return nil, err
 		}
@@ -78,11 +78,11 @@ func NormalizeStmt2Column(paramColumn *param.Param, queryMode bool) ([]driver.Va
 	return normalized, nil
 }
 
-// NormalizeStmt2Columns converts all Param columns into stmt2 bind columns.
-func NormalizeStmt2Columns(columns []*param.Param, queryMode bool) ([][]driver.Value, error) {
+// normalizeStmt2Columns converts all Param columns into stmt2 bind columns.
+func normalizeStmt2Columns(columns []*param.Param, queryMode bool) ([][]driver.Value, error) {
 	normalized := make([][]driver.Value, len(columns))
 	for i := 0; i < len(columns); i++ {
-		col, err := NormalizeStmt2Column(columns[i], queryMode)
+		col, err := normalizeStmt2Column(columns[i], queryMode)
 		if err != nil {
 			return nil, err
 		}
@@ -91,20 +91,20 @@ func NormalizeStmt2Columns(columns []*param.Param, queryMode bool) ([][]driver.V
 	return normalized, nil
 }
 
-// BuildStmt2InsertBindData builds one stmt2 bind block for insert path.
-func BuildStmt2InsertBindData(tableName string, tags *param.Param, params []*param.Param) (*commonstmt.TaosStmt2BindData, error) {
+// buildStmt2InsertBindData builds one stmt2 bind block for insert path.
+func buildStmt2InsertBindData(tableName string, tags *param.Param, params []*param.Param) (*commonstmt.TaosStmt2BindData, error) {
 	item := &commonstmt.TaosStmt2BindData{
 		TableName: tableName,
 	}
 	if tags != nil {
-		normalizedTags, err := NormalizeStmt2Column(tags, false)
+		normalizedTags, err := normalizeStmt2Column(tags, false)
 		if err != nil {
 			return nil, err
 		}
 		item.Tags = normalizedTags
 	}
 	if len(params) > 0 {
-		normalizedCols, err := NormalizeStmt2Columns(params, false)
+		normalizedCols, err := normalizeStmt2Columns(params, false)
 		if err != nil {
 			return nil, err
 		}
@@ -113,13 +113,13 @@ func BuildStmt2InsertBindData(tableName string, tags *param.Param, params []*par
 	return item, nil
 }
 
-// BuildStmt2QueryBindData builds stmt2 bind data for query path.
+// buildStmt2QueryBindData builds stmt2 bind data for query path.
 // Query supports exactly one bind block.
-func BuildStmt2QueryBindData(params []*param.Param) ([]*commonstmt.TaosStmt2BindData, error) {
+func buildStmt2QueryBindData(params []*param.Param) ([]*commonstmt.TaosStmt2BindData, error) {
 	if len(params) == 0 {
 		return nil, newInvalidStateErrorf("no query params")
 	}
-	cols, err := NormalizeStmt2Columns(params, true)
+	cols, err := normalizeStmt2Columns(params, true)
 	if err != nil {
 		return nil, err
 	}

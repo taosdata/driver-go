@@ -3,7 +3,7 @@ package unified
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -28,7 +28,7 @@ func tmqIntegrationSQL(t *testing.T, sql string) {
 		t.Skipf("skip integration test: taosadapter/taosd not available: %v", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	var parsed restSQLResp
 	require.NoError(t, json.Unmarshal(body, &parsed))
@@ -37,6 +37,7 @@ func tmqIntegrationSQL(t *testing.T, sql string) {
 	}
 }
 
+// TestTMQConsumerRealAdapterSmoke verifies the expected behavior for this scenario.
 func TestTMQConsumerRealAdapterSmoke(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")

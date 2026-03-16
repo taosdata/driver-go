@@ -3,6 +3,7 @@ package taosWS
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/taosdata/driver-go/v3/common"
+	wsClient "github.com/taosdata/driver-go/v3/ws/client"
+	unifiedproto "github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
 type failingConnHolder struct {
@@ -37,12 +40,36 @@ func setupFailingDialerServer(t *testing.T, failOnCreate bool) (*Config, *failin
 			_ = conn.Close()
 		}()
 
-		// Handle connect request for successful bootstrap.
-		_, _, err = conn.ReadMessage()
+		// Handle version request before connect bootstrap.
+		_, versionPayload, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
-		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
+		var versionAction wsClient.WSAction
+		if err = json.Unmarshal(versionPayload, &versionAction); err != nil {
+			return
+		}
+		if versionAction.Action != "version" {
+			return
+		}
+		if err = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"version","version":"3.3.6.0"}`)); err != nil {
+			return
+		}
+
+		// Handle connect request for successful bootstrap.
+		_, connectPayload, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		var connectAction wsClient.WSAction
+		if err = json.Unmarshal(connectPayload, &connectAction); err != nil {
+			return
+		}
+		var connectReq unifiedproto.WSConnectReq
+		if err = json.Unmarshal(connectAction.Args, &connectReq); err != nil {
+			return
+		}
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf(`{"code":0,"message":"","action":"conn","req_id":%d}`, connectReq.ReqID)))
 
 		// Keep connection alive for test duration.
 		<-time.After(2 * time.Second)
@@ -92,8 +119,10 @@ func TestWriteTextErrorDoesNotLeakPayload(t *testing.T) {
 	cfg, holder, cleanup := setupFailingDialerServer(t, false)
 	defer cleanup()
 
-	tc, err := newTaosConn(cfg)
+	rawConn, err := (&connector{cfg: cfg}).Connect(context.Background())
 	require.NoError(t, err)
+	tc, ok := rawConn.(*taosConn)
+	require.True(t, ok, "unexpected connection type: %T", rawConn)
 	defer func() {
 		_ = tc.Close()
 	}()
@@ -118,7 +147,7 @@ func TestConnectWriteErrorDoesNotLeakCredentials(t *testing.T) {
 	cfg.BearerToken = "super-secret-token"
 	cfg.TotpCode = "654321"
 
-	_, err := newTaosConn(cfg)
+	_, err := (&connector{cfg: cfg}).Connect(context.Background())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, driver.ErrBadConn)
 	assert.Contains(t, strings.ToLower(err.Error()), "closed")

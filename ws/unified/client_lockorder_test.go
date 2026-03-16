@@ -36,21 +36,21 @@ func TestLockOrderDeadlock(t *testing.T) {
 					return
 				default:
 					respChan := make(chan []byte, 1)
-					pendingReq := &PendingRequest{
+					pendingReq := &pendingRequest{
 						reqID:   uint64(time.Now().UnixNano()),
 						channel: respChan,
 					}
 
 					c.pendingLock.Lock()
-					element := c.pendingRequests.PushBack(pendingReq)
+					c.pendingRequests[pendingReq.reqID] = pendingReq
 					c.pendingLock.Unlock()
 
-					// Call Runtime() while holding pendingLock conceptually
-					runtime := c.Runtime()
+					// Call runtimeClient() while holding pendingLock conceptually
+					runtime := c.runtimeClient()
 					_ = runtime
 
 					c.pendingLock.Lock()
-					c.pendingRequests.Remove(element)
+					delete(c.pendingRequests, pendingReq.reqID)
 					c.pendingLock.Unlock()
 
 					time.Sleep(1 * time.Millisecond)
@@ -69,7 +69,7 @@ func TestLockOrderDeadlock(t *testing.T) {
 				case <-stopChan:
 					return
 				default:
-					runtime := c.Runtime()
+					runtime := c.runtimeClient()
 					_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 					time.Sleep(50 * time.Millisecond)
 				}
@@ -104,12 +104,12 @@ func TestSwapRuntimeRaceCondition(t *testing.T) {
 	// Add some pending requests
 	for i := 0; i < 10; i++ {
 		respChan := make(chan []byte, 1)
-		pendingReq := &PendingRequest{
+		pendingReq := &pendingRequest{
 			reqID:   uint64(i),
 			channel: respChan,
 		}
 		c.pendingLock.Lock()
-		c.pendingRequests.PushBack(pendingReq)
+		c.pendingRequests[pendingReq.reqID] = pendingReq
 		c.pendingLock.Unlock()
 	}
 
@@ -117,7 +117,7 @@ func TestSwapRuntimeRaceCondition(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		runtime := c.Runtime()
+		runtime := c.runtimeClient()
 		if runtime != nil {
 			_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 		}
@@ -128,11 +128,11 @@ func TestSwapRuntimeRaceCondition(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 100; i++ {
-			runtime := c.Runtime()
+			runtime := c.runtimeClient()
 			_ = runtime
 
 			c.pendingLock.RLock()
-			count := c.pendingRequests.Len()
+			count := len(c.pendingRequests)
 			c.pendingLock.RUnlock()
 			_ = count
 
@@ -164,18 +164,18 @@ func TestReconnectLockOrder(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			runtime := c.Runtime()
+			runtime := c.runtimeClient()
 			_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 		}()
 	}
 
-	// Goroutine 2: Continuously access Runtime()
+	// Goroutine 2: Continuously access runtimeClient()
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
-				runtime := c.Runtime()
+				runtime := c.runtimeClient()
 				if runtime != nil {
 					_ = runtime.IsRunning()
 				}

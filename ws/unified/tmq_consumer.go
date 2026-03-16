@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -24,7 +23,6 @@ import (
 
 type TMQConsumer struct {
 	client             *Client
-	requestID          uint64
 	stateLock          sync.RWMutex
 	err                error
 	timezone           *time.Location
@@ -61,28 +59,6 @@ var ErrTMQConsumerUninitialized = &Error{
 	Type:    ErrorTypeInvalidState,
 	Message: "unified tmq consumer is not initialized",
 }
-
-type SubscribeReq = proto.SubscribeReq
-type SubscribeResp = proto.SubscribeResp
-type PollReq = proto.PollReq
-type PollResp = proto.PollResp
-type FetchJsonMetaReq = proto.FetchJSONMetaReq
-type FetchJsonMetaResp = proto.FetchJSONMetaResp
-type TMQFetchRawMetaReq = proto.FetchRawMetaReq
-type CommitReq = proto.CommitReq
-type CommitResp = proto.CommitResp
-type UnsubscribeReq = proto.UnsubscribeReq
-type AssignmentReq = proto.AssignmentReq
-type AssignmentResp = proto.AssignmentResp
-type OffsetSeekReq = proto.OffsetSeekReq
-type OffsetSeekResp = proto.OffsetSeekResp
-type CommittedReq = proto.CommittedReq
-type CommittedResp = proto.CommittedResp
-type TopicVgroupID = proto.TopicVgroupID
-type CommitOffsetReq = proto.CommitOffsetReq
-type CommitOffsetResp = proto.CommitOffsetResp
-type PositionReq = proto.PositionReq
-type PositionResp = proto.PositionResp
 
 // NewTMQConsumer creates a tmq consumer backed by unified client reconnect/failover runtime.
 func NewTMQConsumer(conf *tmq.ConfigMap) (*TMQConsumer, error) {
@@ -137,7 +113,7 @@ func NewTMQConsumer(conf *tmq.ConfigMap) (*TMQConsumer, error) {
 		maxPollIntervalMS:  config.MaxPollIntervalMS,
 	}
 	consumer.client.SetErrorHandler(consumer.handleError)
-	if err = consumer.client.ConnectWithBootstrap(consumer.bootstrapTMQ); err != nil {
+	if err = consumer.client.connectWithBootstrap(consumer.bootstrapTMQ); err != nil {
 		consumer.client.Close()
 		return nil, err
 	}
@@ -331,7 +307,8 @@ func parseTMQEndpoints(raw string) ([]string, error) {
 		return nil, newInvalidConfigErrorf("ws.url required")
 	}
 	items := strings.Split(raw, ",")
-	endpoints := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	normalized := make([]string, 0, len(items))
 	for i := 0; i < len(items); i++ {
 		item := strings.TrimSpace(items[i])
 		if item == "" {
@@ -341,29 +318,16 @@ func parseTMQEndpoints(raw string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		// tmq endpoint is always /rest/tmq regardless of user-provided path.
-		u.Path = ""
-		endpoints = append(endpoints, u.String())
-	}
-	if len(endpoints) == 0 {
-		return nil, newInvalidConfigErrorf("ws.url required")
-	}
-	seen := make(map[string]struct{}, len(endpoints))
-	normalized := make([]string, 0, len(endpoints))
-	for i := 0; i < len(endpoints); i++ {
-		u, err := url.Parse(endpoints[i])
-		if err != nil {
-			return nil, err
-		}
 		if u.Scheme == "" || u.Host == "" {
-			return nil, newInvalidConfigErrorf("invalid websocket endpoint: %s", endpoints[i])
+			return nil, newInvalidConfigErrorf("invalid websocket endpoint: %s", item)
 		}
 		switch strings.ToLower(u.Scheme) {
 		case "ws", "wss":
 			u.Scheme = strings.ToLower(u.Scheme)
 		default:
-			return nil, newInvalidConfigErrorf("invalid websocket endpoint scheme: %s", endpoints[i])
+			return nil, newInvalidConfigErrorf("invalid websocket endpoint scheme: %s", item)
 		}
+		// tmq endpoint is always /rest/tmq regardless of user-provided path.
 		u.Path = "/rest/tmq"
 		s := u.String()
 		if _, ok := seen[s]; ok {
@@ -385,7 +349,7 @@ func (c *TMQConsumer) handleError(err error) {
 }
 
 func (c *TMQConsumer) generateReqID() uint64 {
-	return atomic.AddUint64(&c.requestID, 1)
+	return uint64(common.GetReqID())
 }
 
 func (c *TMQConsumer) ensureInitialized() error {
@@ -467,6 +431,40 @@ func (c *TMQConsumer) sendTextWithClient(reqID uint64, envelope *client.Envelope
 	return resp, currentRuntime, nil
 }
 
+func (c *TMQConsumer) sendTextAction(reqID uint64, action string, req interface{}, reconnect bool, envelope *client.Envelope) ([]byte, error) {
+	args, err := client.JsonI.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	ownsEnvelope := false
+	if envelope == nil {
+		envelope = client.GlobalEnvelopePool.Get()
+		ownsEnvelope = true
+	}
+	if ownsEnvelope {
+		defer client.GlobalEnvelopePool.Put(envelope)
+	}
+
+	envelope.Reset()
+	if err = encodeWSActionToBuffer(envelope.Msg, action, args, true); err != nil {
+		return nil, err
+	}
+
+	if reconnect {
+		return c.sendTextWithReconnect(reqID, envelope, true)
+	}
+	return c.sendText(reqID, envelope)
+}
+
+func (c *TMQConsumer) sendTextActionAndDecode(reqID uint64, action string, req interface{}, reconnect bool, envelope *client.Envelope, resp responseWithCodeAndMessage) error {
+	respBytes, err := c.sendTextAction(reqID, action, req, reconnect, envelope)
+	if err != nil {
+		return err
+	}
+	return decodeAndCheckJSONResponse(respBytes, resp)
+}
+
 func (c *TMQConsumer) isClosed() bool {
 	if c == nil || c.client == nil {
 		return true
@@ -478,7 +476,7 @@ func (c *TMQConsumer) runtime() *client.Client {
 	if c == nil || c.client == nil {
 		return nil
 	}
-	return c.client.Runtime()
+	return c.client.runtimeClient()
 }
 
 type RebalanceCb func(*TMQConsumer, tmq.Event) error
@@ -502,7 +500,7 @@ func (c *TMQConsumer) doSubscribe(topics []string, reconnect bool) error {
 		return currentErr
 	}
 	reqID := c.generateReqID()
-	req := &SubscribeReq{
+	req := &proto.SubscribeReq{
 		ReqID:             reqID,
 		User:              c.user,
 		Password:          c.password,
@@ -519,28 +517,8 @@ func (c *TMQConsumer) doSubscribe(topics []string, reconnect bool) error {
 		Connector:         common.GetConnectorInfo("ws"),
 		Config:            c.otherOptions,
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionSubscribe,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return err
-	}
-	respBytes, err := c.sendTextWithReconnect(reqID, envelope, reconnect)
-	if err != nil {
-		return err
-	}
-	var resp SubscribeResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
+	var resp proto.SubscribeResp
+	if err := c.sendTextActionAndDecode(reqID, proto.TMQActionSubscribe, req, reconnect, nil, &resp); err != nil {
 		return err
 	}
 	c.setTopics(topics)
@@ -559,31 +537,17 @@ func (c *TMQConsumer) Poll(timeoutMs int) tmq.Event {
 		_ = c.doCommit()
 	}
 	reqID := c.generateReqID()
-	req := &PollReq{
+	req := &proto.PollReq{
 		ReqID:        reqID,
 		BlockingTime: int64(timeoutMs),
 		MessageID:    c.getLastMessageID(),
 	}
-	args, err := client.JsonI.Marshal(req)
+	respBytes, err := c.sendTextAction(reqID, proto.TMQActionPoll, req, c.autoReconnect, nil)
 	if err != nil {
 		return tmq.NewTMQErrorWithErr(err)
 	}
-	action := &client.WSAction{
-		Action: proto.TMQActionPoll,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return tmq.NewTMQErrorWithErr(err)
-	}
-	respBytes, err := c.sendTextWithReconnect(reqID, envelope, c.autoReconnect)
-	if err != nil {
-		return tmq.NewTMQErrorWithErr(err)
-	}
-	var resp PollResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
+	var resp proto.PollResp
+	err = decodeJSONResponse(respBytes, &resp)
 	if err != nil {
 		return tmq.NewTMQErrorWithErr(err)
 	}
@@ -661,36 +625,16 @@ func (c *TMQConsumer) Poll(timeoutMs int) tmq.Event {
 
 func (c *TMQConsumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 	reqID := c.generateReqID()
-	req := &FetchJsonMetaReq{
+	req := &proto.FetchJSONMetaReq{
 		ReqID:     reqID,
 		MessageID: messageID,
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionFetchJSONMeta,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
-	if err != nil {
-		return nil, err
-	}
-	var resp FetchJsonMetaResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
+	var resp proto.FetchJSONMetaResp
+	if err := c.sendTextActionAndDecode(reqID, proto.TMQActionFetchJSONMeta, req, false, nil, &resp); err != nil {
 		return nil, err
 	}
 	var meta tmq.Meta
-	err = client.JsonI.Unmarshal(resp.Data, &meta)
+	err := decodeJSONResponse(resp.Data, &meta)
 	if err != nil {
 		return nil, err
 	}
@@ -699,25 +643,11 @@ func (c *TMQConsumer) fetchJsonMeta(messageID uint64) (*tmq.Meta, error) {
 
 func (c *TMQConsumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 	reqID := c.generateReqID()
-	req := &TMQFetchRawMetaReq{
+	req := &proto.FetchRawMetaReq{
 		ReqID:     reqID,
 		MessageID: messageID,
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionFetchRaw,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
+	respBytes, err := c.sendTextAction(reqID, proto.TMQActionFetchRaw, req, false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -768,31 +698,12 @@ func (c *TMQConsumer) doCommit() error {
 		return currentErr
 	}
 	reqID := c.generateReqID()
-	req := &CommitReq{
+	req := &proto.CommitReq{
 		ReqID:     reqID,
 		MessageID: 0,
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionCommit,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
-	if err != nil {
-		return err
-	}
-	var resp CommitResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	return client.HandleResponseError(err, resp.Code, resp.Message)
+	var resp proto.CommitResp
+	return c.sendTextActionAndDecode(reqID, proto.TMQActionCommit, req, false, nil, &resp)
 }
 
 func (c *TMQConsumer) Unsubscribe() error {
@@ -803,30 +714,11 @@ func (c *TMQConsumer) Unsubscribe() error {
 		return currentErr
 	}
 	reqID := c.generateReqID()
-	req := &UnsubscribeReq{
+	req := &proto.UnsubscribeReq{
 		ReqID: reqID,
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionUnsubscribe,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
-	if err != nil {
-		return err
-	}
-	var resp CommitResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	return client.HandleResponseError(err, resp.Code, resp.Message)
+	var resp proto.CommitResp
+	return c.sendTextActionAndDecode(reqID, proto.TMQActionUnsubscribe, req, false, nil, &resp)
 }
 
 func (c *TMQConsumer) Assignment() (partitions []tmq.TopicPartition, err error) {
@@ -837,34 +729,16 @@ func (c *TMQConsumer) Assignment() (partitions []tmq.TopicPartition, err error) 
 		return nil, currentErr
 	}
 	topics := c.topicsSnapshot()
+	envelope := client.GlobalEnvelopePool.Get()
+	defer client.GlobalEnvelopePool.Put(envelope)
 	for _, topic := range topics {
 		reqID := c.generateReqID()
-		req := &AssignmentReq{
+		req := &proto.AssignmentReq{
 			ReqID: reqID,
 			Topic: topic,
 		}
-		args, err := client.JsonI.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		action := &client.WSAction{
-			Action: proto.TMQActionAssignment,
-			Args:   args,
-		}
-		envelope := client.GlobalEnvelopePool.Get()
-		defer client.GlobalEnvelopePool.Put(envelope)
-		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-		if err != nil {
-			return nil, err
-		}
-		respBytes, err := c.sendText(reqID, envelope)
-		if err != nil {
-			return nil, err
-		}
-		var resp AssignmentResp
-		err = client.JsonI.Unmarshal(respBytes, &resp)
-		err = client.HandleResponseError(err, resp.Code, resp.Message)
-		if err != nil {
+		var resp proto.AssignmentResp
+		if err = c.sendTextActionAndDecode(reqID, proto.TMQActionAssignment, req, false, envelope, &resp); err != nil {
 			return nil, err
 		}
 		topicName := topic
@@ -888,33 +762,14 @@ func (c *TMQConsumer) Seek(partition tmq.TopicPartition, ignoredTimeoutMs int) e
 		return currentErr
 	}
 	reqID := c.generateReqID()
-	req := &OffsetSeekReq{
+	req := &proto.OffsetSeekReq{
 		ReqID:    reqID,
 		Topic:    *partition.Topic,
 		VgroupID: partition.Partition,
 		Offset:   int64(partition.Offset),
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionSeek,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
-	if err != nil {
-		return err
-	}
-	var resp OffsetSeekResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	return client.HandleResponseError(err, resp.Code, resp.Message)
+	var resp proto.OffsetSeekResp
+	return c.sendTextActionAndDecode(reqID, proto.TMQActionSeek, req, false, nil, &resp)
 }
 
 func (c *TMQConsumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) (offsets []tmq.TopicPartition, err error) {
@@ -923,38 +778,18 @@ func (c *TMQConsumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) 
 	}
 	offsets = make([]tmq.TopicPartition, len(partitions))
 	reqID := c.generateReqID()
-	req := &CommittedReq{
+	req := &proto.CommittedReq{
 		ReqID:          reqID,
-		TopicVgroupIDs: make([]TopicVgroupID, len(partitions)),
+		TopicVgroupIDs: make([]proto.TopicVgroupID, len(partitions)),
 	}
 	for i := 0; i < len(partitions); i++ {
-		req.TopicVgroupIDs[i] = TopicVgroupID{
+		req.TopicVgroupIDs[i] = proto.TopicVgroupID{
 			Topic:    *partitions[i].Topic,
 			VgroupID: partitions[i].Partition,
 		}
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionCommitted,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
-	if err != nil {
-		return nil, err
-	}
-	var resp CommittedResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
+	var resp proto.CommittedResp
+	if err = c.sendTextActionAndDecode(reqID, proto.TMQActionCommitted, req, false, nil, &resp); err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(resp.Committed); i++ {
@@ -978,33 +813,14 @@ func (c *TMQConsumer) CommitOffsets(offsets []tmq.TopicPartition) ([]tmq.TopicPa
 	defer client.GlobalEnvelopePool.Put(envelope)
 	for i := 0; i < len(offsets); i++ {
 		reqID := c.generateReqID()
-		req := &CommitOffsetReq{
+		req := &proto.CommitOffsetReq{
 			ReqID:    reqID,
 			Topic:    *offsets[i].Topic,
 			VgroupID: offsets[i].Partition,
 			Offset:   int64(offsets[i].Offset),
 		}
-		args, err := client.JsonI.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		action := &client.WSAction{
-			Action: proto.TMQActionCommitOffset,
-			Args:   args,
-		}
-		envelope.Reset()
-		err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-		if err != nil {
-			return nil, err
-		}
-		respBytes, err := c.sendText(reqID, envelope)
-		if err != nil {
-			return nil, err
-		}
-		var resp CommitOffsetResp
-		err = client.JsonI.Unmarshal(respBytes, &resp)
-		err = client.HandleResponseError(err, resp.Code, resp.Message)
-		if err != nil {
+		var resp proto.CommitOffsetResp
+		if err := c.sendTextActionAndDecode(reqID, proto.TMQActionCommitOffset, req, false, envelope, &resp); err != nil {
 			return nil, err
 		}
 	}
@@ -1017,38 +833,18 @@ func (c *TMQConsumer) Position(partitions []tmq.TopicPartition) (offsets []tmq.T
 	}
 	offsets = make([]tmq.TopicPartition, len(partitions))
 	reqID := c.generateReqID()
-	req := &PositionReq{
+	req := &proto.PositionReq{
 		ReqID:          reqID,
-		TopicVgroupIDs: make([]TopicVgroupID, len(partitions)),
+		TopicVgroupIDs: make([]proto.TopicVgroupID, len(partitions)),
 	}
 	for i := 0; i < len(partitions); i++ {
-		req.TopicVgroupIDs[i] = TopicVgroupID{
+		req.TopicVgroupIDs[i] = proto.TopicVgroupID{
 			Topic:    *partitions[i].Topic,
 			VgroupID: partitions[i].Partition,
 		}
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	action := &client.WSAction{
-		Action: proto.TMQActionPosition,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
-	if err != nil {
-		return nil, err
-	}
-	respBytes, err := c.sendText(reqID, envelope)
-	if err != nil {
-		return nil, err
-	}
-	var resp PositionResp
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
+	var resp proto.PositionResp
+	if err = c.sendTextActionAndDecode(reqID, proto.TMQActionPosition, req, false, nil, &resp); err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(resp.Position); i++ {

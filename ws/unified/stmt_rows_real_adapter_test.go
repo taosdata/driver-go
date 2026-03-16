@@ -14,6 +14,7 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
+// TestUnifiedStmtAndRowsRealAdapterCoverage verifies the expected behavior for this scenario.
 func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -139,9 +140,9 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 		require.NotNil(t, rows)
 		require.NotZero(t, rows.ResultID())
 
-		oldRuntime := c.Runtime()
+		oldRuntime := c.runtimeClient()
 		require.NotNil(t, oldRuntime)
-		require.NoError(t, c.ReconnectWithBootstrap(c.defaultBootstrap))
+		require.NoError(t, c.reconnectWithBootstrap(c.defaultBootstrap, nil))
 
 		_, _, queryErr = rows.FetchRawBlock(0)
 		require.ErrorIs(t, queryErr, ErrQueryResultConnectionLost)
@@ -151,7 +152,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 
 	t.Run("stmt_reconnect_paths", func(t *testing.T) {
 		// init reconnect path
-		runtime := c.Runtime()
+		runtime := c.runtimeClient()
 		require.NotNil(t, runtime)
 		runtime.Close()
 		_, initErr := c.InitStmt(0)
@@ -213,9 +214,9 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 	})
 
 	t.Run("request_runtime_mismatch_paths", func(t *testing.T) {
-		oldRuntime := c.Runtime()
+		oldRuntime := c.runtimeClient()
 		require.NotNil(t, oldRuntime)
-		require.NoError(t, c.ReconnectWithBootstrap(c.defaultBootstrap))
+		require.NoError(t, c.reconnectWithBootstrap(c.defaultBootstrap, nil))
 
 		envelope := client.GlobalEnvelopePool.Get()
 		defer client.GlobalEnvelopePool.Put(envelope)
@@ -232,9 +233,10 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 	})
 }
 
+// TestUnifiedSmallCoverageEdges verifies the expected behavior for this scenario.
 func TestUnifiedSmallCoverageEdges(t *testing.T) {
 	t.Run("failover_endpoints_copy", func(t *testing.T) {
-		state, err := NewFailoverState([]string{"ws://a", "ws://b"})
+		state, err := newFailoverState([]string{"ws://a", "ws://b"})
 		require.NoError(t, err)
 		endpoints := state.Endpoints()
 		require.Equal(t, []string{"ws://a", "ws://b"}, endpoints)
@@ -243,17 +245,17 @@ func TestUnifiedSmallCoverageEdges(t *testing.T) {
 	})
 
 	t.Run("stmt_compat_state_clear_bind_data", func(t *testing.T) {
-		state := NewStmtCompatState()
-		require.NoError(t, state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+		state := newStmtCompatState()
+		require.NoError(t, state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 			{
 				TableName: "tb1",
 				Cols:      [][]driver.Value{{int32(1)}},
 			},
 		}, true))
-		require.True(t, state.HasBindData(true))
-		state.ClearBindData()
-		require.False(t, state.HasBindData(true))
-		require.Nil(t, state.BindData(true))
+		require.True(t, state.hasBindData(true))
+		state.clearBindData()
+		require.False(t, state.hasBindData(true))
+		require.Nil(t, state.bindData(true))
 	})
 
 	t.Run("rows_and_error_nil_branches", func(t *testing.T) {
@@ -266,7 +268,7 @@ func TestUnifiedSmallCoverageEdges(t *testing.T) {
 		require.Equal(t, "", unifiedErr.Error())
 		require.Nil(t, unifiedErr.Unwrap())
 
-		baseErr := errors.New("root cause")
+		baseErr := fmt.Errorf("root cause")
 		wrapped := &Error{Type: ErrorTypeProtocol, Cause: baseErr}
 		require.Equal(t, "root cause", wrapped.Error())
 		require.ErrorIs(t, wrapped, baseErr)

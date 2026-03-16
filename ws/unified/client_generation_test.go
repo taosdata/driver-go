@@ -1,7 +1,6 @@
 package unified
 
 import (
-	"container/list"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,9 +23,9 @@ func TestRuntimeGenerationPreventsRequestLoss(t *testing.T) {
 	err = c.Connect()
 	require.NoError(t, err)
 
-	var requestsAdded atomic.Int32
-	var requestsCleaned atomic.Int32
-	var requestsPreserved atomic.Int32
+	var requestsAdded int32
+	var requestsCleaned int32
+	var requestsPreserved int32
 
 	var wg sync.WaitGroup
 
@@ -35,7 +34,7 @@ func TestRuntimeGenerationPreventsRequestLoss(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 10; i++ {
-			runtime := c.Runtime()
+			runtime := c.runtimeClient()
 			_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 			time.Sleep(50 * time.Millisecond)
 		}
@@ -47,52 +46,42 @@ func TestRuntimeGenerationPreventsRequestLoss(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < 20; j++ {
-				// Get current generation
-				c.lock.RLock()
-				currentGen := c.runtimeGen
-				c.lock.RUnlock()
-
 				// Add pending request
 				respChan := make(chan []byte, 1)
-				pendingReq := &PendingRequest{
-					reqID:      uint64(id*1000 + j),
-					channel:    respChan,
-					runtimeGen: currentGen,
+				pendingReq := &pendingRequest{
+					reqID:   uint64(id*1000 + j),
+					channel: respChan,
 				}
 
 				c.pendingLock.Lock()
-				c.pendingRequests.PushBack(pendingReq)
+				c.pendingRequests[pendingReq.reqID] = pendingReq
 				c.pendingLock.Unlock()
 
-				requestsAdded.Add(1)
+				atomic.AddInt32(&requestsAdded, 1)
 
 				// Wait a bit to see if it gets cleaned
 				time.Sleep(10 * time.Millisecond)
 
-				// Check if still in list
+				// Check if still pending
 				c.pendingLock.Lock()
-				found := false
-				for e := c.pendingRequests.Front(); e != nil; e = e.Next() {
-					if e.Value.(*PendingRequest).reqID == pendingReq.reqID {
-						found = true
-						c.pendingRequests.Remove(e)
-						break
-					}
+				_, found := c.pendingRequests[pendingReq.reqID]
+				if found {
+					delete(c.pendingRequests, pendingReq.reqID)
 				}
 				c.pendingLock.Unlock()
 
 				if found {
-					requestsPreserved.Add(1)
+					atomic.AddInt32(&requestsPreserved, 1)
 				} else {
 					// Check if it was cleaned (received nil)
 					select {
 					case msg := <-respChan:
 						if msg == nil {
-							requestsCleaned.Add(1)
+							atomic.AddInt32(&requestsCleaned, 1)
 						}
 					default:
 						// Not found and no message - might have been cleaned
-						requestsCleaned.Add(1)
+						atomic.AddInt32(&requestsCleaned, 1)
 					}
 				}
 
@@ -103,13 +92,13 @@ func TestRuntimeGenerationPreventsRequestLoss(t *testing.T) {
 
 	wg.Wait()
 
-	t.Logf("Requests added: %d", requestsAdded.Load())
-	t.Logf("Requests cleaned: %d", requestsCleaned.Load())
-	t.Logf("Requests preserved: %d", requestsPreserved.Load())
+	t.Logf("Requests added: %d", atomic.LoadInt32(&requestsAdded))
+	t.Logf("Requests cleaned: %d", atomic.LoadInt32(&requestsCleaned))
+	t.Logf("Requests preserved: %d", atomic.LoadInt32(&requestsPreserved))
 
 	// All requests should be accounted for
-	total := requestsCleaned.Load() + requestsPreserved.Load()
-	assert.Equal(t, requestsAdded.Load(), total, "All requests should be accounted for")
+	total := atomic.LoadInt32(&requestsCleaned) + atomic.LoadInt32(&requestsPreserved)
+	assert.Equal(t, atomic.LoadInt32(&requestsAdded), total, "All requests should be accounted for")
 }
 
 // TestSwapRuntimeDoesNotCleanNewRequests tests that new requests are not cleaned during swap
@@ -130,23 +119,22 @@ func TestSwapRuntimeDoesNotCleanNewRequests(t *testing.T) {
 	oldGen := c.runtimeGen
 	c.lock.RUnlock()
 
-	oldRequests := make([]*PendingRequest, 3)
+	oldRequests := make([]*pendingRequest, 3)
 	for i := 0; i < 3; i++ {
 		respChan := make(chan []byte, 1)
-		req := &PendingRequest{
-			reqID:      uint64(i),
-			channel:    respChan,
-			runtimeGen: oldGen,
+		req := &pendingRequest{
+			reqID:   uint64(i),
+			channel: respChan,
 		}
 		oldRequests[i] = req
 
 		c.pendingLock.Lock()
-		c.pendingRequests.PushBack(req)
+		c.pendingRequests[req.reqID] = req
 		c.pendingLock.Unlock()
 	}
 
 	// Trigger runtime swap
-	runtime := c.Runtime()
+	runtime := c.runtimeClient()
 	_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 
 	// Wait for swap to complete
@@ -159,18 +147,17 @@ func TestSwapRuntimeDoesNotCleanNewRequests(t *testing.T) {
 
 	assert.Greater(t, newGen, oldGen, "Generation should have incremented")
 
-	newRequests := make([]*PendingRequest, 3)
+	newRequests := make([]*pendingRequest, 3)
 	for i := 0; i < 3; i++ {
 		respChan := make(chan []byte, 1)
-		req := &PendingRequest{
-			reqID:      uint64(i + 100),
-			channel:    respChan,
-			runtimeGen: newGen,
+		req := &pendingRequest{
+			reqID:   uint64(i + 100),
+			channel: respChan,
 		}
 		newRequests[i] = req
 
 		c.pendingLock.Lock()
-		c.pendingRequests.PushBack(req)
+		c.pendingRequests[req.reqID] = req
 		c.pendingLock.Unlock()
 	}
 
@@ -184,16 +171,16 @@ func TestSwapRuntimeDoesNotCleanNewRequests(t *testing.T) {
 		}
 	}
 
-	// Check new requests are still in list
+	// Check new requests are still pending
 	c.pendingLock.Lock()
-	count := c.pendingRequests.Len()
+	count := len(c.pendingRequests)
 	c.pendingLock.Unlock()
 
-	assert.Equal(t, 3, count, "New requests should still be in list")
+	assert.Equal(t, 3, count, "New requests should still be pending")
 
 	// Clean up
 	c.pendingLock.Lock()
-	c.pendingRequests = list.New()
+	c.pendingRequests = make(map[uint64]*pendingRequest)
 	c.pendingLock.Unlock()
 }
 
@@ -219,7 +206,7 @@ func TestRuntimeGenerationMonotonicity(t *testing.T) {
 
 		generations = append(generations, gen)
 
-		runtime := c.Runtime()
+		runtime := c.runtimeClient()
 		_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 
 		time.Sleep(50 * time.Millisecond)
@@ -248,20 +235,19 @@ func TestCloseWithPendingRequestsOfDifferentGenerations(t *testing.T) {
 	for gen := uint64(0); gen < 3; gen++ {
 		for i := 0; i < 2; i++ {
 			respChan := make(chan []byte, 1)
-			req := &PendingRequest{
-				reqID:      gen*10 + uint64(i),
-				channel:    respChan,
-				runtimeGen: gen,
+			req := &pendingRequest{
+				reqID:   gen*10 + uint64(i),
+				channel: respChan,
 			}
 
 			c.pendingLock.Lock()
-			c.pendingRequests.PushBack(req)
+			c.pendingRequests[req.reqID] = req
 			c.pendingLock.Unlock()
 		}
 	}
 
 	c.pendingLock.Lock()
-	initialCount := c.pendingRequests.Len()
+	initialCount := len(c.pendingRequests)
 	c.pendingLock.Unlock()
 
 	assert.Equal(t, 6, initialCount, "Should have 6 pending requests")

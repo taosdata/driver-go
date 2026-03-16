@@ -2,12 +2,16 @@ package unified
 
 import (
 	"bytes"
-	"container/list"
 	"context"
 	"time"
 
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
+
+var errNilEnvelope = &Error{
+	Type:    ErrorTypeInvalidState,
+	Message: "nil envelope",
+}
 
 // sendEnvelopeWithRuntime sends one request on a specific runtime and waits for one routed response.
 // It returns whether the websocket write has been acknowledged and the runtime generation used.
@@ -26,31 +30,54 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 	}
 
 	respChan := make(chan []byte, 1)
-	pendingReq := &PendingRequest{
+	pendingReq := &pendingRequest{
 		reqID:   reqID,
 		channel: respChan,
 	}
-	var element *list.Element
 	var runtimeGen uint64
 
-	// Keep runtime validation, generation read, and pending registration in one critical section.
-	c.lock.RLock()
-	c.pendingLock.Lock()
-	if c.runtime != runtime {
+	// Fast path: first atomic snapshot read is an early reject optimization so
+	// stale runtimes can fail without contending on pendingLock.
+	// We re-check snapshot again after pendingLock is held to close the TOCTOU
+	// window before registering pendingReq.
+	if snapshot, ok := c.loadRuntimeSnapshotAtomic(); ok {
+		if snapshot.runtime != runtime {
+			return nil, false, 0, client.ClosedError
+		}
+		runtimeGen = snapshot.generation
+
+		c.pendingLock.Lock()
+		currentSnapshot, currentOK := c.loadRuntimeSnapshotAtomic()
+		if !currentOK || currentSnapshot.runtime != runtime || currentSnapshot.generation != runtimeGen {
+			c.pendingLock.Unlock()
+			return nil, false, 0, client.ClosedError
+		}
+		if c.pendingRequests == nil {
+			c.pendingRequests = make(map[uint64]*pendingRequest)
+		}
+		c.pendingRequests[reqID] = pendingReq
+		c.pendingLock.Unlock()
+	} else {
+		// Compatibility fallback for tests that create zero-value Client literals.
+		// Keep c.lock -> pendingLock order with swapRuntime.
+		c.lock.RLock()
+		c.pendingLock.Lock()
+		if c.runtime != runtime {
+			c.pendingLock.Unlock()
+			c.lock.RUnlock()
+			return nil, false, 0, client.ClosedError
+		}
+		runtimeGen = c.runtimeGen
+		if c.pendingRequests == nil {
+			c.pendingRequests = make(map[uint64]*pendingRequest)
+		}
+		c.pendingRequests[reqID] = pendingReq
 		c.pendingLock.Unlock()
 		c.lock.RUnlock()
-		return nil, false, 0, client.ClosedError
 	}
-	runtimeGen = c.runtimeGen
-	pendingReq.runtimeGen = runtimeGen
-	element = c.pendingRequests.PushBack(pendingReq)
-	c.pendingLock.Unlock()
-	c.lock.RUnlock()
 
 	defer func() {
-		c.pendingLock.Lock()
-		c.pendingRequests.Remove(element)
-		c.pendingLock.Unlock()
+		_ = c.removePendingRequest(reqID, pendingReq)
 	}()
 
 	err := runtime.Send(envelope)
@@ -103,12 +130,21 @@ func (c *Client) sendEnvelopeNoResponse(runtime *client.Client, envelope *client
 	if runtime == nil {
 		return client.ClosedError
 	}
+	if envelope == nil {
+		return errNilEnvelope
+	}
 
-	c.lock.RLock()
-	runtimeMatched := c.runtime == runtime
-	c.lock.RUnlock()
-	if !runtimeMatched {
-		return client.ClosedError
+	if snapshot, ok := c.loadRuntimeSnapshotAtomic(); ok {
+		if snapshot.runtime != runtime {
+			return client.ClosedError
+		}
+	} else {
+		c.lock.RLock()
+		runtimeMatched := c.runtime == runtime
+		c.lock.RUnlock()
+		if !runtimeMatched {
+			return client.ClosedError
+		}
 	}
 
 	if err := runtime.Send(envelope); err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestSwapRuntimeNilDoesNotPanicWhenClosed verifies the expected behavior for this scenario.
 func TestSwapRuntimeNilDoesNotPanicWhenClosed(t *testing.T) {
 	cfg := NewConfig([]string{"ws://localhost:6041"})
 	c, err := NewClient(cfg, "/ws")
@@ -22,6 +23,7 @@ func TestSwapRuntimeNilDoesNotPanicWhenClosed(t *testing.T) {
 	})
 }
 
+// TestSwapRuntimeNilOnOpenClientReturnsInvalidState verifies the expected behavior for this scenario.
 func TestSwapRuntimeNilOnOpenClientReturnsInvalidState(t *testing.T) {
 	cfg := NewConfig([]string{"ws://localhost:6041"})
 	c, err := NewClient(cfg, "/ws")
@@ -33,6 +35,7 @@ func TestSwapRuntimeNilOnOpenClientReturnsInvalidState(t *testing.T) {
 	assert.ErrorIs(t, swapErr, ErrNilRuntime)
 }
 
+// TestIsReconnectableErrorWithWebsocketCloseError verifies the expected behavior for this scenario.
 func TestIsReconnectableErrorWithWebsocketCloseError(t *testing.T) {
 	wsErr := &websocket.CloseError{
 		Code: websocket.CloseAbnormalClosure,
@@ -42,6 +45,7 @@ func TestIsReconnectableErrorWithWebsocketCloseError(t *testing.T) {
 	assert.True(t, isReconnectableError(&Error{Type: ErrorTypeUnknown, Cause: wsErr}))
 }
 
+// TestReconnectFailureErrorType verifies the expected behavior for this scenario.
 func TestReconnectFailureErrorType(t *testing.T) {
 	cfg := NewConfig([]string{"ws://a:1"})
 	c, err := NewClient(cfg, "/ws",
@@ -52,7 +56,7 @@ func TestReconnectFailureErrorType(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	err = c.ReconnectWithBootstrap(nil)
+	err = c.reconnectWithBootstrap(nil, nil)
 	require.Error(t, err)
 	assert.True(t, IsReconnectFailedError(err))
 	assert.True(t, IsConnectionRelatedError(err))

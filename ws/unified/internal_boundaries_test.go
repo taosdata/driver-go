@@ -2,7 +2,7 @@ package unified
 
 import (
 	"database/sql/driver"
-	"errors"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -17,6 +17,7 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
+// TestStmtValidateBindDataItemLockedBoundaries verifies the expected behavior for this scenario.
 func TestStmtValidateBindDataItemLockedBoundaries(t *testing.T) {
 	s := &Stmt{
 		isInsert:  true,
@@ -99,44 +100,45 @@ func TestStmtValidateBindDataItemLockedBoundaries(t *testing.T) {
 	require.Contains(t, err.Error(), "expected 1 query params, got 2")
 }
 
+// TestStmtValidateCurrentBatchLockedBoundaries verifies the expected behavior for this scenario.
 func TestStmtValidateCurrentBatchLockedBoundaries(t *testing.T) {
 	s := &Stmt{
 		isInsert:  true,
 		needTable: true,
 		tagCount:  1,
 		colCount:  2,
-		state:     NewStmtCompatState(),
+		state:     newStmtCompatState(),
 	}
 
 	err := s.validateCurrentBatchLocked()
 	require.ErrorIs(t, err, ErrStmtTableNameNotSet)
 
-	s.state.SetTableName("tb")
+	s.state.setTableName("tb")
 	err = s.validateCurrentBatchLocked()
 	require.ErrorIs(t, err, ErrStmtTagsNotSet)
 
-	s.state.SetTags(param.NewParam(2).AddNchar("a").AddNchar("b"), param.NewColumnType(2).AddNchar(8).AddNchar(8))
+	s.state.setTags(param.NewParam(2).AddNchar("a").AddNchar("b"), param.NewColumnType(2).AddNchar(8).AddNchar(8))
 	err = s.validateCurrentBatchLocked()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "expected 1 tags, got 2")
 
-	s.state.SetTags(param.NewParam(1).AddNchar("a"), param.NewColumnType(1).AddNchar(8))
+	s.state.setTags(param.NewParam(1).AddNchar("a"), param.NewColumnType(1).AddNchar(8))
 	err = s.validateCurrentBatchLocked()
 	require.ErrorIs(t, err, ErrStmtColumnsNotSet)
 
-	s.state.BindParams([]*param.Param{param.NewParam(1).AddInt(1)}, param.NewColumnType(1).AddInt())
+	s.state.bindParams([]*param.Param{param.NewParam(1).AddInt(1)}, param.NewColumnType(1).AddInt())
 	err = s.validateCurrentBatchLocked()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "expected 2 columns, got 1")
 
-	s.state.BindParams([]*param.Param{
+	s.state.bindParams([]*param.Param{
 		param.NewParam(0),
 		param.NewParam(0),
 	}, param.NewColumnType(2).AddInt().AddInt())
 	err = s.validateCurrentBatchLocked()
 	require.ErrorIs(t, err, ErrStmtNoRowsToAdd)
 
-	s.state.BindParams([]*param.Param{
+	s.state.bindParams([]*param.Param{
 		param.NewParam(1).AddInt(1),
 		param.NewParam(0),
 	}, param.NewColumnType(2).AddInt().AddInt())
@@ -144,7 +146,7 @@ func TestStmtValidateCurrentBatchLockedBoundaries(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "has no rows to add")
 
-	s.state.BindParams([]*param.Param{
+	s.state.bindParams([]*param.Param{
 		param.NewParam(2).AddInt(1).AddInt(2),
 		param.NewParam(1).AddInt(3),
 	}, param.NewColumnType(2).AddInt().AddInt())
@@ -152,13 +154,14 @@ func TestStmtValidateCurrentBatchLockedBoundaries(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "different row count")
 
-	s.state.BindParams([]*param.Param{
+	s.state.bindParams([]*param.Param{
 		param.NewParam(2).AddInt(1).AddInt(2),
 		param.NewParam(2).AddInt(3).AddInt(4),
 	}, param.NewColumnType(2).AddInt().AddInt())
 	require.NoError(t, s.validateCurrentBatchLocked())
 }
 
+// TestStmtControlFlowHelpers verifies the expected behavior for this scenario.
 func TestStmtControlFlowHelpers(t *testing.T) {
 	s := &Stmt{}
 	require.NoError(t, s.enterCompatModeLocked())
@@ -182,9 +185,10 @@ func TestStmtControlFlowHelpers(t *testing.T) {
 	require.NoError(t, s.checkPreparedLocked())
 }
 
+// TestStmtShouldReconnectLockedBranches verifies the expected behavior for this scenario.
 func TestStmtShouldReconnectLockedBranches(t *testing.T) {
 	s := &Stmt{}
-	require.False(t, s.shouldReconnectLocked(errors.New("x"), nil))
+	require.False(t, s.shouldReconnectLocked(fmt.Errorf("x"), nil))
 
 	s = &Stmt{client: &Client{config: Config{AutoReconnect: false}}}
 	require.False(t, s.shouldReconnectLocked(client.ClosedError, nil))
@@ -194,14 +198,15 @@ func TestStmtShouldReconnectLockedBranches(t *testing.T) {
 
 	stoppedRuntime := client.NewClient(nil, 1)
 	stoppedRuntime.Close()
-	require.True(t, s.shouldReconnectLocked(errors.New("x"), stoppedRuntime))
+	require.True(t, s.shouldReconnectLocked(fmt.Errorf("x"), stoppedRuntime))
 
 	runningRuntime := client.NewClient(nil, 1)
 	require.True(t, s.shouldReconnectLocked(&websocket.CloseError{Code: websocket.CloseAbnormalClosure}, runningRuntime))
-	require.False(t, s.shouldReconnectLocked(errors.New("not reconnectable"), runningRuntime))
+	require.False(t, s.shouldReconnectLocked(fmt.Errorf("not reconnectable"), runningRuntime))
 	require.False(t, s.shouldReconnectLocked(nil, runningRuntime))
 }
 
+// TestStmt2InitWithReconnectNoRuntimePaths verifies the expected behavior for this scenario.
 func TestStmt2InitWithReconnectNoRuntimePaths(t *testing.T) {
 	closedClient := &Client{}
 	closedClient.closed = true
@@ -213,6 +218,7 @@ func TestStmt2InitWithReconnectNoRuntimePaths(t *testing.T) {
 	require.ErrorIs(t, err, client.ClosedError)
 }
 
+// TestQueryHelperBoundaries verifies the expected behavior for this scenario.
 func TestQueryHelperBoundaries(t *testing.T) {
 	require.Nil(t, buildResultSetFromQueryResp(nil, nil, 0, &proto.WSQueryResp{}))
 	require.Nil(t, buildResultSetFromQueryResp(&Client{}, nil, 0, nil))
@@ -240,10 +246,11 @@ func TestQueryHelperBoundaries(t *testing.T) {
 	require.True(t, IsConnectionDisconnectedError(err))
 	sameErr := normalizeDisconnectedError(ErrUnifiedClosed, "ignored")
 	require.ErrorIs(t, sameErr, ErrUnifiedClosed)
-	plainErr := errors.New("plain")
+	plainErr := fmt.Errorf("plain")
 	require.ErrorIs(t, normalizeDisconnectedError(plainErr, "x"), plainErr)
 }
 
+// TestRequestSendEnvelopeNilRuntimePaths verifies the expected behavior for this scenario.
 func TestRequestSendEnvelopeNilRuntimePaths(t *testing.T) {
 	c := &Client{config: Config{ReadTimeout: time.Millisecond, MessageTimeout: time.Millisecond}}
 	envelope := client.GlobalEnvelopePool.Get()
@@ -258,8 +265,19 @@ func TestRequestSendEnvelopeNilRuntimePaths(t *testing.T) {
 
 	err = c.sendEnvelopeNoResponse(nil, envelope)
 	require.ErrorIs(t, err, client.ClosedError)
+
+	runtime := client.NewClient(nil, 1)
+	c.lock.Lock()
+	c.runtime = runtime
+	c.runtimeGen = 1
+	c.publishRuntimeSnapshotLocked()
+	c.lock.Unlock()
+
+	err = c.sendEnvelopeNoResponse(runtime, nil)
+	require.EqualError(t, err, errNilEnvelope.Error())
 }
 
+// TestNormalizeStmt2ValueCoversTypes verifies the expected behavior for this scenario.
 func TestNormalizeStmt2ValueCoversTypes(t *testing.T) {
 	now := time.Now().UTC().Round(time.Millisecond)
 	ts := types.TaosTimestamp{T: now, Precision: common.PrecisionMilliSecond}
@@ -293,48 +311,50 @@ func TestNormalizeStmt2ValueCoversTypes(t *testing.T) {
 
 	for i := 0; i < len(cases); i++ {
 		tc := cases[i]
-		got, err := NormalizeStmt2Value(tc.value, tc.queryMode)
+		got, err := normalizeStmt2Value(tc.value, tc.queryMode)
 		require.NoError(t, err, tc.name)
 		require.Equal(t, tc.want, got, tc.name)
 	}
 
-	_, err := NormalizeStmt2Value(struct{}{}, false)
+	_, err := normalizeStmt2Value(struct{}{}, false)
 	require.Error(t, err)
 }
 
+// TestStmtCompatStateAddBatchAndUpsertBoundaries verifies the expected behavior for this scenario.
 func TestStmtCompatStateAddBatchAndUpsertBoundaries(t *testing.T) {
-	state := NewStmtCompatState()
-	state.SetTableName("tb")
-	state.SetTags(param.NewParam(1).AddNchar("tag"), param.NewColumnType(1).AddNchar(8))
-	state.BindParams([]*param.Param{
+	state := newStmtCompatState()
+	state.setTableName("tb")
+	state.setTags(param.NewParam(1).AddNchar("tag"), param.NewColumnType(1).AddNchar(8))
+	state.bindParams([]*param.Param{
 		param.NewParam(1).AddInt(1),
 	}, param.NewColumnType(1).AddInt())
-	require.NoError(t, state.AddBatch(true))
-	require.True(t, state.HasBindData(true))
+	require.NoError(t, state.addBatch(true))
+	require.True(t, state.hasBindData(true))
 
-	queryState := NewStmtCompatState()
-	queryState.BindParams([]*param.Param{
+	queryState := newStmtCompatState()
+	queryState.bindParams([]*param.Param{
 		param.NewParam(1).AddBinary([]byte("x")),
 	}, param.NewColumnType(1).AddBinary(1))
-	require.NoError(t, queryState.AddBatch(false))
-	require.True(t, queryState.HasBindData(false))
+	require.NoError(t, queryState.addBatch(false))
+	require.True(t, queryState.hasBindData(false))
 
-	err := state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+	err := state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 		{TableName: "tb", Cols: [][]driver.Value{{int32(1)}}},
 	}, true)
 	require.NoError(t, err)
-	err = state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+	err = state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 		{TableName: "tb", Cols: [][]driver.Value{{int32(2)}, {int32(3)}}},
 	}, true)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "col count not match")
 }
 
+// TestReconnectAndDisconnectFlags verifies the expected behavior for this scenario.
 func TestReconnectAndDisconnectFlags(t *testing.T) {
 	require.False(t, isReconnectableError(nil))
 	require.True(t, isReconnectableError(&net.OpError{}))
 	require.True(t, isReconnectableError(&websocket.CloseError{Code: websocket.CloseAbnormalClosure}))
 
-	require.False(t, IsConnectionDisconnectedError(errors.New("x")))
-	require.False(t, IsReconnectFailedError(errors.New("x")))
+	require.False(t, IsConnectionDisconnectedError(fmt.Errorf("x")))
+	require.False(t, IsReconnectFailedError(fmt.Errorf("x")))
 }

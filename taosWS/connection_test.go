@@ -35,9 +35,13 @@ func TestBadConnection(t *testing.T) {
 	}
 	cfg.ReadTimeout = 10 * time.Second
 	cfg.WriteTimeout = 10 * time.Second
-	conn, err := newTaosConn(cfg)
+	rawConn, err := (&connector{cfg: cfg}).Connect(context.Background())
 	if err != nil {
-		t.Fatalf("newTaosConn error: %v", err)
+		t.Fatalf("connector connect error: %v", err)
+	}
+	conn, ok := rawConn.(*taosConn)
+	if !ok {
+		t.Fatalf("unexpected connection type: %T", rawConn)
 	}
 
 	// to test bad connection, we manually close the connection
@@ -82,9 +86,13 @@ func TestBegin(t *testing.T) {
 	}
 	cfg.ReadTimeout = 10 * time.Second
 	cfg.WriteTimeout = 10 * time.Second
-	conn, err := newTaosConn(cfg)
+	rawConn, err := (&connector{cfg: cfg}).Connect(context.Background())
 	if err != nil {
-		t.Fatalf("newTaosConn error: %v", err)
+		t.Fatalf("connector connect error: %v", err)
+	}
+	conn, ok := rawConn.(*taosConn)
+	if !ok {
+		t.Fatalf("unexpected connection type: %T", rawConn)
 	}
 	defer func() {
 		err = conn.Close()
@@ -177,9 +185,13 @@ func TestDisconnectNoReadTimeout(t *testing.T) {
 	}
 	cfg.ReadTimeout = 10 * time.Second
 	cfg.WriteTimeout = 3 * time.Second
-	conn, err := newTaosConn(cfg)
+	rawConn, err := (&connector{cfg: cfg}).Connect(context.Background())
 	if err != nil {
 		t.Fatal(err)
+	}
+	conn, ok := rawConn.(*taosConn)
+	if !ok {
+		t.Fatalf("unexpected connection type: %T", rawConn)
 	}
 	defer func() {
 		_ = conn.Close()

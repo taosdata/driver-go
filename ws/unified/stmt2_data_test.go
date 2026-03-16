@@ -8,9 +8,10 @@ import (
 	"github.com/taosdata/driver-go/v3/common/param"
 )
 
+// TestBuildStmt2InsertBindData verifies the expected behavior for this scenario.
 func TestBuildStmt2InsertBindData(t *testing.T) {
 	ts := time.Unix(1711111111, 0)
-	data, err := BuildStmt2InsertBindData(
+	data, err := buildStmt2InsertBindData(
 		"tb1",
 		param.NewParam(1).AddNchar("tag1"),
 		[]*param.Param{
@@ -39,9 +40,10 @@ func TestBuildStmt2InsertBindData(t *testing.T) {
 	}
 }
 
+// TestBuildStmt2QueryBindData verifies the expected behavior for this scenario.
 func TestBuildStmt2QueryBindData(t *testing.T) {
 	ts := time.Unix(1711111111, 123456789)
-	data, err := BuildStmt2QueryBindData([]*param.Param{
+	data, err := buildStmt2QueryBindData([]*param.Param{
 		param.NewParam(1).AddTimestamp(ts, common.PrecisionNanoSecond),
 		param.NewParam(1).AddInt(9),
 	})
@@ -62,14 +64,15 @@ func TestBuildStmt2QueryBindData(t *testing.T) {
 	}
 }
 
+// TestBuildStmt2DataErrors verifies the expected behavior for this scenario.
 func TestBuildStmt2DataErrors(t *testing.T) {
-	_, err := BuildStmt2InsertBindData("", nil, []*param.Param{
+	_, err := buildStmt2InsertBindData("", nil, []*param.Param{
 		param.NewParam(1).AddValue(struct{}{}),
 	})
 	if err == nil {
 		t.Fatal("expect insert normalize error")
 	}
-	_, err = BuildStmt2QueryBindData(nil)
+	_, err = buildStmt2QueryBindData(nil)
 	if err == nil {
 		t.Fatal("expect query error")
 	}

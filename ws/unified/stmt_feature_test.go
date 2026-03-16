@@ -13,6 +13,7 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
+// TestStmtCompatFlowWithDeprecatedAPIsStillWorks verifies the expected behavior for this scenario.
 func TestStmtCompatFlowWithDeprecatedAPIsStillWorks(t *testing.T) {
 	s := &Stmt{
 		sql:       "insert into ? using stb tags(?) values(?)",
@@ -24,7 +25,7 @@ func TestStmtCompatFlowWithDeprecatedAPIsStillWorks(t *testing.T) {
 			{Name: "tg", FieldType: common.TSDB_DATA_TYPE_NCHAR, BindType: commonstmt.TAOS_FIELD_TAG},
 			{Name: "v", FieldType: common.TSDB_DATA_TYPE_INT, BindType: commonstmt.TAOS_FIELD_COL},
 		},
-		state: NewStmtCompatState(),
+		state: newStmtCompatState(),
 	}
 
 	require.NoError(t, s.SetTableName("tb1"))
@@ -40,11 +41,12 @@ func TestStmtCompatFlowWithDeprecatedAPIsStillWorks(t *testing.T) {
 	require.NotEmpty(t, payload)
 }
 
+// TestStmtDeprecatedAPIValidation verifies the expected behavior for this scenario.
 func TestStmtDeprecatedAPIValidation(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?)",
 		isInsert: true,
-		state:    NewStmtCompatState(),
+		state:    newStmtCompatState(),
 	}
 
 	err := s.SetTableName("tb1")
@@ -54,6 +56,7 @@ func TestStmtDeprecatedAPIValidation(t *testing.T) {
 	require.ErrorIs(t, err, ErrStmtTagsNotNeeded)
 }
 
+// TestStmtMetadataHelpers verifies the expected behavior for this scenario.
 func TestStmtMetadataHelpers(t *testing.T) {
 	s := &Stmt{
 		sql:      "insert into t values(?)",
@@ -81,12 +84,14 @@ func TestStmtMetadataHelpers(t *testing.T) {
 	assert.Equal(t, "v", cols[1].Name)
 }
 
+// TestNormalizeStmtErrorCoversClosedAndConnectionRelated verifies the expected behavior for this scenario.
 func TestNormalizeStmtErrorCoversClosedAndConnectionRelated(t *testing.T) {
 	assert.Nil(t, normalizeStmtError(nil))
 	assert.ErrorIs(t, normalizeStmtError(client.ClosedError), ErrStmtConnectionLost)
 	assert.ErrorIs(t, normalizeStmtError(ErrUnifiedClosed), ErrUnifiedClosed)
 }
 
+// TestStmtResetPrepareLocked verifies the expected behavior for this scenario.
 func TestStmtResetPrepareLocked(t *testing.T) {
 	s := &Stmt{
 		sql:           "insert into t values(?)",
@@ -99,9 +104,9 @@ func TestStmtResetPrepareLocked(t *testing.T) {
 		schemaChanged: true,
 		lastAffected:  10,
 		bindMode:      stmtBindModeRaw,
-		state:         NewStmtCompatState(),
+		state:         newStmtCompatState(),
 	}
-	require.NoError(t, s.state.SetRawBindData([]*commonstmt.TaosStmt2BindData{{
+	require.NoError(t, s.state.setRawBindData([]*commonstmt.TaosStmt2BindData{{
 		TableName: "tb1",
 		Cols:      [][]driver.Value{{int32(1)}},
 	}}, true))
@@ -117,9 +122,10 @@ func TestStmtResetPrepareLocked(t *testing.T) {
 	assert.False(t, s.schemaChanged)
 	assert.Zero(t, s.lastAffected)
 	assert.Equal(t, stmtBindModeUnset, s.bindMode)
-	assert.False(t, s.state.HasBindData(true))
+	assert.False(t, s.state.hasBindData(true))
 }
 
+// TestSamePrepareMetadata verifies the expected behavior for this scenario.
 func TestSamePrepareMetadata(t *testing.T) {
 	current := &Stmt{
 		isInsert:    true,

@@ -17,8 +17,9 @@ import (
 
 const unifiedCrossStmtTable = "unified_stmt_cross"
 
-var stmtCrossTimestampSeq atomic.Int64
+var stmtCrossTimestampSeq int64
 
+// TestUnifiedStmtCrossFailoverDisconnectDetectionAndImmediateReconnect verifies the expected behavior for this scenario.
 func TestUnifiedStmtCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -59,6 +60,7 @@ func TestUnifiedStmtCrossFailoverDisconnectDetectionAndImmediateReconnect(t *tes
 	}, 4*time.Second, 50*time.Millisecond, "active endpoint should switch to standby")
 }
 
+// TestUnifiedStmtCrossConcurrentExecFailoverAndSwitchBack verifies the expected behavior for this scenario.
 func TestUnifiedStmtCrossConcurrentExecFailoverAndSwitchBack(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -124,6 +126,7 @@ func TestUnifiedStmtCrossConcurrentExecFailoverAndSwitchBack(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "active endpoint should switch back after recovery")
 }
 
+// TestUnifiedStmtCrossMultiNodeFailoverChainUnderConcurrency verifies the expected behavior for this scenario.
 func TestUnifiedStmtCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -188,6 +191,7 @@ func TestUnifiedStmtCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "should fail over to the third available endpoint")
 }
 
+// TestUnifiedStmtCrossDualNodeJitterWithConcurrentExec verifies the expected behavior for this scenario.
 func TestUnifiedStmtCrossDualNodeJitterWithConcurrentExec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -195,6 +199,7 @@ func TestUnifiedStmtCrossDualNodeJitterWithConcurrentExec(t *testing.T) {
 	runDualNodeStmtJitterScenario(t, 12, 25, 150*time.Millisecond, 100*time.Millisecond)
 }
 
+// TestUnifiedStmtCrossDualNodeJitterLoop verifies the expected behavior for this scenario.
 func TestUnifiedStmtCrossDualNodeJitterLoop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -323,8 +328,8 @@ func waitForSuccessfulStmtExec(stmt *Stmt, phase string, timeout time.Duration) 
 }
 
 func runConcurrentStmtExecWithFault(c *Client, db, table, phase string, workers, perWorker int, faultDelay time.Duration, faultFn func()) (int32, int32, error) {
-	var successCount atomic.Int32
-	var failCount atomic.Int32
+	var successCount int32
+	var failCount int32
 	var wg sync.WaitGroup
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
@@ -334,7 +339,7 @@ func runConcurrentStmtExecWithFault(c *Client, db, table, phase string, workers,
 
 			stmt, err := newPreparedStmtInsert(c, db, table)
 			if err != nil {
-				failCount.Add(int32(perWorker))
+				atomic.AddInt32(&failCount, int32(perWorker))
 				return
 			}
 			defer func() {
@@ -344,9 +349,9 @@ func runConcurrentStmtExecWithFault(c *Client, db, table, phase string, workers,
 			for i := 0; i < perWorker; i++ {
 				err = execPreparedStmtInsert(stmt, buildStmtInsertValue(phase, workerID, i))
 				if err != nil {
-					failCount.Add(1)
+					atomic.AddInt32(&failCount, 1)
 				} else {
-					successCount.Add(1)
+					atomic.AddInt32(&successCount, 1)
 				}
 			}
 		}()
@@ -363,9 +368,9 @@ func runConcurrentStmtExecWithFault(c *Client, db, table, phase string, workers,
 
 	select {
 	case <-done:
-		return successCount.Load(), failCount.Load(), nil
+		return atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount), nil
 	case <-time.After(20 * time.Second):
-		return successCount.Load(), failCount.Load(), newInvalidStateErrorf("concurrent stmt exec blocked during phase %s", phase)
+		return atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount), newInvalidStateErrorf("concurrent stmt exec blocked during phase %s", phase)
 	}
 }
 
@@ -374,8 +379,8 @@ func buildStmtInsertValue(phase string, workerID, i int) int {
 }
 
 func nextStmtCrossTimestamp() time.Time {
-	ms := int64(1700000000000) + stmtCrossTimestampSeq.Add(1)
-	return time.UnixMilli(ms)
+	ms := int64(1700000000000) + atomic.AddInt64(&stmtCrossTimestampSeq, 1)
+	return time.Unix(ms/1000, (ms%1000)*int64(time.Millisecond))
 }
 
 func loopCountFromEnvStmt(envName string, defaultCount int) int {

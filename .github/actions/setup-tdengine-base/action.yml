@@ -34,13 +34,13 @@ runs:
       run: |
         set +o pipefail  # Ignore pipe errors (e.g., from head/tail closing pipes early)
         echo "Installing TDengine ${{ inputs.version }}..."
-        if [ ! -f "${{ inputs.install-package }}" ]; then
-          echo "Error: Package not found: ${{ inputs.install-package }}"
-          exit 1
-        fi
 
         case "${{ inputs.package-type }}" in
           tar.gz)
+            if [ ! -f "${{ inputs.install-package }}" ]; then
+              echo "Error: Package file not found: ${{ inputs.install-package }}"
+              exit 1
+            fi
             echo "Extracting tarball..."
             tar -zxf "${{ inputs.install-package }}" 2>&1 | tail -20 || true
 
@@ -60,6 +60,10 @@ runs:
             fi
             ;;
           dir)
+            if [ ! -d "${{ inputs.install-package }}" ]; then
+              echo "Error: Package directory not found: ${{ inputs.install-package }}"
+              exit 1
+            fi
             cd "${{ inputs.install-package }}"
             ;;
           *)

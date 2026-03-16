@@ -24,6 +24,7 @@ import (
 const taosAuthHeader = "Taosd /KfeAzX/f9na8qdtNZmtONryp201ma04bEl8LcvLUd7a8qdtNZmtONryp201ma04"
 const unifiedCrossTestDB = "test_unified_cross"
 
+// TestUnifiedCrossFailoverDisconnectDetectionAndImmediateReconnect verifies the expected behavior for this scenario.
 func TestUnifiedCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -58,6 +59,7 @@ func TestUnifiedCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing
 	}, 4*time.Second, 50*time.Millisecond, "active endpoint should switch to standby")
 }
 
+// TestUnifiedCrossConcurrentSendFailoverAndSwitchBack verifies the expected behavior for this scenario.
 func TestUnifiedCrossConcurrentSendFailoverAndSwitchBack(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -120,6 +122,7 @@ func TestUnifiedCrossConcurrentSendFailoverAndSwitchBack(t *testing.T) {
 	assert.Less(t, finalRecoverCost, 2500*time.Millisecond, "switch-back reconnect should finish quickly")
 }
 
+// TestUnifiedCrossMultiNodeFailoverChainUnderConcurrency verifies the expected behavior for this scenario.
 func TestUnifiedCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -190,6 +193,7 @@ func TestUnifiedCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	assert.Less(t, finalRecoverCost, 2500*time.Millisecond)
 }
 
+// TestUnifiedCrossDualNodeJitterWithConcurrentSchemalessWrites verifies the expected behavior for this scenario.
 func TestUnifiedCrossDualNodeJitterWithConcurrentSchemalessWrites(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -197,6 +201,7 @@ func TestUnifiedCrossDualNodeJitterWithConcurrentSchemalessWrites(t *testing.T) 
 	runDualNodeJitterScenario(t, 12, 25, 150*time.Millisecond, 100*time.Millisecond)
 }
 
+// TestUnifiedCrossDualNodeJitterLoop verifies the expected behavior for this scenario.
 func TestUnifiedCrossDualNodeJitterLoop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -534,7 +539,7 @@ func newIntegrationUnifiedClient(t *testing.T, ports []string, db string) *Clien
 
 func activeAdapterPort(t *testing.T, c *Client) string {
 	t.Helper()
-	active := c.ActiveEndpoint().URL
+	active := c.failover.Active().URL
 	u, err := url.Parse(active)
 	require.NoError(t, err)
 	_, port, err := net.SplitHostPort(u.Host)
@@ -570,8 +575,8 @@ func waitForSuccessfulInsert(t *testing.T, c *Client, phase string, timeout time
 
 func runConcurrentInsertsWithFault(t *testing.T, c *Client, phase string, workers, perWorker int, faultDelay time.Duration, faultFn func()) (int32, int32, error) {
 	t.Helper()
-	var successCount atomic.Int32
-	var failCount atomic.Int32
+	var successCount int32
+	var failCount int32
 	var wg sync.WaitGroup
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
@@ -581,9 +586,9 @@ func runConcurrentInsertsWithFault(t *testing.T, c *Client, phase string, worker
 			for i := 0; i < perWorker; i++ {
 				err := c.SchemalessInsert(buildLine(phase, workerID, i), 1, "ns", 0, 0)
 				if err != nil {
-					failCount.Add(1)
+					atomic.AddInt32(&failCount, 1)
 				} else {
-					successCount.Add(1)
+					atomic.AddInt32(&successCount, 1)
 				}
 			}
 		}()
@@ -600,9 +605,9 @@ func runConcurrentInsertsWithFault(t *testing.T, c *Client, phase string, worker
 
 	select {
 	case <-done:
-		return successCount.Load(), failCount.Load(), nil
+		return atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount), nil
 	case <-time.After(20 * time.Second):
-		return successCount.Load(), failCount.Load(), newInvalidStateErrorf("concurrent inserts blocked during phase %s", phase)
+		return atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount), newInvalidStateErrorf("concurrent inserts blocked during phase %s", phase)
 	}
 }
 

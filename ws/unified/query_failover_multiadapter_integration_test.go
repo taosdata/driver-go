@@ -16,6 +16,7 @@ import (
 
 const unifiedCrossQueryTable = "unified_query_cross"
 
+// TestUnifiedQueryCrossFailoverDisconnectDetectionAndImmediateReconnect verifies the expected behavior for this scenario.
 func TestUnifiedQueryCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -50,6 +51,7 @@ func TestUnifiedQueryCrossFailoverDisconnectDetectionAndImmediateReconnect(t *te
 	}, 4*time.Second, 50*time.Millisecond, "active endpoint should switch to standby")
 }
 
+// TestUnifiedQueryResultStatefulFetchNoReconnectOnDisconnect verifies the expected behavior for this scenario.
 func TestUnifiedQueryResultStatefulFetchNoReconnectOnDisconnect(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -105,6 +107,7 @@ func TestUnifiedQueryResultStatefulFetchNoReconnectOnDisconnect(t *testing.T) {
 	}, 4*time.Second, 50*time.Millisecond)
 }
 
+// TestUnifiedQueryCrossConcurrentExecFailoverAndSwitchBack verifies the expected behavior for this scenario.
 func TestUnifiedQueryCrossConcurrentExecFailoverAndSwitchBack(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -164,6 +167,7 @@ func TestUnifiedQueryCrossConcurrentExecFailoverAndSwitchBack(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "active endpoint should switch back after recovery")
 }
 
+// TestUnifiedQueryCrossMultiNodeFailoverChainUnderConcurrency verifies the expected behavior for this scenario.
 func TestUnifiedQueryCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -222,6 +226,7 @@ func TestUnifiedQueryCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "should fail over to the third available endpoint")
 }
 
+// TestUnifiedQueryCrossDualNodeJitterWithConcurrentExec verifies the expected behavior for this scenario.
 func TestUnifiedQueryCrossDualNodeJitterWithConcurrentExec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -229,6 +234,7 @@ func TestUnifiedQueryCrossDualNodeJitterWithConcurrentExec(t *testing.T) {
 	runDualNodeQueryJitterScenario(t, 12, 25, 150*time.Millisecond, 100*time.Millisecond)
 }
 
+// TestUnifiedQueryCrossDualNodeJitterLoop verifies the expected behavior for this scenario.
 func TestUnifiedQueryCrossDualNodeJitterLoop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -325,8 +331,8 @@ func waitForSuccessfulExec(t *testing.T, c *Client, db, table, phase string, tim
 
 func runConcurrentExecWithFault(t *testing.T, c *Client, db, table, phase string, workers, perWorker int, faultDelay time.Duration, faultFn func()) (int32, int32, error) {
 	t.Helper()
-	var successCount atomic.Int32
-	var failCount atomic.Int32
+	var successCount int32
+	var failCount int32
 	var wg sync.WaitGroup
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
@@ -336,9 +342,9 @@ func runConcurrentExecWithFault(t *testing.T, c *Client, db, table, phase string
 			for i := 0; i < perWorker; i++ {
 				_, err := c.Exec(buildQueryInsertSQL(db, table, phase, workerID, i), 0)
 				if err != nil {
-					failCount.Add(1)
+					atomic.AddInt32(&failCount, 1)
 				} else {
-					successCount.Add(1)
+					atomic.AddInt32(&successCount, 1)
 				}
 			}
 		}()
@@ -355,9 +361,9 @@ func runConcurrentExecWithFault(t *testing.T, c *Client, db, table, phase string
 
 	select {
 	case <-done:
-		return successCount.Load(), failCount.Load(), nil
+		return atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount), nil
 	case <-time.After(20 * time.Second):
-		return successCount.Load(), failCount.Load(), newInvalidStateErrorf("concurrent exec blocked during phase %s", phase)
+		return atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount), newInvalidStateErrorf("concurrent exec blocked during phase %s", phase)
 	}
 }
 

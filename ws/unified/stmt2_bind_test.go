@@ -7,6 +7,7 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
+// TestBuildStmt2BindBinaryRequest verifies the expected behavior for this scenario.
 func TestBuildStmt2BindBinaryRequest(t *testing.T) {
 	payload := []byte{1, 2, 3}
 	req := BuildStmt2BindBinaryRequest(11, 22, payload, proto.Stmt2BindAllColumns)

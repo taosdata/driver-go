@@ -44,9 +44,10 @@ func writeMockQueryResponse(conn *websocket.Conn, reqID uint64, resultID uint64,
 	return conn.WriteMessage(websocket.TextMessage, []byte(resp))
 }
 
+// TestQueryNoReplayAfterWriteAck verifies the expected behavior for this scenario.
 func TestQueryNoReplayAfterWriteAck(t *testing.T) {
-	var connCount atomic.Int32
-	var queryCount atomic.Int32
+	var connCount int32
+	var queryCount int32
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -58,7 +59,7 @@ func TestQueryNoReplayAfterWriteAck(t *testing.T) {
 				t.Logf("close websocket connection: %v", closeErr)
 			}
 		}()
-		connCount.Add(1)
+		atomic.AddInt32(&connCount, 1)
 
 		for {
 			mt, msg, err := conn.ReadMessage()
@@ -66,10 +67,12 @@ func TestQueryNoReplayAfterWriteAck(t *testing.T) {
 				return
 			}
 			switch {
+			case mt == websocket.TextMessage && isVersionActionText(string(msg)):
+				_ = writeVersionResponse(conn)
 			case mt == websocket.TextMessage && strings.Contains(string(msg), `"action":"conn"`):
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			case mt == websocket.BinaryMessage && binaryAction(msg) == proto.BinaryQueryMessage:
-				queryCount.Add(1)
+				atomic.AddInt32(&queryCount, 1)
 				_ = conn.UnderlyingConn().Close()
 				return
 			}
@@ -92,12 +95,13 @@ func TestQueryNoReplayAfterWriteAck(t *testing.T) {
 
 	_, err = c.Query("select 1", 1)
 	require.Error(t, err)
-	assert.Equal(t, int32(1), queryCount.Load(), "query must not be replayed after write ack")
-	assert.Equal(t, int32(1), connCount.Load(), "must not reconnect after write-acked query")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&queryCount), "query must not be replayed after write ack")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "must not reconnect after write-acked query")
 }
 
+// TestQueryRespectsAutoReconnect verifies the expected behavior for this scenario.
 func TestQueryRespectsAutoReconnect(t *testing.T) {
-	var connCount atomic.Int32
+	var connCount int32
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -109,12 +113,16 @@ func TestQueryRespectsAutoReconnect(t *testing.T) {
 				t.Logf("close websocket connection: %v", closeErr)
 			}
 		}()
-		connCount.Add(1)
+		atomic.AddInt32(&connCount, 1)
 
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
 				return
+			}
+			if isVersionActionText(string(msg)) {
+				_ = writeVersionResponse(conn)
+				continue
 			}
 			if strings.Contains(string(msg), `"action":"conn"`) {
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
@@ -136,7 +144,7 @@ func TestQueryRespectsAutoReconnect(t *testing.T) {
 
 	require.NoError(t, c.Connect())
 
-	runtime := c.Runtime()
+	runtime := c.runtimeClient()
 	require.NotNil(t, runtime)
 	runtime.Close()
 
@@ -144,13 +152,14 @@ func TestQueryRespectsAutoReconnect(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, client.ClosedError)
 	assert.True(t, IsConnectionDisconnectedError(err))
-	assert.Equal(t, int32(1), connCount.Load(), "auto reconnect disabled should not open new connections")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "auto reconnect disabled should not open new connections")
 }
 
+// TestQueryResultFetchNoReconnectAfterDisconnect verifies the expected behavior for this scenario.
 func TestQueryResultFetchNoReconnectAfterDisconnect(t *testing.T) {
-	var connCount atomic.Int32
-	var fetchCount atomic.Int32
-	var queryCount atomic.Int32
+	var connCount int32
+	var fetchCount int32
+	var queryCount int32
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
@@ -162,7 +171,7 @@ func TestQueryResultFetchNoReconnectAfterDisconnect(t *testing.T) {
 				t.Logf("close websocket connection: %v", closeErr)
 			}
 		}()
-		connCount.Add(1)
+		atomic.AddInt32(&connCount, 1)
 
 		for {
 			mt, msg, err := conn.ReadMessage()
@@ -170,13 +179,15 @@ func TestQueryResultFetchNoReconnectAfterDisconnect(t *testing.T) {
 				return
 			}
 			switch {
+			case mt == websocket.TextMessage && isVersionActionText(string(msg)):
+				_ = writeVersionResponse(conn)
 			case mt == websocket.TextMessage && strings.Contains(string(msg), `"action":"conn"`):
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			case mt == websocket.BinaryMessage && binaryAction(msg) == proto.BinaryQueryMessage:
-				queryCount.Add(1)
+				atomic.AddInt32(&queryCount, 1)
 				_ = writeMockQueryResponse(conn, binaryReqID(msg), 99, false)
 			case mt == websocket.BinaryMessage && binaryAction(msg) == proto.FetchRawBlockMessage:
-				fetchCount.Add(1)
+				atomic.AddInt32(&fetchCount, 1)
 				_ = conn.UnderlyingConn().Close()
 				return
 			}
@@ -207,13 +218,13 @@ func TestQueryResultFetchNoReconnectAfterDisconnect(t *testing.T) {
 	elapsed := time.Since(start)
 	require.Error(t, err)
 	assert.True(t, IsConnectionDisconnectedError(err), "fetch should report disconnected result-connection")
-	assert.Equal(t, int32(1), fetchCount.Load())
-	assert.Equal(t, int32(1), connCount.Load(), "fetch must not trigger reconnect")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&fetchCount))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "fetch must not trigger reconnect")
 	assert.Less(t, elapsed, 2*time.Second, "disconnect should be sensed quickly")
 
 	// Subsequent new query is stateless and should trigger reconnect successfully.
 	_, err = c.Query("select 1", 5)
 	require.NoError(t, err)
-	assert.GreaterOrEqual(t, connCount.Load(), int32(2))
-	assert.GreaterOrEqual(t, queryCount.Load(), int32(2))
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&connCount), int32(2))
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&queryCount), int32(2))
 }

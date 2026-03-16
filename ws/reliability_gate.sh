@@ -89,7 +89,7 @@ run_core_reconnect_regressions_loop() {
 }
 
 run_deterministic_full() {
-  go test -race ./ws/client ./ws/internal/reconnect ./ws/schemaless ./ws/tmq ./ws/stmt -run "${STMT_CORE_PATTERN}" -count=1
+  go test -race ./ws/client ./ws/schemaless ./ws/tmq ./ws/stmt -run "${STMT_CORE_PATTERN}" -count=1
 }
 
 run_full_base() {

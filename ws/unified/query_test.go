@@ -24,6 +24,7 @@ func buildFetchRawBlockRespBytes(code uint32, msg string, completed bool, block 
 	return resp
 }
 
+// TestBuildBinaryQueryRequest verifies the expected behavior for this scenario.
 func TestBuildBinaryQueryRequest(t *testing.T) {
 	payload := BuildBinaryQueryRequest(11, "select * from t")
 	if len(payload) < 30 {
@@ -40,6 +41,7 @@ func TestBuildBinaryQueryRequest(t *testing.T) {
 	}
 }
 
+// TestParseFetchRawBlockResponseCompleted verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseCompleted(t *testing.T) {
 	resp := buildFetchRawBlockRespBytes(0, "", true, nil)
 	block, completed, err := ParseFetchRawBlockResponse(resp)
@@ -54,6 +56,7 @@ func TestParseFetchRawBlockResponseCompleted(t *testing.T) {
 	}
 }
 
+// TestParseFetchRawBlockResponseWithBlock verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseWithBlock(t *testing.T) {
 	want := []byte{1, 2, 3, 4}
 	resp := buildFetchRawBlockRespBytes(0, "", false, want)
@@ -69,6 +72,7 @@ func TestParseFetchRawBlockResponseWithBlock(t *testing.T) {
 	}
 }
 
+// TestParseFetchRawBlockResponseServerError verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseServerError(t *testing.T) {
 	resp := buildFetchRawBlockRespBytes(0x2603, "mock error", false, nil)
 	_, _, err := ParseFetchRawBlockResponse(resp)
@@ -81,6 +85,7 @@ func TestParseFetchRawBlockResponseServerError(t *testing.T) {
 	}
 }
 
+// TestParseFetchRawBlockResponseInvalid verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseInvalid(t *testing.T) {
 	_, _, err := ParseFetchRawBlockResponse([]byte{1, 2, 3})
 	if err == nil {

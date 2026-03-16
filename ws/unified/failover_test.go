@@ -5,8 +5,9 @@ import (
 	"testing"
 )
 
+// TestFailoverStateInitialCandidates verifies the expected behavior for this scenario.
 func TestFailoverStateInitialCandidates(t *testing.T) {
-	state, err := NewFailoverState([]string{"a", "b", "c"})
+	state, err := newFailoverState([]string{"a", "b", "c"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,8 +45,9 @@ func TestFailoverStateInitialCandidates(t *testing.T) {
 	}
 }
 
+// TestFailoverStateReconnectCandidates verifies the expected behavior for this scenario.
 func TestFailoverStateReconnectCandidates(t *testing.T) {
-	state, err := NewFailoverState([]string{"a", "b", "c"})
+	state, err := newFailoverState([]string{"a", "b", "c"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func TestFailoverStateReconnectCandidates(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := state.ReconnectCandidates()
-	want := []EndpointCandidate{
+	want := []endpointCandidate{
 		{Index: 2, URL: "c"},
 		{Index: 0, URL: "a"},
 		{Index: 1, URL: "b"},
@@ -63,8 +65,9 @@ func TestFailoverStateReconnectCandidates(t *testing.T) {
 	}
 }
 
+// TestFailoverStateMarkActiveAndActive verifies the expected behavior for this scenario.
 func TestFailoverStateMarkActiveAndActive(t *testing.T) {
-	state, err := NewFailoverState([]string{"a", "b", "c"})
+	state, err := newFailoverState([]string{"a", "b", "c"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +80,9 @@ func TestFailoverStateMarkActiveAndActive(t *testing.T) {
 	}
 }
 
+// TestFailoverStateMarkActiveInvalidIndex verifies the expected behavior for this scenario.
 func TestFailoverStateMarkActiveInvalidIndex(t *testing.T) {
-	state, err := NewFailoverState([]string{"a"})
+	state, err := newFailoverState([]string{"a"})
 	if err != nil {
 		t.Fatal(err)
 	}

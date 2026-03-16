@@ -10,6 +10,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 )
 
+// TestResultSetColumnMetadataMethods verifies the expected behavior for this scenario.
 func TestResultSetColumnMetadataMethods(t *testing.T) {
 	rs := &ResultSet{
 		fieldsNames:     []string{"dec", "num", "unknown"},
@@ -39,7 +40,7 @@ func TestResultSetColumnMetadataMethods(t *testing.T) {
 	}
 
 	length, lengthOK := rs.ColumnTypeLength(1)
-	if length != 4 || lengthOK {
+	if length != 4 || !lengthOK {
 		t.Fatalf("unexpected column length result: (%d, %t)", length, lengthOK)
 	}
 
@@ -51,6 +52,33 @@ func TestResultSetColumnMetadataMethods(t *testing.T) {
 	}
 }
 
+// TestResultSetColumnMetadataOutOfRange verifies the expected behavior for this scenario.
+func TestResultSetColumnMetadataOutOfRange(t *testing.T) {
+	rs := &ResultSet{
+		fieldsNames:     []string{"dec"},
+		fieldsTypes:     []uint8{common.TSDB_DATA_TYPE_DECIMAL64},
+		fieldsLengths:   []int64{8},
+		fieldsPrecision: []int64{10},
+		fieldsScale:     []int64{2},
+	}
+
+	precision, scale, ok := rs.ColumnTypePrecisionScale(3)
+	if ok || precision != 0 || scale != 0 {
+		t.Fatalf("unexpected precision/scale result: (%d, %d, %t)", precision, scale, ok)
+	}
+	if got := rs.ColumnTypeDatabaseTypeName(3); got != "" {
+		t.Fatalf("unexpected type name for out-of-range index: %q", got)
+	}
+	length, lengthOK := rs.ColumnTypeLength(3)
+	if length != 0 || lengthOK {
+		t.Fatalf("unexpected length result: (%d, %t)", length, lengthOK)
+	}
+	if got := rs.ColumnTypeScanType(3); got != common.UnknownType {
+		t.Fatalf("unexpected scan type for out-of-range index: %v", got)
+	}
+}
+
+// TestResultSetNextEOF verifies the expected behavior for this scenario.
 func TestResultSetNextEOF(t *testing.T) {
 	block := []byte{1}
 	rs := &ResultSet{
@@ -68,6 +96,7 @@ func TestResultSetNextEOF(t *testing.T) {
 	}
 }
 
+// TestResultSetFormatTime verifies the expected behavior for this scenario.
 func TestResultSetFormatTime(t *testing.T) {
 	loc := time.FixedZone("UTC+8", 8*3600)
 	rs := &ResultSet{timezone: loc}

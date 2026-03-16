@@ -5,7 +5,7 @@ import (
 	commonstmt "github.com/taosdata/driver-go/v3/common/stmt"
 )
 
-type StmtCompatBatchState struct {
+type stmtCompatBatchState struct {
 	TableName     string
 	Tags          *param.Param
 	TagBindType   *param.ColumnType
@@ -13,23 +13,23 @@ type StmtCompatBatchState struct {
 	ParamBindType *param.ColumnType
 }
 
-type StmtCompatState struct {
-	Current StmtCompatBatchState
+type stmtCompatState struct {
+	Current stmtCompatBatchState
 	Tables  map[string]*commonstmt.TaosStmt2BindData
 	Order   []string
 	Query   *commonstmt.TaosStmt2BindData
 	RawMode bool
 }
 
-func NewStmtCompatState() *StmtCompatState {
-	return &StmtCompatState{
+func newStmtCompatState() *stmtCompatState {
+	return &stmtCompatState{
 		Tables: make(map[string]*commonstmt.TaosStmt2BindData, 4),
 		Order:  make([]string, 0, 4),
 	}
 }
 
-func (s *StmtCompatState) Reset() {
-	s.Current = StmtCompatBatchState{}
+func (s *stmtCompatState) reset() {
+	s.Current = stmtCompatBatchState{}
 	for k := range s.Tables {
 		delete(s.Tables, k)
 	}
@@ -38,16 +38,16 @@ func (s *StmtCompatState) Reset() {
 	s.RawMode = false
 }
 
-func (s *StmtCompatState) SetTableName(name string) {
+func (s *stmtCompatState) setTableName(name string) {
 	s.Current.TableName = name
 }
 
-func (s *StmtCompatState) SetTags(tags *param.Param, bindType *param.ColumnType) {
+func (s *stmtCompatState) setTags(tags *param.Param, bindType *param.ColumnType) {
 	s.Current.Tags = tags
 	s.Current.TagBindType = bindType
 }
 
-func (s *StmtCompatState) BindParams(params []*param.Param, bindType *param.ColumnType) {
+func (s *stmtCompatState) bindParams(params []*param.Param, bindType *param.ColumnType) {
 	if len(params) == 0 {
 		s.Current.Params = nil
 	} else {
@@ -56,9 +56,9 @@ func (s *StmtCompatState) BindParams(params []*param.Param, bindType *param.Colu
 	s.Current.ParamBindType = bindType
 }
 
-func (s *StmtCompatState) AddBatch(isInsert bool) error {
+func (s *stmtCompatState) addBatch(isInsert bool) error {
 	if isInsert {
-		bindData, err := BuildStmt2InsertBindData(s.Current.TableName, s.Current.Tags, s.Current.Params)
+		bindData, err := buildStmt2InsertBindData(s.Current.TableName, s.Current.Tags, s.Current.Params)
 		if err != nil {
 			return err
 		}
@@ -66,18 +66,18 @@ func (s *StmtCompatState) AddBatch(isInsert bool) error {
 			return err
 		}
 	} else {
-		bindData, err := BuildStmt2QueryBindData(s.Current.Params)
+		bindData, err := buildStmt2QueryBindData(s.Current.Params)
 		if err != nil {
 			return err
 		}
 		s.Query = bindData[0]
 	}
-	s.Current = StmtCompatBatchState{}
+	s.Current = stmtCompatBatchState{}
 	s.RawMode = false
 	return nil
 }
 
-func (s *StmtCompatState) SetRawBindData(bindData []*commonstmt.TaosStmt2BindData, isInsert bool) error {
+func (s *stmtCompatState) setRawBindData(bindData []*commonstmt.TaosStmt2BindData, isInsert bool) error {
 	s.RawMode = true
 	if !isInsert {
 		for k := range s.Tables {
@@ -99,7 +99,7 @@ func (s *StmtCompatState) SetRawBindData(bindData []*commonstmt.TaosStmt2BindDat
 	return nil
 }
 
-func (s *StmtCompatState) ClearBindData() {
+func (s *stmtCompatState) clearBindData() {
 	for k := range s.Tables {
 		delete(s.Tables, k)
 	}
@@ -108,14 +108,14 @@ func (s *StmtCompatState) ClearBindData() {
 	s.RawMode = false
 }
 
-func (s *StmtCompatState) HasBindData(isInsert bool) bool {
+func (s *stmtCompatState) hasBindData(isInsert bool) bool {
 	if isInsert {
 		return len(s.Order) > 0
 	}
 	return s.Query != nil
 }
 
-func (s *StmtCompatState) BindData(isInsert bool) []*commonstmt.TaosStmt2BindData {
+func (s *stmtCompatState) bindData(isInsert bool) []*commonstmt.TaosStmt2BindData {
 	if !isInsert {
 		if s.Query == nil {
 			return nil
@@ -135,7 +135,7 @@ func (s *StmtCompatState) BindData(isInsert bool) []*commonstmt.TaosStmt2BindDat
 	return out
 }
 
-func (s *StmtCompatState) upsertTable(incoming *commonstmt.TaosStmt2BindData) error {
+func (s *stmtCompatState) upsertTable(incoming *commonstmt.TaosStmt2BindData) error {
 	if incoming == nil {
 		return nil
 	}

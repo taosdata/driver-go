@@ -8,16 +8,17 @@ import (
 	commonstmt "github.com/taosdata/driver-go/v3/common/stmt"
 )
 
+// TestStmtCompatStateSetTableNameOverrideBeforeAddBatch verifies the expected behavior for this scenario.
 func TestStmtCompatStateSetTableNameOverrideBeforeAddBatch(t *testing.T) {
-	state := NewStmtCompatState()
-	state.SetTableName("tb1")
-	state.SetTableName("tb2")
-	state.BindParams([]*param.Param{param.NewParam(1).AddInt(1)}, param.NewColumnType(1).AddInt())
-	if err := state.AddBatch(true); err != nil {
+	state := newStmtCompatState()
+	state.setTableName("tb1")
+	state.setTableName("tb2")
+	state.bindParams([]*param.Param{param.NewParam(1).AddInt(1)}, param.NewColumnType(1).AddInt())
+	if err := state.addBatch(true); err != nil {
 		t.Fatalf("unexpected add batch error: %v", err)
 	}
 
-	data := state.BindData(true)
+	data := state.bindData(true)
 	if len(data) != 1 {
 		t.Fatalf("expect 1 batch, got %d", len(data))
 	}
@@ -26,17 +27,18 @@ func TestStmtCompatStateSetTableNameOverrideBeforeAddBatch(t *testing.T) {
 	}
 }
 
+// TestStmtCompatStateBindParamsOverwriteBeforeAddBatch verifies the expected behavior for this scenario.
 func TestStmtCompatStateBindParamsOverwriteBeforeAddBatch(t *testing.T) {
-	state := NewStmtCompatState()
+	state := newStmtCompatState()
 	first := []*param.Param{param.NewParam(1).AddInt(1)}
 	second := []*param.Param{param.NewParam(1).AddInt(2)}
-	state.BindParams(first, param.NewColumnType(1).AddInt())
-	state.BindParams(second, param.NewColumnType(1).AddInt())
-	if err := state.AddBatch(true); err != nil {
+	state.bindParams(first, param.NewColumnType(1).AddInt())
+	state.bindParams(second, param.NewColumnType(1).AddInt())
+	if err := state.addBatch(true); err != nil {
 		t.Fatalf("unexpected add batch error: %v", err)
 	}
 
-	data := state.BindData(true)
+	data := state.bindData(true)
 	if len(data) != 1 {
 		t.Fatalf("expect 1 batch, got %d", len(data))
 	}
@@ -48,12 +50,13 @@ func TestStmtCompatStateBindParamsOverwriteBeforeAddBatch(t *testing.T) {
 	}
 }
 
+// TestStmtCompatStateAddBatchResetsCurrent verifies the expected behavior for this scenario.
 func TestStmtCompatStateAddBatchResetsCurrent(t *testing.T) {
-	state := NewStmtCompatState()
-	state.SetTableName("tb")
-	state.SetTags(param.NewParam(1).AddNchar("tag"), param.NewColumnType(1).AddNchar(16))
-	state.BindParams([]*param.Param{param.NewParam(1).AddInt(3)}, param.NewColumnType(1).AddInt())
-	if err := state.AddBatch(true); err != nil {
+	state := newStmtCompatState()
+	state.setTableName("tb")
+	state.setTags(param.NewParam(1).AddNchar("tag"), param.NewColumnType(1).AddNchar(16))
+	state.bindParams([]*param.Param{param.NewParam(1).AddInt(3)}, param.NewColumnType(1).AddInt())
+	if err := state.addBatch(true); err != nil {
 		t.Fatalf("unexpected add batch error: %v", err)
 	}
 
@@ -68,9 +71,10 @@ func TestStmtCompatStateAddBatchResetsCurrent(t *testing.T) {
 	}
 }
 
+// TestStmtCompatStateResetClearsBatches verifies the expected behavior for this scenario.
 func TestStmtCompatStateResetClearsBatches(t *testing.T) {
-	state := NewStmtCompatState()
-	err := state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+	state := newStmtCompatState()
+	err := state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 		{
 			TableName: "tb",
 			Cols:      [][]driver.Value{{int32(1)}},
@@ -79,19 +83,20 @@ func TestStmtCompatStateResetClearsBatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected set raw bind data error: %v", err)
 	}
-	state.Reset()
+	state.reset()
 
-	if len(state.BindData(true)) != 0 {
-		t.Fatalf("expect no batches after reset, got %d", len(state.BindData(true)))
+	if len(state.bindData(true)) != 0 {
+		t.Fatalf("expect no batches after reset, got %d", len(state.bindData(true)))
 	}
 	if state.Current.TableName != "" {
 		t.Fatalf("expect empty current table name, got %s", state.Current.TableName)
 	}
 }
 
+// TestStmtCompatStateMergeSameTable verifies the expected behavior for this scenario.
 func TestStmtCompatStateMergeSameTable(t *testing.T) {
-	state := NewStmtCompatState()
-	err := state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+	state := newStmtCompatState()
+	err := state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 		{
 			TableName: "tb",
 			Cols:      [][]driver.Value{{int32(1)}, {int32(10)}},
@@ -104,7 +109,7 @@ func TestStmtCompatStateMergeSameTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected set raw bind data error: %v", err)
 	}
-	data := state.BindData(true)
+	data := state.bindData(true)
 	if len(data) != 1 {
 		t.Fatalf("expect merged single table batch, got %d", len(data))
 	}
@@ -113,9 +118,10 @@ func TestStmtCompatStateMergeSameTable(t *testing.T) {
 	}
 }
 
+// TestStmtCompatStateMergeSameTableAcrossSetRawBindDataCalls verifies the expected behavior for this scenario.
 func TestStmtCompatStateMergeSameTableAcrossSetRawBindDataCalls(t *testing.T) {
-	state := NewStmtCompatState()
-	err := state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+	state := newStmtCompatState()
+	err := state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 		{
 			TableName: "tb",
 			Cols:      [][]driver.Value{{int32(1)}, {int32(10)}},
@@ -124,7 +130,7 @@ func TestStmtCompatStateMergeSameTableAcrossSetRawBindDataCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected set raw bind data error: %v", err)
 	}
-	err = state.SetRawBindData([]*commonstmt.TaosStmt2BindData{
+	err = state.setRawBindData([]*commonstmt.TaosStmt2BindData{
 		{
 			TableName: "tb",
 			Cols:      [][]driver.Value{{int32(2)}, {int32(20)}},
@@ -133,7 +139,7 @@ func TestStmtCompatStateMergeSameTableAcrossSetRawBindDataCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected set raw bind data error: %v", err)
 	}
-	data := state.BindData(true)
+	data := state.bindData(true)
 	if len(data) != 1 {
 		t.Fatalf("expect merged single table batch, got %d", len(data))
 	}

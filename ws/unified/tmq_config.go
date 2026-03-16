@@ -1,7 +1,6 @@
 package unified
 
 import (
-	"errors"
 	"time"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -75,7 +74,7 @@ func (c *config) setAutoOffsetReset(offsetReset string) {
 
 func (c *config) setMessageTimeout(timeout time.Duration) error {
 	if timeout < time.Second {
-		return errors.New("ws.message.timeout cannot be less than 1 second")
+		return newInvalidConfigErrorf("ws.message.timeout cannot be less than 1 second")
 	}
 	c.MessageTimeout = timeout
 	return nil
@@ -83,7 +82,7 @@ func (c *config) setMessageTimeout(timeout time.Duration) error {
 
 func (c *config) setWriteWait(writeWait time.Duration) error {
 	if writeWait < time.Second {
-		return errors.New("ws.message.writeWait cannot be less than 1 second")
+		return newInvalidConfigErrorf("ws.message.writeWait cannot be less than 1 second")
 	}
 	c.WriteWait = writeWait
 	return nil

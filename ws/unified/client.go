@@ -1,10 +1,10 @@
 package unified
 
 import (
-	"container/list"
 	"errors"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -24,11 +24,15 @@ type ClientFactory func(conn *websocket.Conn, chanLength uint) *client.Client
 
 type Option func(c *Client)
 
-// PendingRequest represents a pending request waiting for response.
-type PendingRequest struct {
-	reqID      uint64
-	channel    chan []byte
-	runtimeGen uint64 // runtime generation number when this request was created
+// pendingRequest represents a pending request waiting for response.
+type pendingRequest struct {
+	reqID   uint64
+	channel chan []byte
+}
+
+type runtimeStateSnapshot struct {
+	runtime    *client.Client
+	generation uint64
 }
 
 // WithDialFunc overrides how websocket connections are created.
@@ -48,7 +52,7 @@ func WithClientFactory(factory ClientFactory) Option {
 // Client is the shared websocket client holder used by adapters.
 type Client struct {
 	config        Config
-	failover      *FailoverState
+	failover      *failoverState
 	dialer        *websocket.Dialer
 	dial          DialFunc
 	clientFactory ClientFactory
@@ -60,13 +64,17 @@ type Client struct {
 	closeChan    chan struct{}
 	errorHandler func(error)
 
+	// Atomic runtime snapshot used by hot paths to avoid c.lock read contention.
+	runtimeSnapshot      atomic.Value
+	runtimeSnapshotReady uint32
+
 	// normal connect support
 	normalConnectLock sync.Mutex
 	connected         bool
 
 	// Message routing for request-response pattern
 	pendingLock     sync.RWMutex
-	pendingRequests *list.List
+	pendingRequests map[uint64]*pendingRequest
 
 	// Reconnect protection
 	reconnectLock sync.Mutex
@@ -85,7 +93,7 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 	if err := config.Normalize(defaultPath); err != nil {
 		return nil, err
 	}
-	failoverState, err := NewFailoverState(config.Endpoints)
+	failoverState, err := newFailoverState(config.Endpoints)
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +104,12 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 		failover:        failoverState,
 		dialer:          &dialer,
 		clientFactory:   client.NewClient,
-		pendingRequests: list.New(),
+		pendingRequests: make(map[uint64]*pendingRequest),
 		closeChan:       make(chan struct{}),
 		errorHandler:    defaultUnifiedErrHandler,
 	}
+	c.runtimeSnapshot.Store(runtimeStateSnapshot{})
+	atomic.StoreUint32(&c.runtimeSnapshotReady, 1)
 	c.dial = c.dialWithDialer
 	for i := 0; i < len(opts); i++ {
 		opts[i](c)
@@ -126,15 +136,9 @@ func (c *Client) dialWithDialer(endpoint string) (*websocket.Conn, error) {
 	return conn, nil
 }
 
-// ConnectWithBootstrap dials endpoints in initial order and replaces runtime client on success.
-func (c *Client) ConnectWithBootstrap(bootstrap BootstrapFunc) error {
+// connectWithBootstrap dials endpoints in initial order and replaces runtime client on success.
+func (c *Client) connectWithBootstrap(bootstrap BootstrapFunc) error {
 	return c.connectWithCandidates(c.failover.InitialCandidates(), bootstrap)
-}
-
-// ReconnectWithBootstrap dials endpoints in reconnect order and replaces runtime client on success.
-// It prevents concurrent reconnect attempts using reconnectLock.
-func (c *Client) ReconnectWithBootstrap(bootstrap BootstrapFunc) error {
-	return c.reconnectWithBootstrap(bootstrap, nil)
 }
 
 // reconnectWithBootstrap performs reconnection with concurrent protection.
@@ -143,7 +147,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 	c.reconnectLock.Lock()
 
 	// Check current runtime after acquiring lock
-	currentRuntime := c.Runtime()
+	currentRuntime := c.runtimeClient()
 	// Check if current runtime is different from failed one and still healthy
 	if failedRuntime != nil && currentRuntime != nil && currentRuntime != failedRuntime && currentRuntime.IsRunning() {
 		c.reconnectLock.Unlock()
@@ -165,7 +169,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 		reconnectErr := c.reconnectErr
 		c.reconnectLock.Unlock()
 
-		runtime := c.Runtime()
+		runtime := c.runtimeClient()
 		if runtime != nil && runtime.IsRunning() {
 			return nil
 		}
@@ -202,7 +206,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 }
 
 // connectWithCandidates dials candidates until one succeeds and swaps in a new runtime.
-func (c *Client) connectWithCandidates(candidates []EndpointCandidate, bootstrap BootstrapFunc) error {
+func (c *Client) connectWithCandidates(candidates []endpointCandidate, bootstrap BootstrapFunc) error {
 	var lastErr error
 	for i := 0; i < len(candidates); i++ {
 		if c.IsClosed() {
@@ -246,7 +250,7 @@ func (c *Client) connectWithCandidates(candidates []EndpointCandidate, bootstrap
 }
 
 // connectWithCandidatesWithRetry dials candidates with retry logic based on config.
-func (c *Client) connectWithCandidatesWithRetry(candidates []EndpointCandidate, bootstrap BootstrapFunc) error {
+func (c *Client) connectWithCandidatesWithRetry(candidates []endpointCandidate, bootstrap BootstrapFunc) error {
 	retryCount := c.config.ReconnectRetryCount
 	if retryCount <= 0 {
 		retryCount = 1
@@ -298,7 +302,7 @@ func (c *Client) initializeRuntime(runtime *client.Client) {
 
 	// Set unified message handlers for routing responses
 	runtime.TextMessageHandler = c.handleTextMessage
-	runtime.BinaryMessageHandler = c.HandleBinaryMessage
+	runtime.BinaryMessageHandler = c.handleBinaryMessage
 
 	// Some unit tests build runtimes without an underlying websocket connection.
 	// Skip pump startup in that case to avoid nil-pointer panics in ws/client.
@@ -312,7 +316,7 @@ func (c *Client) initializeRuntime(runtime *client.Client) {
 }
 
 // swapRuntime marks endpoint active and atomically replaces current runtime client.
-// It also cleans up pending requests from the old runtime using generation numbers.
+// It cleans up pending requests from the old runtime and notifies waiters with nil.
 func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Client, error) {
 	c.lock.Lock()
 	if c.closed {
@@ -332,43 +336,138 @@ func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Cl
 	}
 
 	oldRuntime := c.runtime
-	currentGen := c.runtimeGen
 	c.runtime = next
 	c.runtimeGen++ // Increment generation for new runtime
+
+	// Keep c.lock -> pendingLock order with send path.
+	c.pendingLock.Lock()
+	oldPending := c.pendingRequests
+	c.pendingRequests = make(map[uint64]*pendingRequest)
+	c.publishRuntimeSnapshotLocked()
+	c.pendingLock.Unlock()
 	c.lock.Unlock()
 
-	// Clean up pending requests from old runtime (generation <= currentGen)
-	// New requests will have generation > currentGen and won't be cleaned
-	c.pendingLock.Lock()
-	for e := c.pendingRequests.Front(); e != nil; {
-		nextElem := e.Next()
-		req := e.Value.(*PendingRequest)
-		if req.runtimeGen <= currentGen {
-			c.pendingRequests.Remove(e)
-			// Send nil to signal connection lost
-			select {
-			case req.channel <- nil:
-			default:
-				// Channel full or closed, skip
-			}
+	for _, req := range oldPending {
+		if req == nil || req.channel == nil {
+			continue
 		}
-		e = nextElem
+		// Notify outside lock to minimize critical section time.
+		select {
+		case req.channel <- nil:
+		default:
+		}
 	}
-	c.pendingLock.Unlock()
 
 	return oldRuntime, nil
 }
 
-// ActiveEndpoint returns the current active endpoint candidate.
-func (c *Client) ActiveEndpoint() EndpointCandidate {
-	return c.failover.Active()
+func (c *Client) removePendingRequest(reqID uint64, expected *pendingRequest) *pendingRequest {
+	c.pendingLock.Lock()
+	defer c.pendingLock.Unlock()
+	if c.pendingRequests == nil {
+		return nil
+	}
+	req, ok := c.pendingRequests[reqID]
+	if !ok {
+		return nil
+	}
+	if expected != nil && expected != req {
+		return nil
+	}
+	delete(c.pendingRequests, reqID)
+	return req
 }
 
 // Runtime returns the currently active runtime client pointer.
-func (c *Client) Runtime() *client.Client {
+func (c *Client) runtimeClient() *client.Client {
+	return c.loadRuntimeSnapshot().runtime
+}
+
+func (c *Client) publishRuntimeSnapshotLocked() {
+	c.runtimeSnapshot.Store(runtimeStateSnapshot{
+		runtime:    c.runtime,
+		generation: c.runtimeGen,
+	})
+	atomic.StoreUint32(&c.runtimeSnapshotReady, 1)
+}
+
+func (c *Client) loadRuntimeSnapshotAtomic() (runtimeStateSnapshot, bool) {
+	if atomic.LoadUint32(&c.runtimeSnapshotReady) == 0 {
+		return runtimeStateSnapshot{}, false
+	}
+	snapshot, ok := c.runtimeSnapshot.Load().(runtimeStateSnapshot)
+	if !ok {
+		return runtimeStateSnapshot{}, false
+	}
+	return snapshot, true
+}
+
+func (c *Client) loadRuntimeSnapshot() runtimeStateSnapshot {
+	if snapshot, ok := c.loadRuntimeSnapshotAtomic(); ok {
+		return snapshot
+	}
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.runtime
+	snapshot := runtimeStateSnapshot{
+		runtime:    c.runtime,
+		generation: c.runtimeGen,
+	}
+	c.lock.RUnlock()
+	return snapshot
+}
+
+func (c *Client) runtimeOrError() (*client.Client, error) {
+	runtime := c.runtimeClient()
+	if runtime != nil {
+		return runtime, nil
+	}
+	if c.IsClosed() {
+		return nil, ErrUnifiedClosed
+	}
+	return nil, client.ClosedError
+}
+
+func (c *Client) reconnectRuntimeForRetry(sendErr error, writeAckedToSocket bool, failedRuntime *client.Client) (*client.Client, error) {
+	if c.IsClosed() {
+		return nil, ErrUnifiedClosed
+	}
+	if !c.config.AutoReconnect {
+		return nil, sendErr
+	}
+	if writeAckedToSocket {
+		return nil, sendErr
+	}
+	if !isReconnectableError(sendErr) {
+		return nil, sendErr
+	}
+	if err := c.reconnectWithBootstrap(c.defaultBootstrap, failedRuntime); err != nil {
+		return nil, err
+	}
+	runtime := c.runtimeClient()
+	if runtime == nil {
+		return nil, client.ClosedError
+	}
+	return runtime, nil
+}
+
+type sendWithRuntimeFunc func(runtime *client.Client) ([]byte, bool, uint64, error)
+
+func (c *Client) sendWithReconnect(runtime *client.Client, send sendWithRuntimeFunc) ([]byte, *client.Client, uint64, error) {
+	respBytes, writeAckedToSocket, runtimeGen, err := send(runtime)
+	if err == nil {
+		return respBytes, runtime, runtimeGen, nil
+	}
+
+	// Replay is unsafe once websocket write has been acknowledged.
+	runtime, err = c.reconnectRuntimeForRetry(err, writeAckedToSocket, runtime)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	respBytes, _, runtimeGen, err = send(runtime)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return respBytes, runtime, runtimeGen, nil
 }
 
 // Close marks client closed and closes active runtime if present.
@@ -382,6 +481,7 @@ func (c *Client) Close() {
 	c.connected = false
 	runtime := c.runtime
 	c.runtime = nil
+	c.publishRuntimeSnapshotLocked()
 	close(c.closeChan)
 	c.lock.Unlock()
 	if runtime != nil {

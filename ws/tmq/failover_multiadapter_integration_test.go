@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"os/exec"
 	"runtime"
@@ -107,6 +107,7 @@ func setupTMQFailoverEnv(t *testing.T, ports []string) (db string, table string,
 	t.Cleanup(func() {
 		_ = execTMQSQLOnAnyPort(ports, fmt.Sprintf("drop topic if exists %s", topic))
 		_ = execTMQSQLOnAnyPort(ports, fmt.Sprintf("drop table if exists %s.%s", db, table))
+		_ = execTMQSQLOnAnyPort(ports, fmt.Sprintf("drop database if exists %s", db))
 	})
 	return db, table, topic
 }
@@ -174,7 +175,7 @@ func execTMQSQLOnPort(port string, sql string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("http status %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -281,7 +282,7 @@ func queryTMQSQLOnPort(port, sql string) (*tmqSQLResp, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("http status %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

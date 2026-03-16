@@ -32,7 +32,7 @@ type Stmt struct {
 	closed        bool
 	bindMode      stmtBindMode
 
-	state *StmtCompatState
+	state *stmtCompatState
 }
 
 type stmtBindMode uint8
@@ -55,7 +55,7 @@ func (c *Client) InitStmt(reqID int64) (*Stmt, error) {
 	return &Stmt{
 		client: c,
 		id:     stmtID,
-		state:  NewStmtCompatState(),
+		state:  newStmtCompatState(),
 	}, nil
 }
 
@@ -95,7 +95,7 @@ func (s *Stmt) SetTableName(name string) error {
 	if name == "" {
 		return ErrStmtTableNameEmpty
 	}
-	s.state.SetTableName(name)
+	s.state.setTableName(name)
 	return nil
 }
 
@@ -120,7 +120,7 @@ func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
 	if len(tags.GetValues()) != s.tagCount {
 		return newInvalidStateErrorf("expected %d tags, got %d", s.tagCount, len(tags.GetValues()))
 	}
-	s.state.SetTags(tags, bindType)
+	s.state.setTags(tags, bindType)
 	return nil
 }
 
@@ -149,7 +149,7 @@ func (s *Stmt) bindParamLocked(params []*param.Param, bindType *param.ColumnType
 	} else if s.fieldsCount > 0 && len(params) != s.fieldsCount {
 		return newInvalidStateErrorf("expected %d query params, got %d", s.fieldsCount, len(params))
 	}
-	s.state.BindParams(params, bindType)
+	s.state.bindParams(params, bindType)
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (s *Stmt) bindStmt2DataLocked(params []*commonstmt.TaosStmt2BindData) error
 			return err
 		}
 	}
-	return s.state.SetRawBindData(params, s.isInsert)
+	return s.state.setRawBindData(params, s.isInsert)
 }
 
 // BindParam is stmt compatibility alias.
@@ -210,7 +210,7 @@ func (s *Stmt) AddBatch() error {
 	if err := s.validateCurrentBatchLocked(); err != nil {
 		return err
 	}
-	return s.state.AddBatch(s.isInsert)
+	return s.state.addBatch(s.isInsert)
 }
 
 // Exec sends cached batches through stmt2_bind and stmt2_exec.
@@ -221,7 +221,7 @@ func (s *Stmt) Exec() (int, error) {
 	if err := s.checkPreparedLocked(); err != nil {
 		return 0, err
 	}
-	if !s.state.HasBindData(s.isInsert) {
+	if !s.state.hasBindData(s.isInsert) {
 		return 0, ErrStmtNoBatchAdded
 	}
 	defer s.cleanExecLocked()
@@ -298,27 +298,18 @@ func (s *Stmt) UseResult(reqID int64) (*ResultSet, error) {
 		reqID = common.GetReqID()
 	}
 
-	runtime := s.client.Runtime()
-	if runtime == nil {
-		if s.client.IsClosed() {
-			return nil, ErrUnifiedClosed
-		}
-		return nil, client.ClosedError
+	runtime, err := s.client.runtimeOrError()
+	if err != nil {
+		return nil, err
 	}
 	req := &proto.Stmt2UseResultRequest{
 		ReqID:  uint64(reqID),
 		StmtID: s.id,
 	}
-	respBytes, _, runtimeGen, err := s.client.sendStmtJSONWithRuntime(runtime, uint64(reqID), proto.STMT2Result, req)
+	var resp proto.Stmt2UseResultResponse
+	_, runtimeGen, err := s.client.sendStmtJSONAndDecode(runtime, uint64(reqID), proto.STMT2Result, req, &resp)
 	if err != nil {
 		return nil, normalizeStmtError(err)
-	}
-
-	var resp proto.Stmt2UseResultResponse
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
-		return nil, err
 	}
 
 	return &ResultSet{
@@ -348,7 +339,7 @@ func (s *Stmt) Close(reqID int64) error {
 	stmtID := s.id
 	s.mu.Unlock()
 
-	runtime := s.client.Runtime()
+	runtime := s.client.runtimeClient()
 	if runtime == nil {
 		return nil
 	}
@@ -359,22 +350,8 @@ func (s *Stmt) Close(reqID int64) error {
 		ReqID:  uint64(reqID),
 		StmtID: stmtID,
 	}
-	args, err := client.JsonI.Marshal(req)
-	if err != nil {
-		return err
-	}
-	action := &client.WSAction{
-		Action: proto.STMT2Close,
-		Args:   args,
-	}
-	envelope := client.GlobalEnvelopePool.Get()
-	defer client.GlobalEnvelopePool.Put(envelope)
-	envelope.Type = websocket.TextMessage
-	envelope.Msg.Reset()
-	if err = client.JsonI.NewEncoder(envelope.Msg).Encode(action); err != nil {
-		return err
-	}
-	err = s.client.sendEnvelopeNoResponse(runtime, envelope)
+	var resp proto.Stmt2CloseResponse
+	_, _, err := s.client.sendStmtJSONAndDecode(runtime, uint64(reqID), proto.STMT2Close, req, &resp)
 	if err != nil {
 		if errors.Is(err, client.ClosedError) || isReconnectableError(err) || IsConnectionRelatedError(err) {
 			return nil
@@ -405,12 +382,9 @@ func (s *Stmt) prepareWithReconnectLocked(sql string) error {
 }
 
 func (s *Stmt) prepareOnceLocked(sql string) (*proto.Stmt2PrepareResponse, *client.Client, error) {
-	runtime := s.client.Runtime()
-	if runtime == nil {
-		if s.client.IsClosed() {
-			return nil, nil, ErrUnifiedClosed
-		}
-		return nil, nil, client.ClosedError
+	runtime, err := s.client.runtimeOrError()
+	if err != nil {
+		return nil, nil, err
 	}
 	reqID := uint64(common.GetReqID())
 	req := &proto.Stmt2PrepareRequest{
@@ -419,14 +393,8 @@ func (s *Stmt) prepareOnceLocked(sql string) (*proto.Stmt2PrepareResponse, *clie
 		SQL:       sql,
 		GetFields: true,
 	}
-	respBytes, _, _, err := s.client.sendStmtJSONWithRuntime(runtime, reqID, proto.STMT2Prepare, req)
-	if err != nil {
-		return nil, runtime, err
-	}
 	var resp proto.Stmt2PrepareResponse
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
+	if _, _, err = s.client.sendStmtJSONAndDecode(runtime, reqID, proto.STMT2Prepare, req, &resp); err != nil {
 		return nil, runtime, err
 	}
 	return &resp, runtime, nil
@@ -442,7 +410,7 @@ func (s *Stmt) applyPrepareMetadataLocked(resp *proto.Stmt2PrepareResponse) {
 	s.schemaChanged = false
 	s.lastAffected = 0
 	s.bindMode = stmtBindModeUnset
-	s.state.Reset()
+	s.state.reset()
 
 	if !s.isInsert {
 		return
@@ -499,7 +467,7 @@ func (s *Stmt) validateCurrentBatchLocked() error {
 }
 
 func (s *Stmt) buildExecPayloadLocked() ([]byte, error) {
-	bindData := s.state.BindData(s.isInsert)
+	bindData := s.state.bindData(s.isInsert)
 	if len(bindData) == 0 {
 		return nil, ErrStmtNoBatchAdded
 	}
@@ -528,24 +496,15 @@ func (s *Stmt) execWithReconnectLocked(bindPayload []byte) (*proto.Stmt2ExecResp
 }
 
 func (s *Stmt) execOnceLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, *client.Client, error) {
-	runtime := s.client.Runtime()
-	if runtime == nil {
-		if s.client.IsClosed() {
-			return nil, nil, ErrUnifiedClosed
-		}
-		return nil, nil, client.ClosedError
+	runtime, err := s.client.runtimeOrError()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	bindReqID := uint64(common.GetReqID())
 	bindReq := BuildStmt2BindBinaryRequest(bindReqID, s.id, bindPayload, proto.Stmt2BindAllColumns)
-	bindRespBytes, _, _, err := s.client.sendStmtBinaryWithRuntime(runtime, bindReqID, bindReq)
-	if err != nil {
-		return nil, runtime, err
-	}
 	var bindResp proto.Stmt2BindResponse
-	err = client.JsonI.Unmarshal(bindRespBytes, &bindResp)
-	err = client.HandleResponseError(err, bindResp.Code, bindResp.Message)
-	if err != nil {
+	if _, _, err = s.client.sendStmtBinaryAndDecode(runtime, bindReqID, bindReq, &bindResp); err != nil {
 		return nil, runtime, err
 	}
 
@@ -554,14 +513,8 @@ func (s *Stmt) execOnceLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, *cl
 		ReqID:  execReqID,
 		StmtID: s.id,
 	}
-	execRespBytes, _, _, err := s.client.sendStmtJSONWithRuntime(runtime, execReqID, proto.STMT2Exec, execReq)
-	if err != nil {
-		return nil, runtime, err
-	}
 	var execResp proto.Stmt2ExecResponse
-	err = client.JsonI.Unmarshal(execRespBytes, &execResp)
-	err = client.HandleResponseError(err, execResp.Code, execResp.Message)
-	if err != nil {
+	if _, _, err = s.client.sendStmtJSONAndDecode(runtime, execReqID, proto.STMT2Exec, execReq, &execResp); err != nil {
 		return nil, runtime, err
 	}
 	return &execResp, runtime, nil
@@ -608,7 +561,7 @@ func (s *Stmt) shouldReconnectLocked(err error, runtime *client.Client) bool {
 }
 
 func (s *Stmt) cleanExecLocked() {
-	s.state.Reset()
+	s.state.reset()
 }
 
 func (s *Stmt) resetPrepareLocked() {
@@ -622,7 +575,7 @@ func (s *Stmt) resetPrepareLocked() {
 	s.schemaChanged = false
 	s.lastAffected = 0
 	s.bindMode = stmtBindModeUnset
-	s.state.Reset()
+	s.state.reset()
 }
 
 func (s *Stmt) checkPreparedLocked() error {
@@ -646,29 +599,18 @@ func (s *Stmt) checkNotClosedLocked() error {
 }
 
 func (c *Client) stmt2InitWithReconnect(reqID uint64) (uint64, error) {
-	runtime := c.Runtime()
-	if runtime == nil {
-		if c.IsClosed() {
-			return 0, ErrUnifiedClosed
-		}
-		return 0, client.ClosedError
+	runtime, err := c.runtimeOrError()
+	if err != nil {
+		return 0, err
 	}
 	stmtID, err := c.stmt2InitOnce(runtime, reqID)
 	if err == nil {
 		return stmtID, nil
 	}
-	if c.IsClosed() {
-		return 0, ErrUnifiedClosed
-	}
-	if !c.config.AutoReconnect || !isReconnectableError(err) {
+
+	runtime, err = c.reconnectRuntimeForRetry(err, false, runtime)
+	if err != nil {
 		return 0, err
-	}
-	if err = c.reconnectWithBootstrap(c.defaultBootstrap, runtime); err != nil {
-		return 0, err
-	}
-	runtime = c.Runtime()
-	if runtime == nil {
-		return 0, client.ClosedError
 	}
 	return c.stmt2InitOnce(runtime, reqID)
 }
@@ -679,14 +621,8 @@ func (c *Client) stmt2InitOnce(runtime *client.Client, reqID uint64) (uint64, er
 		SingleStbInsert:     true,
 		SingleTableBindOnce: true,
 	}
-	respBytes, _, _, err := c.sendStmtJSONWithRuntime(runtime, reqID, proto.STMT2Init, req)
-	if err != nil {
-		return 0, err
-	}
 	var resp proto.Stmt2InitResponse
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	err = client.HandleResponseError(err, resp.Code, resp.Message)
-	if err != nil {
+	if _, _, err := c.sendStmtJSONAndDecode(runtime, reqID, proto.STMT2Init, req, &resp); err != nil {
 		return 0, err
 	}
 	return resp.StmtID, nil
@@ -700,15 +636,11 @@ func (c *Client) sendStmtJSONWithRuntime(runtime *client.Client, reqID uint64, a
 	if err != nil {
 		return nil, false, 0, err
 	}
-	action := &client.WSAction{
-		Action: actionName,
-		Args:   args,
-	}
 	envelope := client.GlobalEnvelopePool.Get()
 	defer client.GlobalEnvelopePool.Put(envelope)
 	envelope.Type = websocket.TextMessage
 	envelope.Msg.Reset()
-	if err = client.JsonI.NewEncoder(envelope.Msg).Encode(action); err != nil {
+	if err = encodeWSActionToBuffer(envelope.Msg, actionName, args, true); err != nil {
 		return nil, false, 0, err
 	}
 	return c.sendEnvelopeWithRuntime(runtime, reqID, envelope, c.config.ReadTimeout, ErrStmtMessageTimeout)
@@ -725,6 +657,28 @@ func (c *Client) sendStmtBinaryWithRuntime(runtime *client.Client, reqID uint64,
 	envelope.Msg.Grow(len(reqPayload))
 	envelope.Msg.Write(reqPayload)
 	return c.sendEnvelopeWithRuntime(runtime, reqID, envelope, c.config.ReadTimeout, ErrStmtMessageTimeout)
+}
+
+func (c *Client) sendStmtJSONAndDecode(runtime *client.Client, reqID uint64, actionName string, req interface{}, resp responseWithCodeAndMessage) (bool, uint64, error) {
+	respBytes, writeAcked, runtimeGen, err := c.sendStmtJSONWithRuntime(runtime, reqID, actionName, req)
+	if err != nil {
+		return writeAcked, runtimeGen, err
+	}
+	if err = decodeAndCheckJSONResponse(respBytes, resp); err != nil {
+		return writeAcked, runtimeGen, err
+	}
+	return writeAcked, runtimeGen, nil
+}
+
+func (c *Client) sendStmtBinaryAndDecode(runtime *client.Client, reqID uint64, reqPayload []byte, resp responseWithCodeAndMessage) (bool, uint64, error) {
+	respBytes, writeAcked, runtimeGen, err := c.sendStmtBinaryWithRuntime(runtime, reqID, reqPayload)
+	if err != nil {
+		return writeAcked, runtimeGen, err
+	}
+	if err = decodeAndCheckJSONResponse(respBytes, resp); err != nil {
+		return writeAcked, runtimeGen, err
+	}
+	return writeAcked, runtimeGen, nil
 }
 
 func samePrepareMetadata(current *Stmt, resp *proto.Stmt2PrepareResponse) bool {

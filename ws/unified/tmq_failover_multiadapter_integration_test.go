@@ -13,8 +13,9 @@ import (
 	commontmq "github.com/taosdata/driver-go/v3/common/tmq"
 )
 
-var tmqCrossValueSeq atomic.Int64
+var tmqCrossValueSeq int64
 
+// TestUnifiedTMQCrossFailoverDisconnectDetectionAndImmediateReconnect verifies the expected behavior for this scenario.
 func TestUnifiedTMQCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -63,6 +64,7 @@ func TestUnifiedTMQCrossFailoverDisconnectDetectionAndImmediateReconnect(t *test
 	assert.Less(t, time.Since(start), 10*time.Second, "tmq failover recovery should complete quickly")
 }
 
+// TestUnifiedTMQCrossConcurrentPollFailoverAndSwitchBack verifies the expected behavior for this scenario.
 func TestUnifiedTMQCrossConcurrentPollFailoverAndSwitchBack(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -129,6 +131,7 @@ func TestUnifiedTMQCrossConcurrentPollFailoverAndSwitchBack(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "active endpoint should switch back after recovery")
 }
 
+// TestUnifiedTMQCrossMultiNodeFailoverChainUnderConcurrency verifies the expected behavior for this scenario.
 func TestUnifiedTMQCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -193,6 +196,7 @@ func TestUnifiedTMQCrossMultiNodeFailoverChainUnderConcurrency(t *testing.T) {
 	}, 5*time.Second, 50*time.Millisecond, "should fail over to the third available endpoint")
 }
 
+// TestUnifiedTMQCrossDualNodeJitterWithConcurrentPoll verifies the expected behavior for this scenario.
 func TestUnifiedTMQCrossDualNodeJitterWithConcurrentPoll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -200,6 +204,7 @@ func TestUnifiedTMQCrossDualNodeJitterWithConcurrentPoll(t *testing.T) {
 	runDualNodeTMQJitterScenario(t, 12, 25, 150*time.Millisecond, 100*time.Millisecond)
 }
 
+// TestUnifiedTMQCrossDualNodeJitterLoop verifies the expected behavior for this scenario.
 func TestUnifiedTMQCrossDualNodeJitterLoop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -406,7 +411,7 @@ func containsTMQCrossValue(data []*commontmq.Data, want int32) bool {
 }
 
 func nextTMQCrossValue() int32 {
-	return int32(tmqCrossValueSeq.Add(1))
+	return int32(atomic.AddInt64(&tmqCrossValueSeq, 1))
 }
 
 func waitForSuccessfulTMQInsert(consumer *TMQConsumer, ports []string, db, table string, timeout time.Duration) (time.Duration, error) {
@@ -421,11 +426,11 @@ func waitForSuccessfulTMQInsert(consumer *TMQConsumer, ports []string, db, table
 		value := nextTMQCrossValue()
 		err := execSQLOnAnyPort(ports, fmt.Sprintf("insert into %s.%s values(now, %d)", db, table, value))
 		if err == nil {
-			if _, pollErr := waitForTMQDataMessage(consumer, 3500*time.Millisecond); pollErr == nil {
+			_, pollErr := waitForTMQDataMessage(consumer, 3500*time.Millisecond)
+			if pollErr == nil {
 				return time.Since(start), nil
-			} else {
-				lastErr = pollErr
 			}
+			lastErr = pollErr
 		} else {
 			lastErr = err
 		}
@@ -435,10 +440,10 @@ func waitForSuccessfulTMQInsert(consumer *TMQConsumer, ports []string, db, table
 }
 
 func runConcurrentTMQConsumeWithFault(consumer *TMQConsumer, ports []string, db, table string, workers, perWorker int, faultDelay time.Duration, faultFn func()) (int32, int32, int32, error) {
-	var insertSuccess atomic.Int32
-	var insertFail atomic.Int32
-	var pollDataCount atomic.Int32
-	var pollErrCount atomic.Int32
+	var insertSuccess int32
+	var insertFail int32
+	var pollDataCount int32
+	var pollErrCount int32
 	lastPollErr := ""
 	var lastPollErrLock sync.Mutex
 
@@ -454,13 +459,13 @@ func runConcurrentTMQConsumeWithFault(consumer *TMQConsumer, ports []string, db,
 			default:
 			}
 			event := consumer.Poll(200)
-			switch event.(type) {
+			switch event := event.(type) {
 			case *commontmq.DataMessage:
-				pollDataCount.Add(1)
+				atomic.AddInt32(&pollDataCount, 1)
 			case commontmq.Error:
-				pollErrCount.Add(1)
+				atomic.AddInt32(&pollErrCount, 1)
 				lastPollErrLock.Lock()
-				lastPollErr = event.(commontmq.Error).Error()
+				lastPollErr = event.Error()
 				lastPollErrLock.Unlock()
 			}
 		}
@@ -475,9 +480,9 @@ func runConcurrentTMQConsumeWithFault(consumer *TMQConsumer, ports []string, db,
 				value := nextTMQCrossValue()
 				err := execSQLOnAnyPort(ports, fmt.Sprintf("insert into %s.%s values(now, %d)", db, table, value))
 				if err != nil {
-					insertFail.Add(1)
+					atomic.AddInt32(&insertFail, 1)
 				} else {
-					insertSuccess.Add(1)
+					atomic.AddInt32(&insertSuccess, 1)
 				}
 			}
 		}()
@@ -497,19 +502,19 @@ func runConcurrentTMQConsumeWithFault(consumer *TMQConsumer, ports []string, db,
 	case <-time.After(20 * time.Second):
 		close(stopPolling)
 		pollWG.Wait()
-		return insertSuccess.Load(), insertFail.Load(), pollDataCount.Load(), newInvalidStateErrorf("concurrent tmq inserts blocked")
+		return atomic.LoadInt32(&insertSuccess), atomic.LoadInt32(&insertFail), atomic.LoadInt32(&pollDataCount), newInvalidStateErrorf("concurrent tmq inserts blocked")
 	}
 
 	time.Sleep(300 * time.Millisecond)
 	close(stopPolling)
 	pollWG.Wait()
-	if pollDataCount.Load() == 0 && pollErrCount.Load() > 0 {
+	if atomic.LoadInt32(&pollDataCount) == 0 && atomic.LoadInt32(&pollErrCount) > 0 {
 		lastPollErrLock.Lock()
 		errText := lastPollErr
 		lastPollErrLock.Unlock()
-		return insertSuccess.Load(), insertFail.Load(), pollDataCount.Load(), newInvalidStateErrorf("poll got no data, poll errors=%d, last poll error=%s", pollErrCount.Load(), errText)
+		return atomic.LoadInt32(&insertSuccess), atomic.LoadInt32(&insertFail), atomic.LoadInt32(&pollDataCount), newInvalidStateErrorf("poll got no data, poll errors=%d, last poll error=%s", atomic.LoadInt32(&pollErrCount), errText)
 	}
-	return insertSuccess.Load(), insertFail.Load(), pollDataCount.Load(), nil
+	return atomic.LoadInt32(&insertSuccess), atomic.LoadInt32(&insertFail), atomic.LoadInt32(&pollDataCount), nil
 }
 
 func normalizeTMQCrossName(name string) string {
@@ -630,7 +635,7 @@ func tmqAssignmentDiagnostic(consumer *TMQConsumer, ports []string) string {
 	}
 	activeEndpoint := ""
 	if consumer.client != nil {
-		activeEndpoint = consumer.client.ActiveEndpoint().URL
+		activeEndpoint = consumer.client.failover.Active().URL
 	}
 	runtime := consumer.runtime()
 	runtimeState := "nil"

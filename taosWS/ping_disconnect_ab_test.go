@@ -51,6 +51,23 @@ func taosWSSilentAfterQuery(w http.ResponseWriter, r *http.Request, queryRead ch
 		_ = conn.Close()
 	}()
 
+	_, versionPayload, err := conn.ReadMessage()
+	if err != nil {
+		return
+	}
+	var versionAction wsClient.WSAction
+	err = json.Unmarshal(versionPayload, &versionAction)
+	if err != nil {
+		return
+	}
+	if versionAction.Action != "version" {
+		return
+	}
+	err = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"version","version":"3.3.6.0"}`))
+	if err != nil {
+		return
+	}
+
 	_, connectPayload, err := conn.ReadMessage()
 	if err != nil {
 		return
@@ -130,8 +147,10 @@ func runPingFailureWhileWaitingScenario(t *testing.T) (time.Duration, error, err
 	cfg.ReadTimeout = 5 * time.Second
 	cfg.WriteTimeout = 10 * time.Second
 
-	conn, err := newTaosConn(cfg)
+	rawConn, err := (&connector{cfg: cfg}).Connect(context.Background())
 	require.NoError(t, err)
+	conn, ok := rawConn.(*taosConn)
+	require.True(t, ok, "unexpected connection type: %T", rawConn)
 	defer func() {
 		_ = conn.Close()
 	}()

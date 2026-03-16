@@ -63,6 +63,25 @@ func (e *Envelope) Reset() {
 	}
 }
 
+func notifyEnvelopeError(envelope *Envelope, err error) {
+	if envelope == nil || envelope.ErrorChan == nil {
+		return
+	}
+	select {
+	case envelope.ErrorChan <- err:
+	default:
+		// Channel is full (usually stale unread value). Drop one and retry once.
+		select {
+		case <-envelope.ErrorChan:
+		default:
+		}
+		select {
+		case envelope.ErrorChan <- err:
+		default:
+		}
+	}
+}
+
 //revive:disable-next-line
 var ClosedError = errors.New("websocket closed")
 
@@ -158,13 +177,13 @@ func (c *Client) WritePump() {
 			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			err := c.conn.WriteMessage(message.Type, message.Msg.Bytes())
 			if err != nil {
-				message.ErrorChan <- err
+				notifyEnvelopeError(message, err)
 				c.handleError(err)
 				c.Close()
 				c.drainSendChan()
 				return
 			}
-			message.ErrorChan <- nil
+			notifyEnvelopeError(message, nil)
 		case <-ticker.C:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -260,7 +279,7 @@ func (c *Client) drainSendChan() {
 		if message == nil {
 			continue
 		}
-		message.ErrorChan <- ClosedError
+		notifyEnvelopeError(message, ClosedError)
 	}
 }
 

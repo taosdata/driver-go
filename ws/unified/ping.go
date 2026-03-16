@@ -7,12 +7,9 @@ import (
 
 // Ping writes one websocket ping frame on the active runtime connection.
 func (c *Client) Ping() error {
-	runtime := c.Runtime()
-	if runtime == nil {
-		if c.IsClosed() {
-			return ErrUnifiedClosed
-		}
-		return client.ClosedError
+	runtime, err := c.runtimeOrError()
+	if err != nil {
+		return err
 	}
 
 	envelope := client.GlobalEnvelopePool.Get()
@@ -20,6 +17,6 @@ func (c *Client) Ping() error {
 	envelope.Type = websocket.PingMessage
 	envelope.Msg.Reset()
 
-	err := c.sendEnvelopeNoResponse(runtime, envelope)
+	err = c.sendEnvelopeNoResponse(runtime, envelope)
 	return normalizeDisconnectedError(err, "ping connection lost")
 }

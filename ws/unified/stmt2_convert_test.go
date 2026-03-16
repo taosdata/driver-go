@@ -10,6 +10,7 @@ import (
 	"github.com/taosdata/driver-go/v3/types"
 )
 
+// TestNormalizeStmt2Value verifies the expected behavior for this scenario.
 func TestNormalizeStmt2Value(t *testing.T) {
 	now := time.Unix(1711111111, 123456789)
 	testCases := []struct {
@@ -38,7 +39,7 @@ func TestNormalizeStmt2Value(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := NormalizeStmt2Value(tc.value, tc.queryMode)
+			got, err := normalizeStmt2Value(tc.value, tc.queryMode)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -57,20 +58,22 @@ func TestNormalizeStmt2Value(t *testing.T) {
 	}
 }
 
+// TestNormalizeStmt2ValueUnsupportedType verifies the expected behavior for this scenario.
 func TestNormalizeStmt2ValueUnsupportedType(t *testing.T) {
-	_, err := NormalizeStmt2Value(struct{}{}, false)
+	_, err := normalizeStmt2Value(struct{}{}, false)
 	if err == nil {
 		t.Fatal("expect unsupported type error")
 	}
 }
 
+// TestNormalizeStmt2Columns verifies the expected behavior for this scenario.
 func TestNormalizeStmt2Columns(t *testing.T) {
 	now := time.Unix(1711111111, 0)
 	columns := []*param.Param{
 		param.NewParam(2).AddInt(1).AddInt(2),
 		param.NewParam(2).AddTimestamp(now, common.PrecisionMilliSecond).AddNull(),
 	}
-	normalized, err := NormalizeStmt2Columns(columns, false)
+	normalized, err := normalizeStmt2Columns(columns, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -27,7 +27,7 @@ func TestConcurrentReconnect(t *testing.T) {
 	err = c.Connect()
 	require.NoError(t, err)
 
-	initialRuntime := c.Runtime()
+	initialRuntime := c.runtimeClient()
 	require.NotNil(t, initialRuntime)
 
 	// Close the initial runtime to simulate connection failure
@@ -36,7 +36,7 @@ func TestConcurrentReconnect(t *testing.T) {
 	// Start multiple concurrent reconnect attempts
 	var wg sync.WaitGroup
 	reconnectCount := 10
-	var successCount atomic.Int32
+	var successCount int32
 
 	for i := 0; i < reconnectCount; i++ {
 		wg.Add(1)
@@ -44,7 +44,7 @@ func TestConcurrentReconnect(t *testing.T) {
 			defer wg.Done()
 			err := c.reconnectWithBootstrap(c.defaultBootstrap, initialRuntime)
 			if err == nil {
-				successCount.Add(1)
+				atomic.AddInt32(&successCount, 1)
 			}
 		}()
 	}
@@ -52,14 +52,14 @@ func TestConcurrentReconnect(t *testing.T) {
 	wg.Wait()
 
 	// Verify only one reconnect succeeded
-	newRuntime := c.Runtime()
+	newRuntime := c.runtimeClient()
 	if newRuntime != nil {
 		assert.NotSame(t, initialRuntime, newRuntime, "Runtime should be replaced")
 		assert.True(t, newRuntime.IsRunning(), "New runtime should be running")
 	}
 
 	// At least one reconnect should have succeeded
-	assert.Greater(t, successCount.Load(), int32(0), "At least one reconnect should succeed")
+	assert.Greater(t, atomic.LoadInt32(&successCount), int32(0), "At least one reconnect should succeed")
 }
 
 // TestPendingRequestsCleanupOnRuntimeSwap tests that pending requests are cleaned up when runtime is swapped
@@ -76,19 +76,19 @@ func TestPendingRequestsCleanupOnRuntimeSwap(t *testing.T) {
 	err = c.Connect()
 	require.NoError(t, err)
 
-	runtime1 := c.Runtime()
+	runtime1 := c.runtimeClient()
 	require.NotNil(t, runtime1)
 
 	// Add a pending request manually
 	respChan := make(chan []byte, 1)
-	pendingReq := &PendingRequest{
+	pendingReq := &pendingRequest{
 		reqID:   12345,
 		channel: respChan,
 	}
 
 	c.pendingLock.Lock()
-	c.pendingRequests.PushBack(pendingReq)
-	pendingCount := c.pendingRequests.Len()
+	c.pendingRequests[pendingReq.reqID] = pendingReq
+	pendingCount := len(c.pendingRequests)
 	c.pendingLock.Unlock()
 
 	assert.Equal(t, 1, pendingCount, "Should have 1 pending request")
@@ -101,7 +101,7 @@ func TestPendingRequestsCleanupOnRuntimeSwap(t *testing.T) {
 
 	// Check that pending requests were cleaned up
 	c.pendingLock.Lock()
-	pendingCount = c.pendingRequests.Len()
+	pendingCount = len(c.pendingRequests)
 	c.pendingLock.Unlock()
 
 	assert.Equal(t, 0, pendingCount, "Pending requests should be cleaned up after runtime swap")
@@ -128,17 +128,17 @@ func TestRuntimeSwapCleansUpPendingRequests(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		ch := make(chan []byte, 1)
 		channels[i] = ch
-		pendingReq := &PendingRequest{
+		pendingReq := &pendingRequest{
 			reqID:   uint64(i + 1),
 			channel: ch,
 		}
 		c.pendingLock.Lock()
-		c.pendingRequests.PushBack(pendingReq)
+		c.pendingRequests[pendingReq.reqID] = pendingReq
 		c.pendingLock.Unlock()
 	}
 
 	c.pendingLock.Lock()
-	initialCount := c.pendingRequests.Len()
+	initialCount := len(c.pendingRequests)
 	c.pendingLock.Unlock()
 	assert.Equal(t, 3, initialCount, "Should have 3 pending requests")
 
@@ -148,7 +148,7 @@ func TestRuntimeSwapCleansUpPendingRequests(t *testing.T) {
 
 	// Verify pending requests were cleaned up
 	c.pendingLock.Lock()
-	finalCount := c.pendingRequests.Len()
+	finalCount := len(c.pendingRequests)
 	c.pendingLock.Unlock()
 	assert.Equal(t, 0, finalCount, "All pending requests should be cleaned up")
 
@@ -160,6 +160,95 @@ func TestRuntimeSwapCleansUpPendingRequests(t *testing.T) {
 		case <-time.After(100 * time.Millisecond):
 			t.Errorf("Channel %d did not receive message", i)
 		}
+	}
+}
+
+// TestSwapRuntimePublishesSnapshotAfterPendingSwap ensures new runtime snapshot
+// is not observable before pendingRequests map replacement completes.
+func TestSwapRuntimePublishesSnapshotAfterPendingSwap(t *testing.T) {
+	cfg := NewConfig([]string{"ws://localhost:6041"})
+	c, err := NewClient(cfg, "/ws")
+	require.NoError(t, err)
+	defer c.Close()
+
+	oldRuntime := client.NewClient(nil, 1)
+	nextRuntime := client.NewClient(nil, 1)
+	defer oldRuntime.Close()
+
+	c.lock.Lock()
+	c.runtime = oldRuntime
+	c.runtimeGen = 7
+	c.publishRuntimeSnapshotLocked()
+	c.lock.Unlock()
+
+	reqID := uint64(4242)
+	respChan := make(chan []byte, 1)
+	c.pendingLock.Lock()
+	c.pendingRequests[reqID] = &pendingRequest{
+		reqID:   reqID,
+		channel: respChan,
+	}
+
+	swapDone := make(chan error, 1)
+	go func() {
+		_, swapErr := c.swapRuntime(nextRuntime, 0)
+		swapDone <- swapErr
+	}()
+
+	// Wait until swapRuntime is inside the critical section and blocked by pendingLock.
+	blockedOnClientLock := false
+	for i := 0; i < 100; i++ {
+		probeDone := make(chan struct{})
+		go func() {
+			c.lock.RLock()
+			c.lock.RUnlock()
+			close(probeDone)
+		}()
+		select {
+		case <-probeDone:
+			select {
+			case swapErr := <-swapDone:
+				c.pendingLock.Unlock()
+				t.Fatalf("swapRuntime returned before pendingLock was released: %v", swapErr)
+			default:
+			}
+			time.Sleep(1 * time.Millisecond)
+		case <-time.After(2 * time.Millisecond):
+			blockedOnClientLock = true
+		}
+		if blockedOnClientLock {
+			break
+		}
+	}
+	require.True(t, blockedOnClientLock, "swapRuntime did not block on pendingLock as expected")
+
+	// While pendingLock is still held, snapshot must still point to old runtime.
+	snapshot, ok := c.loadRuntimeSnapshotAtomic()
+	require.True(t, ok)
+	require.Same(t, oldRuntime, snapshot.runtime)
+	require.Equal(t, uint64(7), snapshot.generation)
+	_, stillInOldPending := c.pendingRequests[reqID]
+	require.True(t, stillInOldPending)
+
+	c.pendingLock.Unlock()
+
+	select {
+	case swapErr := <-swapDone:
+		require.NoError(t, swapErr)
+	case <-time.After(1 * time.Second):
+		t.Fatal("swapRuntime did not complete after releasing pendingLock")
+	}
+
+	snapshot = c.loadRuntimeSnapshot()
+	require.Same(t, nextRuntime, snapshot.runtime)
+	require.Equal(t, uint64(8), snapshot.generation)
+	require.False(t, pendingRequestExistsForTest(c, reqID))
+
+	select {
+	case msg := <-respChan:
+		require.Nil(t, msg)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("pending request did not receive cleanup notification")
 	}
 }
 
@@ -176,7 +265,7 @@ func TestConnectConcurrentSafety(t *testing.T) {
 	// Try to connect concurrently
 	var wg sync.WaitGroup
 	connectCount := 5
-	var successCount atomic.Int32
+	var successCount int32
 
 	for i := 0; i < connectCount; i++ {
 		wg.Add(1)
@@ -184,7 +273,7 @@ func TestConnectConcurrentSafety(t *testing.T) {
 			defer wg.Done()
 			err := c.Connect()
 			if err == nil {
-				successCount.Add(1)
+				atomic.AddInt32(&successCount, 1)
 			}
 		}()
 	}
@@ -192,10 +281,10 @@ func TestConnectConcurrentSafety(t *testing.T) {
 	wg.Wait()
 
 	// All connects should succeed (idempotent)
-	assert.Equal(t, int32(connectCount), successCount.Load(), "All connects should succeed")
+	assert.Equal(t, int32(connectCount), atomic.LoadInt32(&successCount), "All connects should succeed")
 
 	// Should have exactly one runtime
-	runtime := c.Runtime()
+	runtime := c.runtimeClient()
 	assert.NotNil(t, runtime, "Should have a runtime")
 	assert.True(t, runtime.IsRunning(), "Runtime should be running")
 }
@@ -211,13 +300,13 @@ func TestHandleMessageNonBlocking(t *testing.T) {
 	ch := make(chan []byte, 1)
 	ch <- []byte("existing message") // Fill the channel
 
-	pendingReq := &PendingRequest{
+	pendingReq := &pendingRequest{
 		reqID:   999,
 		channel: ch,
 	}
 
 	c.pendingLock.Lock()
-	c.pendingRequests.PushBack(pendingReq)
+	c.pendingRequests[pendingReq.reqID] = pendingReq
 	c.pendingLock.Unlock()
 
 	// handleMessage should not block even if channel is full
@@ -236,7 +325,7 @@ func TestHandleMessageNonBlocking(t *testing.T) {
 
 	// Verify the pending request was removed
 	c.pendingLock.Lock()
-	count := c.pendingRequests.Len()
+	count := len(c.pendingRequests)
 	c.pendingLock.Unlock()
 	assert.Equal(t, 0, count, "Pending request should be removed")
 }
@@ -254,7 +343,7 @@ func TestReconnectWithFailedRuntimeCheck(t *testing.T) {
 	err = c.Connect()
 	require.NoError(t, err)
 
-	runtime1 := c.Runtime()
+	runtime1 := c.runtimeClient()
 	require.NotNil(t, runtime1)
 
 	// Simulate that another goroutine already reconnected
@@ -263,7 +352,7 @@ func TestReconnectWithFailedRuntimeCheck(t *testing.T) {
 		t.Logf("First reconnect failed: %v", err)
 	}
 
-	runtime2 := c.Runtime()
+	runtime2 := c.runtimeClient()
 
 	// Now try to reconnect with the old runtime1
 	// This should be skipped because current runtime is different and healthy
@@ -271,7 +360,7 @@ func TestReconnectWithFailedRuntimeCheck(t *testing.T) {
 	assert.NoError(t, err, "Reconnect should be skipped without error")
 
 	// Runtime should still be runtime2
-	currentRuntime := c.Runtime()
+	currentRuntime := c.runtimeClient()
 	if runtime2 != nil {
 		assert.Same(t, runtime2, currentRuntime, "Runtime should not change")
 	}
@@ -310,7 +399,7 @@ func TestHighConcurrencyWithReconnect(t *testing.T) {
 				case <-stopChan:
 					return
 				default:
-					runtime := c.Runtime()
+					runtime := c.runtimeClient()
 					if runtime != nil {
 						_ = runtime.IsRunning()
 					}
@@ -330,7 +419,7 @@ func TestHighConcurrencyWithReconnect(t *testing.T) {
 				case <-stopChan:
 					return
 				default:
-					runtime := c.Runtime()
+					runtime := c.runtimeClient()
 					_ = c.reconnectWithBootstrap(c.defaultBootstrap, runtime)
 					time.Sleep(100 * time.Millisecond)
 				}
@@ -344,7 +433,7 @@ func TestHighConcurrencyWithReconnect(t *testing.T) {
 	wg.Wait()
 
 	// Verify no panic and client is still functional
-	runtime := c.Runtime()
+	runtime := c.runtimeClient()
 	if runtime != nil {
 		assert.True(t, runtime.IsRunning(), "Runtime should still be running")
 	}

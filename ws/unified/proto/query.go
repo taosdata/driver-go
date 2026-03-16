@@ -1,9 +1,5 @@
 package proto
 
-type RespInterface interface {
-	GetReqID() uint64
-}
-
 type BaseResp struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -12,8 +8,18 @@ type BaseResp struct {
 	Timing  int64  `json:"timing"`
 }
 
-func (b *BaseResp) GetReqID() uint64 {
-	return b.ReqID
+func (b *BaseResp) GetCode() int {
+	if b == nil {
+		return 0
+	}
+	return b.Code
+}
+
+func (b *BaseResp) GetMessage() string {
+	if b == nil {
+		return ""
+	}
+	return b.Message
 }
 
 type WSConnectReq struct {

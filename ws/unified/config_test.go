@@ -8,6 +8,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 )
 
+// TestNormalizeEndpointsDefaultPath verifies the expected behavior for this scenario.
 func TestNormalizeEndpointsDefaultPath(t *testing.T) {
 	got, err := NormalizeEndpoints([]string{"ws://127.0.0.1:6041", "wss://cloud:6041/"}, "/ws")
 	if err != nil {
@@ -19,6 +20,7 @@ func TestNormalizeEndpointsDefaultPath(t *testing.T) {
 	}
 }
 
+// TestNormalizeEndpointsKeepPath verifies the expected behavior for this scenario.
 func TestNormalizeEndpointsKeepPath(t *testing.T) {
 	got, err := NormalizeEndpoints([]string{"ws://127.0.0.1:6041/rest/tmq?x=1"}, "/ws")
 	if err != nil {
@@ -30,6 +32,7 @@ func TestNormalizeEndpointsKeepPath(t *testing.T) {
 	}
 }
 
+// TestNormalizeEndpointsInvalidScheme verifies the expected behavior for this scenario.
 func TestNormalizeEndpointsInvalidScheme(t *testing.T) {
 	_, err := NormalizeEndpoints([]string{"http://127.0.0.1:6041"}, "/ws")
 	if err == nil {
@@ -37,6 +40,7 @@ func TestNormalizeEndpointsInvalidScheme(t *testing.T) {
 	}
 }
 
+// TestConfigNormalizeDefaultValues verifies the expected behavior for this scenario.
 func TestConfigNormalizeDefaultValues(t *testing.T) {
 	cfg := NewConfig([]string{"ws://127.0.0.1:6041"})
 	cfg.MessageTimeout = 0
@@ -66,6 +70,7 @@ func TestConfigNormalizeDefaultValues(t *testing.T) {
 	}
 }
 
+// TestConfigNormalizeKeepUserValues verifies the expected behavior for this scenario.
 func TestConfigNormalizeKeepUserValues(t *testing.T) {
 	cfg := NewConfig([]string{"wss://cluster-a:443/ws"})
 	cfg.MessageTimeout = 15 * time.Second
@@ -93,6 +98,7 @@ func TestConfigNormalizeKeepUserValues(t *testing.T) {
 	}
 }
 
+// TestNormalizeEndpointsDeduplication verifies the expected behavior for this scenario.
 func TestNormalizeEndpointsDeduplication(t *testing.T) {
 	// Test deduplication of identical endpoints
 	got, err := NormalizeEndpoints([]string{
@@ -110,6 +116,7 @@ func TestNormalizeEndpointsDeduplication(t *testing.T) {
 	}
 }
 
+// TestConfigNormalizeBackwardCompatibility verifies the expected behavior for this scenario.
 func TestConfigNormalizeBackwardCompatibility(t *testing.T) {
 	// Test backward compatibility: Addr/Port converted to Endpoints
 	cfg := &Config{
@@ -126,6 +133,39 @@ func TestConfigNormalizeBackwardCompatibility(t *testing.T) {
 	}
 }
 
+// TestConfigNormalizeBackwardCompatibilityIPv6 verifies the expected behavior for this scenario.
+func TestConfigNormalizeBackwardCompatibilityIPv6(t *testing.T) {
+	cfg := &Config{
+		Net:  "ws",
+		Addr: "::1",
+		Port: 6041,
+	}
+	if err := cfg.Normalize("/ws"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"ws://[::1]:6041/ws"}
+	if !reflect.DeepEqual(want, cfg.Endpoints) {
+		t.Fatalf("want %v, got %v", want, cfg.Endpoints)
+	}
+}
+
+// TestConfigNormalizeBackwardCompatibilityBracketedIPv6 verifies the expected behavior for this scenario.
+func TestConfigNormalizeBackwardCompatibilityBracketedIPv6(t *testing.T) {
+	cfg := &Config{
+		Net:  "ws",
+		Addr: "[::1]",
+		Port: 6041,
+	}
+	if err := cfg.Normalize("/ws"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"ws://[::1]:6041/ws"}
+	if !reflect.DeepEqual(want, cfg.Endpoints) {
+		t.Fatalf("want %v, got %v", want, cfg.Endpoints)
+	}
+}
+
+// TestConfigNormalizeBackwardCompatibilityWithToken verifies the expected behavior for this scenario.
 func TestConfigNormalizeBackwardCompatibilityWithToken(t *testing.T) {
 	// Test backward compatibility with token
 	cfg := &Config{

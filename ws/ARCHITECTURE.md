@@ -9,7 +9,6 @@ This document describes the current websocket architecture and the intended dire
 - `ws/schemaless`: schemaless protocol wrapper with auto-reconnect.
 - `ws/tmq`: tmq consumer compatibility wrapper (delegates to unified adapter).
 - `ws/unified`: unified websocket adapters (query/stmt/schemaless/tmq) with failover/reconnect.
-- `ws/internal/reconnect`: shared reconnect safety helpers used by higher-level packages.
 
 ## Layering
 
@@ -21,7 +20,7 @@ This document describes the current websocket architecture and the intended dire
    - Responsibilities: encode request, route response by request id, parse protocol payload.
 3. Recovery layer
    - Auto-reconnect orchestration and client swap safety checks.
-   - Shared safety invariants live in `ws/internal/reconnect`.
+   - Reconnect safety invariants are implemented in the adapter runtime paths.
    - `tmq`/`schemaless`/`stmt`/`query` unified adapters share the same invariants.
    - Compatibility wrappers (`ws/tmq`, `ws/schemaless`, `ws/stmt`) delegate to unified.
 
@@ -48,6 +47,6 @@ This document describes the current websocket architecture and the intended dire
 
 ## Current Improvement Direction
 
-1. Keep reconnect safety rules centralized in `ws/internal/reconnect`.
+1. Keep reconnect safety rules explicit in runtime swap/reconnect code paths and regression tests.
 2. Move more duplicated send/retry skeleton into shared helpers where behavior is identical.
 3. Keep package-specific protocol parsing isolated; do not over-abstract protocol semantics.

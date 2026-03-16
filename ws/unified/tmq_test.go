@@ -7,12 +7,14 @@ import (
 	commontmq "github.com/taosdata/driver-go/v3/common/tmq"
 )
 
+// TestNewTMQConsumerNilConfig verifies the expected behavior for this scenario.
 func TestNewTMQConsumerNilConfig(t *testing.T) {
 	consumer, err := NewTMQConsumer(nil)
 	require.ErrorIs(t, err, ErrNilConfig)
 	require.Nil(t, consumer)
 }
 
+// TestNewTMQConsumerConfigValidationError verifies the expected behavior for this scenario.
 func TestNewTMQConsumerConfigValidationError(t *testing.T) {
 	cfg := commontmq.ConfigMap{}
 	consumer, err := NewTMQConsumer(&cfg)
@@ -20,6 +22,7 @@ func TestNewTMQConsumerConfigValidationError(t *testing.T) {
 	require.Nil(t, consumer)
 }
 
+// TestTMQConsumerNilReceiver verifies the expected behavior for this scenario.
 func TestTMQConsumerNilReceiver(t *testing.T) {
 	var consumer *TMQConsumer
 	require.ErrorIs(t, consumer.Close(), ErrTMQConsumerUninitialized)
@@ -27,6 +30,7 @@ func TestTMQConsumerNilReceiver(t *testing.T) {
 	require.NotNil(t, ev)
 }
 
+// TestTMQParseEndpointsFromURLList verifies the expected behavior for this scenario.
 func TestTMQParseEndpointsFromURLList(t *testing.T) {
 	endpoints, err := parseTMQEndpoints("ws://127.0.0.1:6041, ws://127.0.0.1:6042/ws?token=abc, ws://127.0.0.1:6041")
 	require.NoError(t, err)
@@ -36,6 +40,7 @@ func TestTMQParseEndpointsFromURLList(t *testing.T) {
 	}, endpoints)
 }
 
+// TestTMQConfigMapParsesMultipleEndpoints verifies the expected behavior for this scenario.
 func TestTMQConfigMapParsesMultipleEndpoints(t *testing.T) {
 	cfg, err := configMapToConfig(commontmq.ConfigMap{
 		"ws.url": "ws://127.0.0.1:6041,ws://127.0.0.1:6042",

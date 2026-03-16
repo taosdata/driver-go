@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestParseDSNParamsAllKnownKeys verifies the expected behavior for this scenario.
 func TestParseDSNParamsAllKnownKeys(t *testing.T) {
 	cfg := &Config{
 		InterpolateParams: true,
@@ -28,6 +29,7 @@ func TestParseDSNParamsAllKnownKeys(t *testing.T) {
 	assert.Equal(t, "a+b", cfg.Params["custom"])
 }
 
+// TestParseDSNParamsErrorBranches verifies the expected behavior for this scenario.
 func TestParseDSNParamsErrorBranches(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -80,6 +82,7 @@ func TestParseDSNParamsErrorBranches(t *testing.T) {
 	}
 }
 
+// TestParseDSNAddressListBoundaries verifies the expected behavior for this scenario.
 func TestParseDSNAddressListBoundaries(t *testing.T) {
 	_, err := parseDSNAddressList("")
 	require.ErrorIs(t, err, ErrInvalidDSNAddr)
@@ -106,6 +109,7 @@ func TestParseDSNAddressListBoundaries(t *testing.T) {
 	assert.Equal(t, 6041, addrs[3].port)
 }
 
+// TestParseDSNBoundaryPaths verifies the expected behavior for this scenario.
 func TestParseDSNBoundaryPaths(t *testing.T) {
 	cfg, err := ParseDSN("")
 	require.NoError(t, err)
@@ -141,6 +145,7 @@ func TestParseDSNBoundaryPaths(t *testing.T) {
 	assert.Equal(t, "ws://127.0.0.1:6041?token=tk", cfg.Endpoints[2])
 }
 
+// TestNewConfigFromDSNBoundaryPaths verifies the expected behavior for this scenario.
 func TestNewConfigFromDSNBoundaryPaths(t *testing.T) {
 	cfg, err := NewConfigFromDSN("u:p@ws(127.0.0.1:6041)/db?token=tk", "/ws")
 	require.NoError(t, err)
@@ -157,6 +162,7 @@ func TestNewConfigFromDSNBoundaryPaths(t *testing.T) {
 	require.ErrorIs(t, err, ErrNoEndpoints)
 }
 
+// TestMapDSNErrorHelpers verifies the expected behavior for this scenario.
 func TestMapDSNErrorHelpers(t *testing.T) {
 	assert.Equal(t, "?", TryUnescape("%3F"))
 	assert.Equal(t, "%", TryUnescape("%"))

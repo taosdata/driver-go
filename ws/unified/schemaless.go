@@ -26,15 +26,10 @@ func (c *Client) SchemalessInsert(lines string, protocol int, precision string, 
 		return err
 	}
 
-	action := &client.WSAction{
-		Action: "insert",
-		Args:   args,
-	}
-
 	envelope := client.GlobalEnvelopePool.Get()
 	defer client.GlobalEnvelopePool.Put(envelope)
-
-	err = client.JsonI.NewEncoder(envelope.Msg).Encode(action)
+	envelope.Msg.Reset()
+	err = encodeWSActionToBuffer(envelope.Msg, proto.SchemalessWrite, args, true)
 	if err != nil {
 		return err
 	}
@@ -45,57 +40,25 @@ func (c *Client) SchemalessInsert(lines string, protocol int, precision string, 
 	}
 
 	var resp proto.SchemalessWriteResponse
-	err = client.JsonI.Unmarshal(respBytes, &resp)
-	return client.HandleResponseError(err, resp.Code, resp.Message)
+	return decodeAndCheckJSONResponse(respBytes, &resp)
 }
 
 // sendSchemalessWithReconnect sends a schemaless message with automatic reconnect on failure.
 func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	runtime := c.Runtime()
-	if runtime == nil {
-		if c.IsClosed() {
-			return nil, ErrUnifiedClosed
-		}
-		return nil, client.ClosedError
-	}
-
-	envelope.Type = websocket.TextMessage
-	respBytes, writeAckedToSocket, err := c.sendSchemalessWithRuntime(runtime, reqID, envelope)
-	if err == nil {
-		return respBytes, nil
-	}
-
-	if c.IsClosed() {
-		return nil, ErrUnifiedClosed
-	}
-	if !c.config.AutoReconnect {
-		return nil, err
-	}
-	// Schemaless insert is not safe to replay once the websocket write completed.
-	if writeAckedToSocket {
-		return nil, err
-	}
-
-	// Check if error is reconnectable
-	if !isReconnectableError(err) {
-		return nil, err
-	}
-
-	// Attempt reconnect with failed runtime check
-	if err = c.reconnectWithBootstrap(c.defaultBootstrap, runtime); err != nil {
-		return nil, err
-	}
-
-	runtime = c.Runtime()
-	if runtime == nil {
-		return nil, client.ClosedError
-	}
-
-	respBytes, _, err = c.sendSchemalessWithRuntime(runtime, reqID, envelope)
+	runtime, err := c.runtimeOrError()
 	if err != nil {
 		return nil, err
 	}
 
+	envelope.Type = websocket.TextMessage
+	send := func(rt *client.Client) ([]byte, bool, uint64, error) {
+		respBytes, writeAcked, err := c.sendSchemalessWithRuntime(rt, reqID, envelope)
+		return respBytes, writeAcked, 0, err
+	}
+	respBytes, _, _, err := c.sendWithReconnect(runtime, send)
+	if err != nil {
+		return nil, err
+	}
 	return respBytes, nil
 }
 

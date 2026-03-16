@@ -24,9 +24,18 @@ func wsEndpointFromHTTP(serverURL string) string {
 	return "ws" + strings.TrimPrefix(serverURL, "http")
 }
 
+func isVersionActionText(text string) bool {
+	return strings.Contains(text, `"action":"version"`) || strings.Contains(text, `"action": "version"`)
+}
+
+func writeVersionResponse(conn *websocket.Conn) error {
+	return conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"version","version":"3.3.6.0"}`))
+}
+
+// TestSchemalessInsertNoReplayAfterWriteAck verifies the expected behavior for this scenario.
 func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
-	var insertCount atomic.Int32
-	var connCount atomic.Int32
+	var insertCount int32
+	var connCount int32
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := reconnectLifecycleUpgrader.Upgrade(w, r, nil)
@@ -38,7 +47,7 @@ func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
 				t.Logf("close websocket connection: %v", closeErr)
 			}
 		}()
-		connCount.Add(1)
+		atomic.AddInt32(&connCount, 1)
 
 		for {
 			_, msg, err := conn.ReadMessage()
@@ -47,10 +56,12 @@ func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
 			}
 			text := string(msg)
 			switch {
+			case isVersionActionText(text):
+				_ = writeVersionResponse(conn)
 			case strings.Contains(text, `"action":"conn"`):
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			case strings.Contains(text, `"action":"insert"`):
-				if insertCount.Add(1) == 1 {
+				if atomic.AddInt32(&insertCount, 1) == 1 {
 					// Disconnect after the server has read the insert, before response.
 					_ = conn.UnderlyingConn().Close()
 					return
@@ -76,12 +87,13 @@ func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
 
 	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
 	require.Error(t, err)
-	assert.Equal(t, int32(1), insertCount.Load(), "insert must not be replayed after write ack")
-	assert.Equal(t, int32(1), connCount.Load(), "must not reconnect and replay")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&insertCount), "insert must not be replayed after write ack")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "must not reconnect and replay")
 }
 
+// TestSchemalessInsertRespectsAutoReconnect verifies the expected behavior for this scenario.
 func TestSchemalessInsertRespectsAutoReconnect(t *testing.T) {
-	var connCount atomic.Int32
+	var connCount int32
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := reconnectLifecycleUpgrader.Upgrade(w, r, nil)
@@ -93,7 +105,7 @@ func TestSchemalessInsertRespectsAutoReconnect(t *testing.T) {
 				t.Logf("close websocket connection: %v", closeErr)
 			}
 		}()
-		connCount.Add(1)
+		atomic.AddInt32(&connCount, 1)
 
 		for {
 			_, msg, err := conn.ReadMessage()
@@ -102,6 +114,8 @@ func TestSchemalessInsertRespectsAutoReconnect(t *testing.T) {
 			}
 			text := string(msg)
 			switch {
+			case isVersionActionText(text):
+				_ = writeVersionResponse(conn)
 			case strings.Contains(text, `"action":"conn"`):
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			case strings.Contains(text, `"action":"insert"`):
@@ -124,16 +138,17 @@ func TestSchemalessInsertRespectsAutoReconnect(t *testing.T) {
 
 	require.NoError(t, c.Connect())
 
-	runtime := c.Runtime()
+	runtime := c.runtimeClient()
 	require.NotNil(t, runtime)
 	runtime.Close()
 
 	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 2)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, client.ClosedError)
-	assert.Equal(t, int32(1), connCount.Load(), "auto reconnect disabled should not open new connections")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "auto reconnect disabled should not open new connections")
 }
 
+// TestSetErrorHandlerBeforeConnectPersistsAfterReconnect verifies the expected behavior for this scenario.
 func TestSetErrorHandlerBeforeConnectPersistsAfterReconnect(t *testing.T) {
 	var (
 		connMu sync.Mutex
@@ -159,7 +174,12 @@ func TestSetErrorHandlerBeforeConnectPersistsAfterReconnect(t *testing.T) {
 			if err != nil {
 				return
 			}
-			if strings.Contains(string(msg), `"action":"conn"`) {
+			text := string(msg)
+			if isVersionActionText(text) {
+				_ = writeVersionResponse(conn)
+				continue
+			}
+			if strings.Contains(text, `"action":"conn"`) {
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			}
 		}
@@ -176,13 +196,13 @@ func TestSetErrorHandlerBeforeConnectPersistsAfterReconnect(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	var callbackCount atomic.Int32
+	var callbackCount int32
 	c.SetErrorHandler(func(error) {
-		callbackCount.Add(1)
+		atomic.AddInt32(&callbackCount, 1)
 	})
 
 	require.NoError(t, c.Connect())
-	firstRuntime := c.Runtime()
+	firstRuntime := c.runtimeClient()
 	require.NotNil(t, firstRuntime)
 
 	var firstConn *websocket.Conn
@@ -198,7 +218,7 @@ func TestSetErrorHandlerBeforeConnectPersistsAfterReconnect(t *testing.T) {
 
 	_ = firstConn.UnderlyingConn().Close()
 	require.Eventually(t, func() bool {
-		return callbackCount.Load() >= 1
+		return atomic.LoadInt32(&callbackCount) >= 1
 	}, time.Second, 10*time.Millisecond)
 
 	require.NoError(t, c.reconnectWithBootstrap(c.defaultBootstrap, firstRuntime))
@@ -216,10 +236,11 @@ func TestSetErrorHandlerBeforeConnectPersistsAfterReconnect(t *testing.T) {
 
 	_ = secondConn.UnderlyingConn().Close()
 	require.Eventually(t, func() bool {
-		return callbackCount.Load() >= 2
+		return atomic.LoadInt32(&callbackCount) >= 2
 	}, time.Second, 10*time.Millisecond)
 }
 
+// TestConnectAfterCloseReturnsClosedError verifies the expected behavior for this scenario.
 func TestConnectAfterCloseReturnsClosedError(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := reconnectLifecycleUpgrader.Upgrade(w, r, nil)
@@ -237,7 +258,12 @@ func TestConnectAfterCloseReturnsClosedError(t *testing.T) {
 			if err != nil {
 				return
 			}
-			if strings.Contains(string(msg), `"action":"conn"`) {
+			text := string(msg)
+			if isVersionActionText(text) {
+				_ = writeVersionResponse(conn)
+				continue
+			}
+			if strings.Contains(text, `"action":"conn"`) {
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			}
 		}

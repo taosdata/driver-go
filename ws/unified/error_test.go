@@ -2,9 +2,11 @@ package unified
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
+// TestUnifiedErrorHelpers verifies the expected behavior for this scenario.
 func TestUnifiedErrorHelpers(t *testing.T) {
 	if !errors.Is(ErrUnifiedClosed, ErrUnifiedClosed) {
 		t.Fatal("ErrUnifiedClosed should match itself")
@@ -25,7 +27,7 @@ func TestUnifiedErrorHelpers(t *testing.T) {
 	if !IsReconnectFailedError(ErrUnifiedConnectFailed) {
 		t.Fatal("ErrUnifiedConnectFailed should indicate reconnect_failed")
 	}
-	if ErrorTypeOf(errors.New("x")) != ErrorTypeUnknown {
+	if ErrorTypeOf(fmt.Errorf("x")) != ErrorTypeUnknown {
 		t.Fatal("non unified errors should be unknown type")
 	}
 }

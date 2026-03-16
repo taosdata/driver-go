@@ -138,13 +138,16 @@ func NewConfigFromDSN(dsn string, defaultPath string) (*Config, error) {
 	if len(parsed.Endpoints) > 0 {
 		// Multi-node DSN: ws(host1:port1,host2:port2)/db
 		endpoints = append(endpoints, parsed.Endpoints...)
-	} else if parsed.Addr != "" {
-		// Single-node DSN: ws(host:port)/db
+	} else if parsed.Net != "" || parsed.Addr != "" {
+		// Single-node DSN: [net](host:port)/db
 		netType := parsed.Net
 		if netType == "" {
 			netType = "ws"
 		}
 		addr := parsed.Addr
+		if addr == "" {
+			addr = "127.0.0.1"
+		}
 		port := parsed.Port
 		if port == 0 {
 			port = common.DefaultHttpPort
@@ -174,7 +177,7 @@ func NewConfigFromDSN(dsn string, defaultPath string) (*Config, error) {
 	cfg.Token = parsed.Token
 	cfg.ReadTimeout = parsed.ReadTimeout
 	// unified config uses one timeout value for both read/write.
-	cfg.WriteTimeout = parsed.ReadTimeout
+	cfg.WriteTimeout = parsed.WriteTimeout
 	cfg.Timezone = parsed.Timezone
 	cfg.TotpCode = parsed.TotpCode
 	cfg.BearerToken = parsed.BearerToken

@@ -56,12 +56,12 @@ func TestSchemalessRuntimeStability(t *testing.T) {
 	err = c.Connect()
 	require.NoError(t, err)
 
-	runtime1 := c.Runtime()
+	runtime1 := c.runtimeClient()
 	require.NotNil(t, runtime1)
 
 	// Multiple operations should use the same runtime
 	for i := 0; i < 3; i++ {
-		runtime := c.Runtime()
+		runtime := c.runtimeClient()
 		assert.Same(t, runtime1, runtime, "Runtime should remain stable across operations")
 	}
 }
@@ -85,7 +85,7 @@ func TestSchemalessClosedClientBehavior(t *testing.T) {
 	assert.True(t, c.IsClosed())
 
 	// Runtime should be nil after close
-	runtime := c.Runtime()
+	runtime := c.runtimeClient()
 	assert.Nil(t, runtime)
 
 	// Operations should fail with ErrUnifiedClosed

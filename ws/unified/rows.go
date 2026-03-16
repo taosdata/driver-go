@@ -98,11 +98,7 @@ func (r *ResultSet) FreeResult(reqID int64) error {
 	if err != nil {
 		return err
 	}
-	action := &client.WSAction{
-		Action: proto.WSFreeResult,
-		Args:   args,
-	}
-	if err = client.JsonI.NewEncoder(envelope.Msg).Encode(action); err != nil {
+	if err = encodeWSActionToBuffer(envelope.Msg, proto.WSFreeResult, args, true); err != nil {
 		return err
 	}
 
@@ -141,6 +137,9 @@ func (r *ResultSet) FetchRawBlock(reqID int64) ([]byte, bool, error) {
 
 // ColumnTypePrecisionScale returns decimal precision and scale for one column.
 func (r *ResultSet) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	if index < 0 || index >= len(r.fieldsTypes) || index >= len(r.fieldsPrecision) || index >= len(r.fieldsScale) {
+		return 0, 0, false
+	}
 	if r.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL || r.fieldsTypes[index] == common.TSDB_DATA_TYPE_DECIMAL64 {
 		return r.fieldsPrecision[index], r.fieldsScale[index], true
 	}
@@ -154,16 +153,25 @@ func (r *ResultSet) Columns() []string {
 
 // ColumnTypeDatabaseTypeName returns TAOS type name for one column.
 func (r *ResultSet) ColumnTypeDatabaseTypeName(index int) string {
+	if index < 0 || index >= len(r.fieldsTypes) {
+		return ""
+	}
 	return common.GetTypeName(int(r.fieldsTypes[index]))
 }
 
 // ColumnTypeLength returns fixed length metadata for one column.
 func (r *ResultSet) ColumnTypeLength(index int) (length int64, ok bool) {
-	return r.fieldsLengths[index], ok
+	if index < 0 || index >= len(r.fieldsLengths) {
+		return 0, false
+	}
+	return r.fieldsLengths[index], true
 }
 
 // ColumnTypeScanType returns scan target type for one column.
 func (r *ResultSet) ColumnTypeScanType(index int) reflect.Type {
+	if index < 0 || index >= len(r.fieldsTypes) {
+		return common.UnknownType
+	}
 	t, exists := common.ColumnTypeMap[int(r.fieldsTypes[index])]
 	if !exists {
 		return common.UnknownType
@@ -253,10 +261,9 @@ func (r *ResultSet) ensureBoundRuntime() error {
 		return ErrUnifiedClosed
 	}
 
-	r.client.lock.RLock()
-	currentRuntime := r.client.runtime
-	currentGen := r.client.runtimeGen
-	r.client.lock.RUnlock()
+	snapshot := r.client.loadRuntimeSnapshot()
+	currentRuntime := snapshot.runtime
+	currentGen := snapshot.generation
 
 	if currentRuntime != r.runtime || currentGen != r.runtimeGen || !r.runtime.IsRunning() {
 		return ErrQueryResultConnectionLost

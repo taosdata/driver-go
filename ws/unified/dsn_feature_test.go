@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestParseDSNWithExtendedParams verifies the expected behavior for this scenario.
 func TestParseDSNWithExtendedParams(t *testing.T) {
 	dsn := "u:p@ws(127.0.0.1:6041)/db1?" +
 		"interpolateParams=false&" +
@@ -41,6 +42,7 @@ func TestParseDSNWithExtendedParams(t *testing.T) {
 	}
 }
 
+// TestParseDSNInvalidParamTypes verifies the expected behavior for this scenario.
 func TestParseDSNInvalidParamTypes(t *testing.T) {
 	_, err := ParseDSN("u:p@ws(127.0.0.1:6041)/db1?interpolateParams=not_bool")
 	require.Error(t, err)

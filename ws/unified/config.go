@@ -1,8 +1,9 @@
 package unified
 
 import (
-	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,14 +65,14 @@ func (c *Config) Normalize(defaultPath string) error {
 		if netType == "" {
 			netType = "ws"
 		}
-		addr := c.Addr
+		addr := normalizeHostForJoinHostPort(c.Addr)
 		port := c.Port
 		if port == 0 {
 			port = common.DefaultHttpPort
 		}
 		endpointURL := &url.URL{
 			Scheme: netType,
-			Host:   fmt.Sprintf("%s:%d", addr, port),
+			Host:   net.JoinHostPort(addr, strconv.Itoa(port)),
 		}
 		if c.Token != "" {
 			query := endpointURL.Query()
@@ -94,12 +95,9 @@ func (c *Config) Normalize(defaultPath string) error {
 	} else {
 		c.MessageTimeout = c.ReadTimeout
 	}
-	// unified config uses one timeout value for read/write wait.
+	// Write timeout is independent from read/message timeout.
 	if c.WriteTimeout <= 0 {
 		c.WriteTimeout = c.ReadTimeout
-	} else {
-		c.ReadTimeout = c.WriteTimeout
-		c.MessageTimeout = c.WriteTimeout
 	}
 	if c.ReconnectRetryCount <= 0 {
 		c.ReconnectRetryCount = 3
@@ -108,6 +106,14 @@ func (c *Config) Normalize(defaultPath string) error {
 		c.ReconnectIntervalMs = 2000
 	}
 	return nil
+}
+
+func normalizeHostForJoinHostPort(host string) string {
+	// net.JoinHostPort expects IPv6 literals without brackets.
+	if len(host) >= 2 && strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		return host[1 : len(host)-1]
+	}
+	return host
 }
 
 // NormalizeEndpoints validates ws/wss endpoints, applies default path, and deduplicates.

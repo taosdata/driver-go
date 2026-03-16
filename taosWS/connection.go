@@ -19,6 +19,8 @@ import (
 //revive:disable
 var (
 	NotQueryError = errors.New("sql is an update statement not a query statement")
+	// Deprecated: kept for backward compatibility with legacy taosWS callers.
+	ReadTimeoutError = errors.New("read timeout")
 )
 
 //revive:enable
@@ -30,32 +32,11 @@ type taosConn struct {
 	closeOnce     sync.Once
 }
 
-func newTaosConn(cfg *Config) (*taosConn, error) {
-	if cfg == nil {
-		return nil, unified.ErrNilConfig
-	}
-	// taosWS Config aliases unified.Config; keep a local copy for taosWS defaults.
-	unifiedCfg := *cfg
-	unifiedCfg.Endpoints = append([]string(nil), cfg.Endpoints...)
-	if unifiedCfg.ChanLength == 0 {
-		unifiedCfg.ChanLength = 1
-	}
-	if unifiedCfg.ReconnectRetryCount <= 0 {
-		unifiedCfg.ReconnectRetryCount = 1
-	}
-	unifiedConnector, err := unified.NewConnector(&unifiedCfg, "/ws")
-	if err != nil {
-		return nil, err
-	}
-	unifiedClient, err := unifiedConnector.Connect()
-	if err != nil {
-		return nil, NewBadConnError(err)
-	}
-
+func newTaosConnWithClient(cfg *Config, unifiedClient *unified.Client) *taosConn {
 	return &taosConn{
 		unifiedClient: unifiedClient,
 		cfg:           cfg,
-	}, nil
+	}
 }
 
 func (tc *taosConn) Begin() (driver.Tx, error) {

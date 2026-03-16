@@ -2737,7 +2737,7 @@ func TestMarshalStmt2Binary2TBNameFieldWithEmptyTableNameQuery(t *testing.T) {
 
 func BenchmarkMarshalBinary(b *testing.B) {
 	bindData := make([]*TaosStmt2BindData, 1000)
-	now := time.Now().UnixMilli()
+	now := time.Now().UnixNano() / int64(time.Millisecond)
 	for i := 0; i < 1000; i++ {
 		bindData[i] = &TaosStmt2BindData{
 			TableName: fmt.Sprintf("d_%d", i),
@@ -2790,7 +2790,7 @@ func BenchmarkMarshalBinary(b *testing.B) {
 
 func BenchmarkMarshalBinaryLegacy(b *testing.B) {
 	bindData := make([]*TaosStmt2BindData, 1000)
-	now := time.Now().UnixMilli()
+	now := time.Now().UnixNano() / int64(time.Millisecond)
 	for i := 0; i < 1000; i++ {
 		bindData[i] = &TaosStmt2BindData{
 			TableName: fmt.Sprintf("d_%d", i),

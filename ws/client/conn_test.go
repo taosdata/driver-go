@@ -45,6 +45,43 @@ func TestEnvelope_Reset(t *testing.T) {
 	assert.Equal(t, 0, env.Msg.Len())
 }
 
+func TestNotifyEnvelopeError(t *testing.T) {
+	t.Run("replace stale value when channel is full", func(t *testing.T) {
+		env := &Envelope{
+			ErrorChan: make(chan error, 1),
+		}
+		stale := errors.New("stale")
+		want := errors.New("new")
+		env.ErrorChan <- stale
+
+		done := make(chan struct{})
+		go func() {
+			notifyEnvelopeError(env, want)
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("notifyEnvelopeError should not block on full channel")
+		}
+
+		select {
+		case got := <-env.ErrorChan:
+			assert.Equal(t, want, got)
+		default:
+			t.Fatal("expected error value in channel")
+		}
+	})
+
+	t.Run("nil safe", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			notifyEnvelopeError(nil, errors.New("ignored"))
+			notifyEnvelopeError(&Envelope{}, errors.New("ignored"))
+		})
+	})
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -197,6 +234,34 @@ func TestClientHandleErrorRejectsNewSends(t *testing.T) {
 	case <-c.Done():
 	default:
 		t.Fatal("done channel should be closed after handleError")
+	}
+}
+
+func TestClientDrainSendChanNonBlockingWithFullErrorChan(t *testing.T) {
+	c := NewClient(nil, 1)
+	env := c.GetEnvelope()
+	defer c.PutEnvelope(env)
+	env.ErrorChan <- errors.New("stale")
+	c.sendChan <- env
+	close(c.sendChan)
+
+	done := make(chan struct{})
+	go func() {
+		c.drainSendChan()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("drainSendChan should not block on full envelope error channel")
+	}
+
+	select {
+	case err := <-env.ErrorChan:
+		assert.Equal(t, ClosedError, err)
+	default:
+		t.Fatal("expected closed error notification")
 	}
 }
 

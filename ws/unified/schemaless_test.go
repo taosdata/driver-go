@@ -36,9 +36,12 @@ func wsSchemalessServer(w http.ResponseWriter, r *http.Request) {
 
 		// Simple response based on message content
 		var resp string
-		if strings.Contains(string(msg), `"action":"conn"`) {
+		text := string(msg)
+		if isVersionActionText(text) {
+			resp = `{"code":0,"message":"","action":"version","version":"3.3.6.0"}`
+		} else if strings.Contains(text, `"action":"conn"`) {
 			resp = `{"code":0,"message":"","action":"conn","req_id":0}`
-		} else if strings.Contains(string(msg), `"action":"insert"`) {
+		} else if strings.Contains(text, `"action":"insert"`) {
 			resp = `{"code":0,"message":"","action":"insert","req_id":1}`
 		} else {
 			resp = `{"code":0,"message":"","req_id":0}`
@@ -106,6 +109,15 @@ func TestSchemalessResponseBeforeServerClose(t *testing.T) {
 			}
 		}()
 
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if isVersionActionText(string(msg)) {
+			if writeErr := writeVersionResponse(conn); writeErr != nil {
+				return
+			}
+		}
 		_, _, err = conn.ReadMessage()
 		if err != nil {
 			return

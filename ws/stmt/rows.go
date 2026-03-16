@@ -13,6 +13,7 @@ import (
 
 // Rows is a compatibility wrapper around unified.ResultSet.
 // The primary path is created by stmt.UseResult() and delegates to unified.
+// When created by deprecated NewRows, it carries metadata only.
 // Deprecated: use unified.ResultSet from package ws/unified instead.
 type Rows struct {
 	resultSet *unified.ResultSet
@@ -25,9 +26,9 @@ type Rows struct {
 	fieldsScales     []int64
 }
 
-// NewRows is kept for API compatibility.
-// New stmt implementation uses newRowsFromResultSet via unified stmt/query path.
-// Deprecated: use unified.ResultSet from package ws/unified instead.
+// NewRows is kept for API compatibility only.
+// Deprecated: compatibility-only metadata wrapper; it no longer fetches row data.
+// Use stmt.UseResult() or unified.ResultSet from package ws/unified instead.
 func NewRows(_ *WSConn, _ *client.Client, resp *UseResultResp, _ *time.Location) *Rows {
 	rows := &Rows{}
 	if resp == nil {
