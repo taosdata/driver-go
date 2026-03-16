@@ -237,6 +237,29 @@ func TestClientHandleErrorRejectsNewSends(t *testing.T) {
 	}
 }
 
+func TestClientSetErrorHandler(t *testing.T) {
+	c := NewClient(nil, 1)
+	specificErr := errors.New("write failed")
+	called := false
+
+	c.SetErrorHandler(func(err error) {
+		called = true
+		assert.Equal(t, specificErr, err)
+	})
+	c.handleError(specificErr)
+
+	assert.True(t, called, "custom error handler should be called")
+}
+
+func TestClientSetErrorHandlerNilSafe(t *testing.T) {
+	c := NewClient(nil, 1)
+	c.SetErrorHandler(nil)
+
+	assert.NotPanics(t, func() {
+		c.handleError(errors.New("write failed"))
+	})
+}
+
 func TestClientDrainSendChanNonBlockingWithFullErrorChan(t *testing.T) {
 	c := NewClient(nil, 1)
 	env := c.GetEnvelope()

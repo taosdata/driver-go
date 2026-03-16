@@ -3,6 +3,7 @@ package unified
 import (
 	"math/rand"
 	"sync"
+	"time"
 )
 
 type endpointCandidate struct {
@@ -14,6 +15,7 @@ type endpointCandidate struct {
 type failoverState struct {
 	endpoints   []string
 	activeIndex int
+	rng         *rand.Rand
 	lock        sync.RWMutex
 }
 
@@ -27,6 +29,7 @@ func newFailoverState(endpoints []string) (*failoverState, error) {
 	return &failoverState{
 		endpoints:   copyEndpoints,
 		activeIndex: 0,
+		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
 	}, nil
 }
 
@@ -62,9 +65,9 @@ func (s *failoverState) MarkActive(index int) error {
 
 // InitialCandidates returns endpoints from random start index for initial connection attempt.
 func (s *failoverState) InitialCandidates() []endpointCandidate {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	startIndex := rand.Intn(len(s.endpoints))
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	startIndex := s.rng.Intn(len(s.endpoints))
 	return s.orderedCandidatesFrom(startIndex)
 }
 

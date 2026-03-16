@@ -2,7 +2,6 @@ package tmq
 
 import (
 	"database/sql/driver"
-	"fmt"
 
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/tmq"
@@ -15,13 +14,7 @@ type Consumer struct {
 	unifiedConsumer *wsunified.TMQConsumer
 }
 
-type WSError struct {
-	err error
-}
-
-func (e *WSError) Error() string {
-	return fmt.Sprintf("websocket close with error %v", e.err)
-}
+type WSError = wsunified.WSError
 
 // NewConsumer creates a tmq consumer via unified implementation.
 func NewConsumer(conf *tmq.ConfigMap) (*Consumer, error) {

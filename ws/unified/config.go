@@ -90,10 +90,15 @@ func (c *Config) Normalize(defaultPath string) error {
 	if c.MessageTimeout <= 0 {
 		c.MessageTimeout = common.DefaultMessageTimeout
 	}
-	if c.ReadTimeout <= 0 {
-		c.ReadTimeout = c.MessageTimeout
-	} else {
+
+	// Keep backward-compatible semantics:
+	// 1) explicit ReadTimeout overrides MessageTimeout for request waiting.
+	// 2) otherwise ReadTimeout inherits MessageTimeout.
+	readTimeoutConfigured := c.ReadTimeout > 0
+	if readTimeoutConfigured {
 		c.MessageTimeout = c.ReadTimeout
+	} else {
+		c.ReadTimeout = c.MessageTimeout
 	}
 	// Write timeout is independent from read/message timeout.
 	if c.WriteTimeout <= 0 {

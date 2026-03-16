@@ -48,11 +48,15 @@ type TMQConsumer struct {
 }
 
 type WSError struct {
-	err error
+	Cause error
 }
 
 func (e *WSError) Error() string {
-	return fmt.Sprintf("websocket close with error %v", e.err)
+	return fmt.Sprintf("websocket close with error %v", e.Cause)
+}
+
+func NewWSError(err error) *WSError {
+	return &WSError{Cause: err}
 }
 
 var ErrTMQConsumerUninitialized = &Error{
@@ -344,7 +348,7 @@ func parseTMQEndpoints(raw string) ([]string, error) {
 
 func (c *TMQConsumer) handleError(err error) {
 	if !c.autoReconnect {
-		c.setErr(&WSError{err: err})
+		c.setErr(NewWSError(err))
 	}
 }
 

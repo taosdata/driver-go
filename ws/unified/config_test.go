@@ -98,6 +98,27 @@ func TestConfigNormalizeKeepUserValues(t *testing.T) {
 	}
 }
 
+// TestConfigNormalizeReadTimeoutOverridesMessageTimeout verifies explicit
+// ReadTimeout keeps backward-compatible precedence over MessageTimeout.
+func TestConfigNormalizeReadTimeoutOverridesMessageTimeout(t *testing.T) {
+	cfg := NewConfig([]string{"wss://cluster-a:443/ws"})
+	cfg.MessageTimeout = 30 * time.Second
+	cfg.ReadTimeout = 12 * time.Second
+	cfg.WriteTimeout = 0
+	if err := cfg.Normalize("/ws"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ReadTimeout != 12*time.Second {
+		t.Fatalf("unexpected read timeout: %v", cfg.ReadTimeout)
+	}
+	if cfg.MessageTimeout != 12*time.Second {
+		t.Fatalf("message timeout should follow read timeout, got: %v", cfg.MessageTimeout)
+	}
+	if cfg.WriteTimeout != 12*time.Second {
+		t.Fatalf("write timeout should default from read timeout, got: %v", cfg.WriteTimeout)
+	}
+}
+
 // TestNormalizeEndpointsDeduplication verifies the expected behavior for this scenario.
 func TestNormalizeEndpointsDeduplication(t *testing.T) {
 	// Test deduplication of identical endpoints

@@ -125,6 +125,26 @@ func (s *Stmt) SetTags(tags *param.Param, bindType *param.ColumnType) error {
 }
 
 // Bind stores stmt2-style bind data directly without value conversion.
+// The params type must equal to the DB type.
+// DBType               | GoType
+// -----------------------------
+// BOOL                 | bool
+// TINYINT              | int8
+// SMALLINT             | int16
+// INT                  | int32
+// BIGINT               | int64
+// TINYINT UNSIGNED     | uint8
+// SMALLINT UNSIGNED    | uint16
+// INT UNSIGNED         | uint32
+// BIGINT UNSIGNED      | uint64
+// FLOAT                | float32
+// DOUBLE               | float64
+// TIMESTAMP            | time.Time
+// BINARY               | []byte
+// NCHAR                | string/[]byte
+// VARBINARY            | []byte
+// GEOMETRY             | []byte
+// JSON                 | []byte
 func (s *Stmt) Bind(params []*commonstmt.TaosStmt2BindData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

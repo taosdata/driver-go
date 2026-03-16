@@ -1168,7 +1168,7 @@ func TestSubscribeReconnect(t *testing.T) {
 func TestWSError_Error(t *testing.T) {
 	// Test scenario where an error is provided
 	expectedErr := errors.New("connection lost")
-	wsErr := &WSError{err: expectedErr}
+	wsErr := &WSError{Cause: expectedErr}
 
 	// Call the Error() method and check if the format is correct
 	actualError := wsErr.Error()

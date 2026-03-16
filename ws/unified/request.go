@@ -15,6 +15,8 @@ var errNilEnvelope = &Error{
 
 // sendEnvelopeWithRuntime sends one request on a specific runtime and waits for one routed response.
 // It returns whether the websocket write has been acknowledged and the runtime generation used.
+// Timeout only bounds local waiting for a routed response. It does not cancel an in-flight
+// websocket write already queued in the runtime send path.
 func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, envelope *client.Envelope, timeout time.Duration, timeoutErr error) ([]byte, bool, uint64, error) {
 	if runtime == nil {
 		return nil, false, 0, client.ClosedError
@@ -113,6 +115,7 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 		return nil, true, runtimeGen, client.ClosedError
 	case <-ctx.Done():
 		// Prefer an already-routed response over timeout if both race.
+		// A timeout here means caller stop-waiting, not guaranteed server-side cancellation.
 		select {
 		case resp := <-respChan:
 			if resp == nil {

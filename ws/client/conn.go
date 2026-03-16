@@ -104,6 +104,7 @@ type Client struct {
 	errHandlerOnce sync.Once
 	sendLock       sync.RWMutex
 	errLock        sync.RWMutex
+	handlerLock    sync.RWMutex
 	lastErr        error
 }
 
@@ -265,7 +266,8 @@ func (c *Client) handleError(err error) {
 	}
 	c.errLock.Unlock()
 	c.closeDone()
-	c.errHandlerOnce.Do(func() { c.ErrorHandler(err) })
+	handler := c.getErrorHandler()
+	c.errHandlerOnce.Do(func() { handler(err) })
 }
 
 func (c *Client) closeDone() {
@@ -281,6 +283,25 @@ func (c *Client) drainSendChan() {
 		}
 		notifyEnvelopeError(message, ClosedError)
 	}
+}
+
+func (c *Client) SetErrorHandler(handler func(error)) {
+	if handler == nil {
+		handler = func(error) {}
+	}
+	c.handlerLock.Lock()
+	c.ErrorHandler = handler
+	c.handlerLock.Unlock()
+}
+
+func (c *Client) getErrorHandler() func(error) {
+	c.handlerLock.RLock()
+	handler := c.ErrorHandler
+	c.handlerLock.RUnlock()
+	if handler == nil {
+		return func(error) {}
+	}
+	return handler
 }
 
 func HandleResponseError(err error, code int, msg string) error {

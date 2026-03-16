@@ -60,6 +60,7 @@ type Client struct {
 	lock         sync.RWMutex
 	runtime      *client.Client
 	closed       bool
+	closedFlag   uint32
 	runtimeGen   uint64 // incremented on each runtime swap
 	closeChan    chan struct{}
 	errorHandler func(error)
@@ -108,6 +109,7 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 		closeChan:       make(chan struct{}),
 		errorHandler:    defaultUnifiedErrHandler,
 	}
+	atomic.StoreUint32(&c.closedFlag, 0)
 	c.runtimeSnapshot.Store(runtimeStateSnapshot{})
 	atomic.StoreUint32(&c.runtimeSnapshotReady, 1)
 	c.dial = c.dialWithDialer
@@ -298,7 +300,7 @@ func (c *Client) initializeRuntime(runtime *client.Client) {
 	if c.config.WriteTimeout > 0 {
 		runtime.WriteWait = c.config.WriteTimeout
 	}
-	runtime.ErrorHandler = normalizeErrorHandler(handler)
+	runtime.SetErrorHandler(normalizeErrorHandler(handler))
 
 	// Set unified message handlers for routing responses
 	runtime.TextMessageHandler = c.handleTextMessage
@@ -478,6 +480,7 @@ func (c *Client) Close() {
 		return
 	}
 	c.closed = true
+	atomic.StoreUint32(&c.closedFlag, 1)
 	c.connected = false
 	runtime := c.runtime
 	c.runtime = nil
@@ -491,9 +494,15 @@ func (c *Client) Close() {
 
 // IsClosed reports whether client has been closed.
 func (c *Client) IsClosed() bool {
+	// Keep atomic fast path for hot checks after Close() and fall back to
+	// lock-protected bool for manually constructed/zero-value clients in tests.
+	if atomic.LoadUint32(&c.closedFlag) == 1 {
+		return true
+	}
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.closed
+	closed := c.closed
+	c.lock.RUnlock()
+	return closed
 }
 
 // Config returns current normalized client config by value.
@@ -510,7 +519,7 @@ func (c *Client) SetErrorHandler(handler func(error)) {
 	runtime := c.runtime
 	c.lock.Unlock()
 	if runtime != nil {
-		runtime.ErrorHandler = normalized
+		runtime.SetErrorHandler(normalized)
 	}
 }
 
