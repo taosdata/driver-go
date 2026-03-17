@@ -85,7 +85,7 @@ func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
 
 	require.NoError(t, c.Connect())
 
-	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = c.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	require.Error(t, err)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&insertCount), "insert must not be replayed after write ack")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "must not reconnect and replay")
@@ -142,7 +142,7 @@ func TestSchemalessInsertRespectsAutoReconnect(t *testing.T) {
 	require.NotNil(t, runtime)
 	runtime.Close()
 
-	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 2)
+	err = c.SchemalessInsert(2, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, client.ClosedError)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "auto reconnect disabled should not open new connections")

@@ -61,15 +61,15 @@ func (tc *taosConn) Prepare(query string) (driver.Stmt, error) {
 	return tc.PrepareContext(context.Background(), query)
 }
 
-func getReqID(ctx context.Context) (uint64, error) {
+func getReqID(ctx context.Context) (int64, error) {
 	reqID, err := common.GetReqIDFromCtx(ctx)
 	if err != nil {
 		return 0, err
 	}
 	if reqID == 0 {
-		return uint64(common.GetReqID()), nil
+		return common.GetReqID(), nil
 	}
-	return uint64(reqID), nil
+	return reqID, nil
 }
 
 func (tc *taosConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
@@ -83,18 +83,18 @@ func (tc *taosConn) PrepareContext(ctx context.Context, query string) (driver.St
 	if err != nil {
 		return nil, err
 	}
-	stmtHandle, err := tc.unifiedClient.InitStmt(int64(reqID))
+	stmtHandle, err := tc.unifiedClient.InitStmt(reqID)
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}
-	err = stmtHandle.Prepare(query, int64(reqID))
+	err = stmtHandle.Prepare(reqID, query)
 	if err != nil {
-		_ = stmtHandle.Close(int64(reqID))
+		_ = stmtHandle.Close(reqID)
 		return nil, mapUnifiedConnError(err)
 	}
 	isInsert, err := stmtHandle.IsInsert()
 	if err != nil {
-		_ = stmtHandle.Close(int64(reqID))
+		_ = stmtHandle.Close(reqID)
 		return nil, mapUnifiedConnError(err)
 	}
 	stmt := &Stmt{
@@ -127,7 +127,7 @@ func (tc *taosConn) execCtx(ctx context.Context, query string, args []driver.Nam
 		}
 		query = prepared
 	}
-	affected, err := tc.unifiedClient.Exec(query, int64(reqID))
+	affected, err := tc.unifiedClient.Exec(reqID, query)
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}
@@ -156,7 +156,7 @@ func (tc *taosConn) queryCtx(ctx context.Context, query string, args []driver.Na
 		}
 		query = prepared
 	}
-	rs, err := tc.unifiedClient.Query(query, int64(reqID))
+	rs, err := tc.unifiedClient.Query(reqID, query)
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}

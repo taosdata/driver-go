@@ -155,6 +155,34 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
 
+  docs-go:
+    runs-on: ubuntu-latest
+    needs: build
+    name: Docs Go Examples
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup TDengine
+        uses: ./.github/actions/setup-tdengine
+        with:
+          mode: 'build'
+          commit-id: ${{ needs.build.outputs.commit_id }}
+          event-key: ${{ needs.build.outputs.event_key }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: Run docs go examples
+        run: |
+          go version
+          go env
+          cd examples/docs
+          bash go.sh
+
   race-test:
     runs-on: ubuntu-latest
     needs: build
@@ -211,6 +239,31 @@ jobs:
           go version
           go env
           LOOP_COUNT=20 ./ws/reliability_gate.sh full
+
+  ws-failover:
+    runs-on: ubuntu-latest
+    needs: build
+    name: WS Failover Switch
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup TDengine
+        uses: ./.github/actions/setup-tdengine
+        with:
+          mode: 'build'
+          commit-id: ${{ needs.build.outputs.commit_id }}
+          event-key: ${{ needs.build.outputs.event_key }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: Run failover switch probe
+        run: |
+          sudo PROBE_TOTAL_SEC=20 PROBE_POST_SUCCESS=3 READY_TIMEOUT_SEC=20 bash ./ws/unified/tests/verify_failover_switch.sh
 
   test-asan:
     runs-on: ubuntu-latest

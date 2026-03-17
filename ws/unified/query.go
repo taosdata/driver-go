@@ -33,7 +33,7 @@ func (r *execQueryResponse) GetMessage() string {
 }
 
 // Exec executes one SQL query and returns affected rows.
-func (c *Client) Exec(sql string, reqID int64) (int, error) {
+func (c *Client) Exec(reqID int64, sql string) (int, error) {
 	if reqID == 0 {
 		reqID = common.GetReqID()
 	}
@@ -64,15 +64,15 @@ func (c *Client) Exec(sql string, reqID int64) (int, error) {
 
 // Query sends one binary query message with reconnect/failover support.
 // It returns nil result for update statements.
-func (c *Client) Query(sql string, reqID int64) (*ResultSet, error) {
-	queryResp, runtime, runtimeGen, err := c.queryRaw(sql, reqID)
+func (c *Client) Query(reqID int64, sql string) (*ResultSet, error) {
+	queryResp, runtime, runtimeGen, err := c.queryRaw(reqID, sql)
 	if err != nil {
 		return nil, err
 	}
 	return buildResultSetFromQueryResp(c, runtime, runtimeGen, queryResp), nil
 }
 
-func (c *Client) queryRaw(sql string, reqID int64) (*proto.WSQueryResp, *client.Client, uint64, error) {
+func (c *Client) queryRaw(reqID int64, sql string) (*proto.WSQueryResp, *client.Client, uint64, error) {
 	if reqID == 0 {
 		reqID = common.GetReqID()
 	}

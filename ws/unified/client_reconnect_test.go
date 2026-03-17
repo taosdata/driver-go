@@ -201,6 +201,7 @@ func TestSwapRuntimePublishesSnapshotAfterPendingSwap(t *testing.T) {
 		probeDone := make(chan struct{})
 		go func() {
 			c.lock.RLock()
+			_ = c.runtimeGen
 			c.lock.RUnlock()
 			close(probeDone)
 		}()

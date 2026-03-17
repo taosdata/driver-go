@@ -16,14 +16,11 @@ func TestBuildConnectionConfigUsesUnifiedDefaults(t *testing.T) {
 	if out.ChanLength != 1 {
 		t.Fatalf("unexpected channel length: %d", out.ChanLength)
 	}
-	if out.MessageTimeout != common.DefaultMessageTimeout {
-		t.Fatalf("unexpected message timeout: %v", out.MessageTimeout)
-	}
 	if out.ReadTimeout != common.DefaultMessageTimeout {
 		t.Fatalf("unexpected read timeout: %v", out.ReadTimeout)
 	}
-	if out.WriteTimeout != out.ReadTimeout {
-		t.Fatalf("write timeout should follow read timeout, got read=%v write=%v", out.ReadTimeout, out.WriteTimeout)
+	if out.WriteTimeout != common.DefaultWriteWait {
+		t.Fatalf("write timeout should default to %v, got %v", common.DefaultWriteWait, out.WriteTimeout)
 	}
 	if out.ReconnectIntervalMs != 2000 || out.ReconnectRetryCount != 3 {
 		t.Fatalf("unexpected reconnect defaults: interval=%d retry=%d", out.ReconnectIntervalMs, out.ReconnectRetryCount)
@@ -58,7 +55,6 @@ func TestBuildConnectionConfigPreservesProvidedValues(t *testing.T) {
 	in := &Config{
 		Endpoints:           []string{"ws://127.0.0.1:6041/ws"},
 		ChanLength:          8,
-		MessageTimeout:      4 * time.Second,
 		ReconnectIntervalMs: 1234,
 		ReconnectRetryCount: 9,
 		User:                "user",
@@ -73,7 +69,7 @@ func TestBuildConnectionConfigPreservesProvidedValues(t *testing.T) {
 	if out == nil {
 		t.Fatal("expected non-nil config")
 	}
-	if out.ChanLength != 8 || out.MessageTimeout != 4*time.Second || out.ReconnectIntervalMs != 1234 || out.ReconnectRetryCount != 9 {
+	if out.ChanLength != 8 || out.ReconnectIntervalMs != 1234 || out.ReconnectRetryCount != 9 {
 		t.Fatalf("unexpected runtime overwrite: %+v", out)
 	}
 	if out.User != "user" || out.Passwd != "passwd" || out.Net != "wss" || out.Addr != "cloud.example.com" || out.Port != 443 {

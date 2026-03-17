@@ -405,21 +405,37 @@ func getFreePort(t *testing.T) string {
 
 func createTestDatabase(t *testing.T, ports []string) string {
 	t.Helper()
-	exists, err := databaseExistsOnAnyPort(ports, unifiedCrossTestDB)
-	require.NoError(t, err)
-	if exists {
-		t.Cleanup(func() {
-			_ = execSQLOnAnyPort(ports, fmt.Sprintf("drop database if exists %s", unifiedCrossTestDB))
-		})
-		return unifiedCrossTestDB
-	}
-	if err = execSQLOnAnyPort(ports, fmt.Sprintf("create database if not exists %s", unifiedCrossTestDB)); err != nil {
-		t.Skipf("failed to create fixed integration database %s: %v", unifiedCrossTestDB, err)
+
+	// Best-effort cleanup for historical fixed-name residue from previous runs.
+	_ = dropDatabaseWithRetry(ports, unifiedCrossTestDB, 3, 100*time.Millisecond)
+
+	dbName := fmt.Sprintf("%s_%d", unifiedCrossTestDB, time.Now().UnixNano())
+	if err := execSQLOnAnyPort(ports, fmt.Sprintf("create database if not exists %s", dbName)); err != nil {
+		t.Skipf("failed to create integration database %s: %v", dbName, err)
 	}
 	t.Cleanup(func() {
-		_ = execSQLOnAnyPort(ports, fmt.Sprintf("drop database if exists %s", unifiedCrossTestDB))
+		if err := dropDatabaseWithRetry(ports, dbName, 10, 200*time.Millisecond); err != nil {
+			t.Logf("cleanup drop database %s failed: %v", dbName, err)
+		}
 	})
-	return unifiedCrossTestDB
+	return dbName
+}
+
+func dropDatabaseWithRetry(ports []string, db string, retries int, interval time.Duration) error {
+	if retries <= 0 {
+		retries = 1
+	}
+	var lastErr error
+	for i := 0; i < retries; i++ {
+		lastErr = execSQLOnAnyPort(ports, fmt.Sprintf("drop database if exists %s", db))
+		if lastErr == nil {
+			return nil
+		}
+		if i+1 < retries && interval > 0 {
+			time.Sleep(interval)
+		}
+	}
+	return lastErr
 }
 
 func execSQLOnAnyPort(ports []string, sql string) error {
@@ -562,7 +578,7 @@ func waitForSuccessfulInsert(t *testing.T, c *Client, phase string, timeout time
 	var lastErr error
 	i := 0
 	for time.Since(start) < timeout {
-		err := c.SchemalessInsert(buildLine(phase, 0, i), 1, "ns", 0, 0)
+		err := c.SchemalessInsert(0, buildLine(phase, 0, i), 1, "ns", 0, "")
 		if err == nil {
 			return time.Since(start), nil
 		}
@@ -584,7 +600,7 @@ func runConcurrentInsertsWithFault(t *testing.T, c *Client, phase string, worker
 		go func() {
 			defer wg.Done()
 			for i := 0; i < perWorker; i++ {
-				err := c.SchemalessInsert(buildLine(phase, workerID, i), 1, "ns", 0, 0)
+				err := c.SchemalessInsert(0, buildLine(phase, workerID, i), 1, "ns", 0, "")
 				if err != nil {
 					atomic.AddInt32(&failCount, 1)
 				} else {

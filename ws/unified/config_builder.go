@@ -40,8 +40,8 @@ func BuildConnectionConfig(cfg *Config, defaults ConnectionConfigDefaults) *Conf
 	if normalized.ChanLength == 0 {
 		normalized.ChanLength = base.ChanLength
 	}
-	if normalized.MessageTimeout <= 0 {
-		normalized.MessageTimeout = base.MessageTimeout
+	if normalized.ReadTimeout <= 0 {
+		normalized.ReadTimeout = base.ReadTimeout
 	}
 	if normalized.ReconnectIntervalMs <= 0 {
 		normalized.ReconnectIntervalMs = base.ReconnectIntervalMs
@@ -68,14 +68,11 @@ func BuildConnectionConfig(cfg *Config, defaults ConnectionConfigDefaults) *Conf
 	if len(normalized.Addr) == 0 && defaults.Addr != "" {
 		normalized.Addr = defaults.Addr
 	}
-	if normalized.ReadTimeout <= 0 {
-		normalized.ReadTimeout = normalized.MessageTimeout
-	}
 	if normalized.WriteTimeout <= 0 {
 		if defaults.WriteTimeout > 0 {
 			normalized.WriteTimeout = defaults.WriteTimeout
 		} else {
-			normalized.WriteTimeout = normalized.ReadTimeout
+			normalized.WriteTimeout = base.WriteTimeout
 		}
 	}
 	return &normalized

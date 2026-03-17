@@ -120,12 +120,12 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 }
 
 // NewClientFromDSN builds Config from DSN and returns a unified Client.
-func NewClientFromDSN(dsn string, defaultPath string, opts ...Option) (*Client, error) {
+func NewClientFromDSN(dsn string, defaultPath string) (*Client, error) {
 	cfg, err := NewConfigFromDSN(dsn, defaultPath)
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(cfg, defaultPath, opts...)
+	return NewClient(cfg, defaultPath)
 }
 
 // dialWithDialer dials endpoint using configured gorilla dialer options.

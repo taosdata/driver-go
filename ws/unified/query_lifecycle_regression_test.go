@@ -93,7 +93,7 @@ func TestQueryNoReplayAfterWriteAck(t *testing.T) {
 
 	require.NoError(t, c.Connect())
 
-	_, err = c.Query("select 1", 1)
+	_, err = c.Query(1, "select 1")
 	require.Error(t, err)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&queryCount), "query must not be replayed after write ack")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "must not reconnect after write-acked query")
@@ -148,7 +148,7 @@ func TestQueryRespectsAutoReconnect(t *testing.T) {
 	require.NotNil(t, runtime)
 	runtime.Close()
 
-	_, err = c.Query("select 1", 2)
+	_, err = c.Query(2, "select 1")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, client.ClosedError)
 	assert.True(t, IsConnectionDisconnectedError(err))
@@ -209,12 +209,12 @@ func TestQueryResultFetchNoReconnectAfterDisconnect(t *testing.T) {
 
 	require.NoError(t, c.Connect())
 
-	result, err := c.Query("select 1", 3)
+	result, err := c.Query(3, "select 1")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
 	start := time.Now()
-	_, _, err = result.FetchRawBlock(4)
+	_, _, err = result.fetchRawBlock(4)
 	elapsed := time.Since(start)
 	require.Error(t, err)
 	assert.True(t, IsConnectionDisconnectedError(err), "fetch should report disconnected result-connection")
@@ -223,7 +223,7 @@ func TestQueryResultFetchNoReconnectAfterDisconnect(t *testing.T) {
 	assert.Less(t, elapsed, 2*time.Second, "disconnect should be sensed quickly")
 
 	// Subsequent new query is stateless and should trigger reconnect successfully.
-	_, err = c.Query("select 1", 5)
+	_, err = c.Query(5, "select 1")
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, atomic.LoadInt32(&connCount), int32(2))
 	assert.GreaterOrEqual(t, atomic.LoadInt32(&queryCount), int32(2))

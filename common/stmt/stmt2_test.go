@@ -2835,6 +2835,20 @@ func TestMarshalStmt2Binary2InsertDecimalTypeMismatch(t *testing.T) {
 			value:  float64(1.2),
 			errMsg: "unsupported tag type",
 		},
+		{
+			name:   "blob col type mismatch",
+			field:  common.TSDB_DATA_TYPE_BLOB,
+			isTag:  false,
+			value:  int32(1),
+			errMsg: "unsupported column type",
+		},
+		{
+			name:   "blob tag type mismatch",
+			field:  common.TSDB_DATA_TYPE_BLOB,
+			isTag:  true,
+			value:  true,
+			errMsg: "unsupported tag type",
+		},
 	}
 
 	for i := 0; i < len(tests); i++ {
@@ -2886,6 +2900,47 @@ func TestWriteBindTagErrorBranches(t *testing.T) {
 	assert.Contains(t, err.Error(), "expect string or []byte")
 }
 
+func TestWriteBindTagDecimalAndBlob(t *testing.T) {
+	buffer := make([]byte, 256)
+	fields := []*Stmt2AllField{
+		{
+			Name:      "tag_decimal",
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+		},
+		{
+			Name:      "tag_blob",
+			FieldType: common.TSDB_DATA_TYPE_BLOB,
+		},
+	}
+	values := []driver.Value{
+		"12.3400",
+		[]byte{0x01, 0x02, 0x03},
+	}
+	end, err := writeBindTag(fields, values, buffer, 0)
+	assert.NoError(t, err)
+	if !assert.Greater(t, end, 0) {
+		return
+	}
+
+	assert.Equal(t, uint32(common.TSDB_DATA_TYPE_DECIMAL), binary.LittleEndian.Uint32(buffer[DataTypeOffset:DataTypeOffset+4]))
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(buffer[NumOffset:NumOffset+4]))
+	assert.Equal(t, byte(1), buffer[HaveLengthOffset])
+	assert.Equal(t, uint32(7), binary.LittleEndian.Uint32(buffer[HaveLengthOffset+1:HaveLengthOffset+1+4]))
+	assert.Equal(t, uint32(7), binary.LittleEndian.Uint32(buffer[HaveLengthOffset+1+4:HaveLengthOffset+1+8]))
+	assert.Equal(t, []byte("12.3400"), buffer[HaveLengthOffset+1+8:HaveLengthOffset+1+8+7])
+
+	firstTotal := int(binary.LittleEndian.Uint32(buffer[TotalLengthOffset : TotalLengthOffset+4]))
+	assert.Equal(t, uint32(common.TSDB_DATA_TYPE_BLOB), binary.LittleEndian.Uint32(buffer[firstTotal+DataTypeOffset:firstTotal+DataTypeOffset+4]))
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(buffer[firstTotal+NumOffset:firstTotal+NumOffset+4]))
+	assert.Equal(t, byte(1), buffer[firstTotal+HaveLengthOffset])
+	assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(buffer[firstTotal+HaveLengthOffset+1:firstTotal+HaveLengthOffset+1+4]))
+	assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(buffer[firstTotal+HaveLengthOffset+1+4:firstTotal+HaveLengthOffset+1+8]))
+	assert.Equal(t, []byte{0x01, 0x02, 0x03}, buffer[firstTotal+HaveLengthOffset+1+8:firstTotal+HaveLengthOffset+1+8+3])
+
+	secondTotal := int(binary.LittleEndian.Uint32(buffer[firstTotal+TotalLengthOffset : firstTotal+TotalLengthOffset+4]))
+	assert.Equal(t, firstTotal+secondTotal, end)
+}
+
 func TestWriteBindColErrorBranches(t *testing.T) {
 	buffer := make([]byte, 256)
 
@@ -2924,6 +2979,64 @@ func TestWriteBindColErrorBranches(t *testing.T) {
 	}, buffer, 0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "col field type not support")
+}
+
+func TestWriteBindColDecimalAndBlob(t *testing.T) {
+	buffer := make([]byte, 512)
+	fields := []*Stmt2AllField{
+		{
+			Name:      "col_decimal",
+			FieldType: common.TSDB_DATA_TYPE_DECIMAL,
+		},
+		{
+			Name:      "col_blob",
+			FieldType: common.TSDB_DATA_TYPE_BLOB,
+		},
+	}
+	values := [][]driver.Value{
+		{"1.2300", nil, []byte("9.9900")},
+		{[]byte{0x11}, "blob_text", nil},
+	}
+	end, err := writeBindCol(fields, values, buffer, 0)
+	assert.NoError(t, err)
+	if !assert.Greater(t, end, 0) {
+		return
+	}
+
+	rows := 3
+	haveLengthOffset := IsNullOffset + rows
+	variableLengthOffset := haveLengthOffset + 1
+	variableBufferLengthOffset := variableLengthOffset + (4 * rows)
+	variableBufferOffset := variableBufferLengthOffset + 4
+
+	assert.Equal(t, uint32(common.TSDB_DATA_TYPE_DECIMAL), binary.LittleEndian.Uint32(buffer[DataTypeOffset:DataTypeOffset+4]))
+	assert.Equal(t, uint32(rows), binary.LittleEndian.Uint32(buffer[NumOffset:NumOffset+4]))
+	assert.Equal(t, byte(0), buffer[IsNullOffset])
+	assert.Equal(t, byte(1), buffer[IsNullOffset+1])
+	assert.Equal(t, byte(0), buffer[IsNullOffset+2])
+	assert.Equal(t, byte(1), buffer[haveLengthOffset])
+	assert.Equal(t, uint32(6), binary.LittleEndian.Uint32(buffer[variableLengthOffset:variableLengthOffset+4]))
+	assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(buffer[variableLengthOffset+4:variableLengthOffset+8]))
+	assert.Equal(t, uint32(6), binary.LittleEndian.Uint32(buffer[variableLengthOffset+8:variableLengthOffset+12]))
+	assert.Equal(t, uint32(12), binary.LittleEndian.Uint32(buffer[variableBufferLengthOffset:variableBufferLengthOffset+4]))
+	assert.Equal(t, []byte("1.23009.9900"), buffer[variableBufferOffset:variableBufferOffset+12])
+
+	firstTotal := int(binary.LittleEndian.Uint32(buffer[TotalLengthOffset : TotalLengthOffset+4]))
+	assert.Equal(t, uint32(common.TSDB_DATA_TYPE_BLOB), binary.LittleEndian.Uint32(buffer[firstTotal+DataTypeOffset:firstTotal+DataTypeOffset+4]))
+	assert.Equal(t, uint32(rows), binary.LittleEndian.Uint32(buffer[firstTotal+NumOffset:firstTotal+NumOffset+4]))
+	assert.Equal(t, byte(0), buffer[firstTotal+IsNullOffset])
+	assert.Equal(t, byte(0), buffer[firstTotal+IsNullOffset+1])
+	assert.Equal(t, byte(1), buffer[firstTotal+IsNullOffset+2])
+	assert.Equal(t, byte(1), buffer[firstTotal+haveLengthOffset])
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(buffer[firstTotal+variableLengthOffset:firstTotal+variableLengthOffset+4]))
+	assert.Equal(t, uint32(9), binary.LittleEndian.Uint32(buffer[firstTotal+variableLengthOffset+4:firstTotal+variableLengthOffset+8]))
+	assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(buffer[firstTotal+variableLengthOffset+8:firstTotal+variableLengthOffset+12]))
+	assert.Equal(t, uint32(10), binary.LittleEndian.Uint32(buffer[firstTotal+variableBufferLengthOffset:firstTotal+variableBufferLengthOffset+4]))
+	assert.Equal(t, []byte{0x11}, buffer[firstTotal+variableBufferOffset:firstTotal+variableBufferOffset+1])
+	assert.Equal(t, []byte("blob_text"), buffer[firstTotal+variableBufferOffset+1:firstTotal+variableBufferOffset+10])
+
+	secondTotal := int(binary.LittleEndian.Uint32(buffer[firstTotal+TotalLengthOffset : firstTotal+TotalLengthOffset+4]))
+	assert.Equal(t, firstTotal+secondTotal, end)
 }
 
 func TestWriteBindColFixedTypeMismatchBranches(t *testing.T) {

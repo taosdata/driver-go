@@ -279,7 +279,7 @@ func runDualNodeStmtJitterScenario(t *testing.T, workers, perWorker int, firstFa
 
 func createStmtCrossTable(t *testing.T, c *Client, db, table string) {
 	t.Helper()
-	_, err := c.Exec(fmt.Sprintf("create table if not exists %s.%s(ts timestamp, v int)", db, table), 0)
+	_, err := c.Exec(0, fmt.Sprintf("create table if not exists %s.%s(ts timestamp, v int)", db, table))
 	require.NoError(t, err)
 }
 
@@ -288,7 +288,7 @@ func newPreparedStmtInsert(c *Client, db, table string) (*Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = stmt.Prepare(fmt.Sprintf("insert into %s.%s values(?, ?)", db, table), 0); err != nil {
+	if err = stmt.Prepare(0, fmt.Sprintf("insert into %s.%s values(?, ?)", db, table)); err != nil {
 		_ = stmt.Close(0)
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func execPreparedStmtInsert(stmt *Stmt, value int) error {
 	if err := stmt.AddBatch(); err != nil {
 		return err
 	}
-	_, err := stmt.Exec()
+	_, err := stmt.Exec(0)
 	return err
 }
 

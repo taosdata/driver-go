@@ -16,7 +16,6 @@ type Config struct {
 	// Unified runtime fields
 	Endpoints           []string
 	ChanLength          uint
-	MessageTimeout      time.Duration
 	AutoReconnect       bool
 	ReconnectIntervalMs int
 	ReconnectRetryCount int
@@ -49,7 +48,8 @@ func NewConfig(endpoints []string) *Config {
 		InterpolateParams:   true,
 		Endpoints:           copyEndpoints,
 		ChanLength:          1,
-		MessageTimeout:      common.DefaultMessageTimeout,
+		ReadTimeout:         common.DefaultMessageTimeout,
+		WriteTimeout:        common.DefaultWriteWait,
 		ReconnectRetryCount: 3,
 		ReconnectIntervalMs: 2000,
 	}
@@ -87,22 +87,11 @@ func (c *Config) Normalize(defaultPath string) error {
 		return err
 	}
 	c.Endpoints = endpoints
-	if c.MessageTimeout <= 0 {
-		c.MessageTimeout = common.DefaultMessageTimeout
+	if c.ReadTimeout <= 0 {
+		c.ReadTimeout = common.DefaultMessageTimeout
 	}
-
-	// Keep backward-compatible semantics:
-	// 1) explicit ReadTimeout overrides MessageTimeout for request waiting.
-	// 2) otherwise ReadTimeout inherits MessageTimeout.
-	readTimeoutConfigured := c.ReadTimeout > 0
-	if readTimeoutConfigured {
-		c.MessageTimeout = c.ReadTimeout
-	} else {
-		c.ReadTimeout = c.MessageTimeout
-	}
-	// Write timeout is independent from read/message timeout.
 	if c.WriteTimeout <= 0 {
-		c.WriteTimeout = c.ReadTimeout
+		c.WriteTimeout = common.DefaultWriteWait
 	}
 	if c.ReconnectRetryCount <= 0 {
 		c.ReconnectRetryCount = 3

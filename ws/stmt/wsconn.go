@@ -17,5 +17,4 @@ func NewWSConn(client *client.Client, writeTimeout time.Duration, readTimeout ti
 
 // Deprecated: use unified.Client internals from package ws/unified instead.
 func (c *WSConn) Close() {
-	return
 }

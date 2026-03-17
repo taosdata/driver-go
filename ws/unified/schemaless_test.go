@@ -71,8 +71,66 @@ func TestSchemalessInsertBasic(t *testing.T) {
 	err = client.Connect()
 	require.NoError(t, err)
 
-	err = client.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = client.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	assert.NoError(t, err)
+}
+
+func TestSchemalessInsertWithTableNameKey(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		conn, err := schemalessTestUpgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() {
+			_ = conn.Close()
+		}()
+
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if isVersionActionText(string(msg)) {
+			if writeErr := writeVersionResponse(conn); writeErr != nil {
+				return
+			}
+		}
+
+		_, _, err = conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if writeErr := conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`)); writeErr != nil {
+			return
+		}
+
+		_, msg, err = conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if !strings.Contains(string(msg), `"table_name_key":"metric"`) {
+			_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":65535,"message":"table_name_key missing","action":"insert","req_id":1}`))
+			return
+		}
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"insert","req_id":1}`))
+	}
+
+	s := httptest.NewServer(http.HandlerFunc(handler))
+	defer s.Close()
+
+	ep := "ws" + strings.TrimPrefix(s.URL, "http")
+	cfg := NewConfig([]string{ep})
+	cfg.User = "root"
+	cfg.Passwd = "taosdata"
+
+	client, err := NewClient(cfg, "/ws")
+	require.NoError(t, err)
+	defer client.Close()
+
+	err = client.Connect()
+	require.NoError(t, err)
+
+	err = client.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "metric")
+	require.NoError(t, err)
 }
 
 // TestSchemalessInsertAfterClose tests that insert fails after close
@@ -91,7 +149,7 @@ func TestSchemalessInsertAfterClose(t *testing.T) {
 
 	client.Close()
 
-	err = client.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = client.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	assert.Error(t, err)
 	assert.Equal(t, ErrUnifiedClosed, err)
 }
@@ -148,6 +206,6 @@ func TestSchemalessResponseBeforeServerClose(t *testing.T) {
 	err = client.Connect()
 	require.NoError(t, err)
 
-	err = client.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = client.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	require.NoError(t, err)
 }

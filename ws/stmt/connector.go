@@ -55,7 +55,6 @@ func NewConnector(config *Config) (*Connector, error) {
 	unifiedCfg := &unified.Config{
 		Endpoints:           []string{config.Url},
 		ChanLength:          config.ChanLength,
-		MessageTimeout:      readTimeout,
 		AutoReconnect:       config.AutoReconnect,
 		ReconnectIntervalMs: config.ReconnectIntervalMs,
 		ReconnectRetryCount: config.ReconnectRetryCount,

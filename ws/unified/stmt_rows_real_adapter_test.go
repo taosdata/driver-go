@@ -36,7 +36,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 	defer c.Close()
 
 	table := fmt.Sprintf("unified_stmt_rows_cov_%d", time.Now().UnixNano())
-	_, err := c.Exec(fmt.Sprintf("create table if not exists %s.%s(ts timestamp, v int, note nchar(16))", db, table), 0)
+	_, err := c.Exec(0, fmt.Sprintf("create table if not exists %s.%s(ts timestamp, v int, note nchar(16))", db, table))
 	require.NoError(t, err)
 
 	insertSQL := fmt.Sprintf("insert into %s.%s values(?,?,?)", db, table)
@@ -49,7 +49,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 			_ = stmt.Close(0)
 		}()
 
-		require.NoError(t, stmt.Prepare(insertSQL, 0))
+		require.NoError(t, stmt.Prepare(0, insertSQL))
 		isInsert, stmtErr := stmt.IsInsert()
 		require.NoError(t, stmtErr)
 		require.True(t, isInsert)
@@ -67,7 +67,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 				},
 			},
 		}))
-		affected, stmtErr := stmt.Exec()
+		affected, stmtErr := stmt.Exec(0)
 		require.NoError(t, stmtErr)
 		require.Equal(t, 2, affected)
 		require.Equal(t, 2, stmt.AffectedRows())
@@ -81,7 +81,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 			_ = queryStmt.Close(0)
 		}()
 
-		require.NoError(t, queryStmt.Prepare(querySQL, 0))
+		require.NoError(t, queryStmt.Prepare(0, querySQL))
 		queryInsert, queryErr := queryStmt.IsInsert()
 		require.NoError(t, queryErr)
 		require.False(t, queryInsert)
@@ -94,13 +94,13 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 				Cols: [][]driver.Value{{int32(10)}},
 			},
 		}))
-		_, queryErr = queryStmt.Exec()
+		_, queryErr = queryStmt.Exec(0)
 		require.NoError(t, queryErr)
 
 		rows, queryErr := queryStmt.UseResult(0)
 		require.NoError(t, queryErr)
 		require.NotNil(t, rows)
-		require.NotZero(t, rows.ResultID())
+		require.NotZero(t, rows.resultIDValue())
 		require.Equal(t, []string{"ts", "v", "note"}, rows.Columns())
 		require.NotEmpty(t, rows.ColumnTypeDatabaseTypeName(0))
 		_, _ = rows.ColumnTypeLength(1)
@@ -121,33 +121,33 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 		require.Equal(t, int32(11), result[0][1])
 		require.Equal(t, int32(22), result[1][1])
 
-		require.NoError(t, rows.FreeResult(0))
-		require.NoError(t, rows.FreeResult(0))
+		require.NoError(t, rows.freeResult(0))
+		require.NoError(t, rows.freeResult(0))
 		require.ErrorIs(t, rows.Next(make([]driver.Value, 3)), ErrQueryResultClosed)
 		require.NoError(t, rows.Close())
 	})
 
 	t.Run("query_exec_and_runtime_mismatch_result", func(t *testing.T) {
-		_, err = c.Exec(fmt.Sprintf("insert into %s.%s values(now, 33, 'note_3')", db, table), 0)
+		_, err = c.Exec(0, fmt.Sprintf("insert into %s.%s values(now, 33, 'note_3')", db, table))
 		require.NoError(t, err)
 
-		affected, execErr := c.Exec(fmt.Sprintf("select ts,v,note from %s.%s limit 1", db, table), 0)
+		affected, execErr := c.Exec(0, fmt.Sprintf("select ts,v,note from %s.%s limit 1", db, table))
 		require.NoError(t, execErr)
 		require.Equal(t, 0, affected)
 
-		rows, queryErr := c.Query(fmt.Sprintf("select ts,v,note from %s.%s order by ts limit 1", db, table), 0)
+		rows, queryErr := c.Query(0, fmt.Sprintf("select ts,v,note from %s.%s order by ts limit 1", db, table))
 		require.NoError(t, queryErr)
 		require.NotNil(t, rows)
-		require.NotZero(t, rows.ResultID())
+		require.NotZero(t, rows.resultIDValue())
 
 		oldRuntime := c.runtimeClient()
 		require.NotNil(t, oldRuntime)
 		require.NoError(t, c.reconnectWithBootstrap(c.defaultBootstrap, nil))
 
-		_, _, queryErr = rows.FetchRawBlock(0)
+		_, _, queryErr = rows.fetchRawBlock(0)
 		require.ErrorIs(t, queryErr, ErrQueryResultConnectionLost)
-		require.ErrorIs(t, rows.FreeResult(0), ErrQueryResultConnectionLost)
-		require.NoError(t, rows.FreeResult(0))
+		require.ErrorIs(t, rows.freeResult(0), ErrQueryResultConnectionLost)
+		require.NoError(t, rows.freeResult(0))
 	})
 
 	t.Run("stmt_reconnect_paths", func(t *testing.T) {
@@ -163,14 +163,14 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 		require.NoError(t, prepareErr)
 		active := activeAdapterPort(t, c)
 		stopByPort(t, active, stops)
-		require.NoError(t, prepareStmt.Prepare(insertSQL, 0))
+		require.NoError(t, prepareStmt.Prepare(0, insertSQL))
 		require.NoError(t, prepareStmt.Close(0))
 		stops[active] = restartAdapterOnPort(t, active)
 
 		// exec reconnect path
 		execStmt, execInitErr := c.InitStmt(0)
 		require.NoError(t, execInitErr)
-		require.NoError(t, execStmt.Prepare(insertSQL, 0))
+		require.NoError(t, execStmt.Prepare(0, insertSQL))
 		require.NoError(t, execStmt.Bind([]*commonstmt.TaosStmt2BindData{
 			{
 				Cols: [][]driver.Value{
@@ -182,7 +182,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 		}))
 		active = activeAdapterPort(t, c)
 		stopByPort(t, active, stops)
-		affected, execErr := execStmt.Exec()
+		affected, execErr := execStmt.Exec(0)
 		require.NoError(t, execErr)
 		require.Equal(t, 1, affected)
 		require.NoError(t, execStmt.Close(0))
@@ -191,7 +191,7 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 		// schema-changed branch during reprepare after reconnect.
 		schemaStmt, schemaErr := c.InitStmt(0)
 		require.NoError(t, schemaErr)
-		require.NoError(t, schemaStmt.Prepare(insertSQL, 0))
+		require.NoError(t, schemaStmt.Prepare(0, insertSQL))
 		schemaStmt.fieldsCount += 1
 		require.NoError(t, schemaStmt.Bind([]*commonstmt.TaosStmt2BindData{
 			{
@@ -204,11 +204,11 @@ func TestUnifiedStmtAndRowsRealAdapterCoverage(t *testing.T) {
 		}))
 		active = activeAdapterPort(t, c)
 		stopByPort(t, active, stops)
-		_, schemaErr = schemaStmt.Exec()
+		_, schemaErr = schemaStmt.Exec(0)
 		require.ErrorIs(t, schemaErr, ErrStmtReprepareSchemaChanged)
 		_, schemaErr = schemaStmt.IsInsert()
 		require.ErrorIs(t, schemaErr, ErrStmtSchemaChanged)
-		require.NoError(t, schemaStmt.Prepare(insertSQL, 0))
+		require.NoError(t, schemaStmt.Prepare(0, insertSQL))
 		require.NoError(t, schemaStmt.Close(0))
 		stops[active] = restartAdapterOnPort(t, active)
 	})
@@ -260,8 +260,8 @@ func TestUnifiedSmallCoverageEdges(t *testing.T) {
 
 	t.Run("rows_and_error_nil_branches", func(t *testing.T) {
 		var rs *ResultSet
-		require.Equal(t, uint64(0), rs.ResultID())
-		require.ErrorIs(t, rs.FreeResult(0), ErrQueryResultClosed)
+		require.Equal(t, uint64(0), rs.resultIDValue())
+		require.ErrorIs(t, rs.freeResult(0), ErrQueryResultClosed)
 		require.ErrorIs(t, rs.Close(), ErrQueryResultClosed)
 
 		var unifiedErr *Error

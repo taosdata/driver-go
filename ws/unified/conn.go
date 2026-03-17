@@ -99,9 +99,6 @@ func (c *Client) defaultBootstrap(conn *websocket.Conn) error {
 
 	readTimeout := c.config.ReadTimeout
 	if readTimeout <= 0 {
-		readTimeout = c.config.MessageTimeout
-	}
-	if readTimeout <= 0 {
 		readTimeout = common.DefaultMessageTimeout
 	}
 	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))

@@ -108,7 +108,7 @@ func TestStmtExecReplaysAfterWriteAckDisconnect(t *testing.T) {
 		sql:    "select ?",
 	}
 
-	resp, err := stmt.execWithReconnectLocked([]byte{1})
+	resp, err := stmt.execWithReconnectLocked(0, []byte{1})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, 1, resp.Affected)

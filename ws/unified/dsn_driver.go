@@ -5,18 +5,16 @@ const defaultDSNPath = "/ws"
 // DSNDriver opens unified clients/connectors from DSN without requiring defaultPath on each call.
 type DSNDriver struct {
 	defaultPath string
-	opts        []Option
 }
 
 // NewDSNDriver creates a DSNDriver.
 // When defaultPath is empty, /ws is used.
-func NewDSNDriver(defaultPath string, opts ...Option) *DSNDriver {
+func NewDSNDriver(defaultPath string) *DSNDriver {
 	if defaultPath == "" {
 		defaultPath = defaultDSNPath
 	}
 	return &DSNDriver{
 		defaultPath: defaultPath,
-		opts:        append([]Option(nil), opts...),
 	}
 }
 
@@ -32,22 +30,20 @@ func (d *DSNDriver) Open(dsn string) (*Client, error) {
 // OpenConnector parses DSN and returns a connector.
 func (d *DSNDriver) OpenConnector(dsn string) (*Connector, error) {
 	defaultPath := defaultDSNPath
-	var opts []Option
 	if d != nil {
 		if d.defaultPath != "" {
 			defaultPath = d.defaultPath
 		}
-		opts = d.opts
 	}
-	return NewConnectorFromDSN(dsn, defaultPath, opts...)
+	return NewConnectorFromDSN(dsn, defaultPath)
 }
 
 // Open parses DSN with default /ws path and returns a connected unified client.
-func Open(dsn string, opts ...Option) (*Client, error) {
-	return NewDSNDriver(defaultDSNPath, opts...).Open(dsn)
+func Open(dsn string) (*Client, error) {
+	return NewDSNDriver(defaultDSNPath).Open(dsn)
 }
 
 // OpenConnector parses DSN with default /ws path and returns a connector.
-func OpenConnector(dsn string, opts ...Option) (*Connector, error) {
-	return NewDSNDriver(defaultDSNPath, opts...).OpenConnector(dsn)
+func OpenConnector(dsn string) (*Connector, error) {
+	return NewDSNDriver(defaultDSNPath).OpenConnector(dsn)
 }

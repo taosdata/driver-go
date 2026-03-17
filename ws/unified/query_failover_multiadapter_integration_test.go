@@ -73,10 +73,10 @@ func TestUnifiedQueryResultStatefulFetchNoReconnectOnDisconnect(t *testing.T) {
 	defer c.Close()
 	createQueryCrossTable(t, c, db, unifiedCrossQueryTable)
 
-	_, err := c.Exec(buildQueryInsertSQL(db, unifiedCrossQueryTable, "seed", 0, 0), 0)
+	_, err := c.Exec(0, buildQueryInsertSQL(db, unifiedCrossQueryTable, "seed", 0, 0))
 	require.NoError(t, err)
 
-	queryResult, err := c.Query(fmt.Sprintf("select * from %s.%s limit 10", db, unifiedCrossQueryTable), 0)
+	queryResult, err := c.Query(0, fmt.Sprintf("select * from %s.%s limit 10", db, unifiedCrossQueryTable))
 	require.NoError(t, err)
 	require.NotNil(t, queryResult)
 	defer func() {
@@ -89,7 +89,7 @@ func TestUnifiedQueryResultStatefulFetchNoReconnectOnDisconnect(t *testing.T) {
 	stopByPort(t, activeBefore, stops)
 
 	start := time.Now()
-	_, _, err = queryResult.FetchRawBlock(0)
+	_, _, err = queryResult.fetchRawBlock(0)
 	elapsed := time.Since(start)
 	require.Error(t, err)
 	assert.True(t, IsConnectionDisconnectedError(err), "stateful result fetch should report disconnected without reconnect")
@@ -308,7 +308,7 @@ func runDualNodeQueryJitterScenario(t *testing.T, workers, perWorker int, firstF
 
 func createQueryCrossTable(t *testing.T, c *Client, db, table string) {
 	t.Helper()
-	_, err := c.Exec(fmt.Sprintf("create table if not exists %s.%s(ts timestamp, v int)", db, table), 0)
+	_, err := c.Exec(0, fmt.Sprintf("create table if not exists %s.%s(ts timestamp, v int)", db, table))
 	require.NoError(t, err)
 }
 
@@ -318,7 +318,7 @@ func waitForSuccessfulExec(t *testing.T, c *Client, db, table, phase string, tim
 	var lastErr error
 	i := 0
 	for time.Since(start) < timeout {
-		_, err := c.Exec(buildQueryInsertSQL(db, table, phase, 0, i), 0)
+		_, err := c.Exec(0, buildQueryInsertSQL(db, table, phase, 0, i))
 		if err == nil {
 			return time.Since(start), nil
 		}
@@ -340,7 +340,7 @@ func runConcurrentExecWithFault(t *testing.T, c *Client, db, table, phase string
 		go func() {
 			defer wg.Done()
 			for i := 0; i < perWorker; i++ {
-				_, err := c.Exec(buildQueryInsertSQL(db, table, phase, workerID, i), 0)
+				_, err := c.Exec(0, buildQueryInsertSQL(db, table, phase, workerID, i))
 				if err != nil {
 					atomic.AddInt32(&failCount, 1)
 				} else {

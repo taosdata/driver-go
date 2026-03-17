@@ -50,7 +50,7 @@ func TestSendEnvelopeWithRuntimeSnapshotFastPath(t *testing.T) {
 // TestSendEnvelopeWithRuntimeSnapshotFallbackPath verifies the expected behavior for this scenario.
 func TestSendEnvelopeWithRuntimeSnapshotFallbackPath(t *testing.T) {
 	c := &Client{
-		config: Config{ReadTimeout: 1, MessageTimeout: 1},
+		config: Config{ReadTimeout: 1},
 	}
 	runtime := closedRuntimeForSnapshotPathTest()
 	c.lock.Lock()
@@ -93,7 +93,7 @@ func TestSendEnvelopeNoResponseSnapshotFastPath(t *testing.T) {
 // TestSendEnvelopeNoResponseSnapshotFallbackPath verifies the expected behavior for this scenario.
 func TestSendEnvelopeNoResponseSnapshotFallbackPath(t *testing.T) {
 	c := &Client{
-		config: Config{ReadTimeout: 1, MessageTimeout: 1},
+		config: Config{ReadTimeout: 1},
 	}
 	runtime := closedRuntimeForSnapshotPathTest()
 	c.lock.Lock()

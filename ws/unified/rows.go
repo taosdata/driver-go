@@ -44,8 +44,8 @@ type ResultSet struct {
 	closed bool
 }
 
-// ResultID returns backend result identifier.
-func (r *ResultSet) ResultID() uint64 {
+// resultID returns backend result identifier.
+func (r *ResultSet) resultIDValue() uint64 {
 	if r == nil {
 		return 0
 	}
@@ -60,11 +60,11 @@ func (r *ResultSet) Close() error {
 		r.blockSize = 0
 		r.blockOffset = 0
 	}
-	return r.FreeResult(0)
+	return r.freeResult(0)
 }
 
-// FreeResult frees server-side result resources on the bound runtime.
-func (r *ResultSet) FreeResult(reqID int64) error {
+// freeResult frees server-side result resources on the bound runtime.
+func (r *ResultSet) freeResult(reqID int64) error {
 	if r == nil {
 		return ErrQueryResultClosed
 	}
@@ -106,8 +106,8 @@ func (r *ResultSet) FreeResult(reqID int64) error {
 	return normalizeDisconnectedError(err, ErrQueryResultConnectionLost.Message)
 }
 
-// FetchRawBlock fetches next raw block for this query result.
-func (r *ResultSet) FetchRawBlock(reqID int64) ([]byte, bool, error) {
+// fetchRawBlock fetches next raw block for this query result.
+func (r *ResultSet) fetchRawBlock(reqID int64) ([]byte, bool, error) {
 	if r == nil {
 		return nil, false, ErrQueryResultClosed
 	}
@@ -208,7 +208,7 @@ func (r *ResultSet) Next(dest []driver.Value) error {
 	}
 	var err error
 	if r.timezone != nil {
-		err = parser.ReadRowWithTimeFormat(dest, r.blockPtr, r.blockSize, r.blockOffset, r.fieldsTypes, r.precision, r.fieldsScale, r.FormatTime)
+		err = parser.ReadRowWithTimeFormat(dest, r.blockPtr, r.blockSize, r.blockOffset, r.fieldsTypes, r.precision, r.fieldsScale, r.formatTime)
 	} else {
 		err = parser.ReadRow(dest, r.blockPtr, r.blockSize, r.blockOffset, r.fieldsTypes, r.precision, r.fieldsScale)
 	}
@@ -219,13 +219,13 @@ func (r *ResultSet) Next(dest []driver.Value) error {
 	return nil
 }
 
-// FormatTime converts timestamp value to configured location.
-func (r *ResultSet) FormatTime(ts int64, precision int) driver.Value {
+// formatTime converts timestamp value to configured location.
+func (r *ResultSet) formatTime(ts int64, precision int) driver.Value {
 	return common.TimestampConvertToTimeWithLocation(ts, precision, r.timezone)
 }
 
 func (r *ResultSet) fetchBlock() error {
-	block, completed, err := r.FetchRawBlock(0)
+	block, completed, err := r.fetchRawBlock(0)
 	if err != nil {
 		return err
 	}

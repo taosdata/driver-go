@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -25,7 +26,7 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 		timeout = c.config.ReadTimeout
 	}
 	if timeout <= 0 {
-		timeout = c.config.MessageTimeout
+		timeout = common.DefaultMessageTimeout
 	}
 	if timeoutErr == nil {
 		timeoutErr = ErrQueryMessageTimeout

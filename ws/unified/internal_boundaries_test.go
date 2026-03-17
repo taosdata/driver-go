@@ -236,7 +236,7 @@ func TestQueryHelperBoundaries(t *testing.T) {
 		Precision:        0,
 	})
 	require.NotNil(t, rs)
-	require.Equal(t, uint64(12), rs.ResultID())
+	require.Equal(t, uint64(12), rs.resultIDValue())
 	require.Equal(t, uint64(10), rs.runtimeGen)
 
 	require.Nil(t, normalizeDisconnectedError(nil, "x"))
@@ -252,7 +252,7 @@ func TestQueryHelperBoundaries(t *testing.T) {
 
 // TestRequestSendEnvelopeNilRuntimePaths verifies the expected behavior for this scenario.
 func TestRequestSendEnvelopeNilRuntimePaths(t *testing.T) {
-	c := &Client{config: Config{ReadTimeout: time.Millisecond, MessageTimeout: time.Millisecond}}
+	c := &Client{config: Config{ReadTimeout: time.Millisecond}}
 	envelope := client.GlobalEnvelopePool.Get()
 	defer client.GlobalEnvelopePool.Put(envelope)
 	envelope.Type = websocket.TextMessage

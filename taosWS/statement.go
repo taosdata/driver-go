@@ -66,7 +66,7 @@ func (stmt *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}
-	affected, err := stmt.stmtHandle.Exec()
+	affected, err := stmt.stmtHandle.Exec(0)
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}
@@ -90,7 +90,7 @@ func (stmt *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}
-	_, err = stmt.stmtHandle.Exec()
+	_, err = stmt.stmtHandle.Exec(0)
 	if err != nil {
 		return nil, mapUnifiedConnError(err)
 	}

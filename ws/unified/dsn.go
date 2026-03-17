@@ -176,12 +176,10 @@ func NewConfigFromDSN(dsn string, defaultPath string) (*Config, error) {
 	cfg.InterpolateParams = parsed.InterpolateParams
 	cfg.Token = parsed.Token
 	cfg.ReadTimeout = parsed.ReadTimeout
-	// unified config uses one timeout value for both read/write.
 	cfg.WriteTimeout = parsed.WriteTimeout
 	cfg.Timezone = parsed.Timezone
 	cfg.TotpCode = parsed.TotpCode
 	cfg.BearerToken = parsed.BearerToken
-	cfg.MessageTimeout = parsed.ReadTimeout
 
 	if err = cfg.Normalize(defaultPath); err != nil {
 		return nil, err

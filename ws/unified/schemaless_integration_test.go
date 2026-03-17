@@ -17,7 +17,7 @@ func TestSchemalessWithNilRuntime(t *testing.T) {
 	defer c.Close()
 
 	// Don't connect, runtime should be nil
-	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = c.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	assert.Equal(t, client.ClosedError, err)
 }
 
@@ -37,7 +37,7 @@ func TestSchemalessInsertAfterCloseDoesNotReconnect(t *testing.T) {
 
 	c.Close()
 
-	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = c.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	assert.Equal(t, ErrUnifiedClosed, err)
 	assert.NotContains(t, err.Error(), "reconnect failed")
 }
@@ -89,6 +89,6 @@ func TestSchemalessClosedClientBehavior(t *testing.T) {
 	assert.Nil(t, runtime)
 
 	// Operations should fail with ErrUnifiedClosed
-	err = c.SchemalessInsert("measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, 1)
+	err = c.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
 	assert.Equal(t, ErrUnifiedClosed, err)
 }

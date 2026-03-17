@@ -25,7 +25,7 @@ func (s *Stmt) Prepare(sql string) error {
 	if s.core == nil || s.connectorClosed() {
 		return client.ClosedError
 	}
-	return mapUnifiedError(s.core.Prepare(sql, 0))
+	return mapUnifiedError(s.core.Prepare(0, sql))
 }
 
 // Deprecated: use (*unified.Stmt).SetTableName instead.
@@ -65,7 +65,7 @@ func (s *Stmt) Exec() error {
 	if s.core == nil || s.connectorClosed() {
 		return client.ClosedError
 	}
-	affected, err := s.core.Exec()
+	affected, err := s.core.Exec(0)
 	if err != nil {
 		return mapUnifiedError(err)
 	}

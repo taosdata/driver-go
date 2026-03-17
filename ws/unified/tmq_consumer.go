@@ -85,7 +85,6 @@ func NewTMQConsumer(conf *tmq.ConfigMap) (*TMQConsumer, error) {
 	}
 	unifiedCfg := NewConfig(config.Endpoints)
 	unifiedCfg.ChanLength = config.ChanLength
-	unifiedCfg.MessageTimeout = config.MessageTimeout
 	unifiedCfg.ReadTimeout = config.MessageTimeout
 	unifiedCfg.WriteTimeout = config.WriteWait
 	unifiedCfg.EnableCompression = config.EnableCompression

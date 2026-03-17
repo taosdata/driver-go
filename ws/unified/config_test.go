@@ -43,7 +43,7 @@ func TestNormalizeEndpointsInvalidScheme(t *testing.T) {
 // TestConfigNormalizeDefaultValues verifies the expected behavior for this scenario.
 func TestConfigNormalizeDefaultValues(t *testing.T) {
 	cfg := NewConfig([]string{"ws://127.0.0.1:6041"})
-	cfg.MessageTimeout = 0
+	cfg.ReadTimeout = 0
 	cfg.WriteTimeout = 0
 	cfg.ReconnectIntervalMs = 0
 	cfg.ReconnectRetryCount = 0
@@ -53,13 +53,10 @@ func TestConfigNormalizeDefaultValues(t *testing.T) {
 	if cfg.Endpoints[0] != "ws://127.0.0.1:6041/ws" {
 		t.Fatalf("unexpected endpoint: %s", cfg.Endpoints[0])
 	}
-	if cfg.MessageTimeout != common.DefaultMessageTimeout {
-		t.Fatalf("unexpected message timeout: %v", cfg.MessageTimeout)
-	}
 	if cfg.ReadTimeout != common.DefaultMessageTimeout {
 		t.Fatalf("unexpected read timeout: %v", cfg.ReadTimeout)
 	}
-	if cfg.WriteTimeout != common.DefaultMessageTimeout {
+	if cfg.WriteTimeout != common.DefaultWriteWait {
 		t.Fatalf("unexpected write timeout: %v", cfg.WriteTimeout)
 	}
 	if cfg.ReconnectIntervalMs != 2000 {
@@ -73,21 +70,17 @@ func TestConfigNormalizeDefaultValues(t *testing.T) {
 // TestConfigNormalizeKeepUserValues verifies the expected behavior for this scenario.
 func TestConfigNormalizeKeepUserValues(t *testing.T) {
 	cfg := NewConfig([]string{"wss://cluster-a:443/ws"})
-	cfg.MessageTimeout = 15 * time.Second
 	cfg.ReadTimeout = 15 * time.Second
-	cfg.WriteTimeout = 15 * time.Second
+	cfg.WriteTimeout = 30 * time.Second
 	cfg.ReconnectIntervalMs = 500
 	cfg.ReconnectRetryCount = 5
 	if err := cfg.Normalize("/ws"); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.MessageTimeout != 15*time.Second {
-		t.Fatalf("unexpected message timeout: %v", cfg.MessageTimeout)
-	}
 	if cfg.ReadTimeout != 15*time.Second {
 		t.Fatalf("unexpected read timeout: %v", cfg.ReadTimeout)
 	}
-	if cfg.WriteTimeout != 15*time.Second {
+	if cfg.WriteTimeout != 30*time.Second {
 		t.Fatalf("unexpected write timeout: %v", cfg.WriteTimeout)
 	}
 	if cfg.ReconnectIntervalMs != 500 {
@@ -98,11 +91,10 @@ func TestConfigNormalizeKeepUserValues(t *testing.T) {
 	}
 }
 
-// TestConfigNormalizeReadTimeoutOverridesMessageTimeout verifies explicit
-// ReadTimeout keeps backward-compatible precedence over MessageTimeout.
-func TestConfigNormalizeReadTimeoutOverridesMessageTimeout(t *testing.T) {
+// TestConfigNormalizeReadTimeoutCustomWriteUsesDefault verifies write timeout
+// keeps its own default even when read timeout is customized.
+func TestConfigNormalizeReadTimeoutCustomWriteUsesDefault(t *testing.T) {
 	cfg := NewConfig([]string{"wss://cluster-a:443/ws"})
-	cfg.MessageTimeout = 30 * time.Second
 	cfg.ReadTimeout = 12 * time.Second
 	cfg.WriteTimeout = 0
 	if err := cfg.Normalize("/ws"); err != nil {
@@ -111,11 +103,8 @@ func TestConfigNormalizeReadTimeoutOverridesMessageTimeout(t *testing.T) {
 	if cfg.ReadTimeout != 12*time.Second {
 		t.Fatalf("unexpected read timeout: %v", cfg.ReadTimeout)
 	}
-	if cfg.MessageTimeout != 12*time.Second {
-		t.Fatalf("message timeout should follow read timeout, got: %v", cfg.MessageTimeout)
-	}
-	if cfg.WriteTimeout != 12*time.Second {
-		t.Fatalf("write timeout should default from read timeout, got: %v", cfg.WriteTimeout)
+	if cfg.WriteTimeout != common.DefaultWriteWait {
+		t.Fatalf("write timeout should default to %v, got: %v", common.DefaultWriteWait, cfg.WriteTimeout)
 	}
 }
 

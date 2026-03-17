@@ -8,17 +8,19 @@ import (
 )
 
 // SchemalessInsert sends a schemaless insert request with automatic failover and reconnect.
-func (c *Client) SchemalessInsert(lines string, protocol int, precision string, ttl int, reqID int64) error {
+// tableNameKey is required. Pass "" when the protocol does not use table name key.
+func (c *Client) SchemalessInsert(reqID int64, lines string, protocol int, precision string, ttl int, tableNameKey string) error {
 	if reqID == 0 {
 		reqID = common.GetReqID()
 	}
 
 	req := &proto.SchemalessWriteRequest{
-		ReqID:     uint64(reqID),
-		Protocol:  protocol,
-		Precision: precision,
-		TTL:       ttl,
-		Data:      lines,
+		ReqID:        uint64(reqID),
+		Protocol:     protocol,
+		Precision:    precision,
+		TTL:          ttl,
+		Data:         lines,
+		TableNameKey: tableNameKey,
 	}
 
 	args, err := client.JsonI.Marshal(req)

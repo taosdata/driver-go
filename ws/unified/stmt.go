@@ -60,7 +60,7 @@ func (c *Client) InitStmt(reqID int64) (*Stmt, error) {
 }
 
 // Prepare sends stmt2_prepare.
-func (s *Stmt) Prepare(sql string, reqID int64) error {
+func (s *Stmt) Prepare(reqID int64, sql string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -68,7 +68,7 @@ func (s *Stmt) Prepare(sql string, reqID int64) error {
 		return err
 	}
 
-	if err := s.prepareWithReconnectLocked(sql); err != nil {
+	if err := s.prepareWithReconnectLocked(reqID, sql); err != nil {
 		s.resetPrepareLocked()
 		return err
 	}
@@ -236,7 +236,7 @@ func (s *Stmt) AddBatch() error {
 }
 
 // Exec sends cached batches through stmt2_bind and stmt2_exec.
-func (s *Stmt) Exec() (int, error) {
+func (s *Stmt) Exec(reqID int64) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -252,7 +252,7 @@ func (s *Stmt) Exec() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	resp, err := s.execWithReconnectLocked(bindPayload)
+	resp, err := s.execWithReconnectLocked(reqID, bindPayload)
 	if err != nil {
 		return 0, normalizeStmtError(err)
 	}
@@ -383,8 +383,8 @@ func (s *Stmt) Close(reqID int64) error {
 	return nil
 }
 
-func (s *Stmt) prepareWithReconnectLocked(sql string) error {
-	resp, runtime, err := s.prepareOnceLocked(sql)
+func (s *Stmt) prepareWithReconnectLocked(reqID int64, sql string) error {
+	resp, runtime, err := s.prepareOnceLocked(reqID, sql)
 	if err == nil {
 		s.applyPrepareMetadataLocked(resp)
 		return nil
@@ -395,7 +395,7 @@ func (s *Stmt) prepareWithReconnectLocked(sql string) error {
 	if err = s.reconnectAndInitLocked(runtime); err != nil {
 		return normalizeStmtError(err)
 	}
-	resp, _, err = s.prepareOnceLocked(sql)
+	resp, _, err = s.prepareOnceLocked(reqID, sql)
 	if err != nil {
 		return normalizeStmtError(err)
 	}
@@ -403,20 +403,23 @@ func (s *Stmt) prepareWithReconnectLocked(sql string) error {
 	return nil
 }
 
-func (s *Stmt) prepareOnceLocked(sql string) (*proto.Stmt2PrepareResponse, *client.Client, error) {
+func (s *Stmt) prepareOnceLocked(reqID int64, sql string) (*proto.Stmt2PrepareResponse, *client.Client, error) {
 	runtime, err := s.client.runtimeOrError()
 	if err != nil {
 		return nil, nil, err
 	}
-	reqID := uint64(common.GetReqID())
+	if reqID == 0 {
+		reqID = common.GetReqID()
+	}
+	reqIDUint64 := uint64(reqID)
 	req := &proto.Stmt2PrepareRequest{
-		ReqID:     reqID,
+		ReqID:     reqIDUint64,
 		StmtID:    s.id,
 		SQL:       sql,
 		GetFields: true,
 	}
 	var resp proto.Stmt2PrepareResponse
-	if _, _, err = s.client.sendStmtJSONAndDecode(runtime, reqID, proto.STMT2Prepare, req, &resp); err != nil {
+	if _, _, err = s.client.sendStmtJSONAndDecode(runtime, reqIDUint64, proto.STMT2Prepare, req, &resp); err != nil {
 		return nil, runtime, err
 	}
 	return &resp, runtime, nil
@@ -497,8 +500,8 @@ func (s *Stmt) buildExecPayloadLocked() ([]byte, error) {
 	return buildStmt2BindPayload(bindData, s.isInsert, s.fields)
 }
 
-func (s *Stmt) execWithReconnectLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, error) {
-	resp, runtime, err := s.execOnceLocked(bindPayload)
+func (s *Stmt) execWithReconnectLocked(reqID int64, bindPayload []byte) (*proto.Stmt2ExecResponse, error) {
+	resp, runtime, err := s.execOnceLocked(reqID, bindPayload)
 	if err == nil {
 		return resp, nil
 	}
@@ -511,14 +514,14 @@ func (s *Stmt) execWithReconnectLocked(bindPayload []byte) (*proto.Stmt2ExecResp
 	if err = s.reprepareAfterReconnectLocked(); err != nil {
 		return nil, err
 	}
-	resp, _, err = s.execOnceLocked(bindPayload)
+	resp, _, err = s.execOnceLocked(reqID, bindPayload)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (s *Stmt) execOnceLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, *client.Client, error) {
+func (s *Stmt) execOnceLocked(reqID int64, bindPayload []byte) (*proto.Stmt2ExecResponse, *client.Client, error) {
 	runtime, err := s.client.runtimeOrError()
 	if err != nil {
 		return nil, nil, err
@@ -531,7 +534,10 @@ func (s *Stmt) execOnceLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, *cl
 		return nil, runtime, err
 	}
 
-	execReqID := uint64(common.GetReqID())
+	if reqID == 0 {
+		reqID = common.GetReqID()
+	}
+	execReqID := uint64(reqID)
 	execReq := &proto.Stmt2ExecRequest{
 		ReqID:  execReqID,
 		StmtID: s.id,
@@ -556,7 +562,7 @@ func (s *Stmt) reconnectAndInitLocked(failedRuntime *client.Client) error {
 }
 
 func (s *Stmt) reprepareAfterReconnectLocked() error {
-	resp, _, err := s.prepareOnceLocked(s.sql)
+	resp, _, err := s.prepareOnceLocked(0, s.sql)
 	if err != nil {
 		return err
 	}

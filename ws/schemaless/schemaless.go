@@ -102,7 +102,7 @@ func NewSchemalessWithEndpoints(endpoints []string, config *Config) (*Schemaless
 // Insert sends a schemaless insert request with automatic failover and reconnect.
 // Deprecated: use (*unified.Client).SchemalessInsert instead.
 func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl int, reqID int64) error {
-	return mapUnifiedError(s.client.SchemalessInsert(lines, protocol, precision, ttl, reqID))
+	return mapUnifiedError(s.client.SchemalessInsert(reqID, lines, protocol, precision, ttl, ""))
 }
 
 // Close closes the schemaless connector and all underlying connections.

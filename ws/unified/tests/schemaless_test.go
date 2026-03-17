@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,16 +19,17 @@ func TestUnifiedIntegrationSchemaless_OpenWithDSN(t *testing.T) {
 	}
 
 	client := openUnifiedIntegrationClient(t)
-	defer client.Close()
+	t.Cleanup(func() { client.Close() })
 
 	dbName := fmt.Sprintf("unified_it_sml_%d", time.Now().UnixNano())
 	measurement := "sml_all_types"
-	_, err := client.Exec(fmt.Sprintf("create database if not exists %s", dbName), 0)
+	_, err := client.Exec(0, fmt.Sprintf("create database if not exists %s", dbName))
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, _ = client.Exec(fmt.Sprintf("drop database if exists %s", dbName), 0)
+		_, err = client.Exec(0, fmt.Sprintf("drop database if exists %s", dbName))
+		assert.NoError(t, err)
 	})
-	_, err = client.Exec(fmt.Sprintf("use %s", dbName), 0)
+	_, err = client.Exec(0, fmt.Sprintf("use %s", dbName))
 	require.NoError(t, err)
 
 	lines := strings.Join([]string{
@@ -35,10 +37,10 @@ func TestUnifiedIntegrationSchemaless_OpenWithDSN(t *testing.T) {
 		measurement + ",site=s2 v=22i 1711111112000",
 		measurement + ",site=s3 v=33i 1711111113000",
 	}, "\n")
-	err = client.SchemalessInsert(lines, 1, "ms", 0, 0)
+	err = client.SchemalessInsert(0, lines, 1, "ms", 0, "")
 	require.NoError(t, err)
 
-	rows, err := client.Query(fmt.Sprintf("select v from %s.%s", dbName, measurement), 0)
+	rows, err := client.Query(0, fmt.Sprintf("select v from %s.%s", dbName, measurement))
 	require.NoError(t, err)
 	require.NotNil(t, rows)
 	t.Cleanup(func() { _ = rows.Close() })

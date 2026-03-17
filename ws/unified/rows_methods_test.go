@@ -100,7 +100,7 @@ func TestResultSetNextEOF(t *testing.T) {
 func TestResultSetFormatTime(t *testing.T) {
 	loc := time.FixedZone("UTC+8", 8*3600)
 	rs := &ResultSet{timezone: loc}
-	v := rs.FormatTime(0, common.PrecisionMilliSecond)
+	v := rs.formatTime(0, common.PrecisionMilliSecond)
 	got, ok := v.(time.Time)
 	if !ok {
 		t.Fatalf("expected time.Time, got %T", v)

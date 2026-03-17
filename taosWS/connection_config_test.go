@@ -32,9 +32,6 @@ func TestBuildConnectionConfigDefaults(t *testing.T) {
 	if out.ChanLength != 1 {
 		t.Fatalf("unexpected default channel length: %d", out.ChanLength)
 	}
-	if out.MessageTimeout != common.DefaultMessageTimeout {
-		t.Fatalf("unexpected default message timeout: %v", out.MessageTimeout)
-	}
 	if out.ReadTimeout != common.DefaultMessageTimeout {
 		t.Fatalf("unexpected default read timeout: %v", out.ReadTimeout)
 	}
@@ -57,7 +54,6 @@ func TestBuildConnectionConfigPreservesUserValues(t *testing.T) {
 	in := &Config{
 		Endpoints:           []string{"ws://127.0.0.1:6041/ws"},
 		ChanLength:          8,
-		MessageTimeout:      4 * time.Second,
 		ReconnectIntervalMs: 1234,
 		ReconnectRetryCount: 9,
 		Net:                 "wss",
@@ -73,7 +69,7 @@ func TestBuildConnectionConfigPreservesUserValues(t *testing.T) {
 	if out == nil {
 		t.Fatal("expected non-nil config")
 	}
-	if out.ChanLength != 8 || out.MessageTimeout != 4*time.Second || out.ReconnectIntervalMs != 1234 || out.ReconnectRetryCount != 9 {
+	if out.ChanLength != 8 || out.ReconnectIntervalMs != 1234 || out.ReconnectRetryCount != 9 {
 		t.Fatalf("unexpected runtime defaults overwrite: %+v", out)
 	}
 	if out.Net != "wss" || out.Addr != "cloud.example.com" || out.Port != 443 {

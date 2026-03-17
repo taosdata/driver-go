@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/taosdata/driver-go/v3/common"
 )
 
 // TestParseDSNInvalidNoSlash verifies the expected behavior for this scenario.
@@ -70,8 +72,8 @@ func TestNewConfigFromDSN(t *testing.T) {
 	if cfg.User != "user" || cfg.Passwd != "passwd" || cfg.DbName != "db" {
 		t.Fatalf("unexpected auth/db: %+v", cfg)
 	}
-	if cfg.MessageTimeout != 5*time.Second || cfg.ReadTimeout != 5*time.Second || cfg.WriteTimeout != 2*time.Second {
-		t.Fatalf("unexpected timeouts: msg=%v read=%v write=%v", cfg.MessageTimeout, cfg.ReadTimeout, cfg.WriteTimeout)
+	if cfg.ReadTimeout != 5*time.Second || cfg.WriteTimeout != 2*time.Second {
+		t.Fatalf("unexpected timeouts: read=%v write=%v", cfg.ReadTimeout, cfg.WriteTimeout)
 	}
 }
 
@@ -95,8 +97,20 @@ func TestNewConfigFromDSNWriteTimeoutOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.MessageTimeout != 5*time.Minute || cfg.ReadTimeout != 5*time.Minute || cfg.WriteTimeout != 2*time.Second {
-		t.Fatalf("unexpected timeouts: msg=%v read=%v write=%v", cfg.MessageTimeout, cfg.ReadTimeout, cfg.WriteTimeout)
+	if cfg.ReadTimeout != 5*time.Minute || cfg.WriteTimeout != 2*time.Second {
+		t.Fatalf("unexpected timeouts: read=%v write=%v", cfg.ReadTimeout, cfg.WriteTimeout)
+	}
+}
+
+// TestNewConfigFromDSNReadTimeoutOnly verifies read timeout override keeps
+// write timeout at default write wait for compatibility.
+func TestNewConfigFromDSNReadTimeoutOnly(t *testing.T) {
+	cfg, err := NewConfigFromDSN("user:passwd@ws(127.0.0.1:6041)/db?readTimeout=2s", "/ws")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ReadTimeout != 2*time.Second || cfg.WriteTimeout != common.DefaultWriteWait {
+		t.Fatalf("unexpected timeouts: read=%v write=%v", cfg.ReadTimeout, cfg.WriteTimeout)
 	}
 }
 

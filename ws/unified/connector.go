@@ -4,11 +4,10 @@ package unified
 type Connector struct {
 	cfg         Config
 	defaultPath string
-	opts        []Option
 }
 
 // NewConnector creates a Connector from Config.
-func NewConnector(cfg *Config, defaultPath string, opts ...Option) (*Connector, error) {
+func NewConnector(cfg *Config, defaultPath string) (*Connector, error) {
 	if cfg == nil {
 		return nil, ErrNilConfig
 	}
@@ -20,17 +19,16 @@ func NewConnector(cfg *Config, defaultPath string, opts ...Option) (*Connector, 
 	return &Connector{
 		cfg:         copyCfg,
 		defaultPath: defaultPath,
-		opts:        append([]Option(nil), opts...),
 	}, nil
 }
 
 // NewConnectorFromDSN creates a Connector from DSN.
-func NewConnectorFromDSN(dsn string, defaultPath string, opts ...Option) (*Connector, error) {
+func NewConnectorFromDSN(dsn string, defaultPath string) (*Connector, error) {
 	cfg, err := NewConfigFromDSN(dsn, defaultPath)
 	if err != nil {
 		return nil, err
 	}
-	return NewConnector(cfg, defaultPath, opts...)
+	return NewConnector(cfg, defaultPath)
 }
 
 // Config returns connector config snapshot.
@@ -50,7 +48,7 @@ func (c *Connector) Connect() (*Client, error) {
 	}
 	cfg := c.cfg
 	cfg.Endpoints = append([]string(nil), c.cfg.Endpoints...)
-	client, err := NewClient(&cfg, c.defaultPath, c.opts...)
+	client, err := NewClient(&cfg, c.defaultPath)
 	if err != nil {
 		return nil, err
 	}
