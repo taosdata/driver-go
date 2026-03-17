@@ -158,6 +158,20 @@ func (p *Param) SetGeometry(offset int, value []byte) {
 	p.value[offset] = taosTypes.TaosGeometry(value)
 }
 
+func (p *Param) SetBlob(offset int, value []byte) {
+	if offset >= p.size {
+		return
+	}
+	p.value[offset] = taosTypes.TaosBlob(value)
+}
+
+func (p *Param) SetDecimal(offset int, value string) {
+	if offset >= p.size {
+		return
+	}
+	p.value[offset] = taosTypes.TaosDecimal(value)
+}
+
 func (p *Param) AddBool(value bool) *Param {
 	if p.offset >= p.size {
 		return p
@@ -319,6 +333,24 @@ func (p *Param) AddGeometry(value []byte) *Param {
 		return p
 	}
 	p.value[p.offset] = taosTypes.TaosGeometry(value)
+	p.offset += 1
+	return p
+}
+
+func (p *Param) AddBlob(value []byte) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = taosTypes.TaosBlob(value)
+	p.offset += 1
+	return p
+}
+
+func (p *Param) AddDecimal(value string) *Param {
+	if p.offset >= p.size {
+		return p
+	}
+	p.value[p.offset] = taosTypes.TaosDecimal(value)
 	p.offset += 1
 	return p
 }

@@ -78,24 +78,12 @@ func BenchmarkExtractReqIDFromTextMessage(b *testing.B) {
 	message := []byte(`{"code":0,"message":"","action":"query","req_id":123456789}`)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		reqID, err := ExtractReqIDFromTextMessage(message)
+		reqID, err := extractReqIDFromTextMessage(message)
 		if err != nil {
 			b.Fatal(err)
 		}
 		if reqID != 123456789 {
 			b.Fatalf("unexpected req_id %d", reqID)
-		}
-	}
-}
-
-// BenchmarkBuildBinaryQueryRequest measures benchmark performance for this scenario.
-func BenchmarkBuildBinaryQueryRequest(b *testing.B) {
-	sql := "select ts,v from meters where ts > now - 1h and tbname like 'd%';"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		payload := BuildBinaryQueryRequest(uint64(i+1), sql)
-		if len(payload) == 0 {
-			b.Fatalf("empty payload")
 		}
 	}
 }

@@ -14,11 +14,12 @@ type stmtCompatBatchState struct {
 }
 
 type stmtCompatState struct {
-	Current stmtCompatBatchState
-	Tables  map[string]*commonstmt.TaosStmt2BindData
-	Order   []string
-	Query   *commonstmt.TaosStmt2BindData
-	RawMode bool
+	Current        stmtCompatBatchState
+	PreparedFields []*commonstmt.Stmt2AllField
+	Tables         map[string]*commonstmt.TaosStmt2BindData
+	Order          []string
+	Query          *commonstmt.TaosStmt2BindData
+	RawMode        bool
 }
 
 func newStmtCompatState() *stmtCompatState {
@@ -30,6 +31,7 @@ func newStmtCompatState() *stmtCompatState {
 
 func (s *stmtCompatState) reset() {
 	s.Current = stmtCompatBatchState{}
+	s.PreparedFields = nil
 	for k := range s.Tables {
 		delete(s.Tables, k)
 	}
@@ -56,9 +58,24 @@ func (s *stmtCompatState) bindParams(params []*param.Param, bindType *param.Colu
 	s.Current.ParamBindType = bindType
 }
 
+func (s *stmtCompatState) setPreparedFields(fields []*commonstmt.Stmt2AllField) {
+	if len(fields) == 0 {
+		s.PreparedFields = nil
+		return
+	}
+	s.PreparedFields = fields
+}
+
 func (s *stmtCompatState) addBatch(isInsert bool) error {
 	if isInsert {
-		bindData, err := buildStmt2InsertBindData(s.Current.TableName, s.Current.Tags, s.Current.Params)
+		bindData, err := buildStmt2InsertBindData(
+			s.Current.TableName,
+			s.Current.Tags,
+			s.Current.TagBindType,
+			s.Current.Params,
+			s.Current.ParamBindType,
+			s.PreparedFields,
+		)
 		if err != nil {
 			return err
 		}
@@ -66,7 +83,7 @@ func (s *stmtCompatState) addBatch(isInsert bool) error {
 			return err
 		}
 	} else {
-		bindData, err := buildStmt2QueryBindData(s.Current.Params)
+		bindData, err := buildStmt2QueryBindData(s.Current.Params, s.Current.ParamBindType, s.PreparedFields)
 		if err != nil {
 			return err
 		}

@@ -433,6 +433,7 @@ func (s *Stmt) applyPrepareMetadataLocked(resp *proto.Stmt2PrepareResponse) {
 	s.lastAffected = 0
 	s.bindMode = stmtBindModeUnset
 	s.state.reset()
+	s.state.setPreparedFields(s.fields)
 
 	if !s.isInsert {
 		return
@@ -493,7 +494,7 @@ func (s *Stmt) buildExecPayloadLocked() ([]byte, error) {
 	if len(bindData) == 0 {
 		return nil, ErrStmtNoBatchAdded
 	}
-	return BuildStmt2BindPayload(bindData, s.isInsert, s.fields)
+	return buildStmt2BindPayload(bindData, s.isInsert, s.fields)
 }
 
 func (s *Stmt) execWithReconnectLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, error) {
@@ -524,7 +525,7 @@ func (s *Stmt) execOnceLocked(bindPayload []byte) (*proto.Stmt2ExecResponse, *cl
 	}
 
 	bindReqID := uint64(common.GetReqID())
-	bindReq := BuildStmt2BindBinaryRequest(bindReqID, s.id, bindPayload, proto.Stmt2BindAllColumns)
+	bindReq := buildStmt2BindBinaryRequest(bindReqID, s.id, bindPayload, proto.Stmt2BindAllColumns)
 	var bindResp proto.Stmt2BindResponse
 	if _, _, err = s.client.sendStmtBinaryAndDecode(runtime, bindReqID, bindReq, &bindResp); err != nil {
 		return nil, runtime, err

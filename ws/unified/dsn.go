@@ -40,11 +40,11 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				// username[:password]
 				for k = 0; k < j; k++ {
 					if dsn[k] == ':' {
-						cfg.Passwd = TryUnescape(dsn[k+1 : j])
+						cfg.Passwd = tryUnescape(dsn[k+1 : j])
 						break
 					}
 				}
-				cfg.User = TryUnescape(dsn[:k])
+				cfg.User = tryUnescape(dsn[:k])
 				break
 			}
 
@@ -284,8 +284,8 @@ func parseDSNAddressList(raw string) ([]dsnAddress, error) {
 	return addrs, nil
 }
 
-// TryUnescape returns query-unescaped string, or original value on decode failure.
-func TryUnescape(s string) string {
+// tryUnescape returns query-unescaped string, or original value on decode failure.
+func tryUnescape(s string) string {
 	if res, err := url.QueryUnescape(s); err == nil {
 		return res
 	}

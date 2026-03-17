@@ -135,7 +135,7 @@ func (c *Client) defaultBootstrap(conn *websocket.Conn) error {
 // handleTextMessage routes incoming text messages to pending requests by req_id.
 func (c *Client) handleTextMessage(message []byte) {
 	// Extract req_id from message
-	reqID, err := ExtractReqIDFromTextMessage(message)
+	reqID, err := extractReqIDFromTextMessage(message)
 	if err != nil {
 		// todo
 		// Log or handle error - message without req_id
@@ -147,7 +147,7 @@ func (c *Client) handleTextMessage(message []byte) {
 
 func (c *Client) handleBinaryMessage(message []byte) {
 	// Extract req_id from message
-	reqID, err := ExtractReqIDFromBinaryMessage(message)
+	reqID, err := extractReqIDFromBinaryMessage(message)
 	if err != nil {
 		// todo
 		// Log or handle error - message without req_id
@@ -170,8 +170,8 @@ func (c *Client) handleMessage(message []byte, reqID uint64) {
 	}
 }
 
-// ExtractReqIDFromTextMessage extracts req_id from JSON text protocol message.
-func ExtractReqIDFromTextMessage(message []byte) (uint64, error) {
+// extractReqIDFromTextMessage extracts req_id from JSON text protocol message.
+func extractReqIDFromTextMessage(message []byte) (uint64, error) {
 	if reqID, ok := fastExtractReqIDFromTextMessage(message); ok {
 		return reqID, nil
 	}
@@ -267,8 +267,8 @@ func isJSONSpace(ch byte) bool {
 	return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t'
 }
 
-// ExtractReqIDFromBinaryMessage extracts req_id from unified binary frame header.
-func ExtractReqIDFromBinaryMessage(message []byte) (uint64, error) {
+// extractReqIDFromBinaryMessage extracts req_id from unified binary frame header.
+func extractReqIDFromBinaryMessage(message []byte) (uint64, error) {
 	if len(message) < 16 {
 		return 0, ErrBinaryMessageTooShort
 	}

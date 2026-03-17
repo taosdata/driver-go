@@ -10,7 +10,7 @@ import (
 // TestBuildStmt2BindBinaryRequest verifies the expected behavior for this scenario.
 func TestBuildStmt2BindBinaryRequest(t *testing.T) {
 	payload := []byte{1, 2, 3}
-	req := BuildStmt2BindBinaryRequest(11, 22, payload, proto.Stmt2BindAllColumns)
+	req := buildStmt2BindBinaryRequest(11, 22, payload, proto.Stmt2BindAllColumns)
 	if len(req) != 33 {
 		t.Fatalf("unexpected request length: %d", len(req))
 	}

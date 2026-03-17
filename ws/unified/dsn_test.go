@@ -125,10 +125,10 @@ func TestNewConfigFromDSNMultiAddrList(t *testing.T) {
 
 // TestTryUnescape verifies the expected behavior for this scenario.
 func TestTryUnescape(t *testing.T) {
-	if got := TryUnescape("%3F"); got != "?" {
+	if got := tryUnescape("%3F"); got != "?" {
 		t.Fatalf("unexpected unescape result: %s", got)
 	}
-	if got := TryUnescape("%"); got != "%" {
+	if got := tryUnescape("%"); got != "%" {
 		t.Fatalf("unexpected unescape result: %s", got)
 	}
 }

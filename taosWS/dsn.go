@@ -54,7 +54,3 @@ func mapUnifiedDSNError(err error) error {
 		}
 	}
 }
-
-func tryUnescape(s string) string {
-	return unified.TryUnescape(s)
-}

@@ -8,11 +8,11 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
-func BuildStmt2BindPayload(bindData []*commonstmt.TaosStmt2BindData, isInsert bool, fields []*commonstmt.Stmt2AllField) ([]byte, error) {
+func buildStmt2BindPayload(bindData []*commonstmt.TaosStmt2BindData, isInsert bool, fields []*commonstmt.Stmt2AllField) ([]byte, error) {
 	return commonstmt.MarshalStmt2Binary(bindData, isInsert, fields)
 }
 
-func BuildStmt2BindBinaryRequest(reqID uint64, stmtID uint64, bindPayload []byte, colIndex int32) []byte {
+func buildStmt2BindBinaryRequest(reqID uint64, stmtID uint64, bindPayload []byte, colIndex int32) []byte {
 	header := make([]byte, 30)
 	binary.LittleEndian.PutUint64(header[0:], reqID)
 	binary.LittleEndian.PutUint64(header[8:], stmtID)

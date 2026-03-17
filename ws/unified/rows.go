@@ -121,7 +121,7 @@ func (r *ResultSet) FetchRawBlock(reqID int64) ([]byte, bool, error) {
 		return nil, false, err
 	}
 
-	payload := BuildFetchRawBlockRequest(uint64(reqID), r.resultID)
+	payload := buildFetchRawBlockRequest(uint64(reqID), r.resultID)
 	envelope := client.GlobalEnvelopePool.Get()
 	defer client.GlobalEnvelopePool.Put(envelope)
 	envelope.Type = websocket.BinaryMessage
@@ -132,7 +132,7 @@ func (r *ResultSet) FetchRawBlock(reqID int64) ([]byte, bool, error) {
 	if err != nil {
 		return nil, false, normalizeDisconnectedError(err, ErrQueryResultConnectionLost.Message)
 	}
-	return ParseFetchRawBlockResponse(respBytes)
+	return parseFetchRawBlockResponse(respBytes)
 }
 
 // ColumnTypePrecisionScale returns decimal precision and scale for one column.
@@ -271,8 +271,8 @@ func (r *ResultSet) ensureBoundRuntime() error {
 	return nil
 }
 
-// BuildFetchRawBlockRequest builds a unified fetch_raw_block request payload.
-func BuildFetchRawBlockRequest(reqID uint64, resultID uint64) []byte {
+// buildFetchRawBlockRequest builds a unified fetch_raw_block request payload.
+func buildFetchRawBlockRequest(reqID uint64, resultID uint64) []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, 26))
 	writeUint64(buf, reqID)
 	writeUint64(buf, resultID)
@@ -281,8 +281,8 @@ func BuildFetchRawBlockRequest(reqID uint64, resultID uint64) []byte {
 	return buf.Bytes()
 }
 
-// ParseFetchRawBlockResponse parses a binary fetch_raw_block response.
-func ParseFetchRawBlockResponse(respBytes []byte) ([]byte, bool, error) {
+// parseFetchRawBlockResponse parses a binary fetch_raw_block response.
+func parseFetchRawBlockResponse(respBytes []byte) ([]byte, bool, error) {
 	if len(respBytes) < 51 {
 		return nil, false, ErrInvalidFetchRawBlockResponse
 	}

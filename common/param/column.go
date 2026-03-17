@@ -212,6 +212,28 @@ func (c *ColumnType) AddGeometry(strMaxLen int) *ColumnType {
 	return c
 }
 
+func (c *ColumnType) AddDecimal() *ColumnType {
+	if c.column >= c.size {
+		return c
+	}
+	c.value[c.column] = &types.ColumnType{
+		Type: types.TaosDecimalType,
+	}
+	c.column += 1
+	return c
+}
+
+func (c *ColumnType) AddBlob() *ColumnType {
+	if c.column >= c.size {
+		return c
+	}
+	c.value[c.column] = &types.ColumnType{
+		Type: types.TaosBlobType,
+	}
+	c.column += 1
+	return c
+}
+
 func (c *ColumnType) GetValue() ([]*types.ColumnType, error) {
 	if c.size != c.column {
 		return nil, fmt.Errorf("incomplete column expect %d columns set %d columns", c.size, c.column)

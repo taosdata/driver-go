@@ -125,7 +125,7 @@ func TestParseDSNBoundaryPaths(t *testing.T) {
 
 	cfg, err = ParseDSN("%@ws(127.0.0.1:6041)/db")
 	require.NoError(t, err)
-	// QueryUnescape fails for "%", TryUnescape should keep original value.
+	// QueryUnescape fails for "%", tryUnescape should keep original value.
 	assert.Equal(t, "%", cfg.User)
 
 	_, err = ParseDSN("u:p@ws(127.0.0.1:6041)extra/db")
@@ -164,6 +164,6 @@ func TestNewConfigFromDSNBoundaryPaths(t *testing.T) {
 
 // TestMapDSNErrorHelpers verifies the expected behavior for this scenario.
 func TestMapDSNErrorHelpers(t *testing.T) {
-	assert.Equal(t, "?", TryUnescape("%3F"))
-	assert.Equal(t, "%", TryUnescape("%"))
+	assert.Equal(t, "?", tryUnescape("%3F"))
+	assert.Equal(t, "%", tryUnescape("%"))
 }

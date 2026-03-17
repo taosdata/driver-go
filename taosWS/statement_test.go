@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/taosdata/driver-go/v3/types"
 )
 
 func TestStmtExec(t *testing.T) {
@@ -1072,6 +1073,55 @@ func TestStmtConvertExec(t *testing.T) {
 			bind:        []interface{}{now, []int{1}},
 			expectError: true,
 		},
+		{
+			name:        "decimal_string",
+			tbType:      "ts timestamp,v decimal(10,4)",
+			pos:         "?,?",
+			bind:        []interface{}{now, "123.45"},
+			expectValue: "123.4500",
+		},
+		{
+			name:        "decimal_bytes",
+			tbType:      "ts timestamp,v decimal(10,4)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []byte("123.45")},
+			expectValue: "123.4500",
+		},
+		{
+			name:        "decimal_err",
+			tbType:      "ts timestamp,v decimal(10,4)",
+			pos:         "?,?",
+			bind:        []interface{}{now, []int{1}},
+			expectError: true,
+		},
+		{
+			name:        "blob_string",
+			tbType:      "ts timestamp,v blob",
+			pos:         "?,?",
+			bind:        []interface{}{now, "blob"},
+			expectValue: []byte("blob"),
+		},
+		{
+			name:        "blob_bytes",
+			tbType:      "ts timestamp,v blob",
+			pos:         "?,?",
+			bind:        []interface{}{now, []byte("blob")},
+			expectValue: []byte("blob"),
+		},
+		{
+			name:        "blob_taos_blob",
+			tbType:      "ts timestamp,v blob",
+			pos:         "?,?",
+			bind:        []interface{}{now, types.TaosBlob([]byte("blob"))},
+			expectValue: []byte("blob"),
+		},
+		{
+			name:        "blob_err",
+			tbType:      "ts timestamp,v blob",
+			pos:         "?,?",
+			bind:        []interface{}{now, []int{1}},
+			expectError: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1214,7 +1264,9 @@ func TestStmtConvertQuery(t *testing.T) {
 		"c10 float,"+
 		"c11 double,"+
 		"c12 binary(20),"+
-		"c13 nchar(20)"+
+		"c13 nchar(20),"+
+		"c14 decimal(10,4),"+
+		"c15 blob"+
 		")")
 	if err != nil {
 		t.Error(err)
@@ -1222,12 +1274,12 @@ func TestStmtConvertQuery(t *testing.T) {
 	}
 	now := time.Now()
 	after1s := now.Add(time.Second)
-	_, err = exec(db, fmt.Sprintf("insert into t0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar')", now.Format(time.RFC3339Nano)))
+	_, err = exec(db, fmt.Sprintf("insert into t0 values('%s',true,2,3,4,5,6,7,8,9,10,11,'binary','nchar',12.34,'blob')", now.Format(time.RFC3339Nano)))
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = exec(db, fmt.Sprintf("insert into t0 values('%s',null,null,null,null,null,null,null,null,null,null,null,null,null)", after1s.Format(time.RFC3339Nano)))
+	_, err = exec(db, fmt.Sprintf("insert into t0 values('%s',null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)", after1s.Format(time.RFC3339Nano)))
 	if err != nil {
 		t.Error(err)
 		return
@@ -2146,6 +2198,13 @@ func TestStmtConvertQuery(t *testing.T) {
 			bind:        "bin%",
 			expectValue: "binary",
 		},
+		{
+			name:        "binary_taos_blob",
+			field:       "c12",
+			where:       "c12 = ?",
+			bind:        types.TaosBlob([]byte("binary")),
+			expectValue: "binary",
+		},
 
 		// nchar
 		{
@@ -2168,6 +2227,27 @@ func TestStmtConvertQuery(t *testing.T) {
 			where:       "c13 like ?",
 			bind:        "nch%",
 			expectValue: "nchar",
+		},
+		{
+			name:        "decimal_string",
+			field:       "c14",
+			where:       "c14 = ?",
+			bind:        "12.3400",
+			expectValue: "12.3400",
+		},
+		{
+			name:        "decimal_taos_decimal",
+			field:       "c14",
+			where:       "c14 = ?",
+			bind:        types.TaosDecimal("12.3400"),
+			expectValue: "12.3400",
+		},
+		{
+			name:        "blob_by_ts",
+			field:       "c15",
+			where:       "ts = ?",
+			bind:        now,
+			expectValue: []byte("blob"),
 		},
 	}
 	for _, tt := range tests {
@@ -2215,11 +2295,16 @@ func TestStmtConvertQuery(t *testing.T) {
 					t.Error(err)
 					return
 				}
-				v, err := values[0].(driver.Valuer).Value()
-				if err != nil {
-					t.Error(err)
+				value, ok := values[0].(driver.Valuer)
+				if ok {
+					v, err := value.Value()
+					if err != nil {
+						t.Error(err)
+					}
+					data = append(data, v)
+				} else {
+					data = append(data, *values[0].(*[]byte))
 				}
-				data = append(data, v)
 			}
 			if tt.expectNoValue {
 				if len(data) > 0 {
@@ -2230,6 +2315,16 @@ func TestStmtConvertQuery(t *testing.T) {
 			}
 			if len(data) != 1 {
 				t.Errorf("expect %d got %d", 1, len(data))
+				return
+			}
+			expectBytes, isBytes := tt.expectValue.([]byte)
+			if isBytes {
+				gotBytes, ok := data[0].([]byte)
+				if !ok {
+					t.Errorf("expect []byte got %T", data[0])
+					return
+				}
+				assert.Equal(t, expectBytes, gotBytes)
 				return
 			}
 			if data[0] != tt.expectValue {

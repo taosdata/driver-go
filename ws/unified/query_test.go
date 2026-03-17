@@ -24,27 +24,10 @@ func buildFetchRawBlockRespBytes(code uint32, msg string, completed bool, block 
 	return resp
 }
 
-// TestBuildBinaryQueryRequest verifies the expected behavior for this scenario.
-func TestBuildBinaryQueryRequest(t *testing.T) {
-	payload := BuildBinaryQueryRequest(11, "select * from t")
-	if len(payload) < 30 {
-		t.Fatalf("unexpected payload length: %d", len(payload))
-	}
-	if got := binary.LittleEndian.Uint64(payload[0:8]); got != 11 {
-		t.Fatalf("unexpected req_id: %d", got)
-	}
-	if got := binary.LittleEndian.Uint64(payload[16:24]); got != proto.BinaryQueryMessage {
-		t.Fatalf("unexpected action: %d", got)
-	}
-	if got := binary.LittleEndian.Uint16(payload[24:26]); got != proto.BinaryProtocolVersion1 {
-		t.Fatalf("unexpected protocol version: %d", got)
-	}
-}
-
 // TestParseFetchRawBlockResponseCompleted verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseCompleted(t *testing.T) {
 	resp := buildFetchRawBlockRespBytes(0, "", true, nil)
-	block, completed, err := ParseFetchRawBlockResponse(resp)
+	block, completed, err := parseFetchRawBlockResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +43,7 @@ func TestParseFetchRawBlockResponseCompleted(t *testing.T) {
 func TestParseFetchRawBlockResponseWithBlock(t *testing.T) {
 	want := []byte{1, 2, 3, 4}
 	resp := buildFetchRawBlockRespBytes(0, "", false, want)
-	block, completed, err := ParseFetchRawBlockResponse(resp)
+	block, completed, err := parseFetchRawBlockResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +58,7 @@ func TestParseFetchRawBlockResponseWithBlock(t *testing.T) {
 // TestParseFetchRawBlockResponseServerError verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseServerError(t *testing.T) {
 	resp := buildFetchRawBlockRespBytes(0x2603, "mock error", false, nil)
-	_, _, err := ParseFetchRawBlockResponse(resp)
+	_, _, err := parseFetchRawBlockResponse(resp)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -87,7 +70,7 @@ func TestParseFetchRawBlockResponseServerError(t *testing.T) {
 
 // TestParseFetchRawBlockResponseInvalid verifies the expected behavior for this scenario.
 func TestParseFetchRawBlockResponseInvalid(t *testing.T) {
-	_, _, err := ParseFetchRawBlockResponse([]byte{1, 2, 3})
+	_, _, err := parseFetchRawBlockResponse([]byte{1, 2, 3})
 	if err == nil {
 		t.Fatal("expected invalid response error")
 	}

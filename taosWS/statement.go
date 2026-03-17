@@ -230,10 +230,22 @@ func convertInsertValue(value driver.Value, fieldType int8, precision int) (driv
 			return nil, fmt.Errorf("CheckNamedValue: can not convert to varbinary, value type %T", value)
 		}
 		return v, nil
+	case common.TSDB_DATA_TYPE_BLOB:
+		v, err := toBytes(value)
+		if err != nil {
+			return nil, fmt.Errorf("CheckNamedValue: can not convert to blob, value type %T", value)
+		}
+		return v, nil
 	case common.TSDB_DATA_TYPE_GEOMETRY:
 		v, err := toBytes(value)
 		if err != nil {
 			return nil, fmt.Errorf("CheckNamedValue: can not convert to geometry, value type %T", value)
+		}
+		return v, nil
+	case common.TSDB_DATA_TYPE_DECIMAL, common.TSDB_DATA_TYPE_DECIMAL64:
+		v, err := toString(value)
+		if err != nil {
+			return nil, fmt.Errorf("CheckNamedValue: can not convert to decimal, value type %T", value)
 		}
 		return v, nil
 	case common.TSDB_DATA_TYPE_NCHAR:
@@ -306,6 +318,8 @@ func convertQueryValue(value driver.Value) (driver.Value, error) {
 	case string:
 		return []byte(v), nil
 	case types.TaosNchar:
+		return []byte(v), nil
+	case types.TaosDecimal:
 		return []byte(v), nil
 	case []byte:
 		return append([]byte(nil), v...), nil
@@ -618,6 +632,8 @@ func toString(value interface{}) (string, error) {
 	case types.TaosJson:
 		return string(v), nil
 	case types.TaosBlob:
+		return string(v), nil
+	case types.TaosDecimal:
 		return string(v), nil
 	default:
 		return "", fmt.Errorf("unsupported string type %T", value)

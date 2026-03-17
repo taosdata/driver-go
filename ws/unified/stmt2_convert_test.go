@@ -23,6 +23,7 @@ func TestNormalizeStmt2Value(t *testing.T) {
 		{name: "taos int", value: types.TaosInt(7), expect: int32(7)},
 		{name: "taos binary", value: types.TaosBinary([]byte("b")), expect: []byte("b")},
 		{name: "taos nchar", value: types.TaosNchar("n"), expect: "n"},
+		{name: "taos decimal", value: types.TaosDecimal("1.2300"), expect: "1.2300"},
 		{name: "builtin int64", value: int64(9), expect: int64(9)},
 		{
 			name:   "taos timestamp insert mode",
@@ -73,7 +74,7 @@ func TestNormalizeStmt2Columns(t *testing.T) {
 		param.NewParam(2).AddInt(1).AddInt(2),
 		param.NewParam(2).AddTimestamp(now, common.PrecisionMilliSecond).AddNull(),
 	}
-	normalized, err := normalizeStmt2Columns(columns, false)
+	normalized, err := normalizeStmt2Columns(columns, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

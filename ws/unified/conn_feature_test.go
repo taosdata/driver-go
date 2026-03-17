@@ -353,45 +353,45 @@ func TestExtractReqIDFromBinaryMessageExtendedHeader(t *testing.T) {
 	binary.LittleEndian.PutUint64(msg[0:8], 0xffffffffffffffff)
 	binary.LittleEndian.PutUint64(msg[26:34], 99)
 
-	reqID, err := ExtractReqIDFromBinaryMessage(msg)
+	reqID, err := extractReqIDFromBinaryMessage(msg)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(99), reqID)
 }
 
 // TestExtractReqIDFromBinaryMessageErrors verifies the expected behavior for this scenario.
 func TestExtractReqIDFromBinaryMessageErrors(t *testing.T) {
-	_, err := ExtractReqIDFromBinaryMessage([]byte{1, 2, 3})
+	_, err := extractReqIDFromBinaryMessage([]byte{1, 2, 3})
 	require.ErrorIs(t, err, ErrBinaryMessageTooShort)
 
 	msg := make([]byte, 20)
 	binary.LittleEndian.PutUint64(msg[0:8], 0xffffffffffffffff)
-	_, err = ExtractReqIDFromBinaryMessage(msg)
+	_, err = extractReqIDFromBinaryMessage(msg)
 	require.ErrorIs(t, err, ErrBinaryMessageExtendedHeaderTooShort)
 }
 
 // TestExtractReqIDFromTextMessage verifies the expected behavior for this scenario.
 func TestExtractReqIDFromTextMessage(t *testing.T) {
-	reqID, err := ExtractReqIDFromTextMessage([]byte(`{"code":0,"req_id":123,"message":""}`))
+	reqID, err := extractReqIDFromTextMessage([]byte(`{"code":0,"req_id":123,"message":""}`))
 	require.NoError(t, err)
 	assert.Equal(t, uint64(123), reqID)
 }
 
 // TestExtractReqIDFromTextMessageErrors verifies the expected behavior for this scenario.
 func TestExtractReqIDFromTextMessageErrors(t *testing.T) {
-	_, err := ExtractReqIDFromTextMessage([]byte(`{"code":0,"message":""}`))
+	_, err := extractReqIDFromTextMessage([]byte(`{"code":0,"message":""}`))
 	require.ErrorIs(t, err, ErrReqIDNotFound)
 
-	_, err = ExtractReqIDFromTextMessage([]byte(`{"code":0,`))
+	_, err = extractReqIDFromTextMessage([]byte(`{"code":0,`))
 	require.Error(t, err)
 }
 
 // TestExtractReqIDFromTextMessageUint64Boundaries verifies uint64 boundary handling.
 func TestExtractReqIDFromTextMessageUint64Boundaries(t *testing.T) {
-	reqID, err := ExtractReqIDFromTextMessage([]byte(`{"req_id":18446744073709551615}`))
+	reqID, err := extractReqIDFromTextMessage([]byte(`{"req_id":18446744073709551615}`))
 	require.NoError(t, err)
 	require.Equal(t, uint64(^uint64(0)), reqID)
 
-	_, err = ExtractReqIDFromTextMessage([]byte(`{"req_id":18446744073709551616}`))
+	_, err = extractReqIDFromTextMessage([]byte(`{"req_id":18446744073709551616}`))
 	require.Error(t, err)
 }
 
@@ -405,7 +405,7 @@ func TestExtractReqIDFromTextMessageRejectsInvalidTrailingTokens(t *testing.T) {
 		`{"req_id":1    `,
 	}
 	for _, message := range invalidMessages {
-		_, err := ExtractReqIDFromTextMessage([]byte(message))
+		_, err := extractReqIDFromTextMessage([]byte(message))
 		require.Error(t, err, "message=%s", message)
 	}
 }

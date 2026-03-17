@@ -135,13 +135,6 @@ func (c *Client) sendQueryWithReconnect(reqID uint64, sql string) ([]byte, *clie
 	return c.sendWithReconnect(runtime, send)
 }
 
-// BuildBinaryQueryRequest builds a unified binary query request payload.
-func BuildBinaryQueryRequest(reqID uint64, sql string) []byte {
-	buf := bytes.NewBuffer(make([]byte, 0, 30+len(sql)))
-	buildBinaryQueryRequestToBuffer(buf, reqID, sql)
-	return buf.Bytes()
-}
-
 func buildBinaryQueryRequestToBuffer(buf *bytes.Buffer, reqID uint64, sql string) {
 	buf.Reset()
 	buf.Grow(30 + len(sql))
