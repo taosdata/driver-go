@@ -116,7 +116,6 @@ func (c *Connector) Init() (*Stmt, error) {
 		return nil, ErrConnIsClosed
 	}
 	unifiedClient := c.unifiedClient
-	timezone := c.timezone
 	c.Unlock()
 
 	if unifiedClient == nil {
@@ -129,7 +128,6 @@ func (c *Connector) Init() (*Stmt, error) {
 	return &Stmt{
 		core:      core,
 		connector: c,
-		timezone:  timezone,
 	}, nil
 }
 

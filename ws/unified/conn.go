@@ -2,10 +2,10 @@ package unified
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"encoding/json"
-	"io"
+	"errors"
+	"net"
 	"strconv"
 	"time"
 
@@ -16,22 +16,20 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
-var reqIDFieldKey = []byte(`"req_id"`)
-
 // Connect connects and initializes the client for normal connect operations.
 func (c *Client) Connect() error {
 	c.normalConnectLock.Lock()
 	defer c.normalConnectLock.Unlock()
 
+	if c.IsClosed() {
+		return ErrUnifiedClosed
+	}
+
 	c.lock.RLock()
-	closed := c.closed
 	connected := c.connected
 	runtime := c.runtime
 	c.lock.RUnlock()
 
-	if closed {
-		return ErrUnifiedClosed
-	}
 	if connected && runtime != nil && runtime.IsRunning() {
 		return nil
 	}
@@ -102,26 +100,16 @@ func (c *Client) defaultBootstrap(conn *websocket.Conn) error {
 		readTimeout = common.DefaultMessageTimeout
 	}
 	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
-
-	done := make(chan struct{})
-	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
-	defer cancel()
-	var respBytes []byte
-	var readErr error
-
-	go func() {
-		_, respBytes, readErr = conn.ReadMessage()
-		close(done)
+	defer func() {
+		_ = conn.SetReadDeadline(time.Time{})
 	}()
 
-	select {
-	case <-done:
-	case <-ctx.Done():
-		return ErrConnectTimeout
-	}
-	_ = conn.SetReadDeadline(time.Time{})
-
+	_, respBytes, readErr := conn.ReadMessage()
 	if readErr != nil {
+		var netErr net.Error
+		if errors.As(readErr, &netErr) && netErr.Timeout() {
+			return ErrConnectTimeout
+		}
 		return readErr
 	}
 
@@ -169,99 +157,20 @@ func (c *Client) handleMessage(message []byte, reqID uint64) {
 
 // extractReqIDFromTextMessage extracts req_id from JSON text protocol message.
 func extractReqIDFromTextMessage(message []byte) (uint64, error) {
-	if reqID, ok := fastExtractReqIDFromTextMessage(message); ok {
-		return reqID, nil
+	var payload struct {
+		ReqID json.RawMessage `json:"req_id"`
 	}
-
-	decoder := json.NewDecoder(bytes.NewReader(message))
-	decoder.UseNumber()
-	payload := make(map[string]interface{}, 8)
-	if err := decoder.Decode(&payload); err != nil {
+	if err := client.JsonI.Unmarshal(message, &payload); err != nil {
 		return 0, err
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return 0, newInvalidStateErrorf("invalid trailing data after JSON object")
-		}
-		return 0, err
-	}
-	reqIDValue, ok := payload["req_id"]
-	if !ok {
+	if len(payload.ReqID) == 0 {
 		return 0, ErrReqIDNotFound
 	}
-	number, ok := reqIDValue.(json.Number)
-	if !ok {
-		return 0, newInvalidStateErrorf("req_id must be an integer number")
-	}
-	reqID, err := strconv.ParseUint(string(number), 10, 64)
+	reqID, err := strconv.ParseUint(string(bytes.TrimSpace(payload.ReqID)), 10, 64)
 	if err != nil {
 		return 0, err
 	}
 	return reqID, nil
-}
-
-func fastExtractReqIDFromTextMessage(message []byte) (uint64, bool) {
-	keyPos := bytes.Index(message, reqIDFieldKey)
-	if keyPos < 0 {
-		return 0, false
-	}
-
-	prev := keyPos - 1
-	for prev >= 0 && isJSONSpace(message[prev]) {
-		prev--
-	}
-	if prev >= 0 && message[prev] != '{' && message[prev] != ',' {
-		return 0, false
-	}
-
-	i := keyPos + len(reqIDFieldKey)
-	for i < len(message) && isJSONSpace(message[i]) {
-		i++
-	}
-	if i >= len(message) || message[i] != ':' {
-		return 0, false
-	}
-	i++
-	for i < len(message) && isJSONSpace(message[i]) {
-		i++
-	}
-	if i >= len(message) || message[i] < '0' || message[i] > '9' {
-		return 0, false
-	}
-
-	var reqID uint64
-	for i < len(message) && message[i] >= '0' && message[i] <= '9' {
-		digit := uint64(message[i] - '0')
-		if reqID > (^uint64(0)-digit)/10 {
-			return 0, false
-		}
-		reqID = reqID*10 + digit
-		i++
-	}
-	for i < len(message) && isJSONSpace(message[i]) {
-		i++
-	}
-	if i >= len(message) {
-		return 0, false
-	}
-	ch := message[i]
-	if ch != ',' && ch != '}' {
-		return 0, false
-	}
-	if ch == '}' {
-		i++
-		for i < len(message) && isJSONSpace(message[i]) {
-			i++
-		}
-		if i < len(message) {
-			return 0, false
-		}
-	}
-	return reqID, true
-}
-
-func isJSONSpace(ch byte) bool {
-	return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t'
 }
 
 // extractReqIDFromBinaryMessage extracts req_id from unified binary frame header.

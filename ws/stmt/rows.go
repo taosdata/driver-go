@@ -92,7 +92,7 @@ func (rs *Rows) ColumnTypeLength(i int) (length int64, ok bool) {
 	if i < 0 || i >= len(rs.fieldsLengths) {
 		return 0, false
 	}
-	return rs.fieldsLengths[i], false
+	return rs.fieldsLengths[i], true
 }
 
 // Deprecated: use unified.ResultSet.ColumnTypeScanType instead.

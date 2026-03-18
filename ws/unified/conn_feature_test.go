@@ -376,6 +376,20 @@ func TestExtractReqIDFromTextMessage(t *testing.T) {
 	assert.Equal(t, uint64(123), reqID)
 }
 
+// TestExtractReqIDFromTextMessageIgnoresNestedReqID verifies nested req_id is ignored.
+func TestExtractReqIDFromTextMessageIgnoresNestedReqID(t *testing.T) {
+	reqID, err := extractReqIDFromTextMessage([]byte(`{"payload":{"req_id":999,"code":0},"req_id":123}`))
+	require.NoError(t, err)
+	assert.Equal(t, uint64(123), reqID)
+}
+
+// TestExtractReqIDFromTextMessageIgnoresReqIDInsideString verifies req_id in string does not confuse extraction.
+func TestExtractReqIDFromTextMessageIgnoresReqIDInsideString(t *testing.T) {
+	reqID, err := extractReqIDFromTextMessage([]byte(`{"sql":",\\\"req_id\\\":999","req_id":123}`))
+	require.NoError(t, err)
+	assert.Equal(t, uint64(123), reqID)
+}
+
 // TestExtractReqIDFromTextMessageErrors verifies the expected behavior for this scenario.
 func TestExtractReqIDFromTextMessageErrors(t *testing.T) {
 	_, err := extractReqIDFromTextMessage([]byte(`{"code":0,"message":""}`))

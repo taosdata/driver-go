@@ -97,7 +97,9 @@ type Client struct {
 	PongWait             time.Duration
 	TextMessageHandler   func(message []byte)
 	BinaryMessageHandler func(message []byte)
-	ErrorHandler         func(err error)
+	// ErrorHandler is kept exported for backward compatibility.
+	// Prefer SetErrorHandler and avoid direct concurrent assignment after pumps start.
+	ErrorHandler func(err error)
 	// SendMessageHandler   func(envelope *Envelope)
 	once           sync.Once
 	doneOnce       sync.Once

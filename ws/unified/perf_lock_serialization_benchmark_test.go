@@ -120,7 +120,7 @@ func BenchmarkSwapRuntimePendingCleanup(b *testing.B) {
 				c.lock.Lock()
 				c.runtimeGen = 0
 				c.runtime = nil
-				c.closed = false
+				atomic.StoreUint32(&c.closedFlag, 0)
 				c.lock.Unlock()
 
 				nextRuntime := client.NewClient(nil, 1)

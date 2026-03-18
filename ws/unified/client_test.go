@@ -218,6 +218,43 @@ func TestClearPendingRequestsNotifiesWaiters(t *testing.T) {
 	}
 }
 
+// TestCloseNotifiesPendingWaiters verifies Close drains pending requests and notifies waiters immediately.
+func TestCloseNotifiesPendingWaiters(t *testing.T) {
+	c := &Client{
+		pendingRequests: make(map[uint64]*pendingRequest),
+		closeChan:       make(chan struct{}),
+	}
+	waiters := []*pendingRequest{
+		{reqID: 11, channel: make(chan []byte, 1)},
+		{reqID: 22, channel: make(chan []byte, 1)},
+	}
+	for i := 0; i < len(waiters); i++ {
+		registerPendingRequestForTest(c, waiters[i])
+	}
+
+	c.Close()
+
+	for i := 0; i < len(waiters); i++ {
+		select {
+		case msg := <-waiters[i].channel:
+			if msg != nil {
+				t.Fatalf("waiter %d should receive nil, got %v", i, msg)
+			}
+		default:
+			t.Fatalf("waiter %d did not receive close notification", i)
+		}
+		if pendingRequestExistsForTest(c, waiters[i].reqID) {
+			t.Fatalf("pending request %d still exists after Close", waiters[i].reqID)
+		}
+	}
+
+	select {
+	case <-c.closeChan:
+	default:
+		t.Fatal("closeChan should be closed after Close")
+	}
+}
+
 // TestRemovePendingRequestExpectedPointerMatch verifies pointer identity protects
 // against removing a different request with the same req_id.
 func TestRemovePendingRequestExpectedPointerMatch(t *testing.T) {

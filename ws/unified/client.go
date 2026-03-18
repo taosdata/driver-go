@@ -59,7 +59,6 @@ type Client struct {
 
 	lock         sync.RWMutex
 	runtime      *client.Client
-	closed       bool
 	closedFlag   uint32
 	runtimeGen   uint64 // incremented on each runtime swap
 	closeChan    chan struct{}
@@ -109,7 +108,6 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 		closeChan:       make(chan struct{}),
 		errorHandler:    defaultUnifiedErrHandler,
 	}
-	atomic.StoreUint32(&c.closedFlag, 0)
 	c.runtimeSnapshot.Store(runtimeStateSnapshot{})
 	atomic.StoreUint32(&c.runtimeSnapshotReady, 1)
 	c.dial = c.dialWithDialer
@@ -322,7 +320,7 @@ func (c *Client) initializeRuntime(runtime *client.Client) {
 // It cleans up pending requests from the old runtime and notifies waiters with nil.
 func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Client, error) {
 	c.lock.Lock()
-	if c.closed {
+	if c.IsClosed() {
 		c.lock.Unlock()
 		if next != nil {
 			next.Close() // Close the new runtime since we can't use it
@@ -339,15 +337,18 @@ func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Cl
 		c.lock.Unlock()
 		return nil, err
 	}
-	if err := c.failover.markActive(endpointIndex); err != nil {
+	oldRuntime := c.runtime
+	oldHostPort := ""
+	if oldRuntime != nil {
+		oldHostPort, err = c.failover.hostPortByIndex(oldActive.Index)
+		if err != nil {
+			c.lock.Unlock()
+			return nil, err
+		}
+	}
+	if err = c.failover.markActive(endpointIndex); err != nil {
 		c.lock.Unlock()
 		return nil, err
-	}
-	oldRuntime := c.runtime
-	oldHostPort, oldHostPortErr := c.failover.hostPortByIndex(oldActive.Index)
-	if oldHostPortErr != nil {
-		c.lock.Unlock()
-		return nil, oldHostPortErr
 	}
 
 	if oldRuntime == nil {
@@ -362,22 +363,12 @@ func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Cl
 
 	// Keep c.lock -> pendingLock order with send path.
 	c.pendingLock.Lock()
-	oldPending := c.pendingRequests
-	c.pendingRequests = make(map[uint64]*pendingRequest)
+	oldPending := c.resetPendingRequestsLocked()
 	c.publishRuntimeSnapshotLocked()
 	c.pendingLock.Unlock()
 	c.lock.Unlock()
 
-	for _, req := range oldPending {
-		if req == nil || req.channel == nil {
-			continue
-		}
-		// Notify outside lock to minimize critical section time.
-		select {
-		case req.channel <- nil:
-		default:
-		}
-	}
+	notifyPendingRequestsClosed(oldPending)
 
 	return oldRuntime, nil
 }
@@ -494,7 +485,7 @@ func (c *Client) sendWithReconnect(runtime *client.Client, send sendWithRuntimeF
 // Close marks client closed and closes active runtime if present.
 func (c *Client) Close() {
 	c.lock.Lock()
-	if c.closed {
+	if c.IsClosed() {
 		c.lock.Unlock()
 		return
 	}
@@ -505,14 +496,19 @@ func (c *Client) Close() {
 			activeHostPort = hostPort
 		}
 	}
-	c.closed = true
 	atomic.StoreUint32(&c.closedFlag, 1)
 	c.connected = false
 	runtime := c.runtime
 	c.runtime = nil
+	c.pendingLock.Lock()
+	oldPending := c.resetPendingRequestsLocked()
 	c.publishRuntimeSnapshotLocked()
-	close(c.closeChan)
+	c.pendingLock.Unlock()
+	if c.closeChan != nil {
+		close(c.closeChan)
+	}
 	c.lock.Unlock()
+	notifyPendingRequestsClosed(oldPending)
 	if activeHostPort != "" {
 		globalHostPortConnCounts.dec(activeHostPort)
 	}
@@ -523,15 +519,26 @@ func (c *Client) Close() {
 
 // IsClosed reports whether client has been closed.
 func (c *Client) IsClosed() bool {
-	// Keep atomic fast path for hot checks after Close() and fall back to
-	// lock-protected bool for manually constructed/zero-value clients in tests.
-	if atomic.LoadUint32(&c.closedFlag) == 1 {
-		return true
+	return atomic.LoadUint32(&c.closedFlag) == 1
+}
+
+func (c *Client) resetPendingRequestsLocked() map[uint64]*pendingRequest {
+	oldPending := c.pendingRequests
+	c.pendingRequests = make(map[uint64]*pendingRequest)
+	return oldPending
+}
+
+func notifyPendingRequestsClosed(requests map[uint64]*pendingRequest) {
+	for _, req := range requests {
+		if req == nil || req.channel == nil {
+			continue
+		}
+		// Notify outside lock to minimize critical section time.
+		select {
+		case req.channel <- nil:
+		default:
+		}
 	}
-	c.lock.RLock()
-	closed := c.closed
-	c.lock.RUnlock()
-	return closed
 }
 
 // Config returns current normalized client config by value.

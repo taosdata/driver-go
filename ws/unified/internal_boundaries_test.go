@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -209,7 +210,7 @@ func TestStmtShouldReconnectLockedBranches(t *testing.T) {
 // TestStmt2InitWithReconnectNoRuntimePaths verifies the expected behavior for this scenario.
 func TestStmt2InitWithReconnectNoRuntimePaths(t *testing.T) {
 	closedClient := &Client{}
-	closedClient.closed = true
+	atomic.StoreUint32(&closedClient.closedFlag, 1)
 	_, err := closedClient.stmt2InitWithReconnect(1)
 	require.ErrorIs(t, err, ErrUnifiedClosed)
 

@@ -51,6 +51,8 @@ type WSError struct {
 	Cause error
 }
 
+const tmqFetchRawPayloadOffset = 38
+
 func (e *WSError) Error() string {
 	return fmt.Sprintf("websocket close with error %v", e.Cause)
 }
@@ -142,6 +144,7 @@ func (c *TMQConsumer) reconnect(failedRuntime *client.Client) error {
 			ReconnectFailed:   true,
 		}
 	}
+	c.clearErr()
 	topics := c.topicsSnapshot()
 	if len(topics) > 0 {
 		if err := c.doSubscribe(topics, false); err != nil {
@@ -666,7 +669,11 @@ func (c *TMQConsumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 	if err != nil {
 		return nil, err
 	}
-	blockInfo, err := c.dataParser.Parse(unsafe.Pointer(&respBytes[38]))
+	rawPayload, err := extractTMQFetchRawPayload(respBytes)
+	if err != nil {
+		return nil, err
+	}
+	blockInfo, err := c.dataParser.Parse(unsafe.Pointer(&rawPayload[0]))
 	if err != nil {
 		return nil, err
 	}
@@ -687,6 +694,13 @@ func (c *TMQConsumer) fetch(messageID uint64) ([]*tmq.Data, error) {
 		}
 	}
 	return tmqData, nil
+}
+
+func extractTMQFetchRawPayload(respBytes []byte) ([]byte, error) {
+	if len(respBytes) <= tmqFetchRawPayloadOffset {
+		return nil, newInvalidStateErrorf("invalid tmq fetch raw response length: %d", len(respBytes))
+	}
+	return respBytes[tmqFetchRawPayloadOffset:], nil
 }
 
 func (c *TMQConsumer) FormatTime(ts int64, precision int) driver.Value {
@@ -791,7 +805,6 @@ func (c *TMQConsumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) 
 	if err = c.ensureInitialized(); err != nil {
 		return nil, err
 	}
-	offsets = make([]tmq.TopicPartition, len(partitions))
 	reqID := c.generateReqID()
 	req := &proto.CommittedReq{
 		ReqID:          reqID,
@@ -807,14 +820,7 @@ func (c *TMQConsumer) Committed(partitions []tmq.TopicPartition, timeoutMs int) 
 	if err = c.sendTextActionAndDecode(reqID, proto.TMQActionCommitted, req, false, nil, &resp); err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(resp.Committed); i++ {
-		offsets[i] = tmq.TopicPartition{
-			Topic:     partitions[i].Topic,
-			Partition: partitions[i].Partition,
-			Offset:    tmq.Offset(resp.Committed[i]),
-		}
-	}
-	return offsets, nil
+	return buildTopicPartitionOffsets(partitions, resp.Committed, proto.TMQActionCommitted)
 }
 
 func (c *TMQConsumer) CommitOffsets(offsets []tmq.TopicPartition) ([]tmq.TopicPartition, error) {
@@ -846,7 +852,6 @@ func (c *TMQConsumer) Position(partitions []tmq.TopicPartition) (offsets []tmq.T
 	if err = c.ensureInitialized(); err != nil {
 		return nil, err
 	}
-	offsets = make([]tmq.TopicPartition, len(partitions))
 	reqID := c.generateReqID()
 	req := &proto.PositionReq{
 		ReqID:          reqID,
@@ -862,11 +867,19 @@ func (c *TMQConsumer) Position(partitions []tmq.TopicPartition) (offsets []tmq.T
 	if err = c.sendTextActionAndDecode(reqID, proto.TMQActionPosition, req, false, nil, &resp); err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(resp.Position); i++ {
+	return buildTopicPartitionOffsets(partitions, resp.Position, proto.TMQActionPosition)
+}
+
+func buildTopicPartitionOffsets(partitions []tmq.TopicPartition, values []int64, action string) ([]tmq.TopicPartition, error) {
+	if len(values) != len(partitions) {
+		return nil, newInvalidStateErrorf("invalid %s response length: expected=%d got=%d", action, len(partitions), len(values))
+	}
+	offsets := make([]tmq.TopicPartition, len(partitions))
+	for i := 0; i < len(partitions); i++ {
 		offsets[i] = tmq.TopicPartition{
 			Topic:     partitions[i].Topic,
 			Partition: partitions[i].Partition,
-			Offset:    tmq.Offset(resp.Position[i]),
+			Offset:    tmq.Offset(values[i]),
 		}
 	}
 	return offsets, nil
@@ -882,6 +895,10 @@ func (c *TMQConsumer) setErr(err error) {
 	c.stateLock.Lock()
 	c.err = err
 	c.stateLock.Unlock()
+}
+
+func (c *TMQConsumer) clearErr() {
+	c.setErr(nil)
 }
 
 func (c *TMQConsumer) getLastMessageID() uint64 {

@@ -1,8 +1,6 @@
 package stmt
 
 import (
-	"time"
-
 	"github.com/taosdata/driver-go/v3/common/param"
 	"github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/unified"
@@ -12,7 +10,6 @@ import (
 type Stmt struct {
 	core         *unified.Stmt
 	connector    *Connector
-	timezone     *time.Location
 	lastAffected int
 }
 
