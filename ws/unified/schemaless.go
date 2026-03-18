@@ -7,6 +7,12 @@ import (
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
+const (
+	InfluxDBLineProtocol       = 1
+	OpenTSDBTelnetLineProtocol = 2
+	OpenTSDBJsonFormatProtocol = 3
+)
+
 // SchemalessInsert sends a schemaless insert request with automatic failover and reconnect.
 // tableNameKey is required. Pass "" when the protocol does not use table name key.
 func (c *Client) SchemalessInsert(reqID int64, lines string, protocol int, precision string, ttl int, tableNameKey string) error {

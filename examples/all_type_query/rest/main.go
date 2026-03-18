@@ -6,12 +6,12 @@ import (
 	"log"
 	"time"
 
-	_ "github.com/taosdata/driver-go/v3/taosSql"
+	_ "github.com/taosdata/driver-go/v3/taosRestful"
 )
 
 func main() {
-	var taosDSN = "root:taosdata@tcp(localhost:6030)/"
-	db, err := sql.Open("taosSql", taosDSN)
+	var taosDSN = "root:taosdata@http(localhost:6041)/"
+	db, err := sql.Open("taosRestful", taosDSN)
 	if err != nil {
 		log.Fatalln("Failed to connect to " + taosDSN + ", ErrMessage: " + err.Error())
 	}

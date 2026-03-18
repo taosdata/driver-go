@@ -176,12 +176,10 @@ jobs:
           go-version: stable
           cache-dependency-path: go.sum
 
-      - name: Run docs go examples
+      - name: Run go examples
         run: |
-          go version
-          go env
-          cd examples/docs
-          bash go.sh
+          cd examples
+          sudo ./go.sh
 
   race-test:
     runs-on: ubuntu-latest

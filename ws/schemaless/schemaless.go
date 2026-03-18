@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	// Deprecated: use unified.SchemalessInsert from package ws/unified instead.
-	InfluxDBLineProtocol = 1
-	// Deprecated: use unified.SchemalessInsert from package ws/unified instead.
-	OpenTSDBTelnetLineProtocol = 2
-	// Deprecated: use unified.SchemalessInsert from package ws/unified instead.
-	OpenTSDBJsonFormatProtocol = 3
+	// Deprecated: use unified.InfluxDBLineProtocol from package ws/unified instead.
+	InfluxDBLineProtocol = unified.InfluxDBLineProtocol
+	// Deprecated: use unified.OpenTSDBTelnetLineProtocol from package ws/unified instead.
+	OpenTSDBTelnetLineProtocol = unified.OpenTSDBTelnetLineProtocol
+	// Deprecated: use unified.OpenTSDBJsonFormatProtocol from package ws/unified instead.
+	OpenTSDBJsonFormatProtocol = unified.OpenTSDBJsonFormatProtocol
 )
 
 // Schemaless provides schemaless insert operations with multi-node failover and auto-reconnect.
