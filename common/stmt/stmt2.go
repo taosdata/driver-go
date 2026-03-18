@@ -353,8 +353,10 @@ func marshalStmt2BinaryWithHeader(bindData []*TaosStmt2BindData, isInsert bool, 
 
 	for tableIndex := 0; tableIndex < len(bindData); tableIndex++ {
 		if needTableName {
-			sh := (*stringHeader)(unsafe.Pointer(&bindData[tableIndex].TableName))
-			Copy(sh.data, buffer, tmpTableNameOffset, len(bindData[tableIndex].TableName))
+			tableName := bindData[tableIndex].TableName
+			if len(tableName) > 0 {
+				copy(buffer[tmpTableNameOffset:], tableName)
+			}
 			tmpTableNameOffset += int(utf8TableNameLen[tableIndex])
 		}
 		if needTags {
@@ -407,11 +409,6 @@ func writeFloat32(buffer []byte, offset int, value float32) {
 
 func writeFloat64(buffer []byte, offset int, value float64) {
 	binary.LittleEndian.PutUint64(buffer[offset:offset+8], math.Float64bits(value))
-}
-
-type stringHeader struct {
-	data unsafe.Pointer
-	len  int
 }
 
 func writeBindTag(tagFields []*Stmt2AllField, tagVal []driver.Value, buffer []byte, offset int) (int, error) {

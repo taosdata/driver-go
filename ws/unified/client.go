@@ -322,9 +322,6 @@ func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Cl
 	c.lock.Lock()
 	if c.IsClosed() {
 		c.lock.Unlock()
-		if next != nil {
-			next.Close() // Close the new runtime since we can't use it
-		}
 		return nil, ErrUnifiedClosed
 	}
 	if next == nil {

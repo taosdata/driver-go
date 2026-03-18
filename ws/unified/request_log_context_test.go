@@ -38,6 +38,24 @@ func TestBuildTextRequestSummaryRedactsSensitiveFields(t *testing.T) {
 	require.NotContains(t, summary, "secret-token")
 }
 
+// TestBuildTextRequestSummaryDoesNotRedactNonSensitiveOtpSubstrings verifies keys containing "otp" as plain substring are not over-redacted.
+func TestBuildTextRequestSummaryDoesNotRedactNonSensitiveOtpSubstrings(t *testing.T) {
+	args := []byte(`{
+		"bootstrap":"yes",
+		"footprint":"trace",
+		"otp":"123456",
+		"otp_code":"654321"
+	}`)
+	summary := buildTextRequestSummary("conn", 202, args)
+
+	require.Contains(t, summary, `"bootstrap":"yes"`)
+	require.Contains(t, summary, `"footprint":"trace"`)
+	require.Contains(t, summary, `"otp":"***"`)
+	require.Contains(t, summary, `"otp_code":"***"`)
+	require.NotContains(t, summary, `"otp":"123456"`)
+	require.NotContains(t, summary, `"otp_code":"654321"`)
+}
+
 // TestBuildBinaryQueryRequestSummaryRedactsSensitiveText verifies the expected behavior for this scenario.
 func TestBuildBinaryQueryRequestSummaryRedactsSensitiveText(t *testing.T) {
 	sql := `insert into t values(now, 1) password='abc' token=def authorization:"ghi"`

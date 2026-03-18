@@ -180,13 +180,38 @@ func isSensitiveLogKey(key string) bool {
 	switch normalized {
 	case "password", "passwd", "pass", "token", "access_token", "refresh_token",
 		"bearer_token", "bearertoken", "authorization", "td.connect.pass", "td.connect.token",
-		"totp", "totpcode", "otp":
+		"totp", "totpcode", "otp", "otpcode":
 		return true
 	}
+	containsOTPToken := containsDelimitedLogToken(normalized, "otp")
 	return strings.Contains(normalized, "password") ||
 		strings.Contains(normalized, "passwd") ||
 		strings.Contains(normalized, "token") ||
 		strings.Contains(normalized, "authorization") ||
 		strings.Contains(normalized, "secret") ||
-		strings.Contains(normalized, "otp")
+		containsOTPToken
+}
+
+func containsDelimitedLogToken(key string, token string) bool {
+	if key == "" || token == "" {
+		return false
+	}
+	start := -1
+	for i := 0; i < len(key); i++ {
+		if isLogTokenChar(key[i]) {
+			if start < 0 {
+				start = i
+			}
+			continue
+		}
+		if start >= 0 && key[start:i] == token {
+			return true
+		}
+		start = -1
+	}
+	return start >= 0 && key[start:] == token
+}
+
+func isLogTokenChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')
 }

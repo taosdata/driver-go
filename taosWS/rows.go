@@ -2,6 +2,8 @@ package taosWS
 
 import (
 	"database/sql/driver"
+	"errors"
+	"io"
 	"reflect"
 
 	"github.com/taosdata/driver-go/v3/ws/unified"
@@ -48,5 +50,9 @@ func (rs *rows) Next(dest []driver.Value) error {
 	if rs == nil || rs.unifiedResult == nil {
 		return driver.ErrBadConn
 	}
-	return mapUnifiedConnError(rs.unifiedResult.Next(dest))
+	err := rs.unifiedResult.Next(dest)
+	if errors.Is(err, io.EOF) {
+		return io.EOF
+	}
+	return mapUnifiedConnError(err)
 }
