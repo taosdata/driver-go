@@ -190,6 +190,7 @@ func mapUnifiedConnError(err error) error {
 	}
 	if errors.Is(err, wsClient.ClosedError) ||
 		errors.Is(err, io.ErrClosedPipe) ||
+		errors.Is(err, net.ErrClosed) ||
 		isNetOrWebsocketError(err) ||
 		unified.IsConnectionRelatedError(err) ||
 		unified.IsConnectionDisconnectedError(err) ||

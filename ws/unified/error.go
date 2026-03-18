@@ -3,6 +3,7 @@ package unified
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // ErrorType identifies unified package error categories.
@@ -25,6 +26,7 @@ type Error struct {
 	Type                   ErrorType
 	Message                string
 	Cause                  error
+	RequestSummary         string
 	ConnectionRelated      bool
 	ConnectionDisconnected bool
 	ReconnectFailed        bool
@@ -34,13 +36,20 @@ func (e *Error) Error() string {
 	if e == nil {
 		return ""
 	}
+	base := string(e.Type)
 	if e.Message != "" {
-		return e.Message
+		base = e.Message
+	} else if e.Cause != nil {
+		base = e.Cause.Error()
 	}
-	if e.Cause != nil {
-		return e.Cause.Error()
+	summary := strings.TrimSpace(e.RequestSummary)
+	if summary == "" {
+		return base
 	}
-	return string(e.Type)
+	if base == "" {
+		return "request=" + summary
+	}
+	return fmt.Sprintf("%s; request=%s", base, summary)
 }
 
 func (e *Error) Unwrap() error {
@@ -221,6 +230,10 @@ var (
 		Type:    ErrorTypeInvalidState,
 		Message: "compatibility APIs (SetTableName/SetTags/BindParam/AddBatch) cannot be used after Bind() in the same prepared statement",
 	}
+	ErrStmtQueryRebindBeforeExec = &Error{
+		Type:    ErrorTypeInvalidState,
+		Message: "query statement does not support multiple Bind() calls before Exec(); call Exec() first",
+	}
 )
 
 // ErrorTypeOf extracts unified error type from err.
@@ -281,4 +294,33 @@ func newInvalidDSNErrorf(format string, args ...interface{}) *Error {
 
 func newInvalidStateErrorf(format string, args ...interface{}) *Error {
 	return newErrorf(ErrorTypeInvalidState, format, args...)
+}
+
+func attachRequestSummary(err error, requestSummary string) error {
+	if err == nil {
+		return nil
+	}
+	requestSummary = strings.TrimSpace(requestSummary)
+	if requestSummary == "" {
+		return err
+	}
+
+	var unifiedErr *Error
+	if errors.As(err, &unifiedErr) {
+		clone := *unifiedErr
+		if strings.TrimSpace(clone.RequestSummary) == "" {
+			clone.RequestSummary = requestSummary
+		}
+		// Preserve the full original chain when the matched unified error
+		// is wrapped by other errors.
+		if matchedErr := error(unifiedErr); matchedErr != err {
+			clone.Cause = err
+		}
+		return &clone
+	}
+
+	return &Error{
+		Cause:          err,
+		RequestSummary: requestSummary,
+	}
 }

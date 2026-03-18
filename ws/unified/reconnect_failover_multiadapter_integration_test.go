@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -309,15 +310,26 @@ func startAdapters(t *testing.T, n int) ([]string, map[string]func()) {
 	ports := make([]string, 0, n)
 	stops := make(map[string]func(), n)
 	for i := 0; i < n; i++ {
-		port := getFreePort(t)
-		stop := startAdapterOnPort(t, port)
+		var (
+			port string
+			stop func()
+			err  error
+		)
+		for attempt := 0; attempt < 8; attempt++ {
+			port = getFreePort(t)
+			stop, err = startAdapterOnPort(t, port)
+			if err == nil {
+				break
+			}
+		}
+		require.NoError(t, err)
 		ports = append(ports, port)
 		stops[port] = stop
 	}
 	return ports, stops
 }
 
-func startAdapterOnPort(t *testing.T, port string) func() {
+func startAdapterOnPort(t *testing.T, port string) (func(), error) {
 	t.Helper()
 	command := "taosadapter"
 	if runtime.GOOS == "windows" {
@@ -327,28 +339,36 @@ func startAdapterOnPort(t *testing.T, port string) func() {
 	var logs bytes.Buffer
 	cmd.Stdout = &logs
 	cmd.Stderr = &logs
-	require.NoError(t, cmd.Start())
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
+		if !isCmdAlive(cmd) {
+			_ = stopCmdWithTimeout(cmd)
+			return nil, fmt.Errorf("taosadapter exited before ready on port %s, logs: %s", port, logs.String())
+		}
 		if pingAdapter(port) {
-			break
+			if !isCmdAlive(cmd) {
+				_ = stopCmdWithTimeout(cmd)
+				return nil, fmt.Errorf("taosadapter exited before ready on port %s, logs: %s", port, logs.String())
+			}
+			return func() {
+				_ = stopCmdWithTimeout(cmd)
+			}, nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !pingAdapter(port) {
-		_ = stopCmdWithTimeout(cmd)
-		t.Fatalf("taosadapter start timeout on port %s, logs: %s", port, logs.String())
-	}
-
-	return func() {
-		_ = stopCmdWithTimeout(cmd)
-	}
+	_ = stopCmdWithTimeout(cmd)
+	return nil, fmt.Errorf("taosadapter start timeout on port %s, logs: %s", port, logs.String())
 }
 
 func restartAdapterOnPort(t *testing.T, port string) func() {
 	t.Helper()
-	return startAdapterOnPort(t, port)
+	stop, err := startAdapterOnPort(t, port)
+	require.NoError(t, err)
+	return stop
 }
 
 func stopByPort(t *testing.T, port string, stops map[string]func()) {
@@ -390,6 +410,16 @@ func stopCmdWithTimeout(cmd *exec.Cmd) error {
 		<-done
 	}
 	return nil
+}
+
+func isCmdAlive(cmd *exec.Cmd) bool {
+	if cmd == nil || cmd.Process == nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return cmd.ProcessState == nil
+	}
+	return cmd.Process.Signal(syscall.Signal(0)) == nil
 }
 
 func getFreePort(t *testing.T) string {

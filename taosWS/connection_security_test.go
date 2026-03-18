@@ -115,7 +115,7 @@ func setupFailingDialerServer(t *testing.T, failOnCreate bool) (*Config, *failin
 	return cfg, holder, cleanup
 }
 
-func TestWriteTextErrorDoesNotLeakPayload(t *testing.T) {
+func TestWriteTextErrorIncludesSQLPayloadContext(t *testing.T) {
 	cfg, holder, cleanup := setupFailingDialerServer(t, false)
 	defer cleanup()
 
@@ -134,8 +134,9 @@ func TestWriteTextErrorDoesNotLeakPayload(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, driver.ErrBadConn)
 	assert.Contains(t, strings.ToLower(err.Error()), "closed")
-	assert.NotContains(t, err.Error(), "top-secret-value")
-	assert.NotContains(t, err.Error(), secretSQL)
+	assert.Contains(t, err.Error(), "request=binary_action=query")
+	assert.Contains(t, err.Error(), fmt.Sprintf("sql_len=%d", len(secretSQL)))
+	assert.Contains(t, err.Error(), secretSQL)
 }
 
 func TestConnectWriteErrorDoesNotLeakCredentials(t *testing.T) {

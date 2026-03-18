@@ -97,6 +97,9 @@ func (s *stmtCompatState) addBatch(isInsert bool) error {
 func (s *stmtCompatState) setRawBindData(bindData []*commonstmt.TaosStmt2BindData, isInsert bool) error {
 	s.RawMode = true
 	if !isInsert {
+		if s.Query != nil {
+			return ErrStmtQueryRebindBeforeExec
+		}
 		for k := range s.Tables {
 			delete(s.Tables, k)
 		}
@@ -108,6 +111,9 @@ func (s *stmtCompatState) setRawBindData(bindData []*commonstmt.TaosStmt2BindDat
 		return nil
 	}
 	s.Query = nil
+	if err := s.validateRawInsertBindDataNoMutation(bindData); err != nil {
+		return err
+	}
 	for i := 0; i < len(bindData); i++ {
 		if err := s.upsertTable(bindData[i]); err != nil {
 			return err
@@ -177,6 +183,33 @@ func (s *stmtCompatState) upsertTable(incoming *commonstmt.TaosStmt2BindData) er
 	}
 	for i := 0; i < len(current.Cols); i++ {
 		current.Cols[i] = append(current.Cols[i], incoming.Cols[i]...)
+	}
+	return nil
+}
+
+func (s *stmtCompatState) validateRawInsertBindDataNoMutation(bindData []*commonstmt.TaosStmt2BindData) error {
+	expectedCols := make(map[string]int, len(s.Tables)+len(bindData))
+	for key, current := range s.Tables {
+		if current == nil {
+			continue
+		}
+		expectedCols[key] = len(current.Cols)
+	}
+	for i := 0; i < len(bindData); i++ {
+		incoming := bindData[i]
+		if incoming == nil {
+			continue
+		}
+		key := incoming.TableName
+		currentCols := len(incoming.Cols)
+		expectCols, ok := expectedCols[key]
+		if !ok {
+			expectedCols[key] = currentCols
+			continue
+		}
+		if expectCols != currentCols {
+			return newInvalidStateErrorf("col count not match for table %q, got %d expect %d", key, currentCols, expectCols)
+		}
 	}
 	return nil
 }

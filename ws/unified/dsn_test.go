@@ -137,6 +137,80 @@ func TestNewConfigFromDSNMultiAddrList(t *testing.T) {
 	}
 }
 
+// TestParseDSNMultiAddrListIPv6Failover verifies IPv6 multi-node DSN parsing.
+func TestParseDSNMultiAddrListIPv6Failover(t *testing.T) {
+	cfg, err := ParseDSN("user:passwd@wss([2001:db8::1]:6041,[2001:db8::2]:6042,[2001:db8::3]:6043)/db?token=tk1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Net != "wss" || cfg.Addr != "2001:db8::1" || cfg.Port != 6041 {
+		t.Fatalf("unexpected primary endpoint fields: net=%s addr=%s port=%d", cfg.Net, cfg.Addr, cfg.Port)
+	}
+	want := []string{
+		"wss://[2001:db8::1]:6041?token=tk1",
+		"wss://[2001:db8::2]:6042?token=tk1",
+		"wss://[2001:db8::3]:6043?token=tk1",
+	}
+	if !reflect.DeepEqual(want, cfg.Endpoints) {
+		t.Fatalf("want %v, got %v", want, cfg.Endpoints)
+	}
+}
+
+// TestParseDSNMultiParamsCombination verifies multi-param parsing with multi-node failover DSN.
+func TestParseDSNMultiParamsCombination(t *testing.T) {
+	cfg, err := ParseDSN("u:p@ws([2001:db8::1]:6041,127.0.0.1:6042)/db?interpolateParams=false&token=tk1&enableCompression=true&readTimeout=2s&writeTimeout=3s&timezone=Asia%2FShanghai&bearerToken=b1&totpCode=123456&region=cn-north-1&charset=UTF-8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Addr != "2001:db8::1" || cfg.Port != 6041 {
+		t.Fatalf("unexpected primary endpoint fields: addr=%s port=%d", cfg.Addr, cfg.Port)
+	}
+	if cfg.InterpolateParams {
+		t.Fatal("expect interpolate params false")
+	}
+	if !cfg.EnableCompression {
+		t.Fatal("expect enableCompression true")
+	}
+	if cfg.ReadTimeout != 2*time.Second || cfg.WriteTimeout != 3*time.Second {
+		t.Fatalf("unexpected timeouts: read=%v write=%v", cfg.ReadTimeout, cfg.WriteTimeout)
+	}
+	if cfg.Timezone == nil || cfg.Timezone.String() != "Asia/Shanghai" {
+		t.Fatalf("unexpected timezone: %+v", cfg.Timezone)
+	}
+	if cfg.BearerToken != "b1" || cfg.TotpCode != "123456" || cfg.Token != "tk1" {
+		t.Fatalf("unexpected token fields: token=%s bearer=%s totp=%s", cfg.Token, cfg.BearerToken, cfg.TotpCode)
+	}
+	wantParams := map[string]string{
+		"region":  "cn-north-1",
+		"charset": "UTF-8",
+	}
+	if !reflect.DeepEqual(wantParams, cfg.Params) {
+		t.Fatalf("want params %v, got %v", wantParams, cfg.Params)
+	}
+	wantEndpoints := []string{
+		"ws://[2001:db8::1]:6041?token=tk1",
+		"ws://127.0.0.1:6042?token=tk1",
+	}
+	if !reflect.DeepEqual(wantEndpoints, cfg.Endpoints) {
+		t.Fatalf("want endpoints %v, got %v", wantEndpoints, cfg.Endpoints)
+	}
+}
+
+// TestNewConfigFromDSNMultiAddrListIPv6Failover verifies normalized endpoints for IPv6 multi-node DSN.
+func TestNewConfigFromDSNMultiAddrListIPv6Failover(t *testing.T) {
+	cfg, err := NewConfigFromDSN("user:passwd@wss([2001:db8::1]:6041,[2001:db8::2]:6042)/db?token=tk1", "/ws/v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"wss://[2001:db8::1]:6041/ws/v1?token=tk1",
+		"wss://[2001:db8::2]:6042/ws/v1?token=tk1",
+	}
+	if !reflect.DeepEqual(want, cfg.Endpoints) {
+		t.Fatalf("want %v, got %v", want, cfg.Endpoints)
+	}
+}
+
 // TestTryUnescape verifies the expected behavior for this scenario.
 func TestTryUnescape(t *testing.T) {
 	if got := tryUnescape("%3F"); got != "?" {

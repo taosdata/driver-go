@@ -1004,12 +1004,18 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		return err
 	}
 	for i := 0; i < 10; i++ {
+		if !isProcessAlive(cmd) {
+			return errors.New("taosadapter exited before ready")
+		}
 		time.Sleep(time.Millisecond * 100)
 		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/-/ping", port))
 		if err != nil {
 			continue
 		}
 		_ = resp.Body.Close()
+		if !isProcessAlive(cmd) {
+			return errors.New("taosadapter exited before ready")
+		}
 		time.Sleep(time.Second)
 		return nil
 	}
@@ -1019,6 +1025,16 @@ func startTaosadapter(cmd *exec.Cmd, port string) error {
 		cmd.Process = nil
 	}
 	return errors.New("taosadapter start failed")
+}
+
+func isProcessAlive(cmd *exec.Cmd) bool {
+	if cmd == nil || cmd.Process == nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return cmd.ProcessState == nil
+	}
+	return cmd.Process.Signal(syscall.Signal(0)) == nil
 }
 
 func stopTaosadapter(cmd *exec.Cmd) {
@@ -1038,6 +1054,28 @@ func getAvailablePort(t *testing.T) string {
 		_ = listener.Close()
 	}()
 	return strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+}
+
+func startTaosadapterOnFreePort(t *testing.T) (string, *exec.Cmd) {
+	t.Helper()
+	var lastErr error
+	for i := 0; i < 8; i++ {
+		port := getAvailablePort(t)
+		cmd := newTaosadapter(port)
+		err := startTaosadapter(cmd, port)
+		if err == nil {
+			return port, cmd
+		}
+		lastErr = err
+		if cmd.Process != nil {
+			_ = cmd.Process.Signal(syscall.SIGINT)
+			_, _ = cmd.Process.Wait()
+			cmd.Process = nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	require.NoError(t, lastErr)
+	return "", nil
 }
 
 func prepareSubReconnectEnv() error {
@@ -1086,10 +1124,8 @@ func doClean(steps []string) error {
 }
 
 func TestSubscribeReconnect(t *testing.T) {
-	port := getAvailablePort(t)
-	cmd := newTaosadapter(port)
-	err := startTaosadapter(cmd, port)
-	assert.NoError(t, err)
+	port, cmd := startTaosadapterOnFreePort(t)
+	var err error
 	defer func() {
 		stopTaosadapter(cmd)
 	}()

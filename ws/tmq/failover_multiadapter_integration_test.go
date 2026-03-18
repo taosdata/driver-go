@@ -70,9 +70,7 @@ func startTMQAdapters(t *testing.T, n int) ([]string, map[string]*exec.Cmd) {
 	ports := make([]string, 0, n)
 	running := make(map[string]*exec.Cmd, n)
 	for i := 0; i < n; i++ {
-		port := getAvailablePort(t)
-		cmd := newTaosadapter(port)
-		require.NoError(t, startTaosadapter(cmd, port))
+		port, cmd := startTaosadapterOnFreePort(t)
 		ports = append(ports, port)
 		running[port] = cmd
 	}

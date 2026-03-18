@@ -147,3 +147,85 @@ func TestStmtCompatStateMergeSameTableAcrossSetRawBindDataCalls(t *testing.T) {
 		t.Fatalf("expect merged row count 2, got %+v", data[0].Cols)
 	}
 }
+
+// TestStmtCompatStateSetRawBindDataInsertErrorDoesNotMutateExistingState verifies atomic behavior.
+func TestStmtCompatStateSetRawBindDataInsertErrorDoesNotMutateExistingState(t *testing.T) {
+	state := newStmtCompatState()
+	err := state.setRawBindData([]*commonstmt.TaosStmt2BindData{
+		{
+			TableName: "tb",
+			Cols:      [][]driver.Value{{int32(1)}, {int32(10)}},
+		},
+	}, true)
+	if err != nil {
+		t.Fatalf("unexpected set raw bind data error: %v", err)
+	}
+
+	err = state.setRawBindData([]*commonstmt.TaosStmt2BindData{
+		{
+			TableName: "tb",
+			Cols:      [][]driver.Value{{int32(2)}},
+		},
+	}, true)
+	if err == nil {
+		t.Fatal("expect col count mismatch error")
+	}
+
+	data := state.bindData(true)
+	if len(data) != 1 {
+		t.Fatalf("expect existing single table batch preserved, got %d", len(data))
+	}
+	if len(data[0].Cols) != 2 {
+		t.Fatalf("expect 2 columns preserved, got %d", len(data[0].Cols))
+	}
+	if len(data[0].Cols[0]) != 1 || len(data[0].Cols[1]) != 1 {
+		t.Fatalf("expect 1 row preserved, got %+v", data[0].Cols)
+	}
+	if got, ok := data[0].Cols[0][0].(int32); !ok || got != int32(1) {
+		t.Fatalf("unexpected preserved col0 value: %v", data[0].Cols[0][0])
+	}
+	if got, ok := data[0].Cols[1][0].(int32); !ok || got != int32(10) {
+		t.Fatalf("unexpected preserved col1 value: %v", data[0].Cols[1][0])
+	}
+}
+
+// TestStmtCompatStateSetRawBindDataQueryRejectsRebindBeforeExec verifies query bind lifecycle.
+func TestStmtCompatStateSetRawBindDataQueryRejectsRebindBeforeExec(t *testing.T) {
+	state := newStmtCompatState()
+	err := state.setRawBindData([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{{int32(1)}},
+		},
+	}, false)
+	if err != nil {
+		t.Fatalf("unexpected set raw bind data error: %v", err)
+	}
+
+	err = state.setRawBindData([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{{int32(2)}},
+		},
+	}, false)
+	if err == nil {
+		t.Fatal("expect query rebind before exec error")
+	}
+	if err != ErrStmtQueryRebindBeforeExec {
+		t.Fatalf("unexpected query rebind error: %v", err)
+	}
+	if state.Query == nil || len(state.Query.Cols) != 1 || len(state.Query.Cols[0]) != 1 {
+		t.Fatalf("expect first query bind preserved, got %+v", state.Query)
+	}
+	if got, ok := state.Query.Cols[0][0].(int32); !ok || got != int32(1) {
+		t.Fatalf("unexpected preserved query bind value: %v", state.Query.Cols[0][0])
+	}
+
+	state.reset()
+	err = state.setRawBindData([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{{int32(3)}},
+		},
+	}, false)
+	if err != nil {
+		t.Fatalf("unexpected set raw bind data after reset error: %v", err)
+	}
+}

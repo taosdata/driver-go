@@ -2,6 +2,9 @@ package unified
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,7 +58,7 @@ func TestWrapRequestErrorKeepsErrorIs(t *testing.T) {
 	wrapped := wrapRequestError(client.ClosedError, "action=ping")
 	require.Error(t, wrapped)
 	require.True(t, errors.Is(wrapped, client.ClosedError))
-	require.Contains(t, wrapped.Error(), "action=ping")
+	require.Contains(t, wrapped.Error(), "request=action=ping")
 }
 
 // TestWrapRequestErrorSummaryFuncLazy verifies summary function is evaluated only when needed.
@@ -72,5 +75,36 @@ func TestWrapRequestErrorSummaryFuncLazy(t *testing.T) {
 	wrapped := wrapRequestErrorWithSummaryFunc(client.ClosedError, summaryFunc)
 	require.Error(t, wrapped)
 	require.Equal(t, 1, called)
-	require.Contains(t, wrapped.Error(), "action=query")
+	require.Contains(t, wrapped.Error(), "request=action=query")
+}
+
+// TestWrapRequestErrorPreservesNonUnifiedCause verifies non-unified causes remain discoverable via errors.Is.
+func TestWrapRequestErrorPreservesNonUnifiedCause(t *testing.T) {
+	wrapped := wrapRequestError(io.ErrClosedPipe, "action=query")
+	require.Error(t, wrapped)
+	require.True(t, errors.Is(wrapped, io.ErrClosedPipe))
+}
+
+// TestWrapRequestErrorPreservesUnifiedMetadata verifies helper metadata survives wrapping with request summary.
+func TestWrapRequestErrorPreservesUnifiedMetadata(t *testing.T) {
+	cause := &Error{
+		Type:              ErrorTypeMessageTimeout,
+		Message:           "query message timeout",
+		ConnectionRelated: true,
+	}
+	wrappedCause := fmt.Errorf("send failed: %w", cause)
+	wrapped := wrapRequestErrorWithSummaryFunc(wrappedCause, fixedSummaryFunc("action=query req_id=10"))
+	require.Error(t, wrapped)
+	require.True(t, IsErrorType(wrapped, ErrorTypeMessageTimeout))
+	require.True(t, IsConnectionRelatedError(wrapped))
+	require.True(t, errors.Is(wrapped, cause))
+	require.Contains(t, wrapped.Error(), "query message timeout")
+	require.Contains(t, wrapped.Error(), "request=action=query req_id=10")
+}
+
+// TestWrapRequestErrorDoesNotDuplicateRequestSummary verifies repeated wrapping does not append duplicate summary text.
+func TestWrapRequestErrorDoesNotDuplicateRequestSummary(t *testing.T) {
+	first := wrapRequestError(io.ErrClosedPipe, "action=query")
+	second := wrapRequestError(first, "action=query")
+	require.Equal(t, 1, strings.Count(second.Error(), "request=action=query"))
 }

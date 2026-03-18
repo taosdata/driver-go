@@ -172,3 +172,98 @@ func TestUnifiedIntegrationStmt_AllTypesThreeRows(t *testing.T) {
 	requireValueEqual(t, row3[16], geo)
 	requireValueEqual(t, row3[17], "87.6500")
 }
+
+func TestUnifiedIntegrationStmt_MultiBindCrossTableTagFirstWins(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skip integration test in short mode")
+	}
+
+	client := openUnifiedIntegrationClient(t)
+	t.Cleanup(func() { client.Close() })
+
+	dbName := fmt.Sprintf("unified_it_stmt_bind_merge_%d", time.Now().UnixNano())
+	stableName := "st_bind_merge"
+
+	_, err := client.Exec(0, fmt.Sprintf("create database if not exists %s", dbName))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = client.Exec(0, fmt.Sprintf("drop database if exists %s", dbName))
+	})
+
+	_, err = client.Exec(0, fmt.Sprintf("use %s", dbName))
+	require.NoError(t, err)
+	_, err = client.Exec(0, fmt.Sprintf("create table if not exists %s(ts timestamp, c1 int) tags(tg int)", stableName))
+	require.NoError(t, err)
+
+	insertSQL := fmt.Sprintf("insert into ? using %s tags(?) values(?,?)", stableName)
+	insertStmt, err := client.InitStmt(0)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = insertStmt.Close(0) })
+	require.NoError(t, insertStmt.Prepare(0, insertSQL))
+
+	ts1 := time.Unix(1723333333, 111000000).UTC().Round(time.Millisecond)
+	ts2 := ts1.Add(time.Second)
+	ts3 := ts1.Add(2 * time.Second)
+
+	require.NoError(t, insertStmt.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			TableName: "tb1",
+			Tags:      []driver.Value{int32(1)},
+			Cols: [][]driver.Value{
+				{ts1},
+				{nil},
+			},
+		},
+	}))
+	require.NoError(t, insertStmt.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			TableName: "tb2",
+			Tags:      []driver.Value{int32(2)},
+			Cols: [][]driver.Value{
+				{ts2},
+				{int32(11)},
+			},
+		},
+	}))
+	require.NoError(t, insertStmt.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			TableName: "tb1",
+			Tags:      []driver.Value{int32(2)},
+			Cols: [][]driver.Value{
+				{ts3},
+				{int32(22)},
+			},
+		},
+	}))
+
+	affected, err := insertStmt.Exec(0)
+	require.NoError(t, err)
+	require.Equal(t, 3, affected)
+
+	rows, err := client.Query(0, fmt.Sprintf("select tbname,tg,ts,c1 from %s order by tbname,ts", stableName))
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	t.Cleanup(func() { _ = rows.Close() })
+
+	allRows := readAllResultRows(t, rows, 4)
+	require.Len(t, allRows, 3)
+
+	// tb1 keeps the first tag (1), while c1 values come from all binds in order.
+	row1 := allRows[0]
+	requireValueEqual(t, row1[0], "tb1")
+	requireValueEqual(t, row1[1], int32(1))
+	requireTimeEqual(t, row1[2], ts1)
+	require.Nil(t, row1[3])
+
+	row2 := allRows[1]
+	requireValueEqual(t, row2[0], "tb1")
+	requireValueEqual(t, row2[1], int32(1))
+	requireTimeEqual(t, row2[2], ts3)
+	requireValueEqual(t, row2[3], int32(22))
+
+	row3 := allRows[2]
+	requireValueEqual(t, row3[0], "tb2")
+	requireValueEqual(t, row3[1], int32(2))
+	requireTimeEqual(t, row3[2], ts2)
+	requireValueEqual(t, row3[3], int32(11))
+}

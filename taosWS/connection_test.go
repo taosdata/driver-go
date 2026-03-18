@@ -16,7 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	taosErrors "github.com/taosdata/driver-go/v3/errors"
 	wsClient "github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/unified"
 )
@@ -72,11 +74,58 @@ func TestMapUnifiedConnError(t *testing.T) {
 		assert.ErrorIs(t, err, driver.ErrBadConn)
 	})
 
+	t.Run("net closed", func(t *testing.T) {
+		err := mapUnifiedConnError(net.ErrClosed)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, driver.ErrBadConn)
+	})
+
+	t.Run("websocket close", func(t *testing.T) {
+		err := mapUnifiedConnError(&websocket.CloseError{Code: websocket.CloseAbnormalClosure, Text: "closed"})
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, driver.ErrBadConn)
+	})
+
 	t.Run("unified closed", func(t *testing.T) {
 		err := mapUnifiedConnError(unified.ErrUnifiedClosed)
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, driver.ErrBadConn)
 	})
+}
+
+func TestIsNetOrWebsocketError(t *testing.T) {
+	assert.True(t, isNetOrWebsocketError(&net.OpError{Op: "read"}))
+	assert.True(t, isNetOrWebsocketError(&websocket.CloseError{Code: websocket.CloseNormalClosure, Text: "bye"}))
+	assert.False(t, isNetOrWebsocketError(errors.New("plain")))
+}
+
+func TestIllegalSQLReturnsDriverErrorType(t *testing.T) {
+	cfg, err := ParseDSN(dataSourceName)
+	if err != nil {
+		t.Fatalf("ParseDSN error: %v", err)
+	}
+	cfg.ReadTimeout = 10 * time.Second
+	cfg.WriteTimeout = 10 * time.Second
+	rawConn, err := (&connector{cfg: cfg}).Connect(context.Background())
+	if err != nil {
+		t.Fatalf("connector connect error: %v", err)
+	}
+	conn, ok := rawConn.(*taosConn)
+	if !ok {
+		t.Fatalf("unexpected connection type: %T", rawConn)
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	_, err = conn.ExecContext(context.Background(), "xxxxxxx inot", nil)
+	if assert.Error(t, err) {
+		var terr *taosErrors.TaosError
+		assert.ErrorAs(t, err, &terr)
+		var unifiedErr *unified.Error
+		assert.False(t, errors.As(err, &unifiedErr))
+		assert.NotErrorIs(t, err, driver.ErrBadConn)
+	}
 }
 
 func TestBegin(t *testing.T) {

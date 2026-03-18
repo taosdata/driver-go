@@ -113,6 +113,39 @@ func TestStmtBindWithStmt2BindDataRejectsQueryTableNameOrTags(t *testing.T) {
 	assert.Contains(t, err.Error(), "query statement does not support tags")
 }
 
+// TestStmtBindWithStmt2BindDataQueryRejectsRebindBeforeExec verifies the expected behavior for this scenario.
+func TestStmtBindWithStmt2BindDataQueryRejectsRebindBeforeExec(t *testing.T) {
+	s := &Stmt{
+		sql:         "select * from t where v > ?",
+		isInsert:    false,
+		fieldsCount: 1,
+		state:       newStmtCompatState(),
+	}
+
+	err := s.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{{int32(1)}},
+		},
+	})
+	require.NoError(t, err)
+
+	err = s.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{{int32(2)}},
+		},
+	})
+	require.ErrorIs(t, err, ErrStmtQueryRebindBeforeExec)
+
+	// Simulate post-exec cleanup: after reset, query bind is allowed again.
+	s.state.reset()
+	err = s.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{{int32(3)}},
+		},
+	})
+	require.NoError(t, err)
+}
+
 // TestStmtBindWithStmt2BindDataAppendsAcrossCalls verifies the expected behavior for this scenario.
 func TestStmtBindWithStmt2BindDataAppendsAcrossCalls(t *testing.T) {
 	s := &Stmt{

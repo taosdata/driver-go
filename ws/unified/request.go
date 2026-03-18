@@ -3,7 +3,6 @@ package unified
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -190,7 +189,7 @@ func wrapRequestErrorWithSummaryFunc(err error, requestSummaryFunc func() string
 	if requestSummary == "" {
 		return err
 	}
-	return fmt.Errorf("%w; request=%s", err, requestSummary)
+	return attachRequestSummary(err, requestSummary)
 }
 
 func fixedSummaryFunc(summary string) func() string {
