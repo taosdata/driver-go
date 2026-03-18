@@ -102,7 +102,9 @@ func (r *ResultSet) freeResult(reqID int64) error {
 		return err
 	}
 
-	err = r.client.sendEnvelopeNoResponse(r.runtime, envelope)
+	err = r.client.sendEnvelopeNoResponseWithSummaryFunc(r.runtime, envelope, func() string {
+		return buildTextRequestSummary(proto.WSFreeResult, uint64(reqID), args)
+	})
 	return normalizeDisconnectedError(err, ErrQueryResultConnectionLost.Message)
 }
 
@@ -128,7 +130,9 @@ func (r *ResultSet) fetchRawBlock(reqID int64) ([]byte, bool, error) {
 	envelope.Msg.Reset()
 	_, _ = envelope.Msg.Write(payload)
 
-	respBytes, _, _, err := r.client.sendEnvelopeWithRuntime(r.runtime, uint64(reqID), envelope, r.client.config.ReadTimeout, ErrQueryMessageTimeout)
+	respBytes, _, _, err := r.client.sendEnvelopeWithRuntimeWithSummaryFunc(r.runtime, uint64(reqID), envelope, r.client.config.ReadTimeout, ErrQueryMessageTimeout, func() string {
+		return buildFetchRawBlockRequestSummary(uint64(reqID), r.resultID)
+	})
 	if err != nil {
 		return nil, false, normalizeDisconnectedError(err, ErrQueryResultConnectionLost.Message)
 	}

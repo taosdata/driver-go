@@ -32,6 +32,8 @@ This document describes the current websocket architecture and the intended dire
 4. Send envelope via client send queue.
 5. Wait on response channel, close signal, client done, or timeout.
 6. On close/network error with auto-reconnect enabled, reconnect and retry once.
+7. On request failure, append a sanitized request summary to error context.
+8. Request summary generation is lazy and runs only on failure paths.
 
 ## Reconnect Flow (schemaless/tmq)
 

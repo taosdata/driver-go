@@ -1,7 +1,6 @@
 package unified
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -22,6 +21,7 @@ func TestNewClientNormalizesEndpoints(t *testing.T) {
 
 // TestClientConnectFailoverToNextEndpoint verifies the expected behavior for this scenario.
 func TestClientConnectFailoverToNextEndpoint(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
 	cfg := NewConfig([]string{"ws://a:1", "ws://b:2"})
 	attempts := make([]string, 0, 2)
 	c, err := NewClient(cfg, "/ws",
@@ -39,39 +39,32 @@ func TestClientConnectFailoverToNextEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Close()
 	err = c.connectWithBootstrap(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// InitialCandidates uses random start, so we need to check both possible orders
-	// Either it starts with a:1 and fails over to b:2, or starts with b:2 and succeeds
-	validOrders := [][]string{
-		{"ws://a:1/ws", "ws://b:2/ws"}, // Started with a:1, failed, tried b:2
-		{"ws://b:2/ws"},                // Started with b:2, succeeded immediately
+	wantAttempts := []string{"ws://a:1/ws", "ws://b:2/ws"}
+	if len(attempts) != len(wantAttempts) {
+		t.Fatalf("unexpected attempt order: %v, want %v", attempts, wantAttempts)
 	}
-
-	validOrder := false
-	for _, order := range validOrders {
-		if reflect.DeepEqual(order, attempts) {
-			validOrder = true
-			break
+	for i := 0; i < len(wantAttempts); i++ {
+		if attempts[i] != wantAttempts[i] {
+			t.Fatalf("unexpected attempt order: %v, want %v", attempts, wantAttempts)
 		}
 	}
 
-	if !validOrder {
-		t.Fatalf("unexpected attempt order: %v (expected one of %v)", attempts, validOrders)
-	}
-
-	// Active endpoint should be b:2 regardless of order
-	active := c.failover.Active()
+	// Active endpoint should be b:2 after failover from a:1.
+	active := c.failover.active()
 	if active.Index != 1 || active.URL != "ws://b:2/ws" {
 		t.Fatalf("unexpected active endpoint: %+v", active)
 	}
 }
 
-// TestClientReconnectStartsFromNextEndpoint verifies the expected behavior for this scenario.
-func TestClientReconnectStartsFromNextEndpoint(t *testing.T) {
+// TestClientReconnectChoosesLeastConnectionEndpoint verifies the expected behavior for this scenario.
+func TestClientReconnectChoosesLeastConnectionEndpoint(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
 	cfg := NewConfig([]string{"ws://a:1", "ws://b:2", "ws://c:3"})
 	attempts := make([]string, 0, 4)
 	c, err := NewClient(cfg, "/ws",
@@ -86,12 +79,13 @@ func TestClientReconnectStartsFromNextEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Close()
 	if err = c.connectWithBootstrap(nil); err != nil {
 		t.Fatal(err)
 	}
 
 	// Get the active endpoint after first connect
-	active := c.failover.Active()
+	active := c.failover.active()
 	firstConnectEndpoint := active.URL
 
 	if err = c.reconnectWithBootstrap(nil, nil); err != nil {
@@ -102,20 +96,62 @@ func TestClientReconnectStartsFromNextEndpoint(t *testing.T) {
 		t.Fatalf("unexpected attempts: %v", attempts)
 	}
 
-	// First connect should match the active endpoint
+	// First connect should match the active endpoint.
 	if attempts[0] != firstConnectEndpoint {
 		t.Fatalf("first connect endpoint %s doesn't match active %s", attempts[0], firstConnectEndpoint)
 	}
 
-	// Reconnect should start from next endpoint (not the same as first)
-	if attempts[1] == firstConnectEndpoint {
-		t.Fatalf("reconnect should not start from same endpoint as first connect: %s", attempts[1])
+	// Reconnect should choose least-connection endpoint among non-active candidates.
+	if attempts[1] != "ws://b:2/ws" {
+		t.Fatalf("unexpected reconnect endpoint: %s", attempts[1])
 	}
 
-	// Active endpoint should have changed after reconnect
-	activeAfterReconnect := c.failover.Active()
-	if activeAfterReconnect.URL == firstConnectEndpoint {
-		t.Fatalf("active endpoint should change after reconnect, but still: %s", activeAfterReconnect.URL)
+	// Active endpoint should have changed after reconnect.
+	activeAfterReconnect := c.failover.active()
+	if activeAfterReconnect.URL != "ws://b:2/ws" {
+		t.Fatalf("active endpoint should be ws://b:2/ws after reconnect, got: %s", activeAfterReconnect.URL)
+	}
+}
+
+// TestClientHostPortConnectionCountLifecycle verifies the expected behavior for this scenario.
+func TestClientHostPortConnectionCountLifecycle(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
+	cfg := NewConfig([]string{"ws://a:1", "ws://b:2"})
+	c, err := NewClient(cfg, "/ws",
+		WithDialFunc(func(endpoint string) (*websocket.Conn, error) {
+			return nil, nil
+		}),
+		WithClientFactory(func(_ *websocket.Conn, chanLength uint) *client.Client {
+			return client.NewClient(nil, chanLength)
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = c.connectWithBootstrap(nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := endpointConnCountForTest(t, "ws://a:1/ws"); got != 1 {
+		t.Fatalf("unexpected a:1 count after first connect, got %d", got)
+	}
+	if got := endpointConnCountForTest(t, "ws://b:2/ws"); got != 0 {
+		t.Fatalf("unexpected b:2 count after first connect, got %d", got)
+	}
+
+	if err = c.reconnectWithBootstrap(nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := endpointConnCountForTest(t, "ws://a:1/ws"); got != 0 {
+		t.Fatalf("unexpected a:1 count after reconnect, got %d", got)
+	}
+	if got := endpointConnCountForTest(t, "ws://b:2/ws"); got != 1 {
+		t.Fatalf("unexpected b:2 count after reconnect, got %d", got)
+	}
+
+	c.Close()
+	if got := endpointConnCountForTest(t, "ws://b:2/ws"); got != 0 {
+		t.Fatalf("unexpected b:2 count after close, got %d", got)
 	}
 }
 

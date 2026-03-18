@@ -1,9 +1,13 @@
 package unified
 
 import (
-	"math/rand"
+	"net"
+	"net/url"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
-	"time"
+	"sync/atomic"
 )
 
 type endpointCandidate struct {
@@ -11,12 +15,102 @@ type endpointCandidate struct {
 	URL   string
 }
 
+type hostPortConnectionCounter struct {
+	lock   sync.RWMutex
+	counts map[string]*int64
+}
+
+func newHostPortConnectionCounter() *hostPortConnectionCounter {
+	return &hostPortConnectionCounter{
+		counts: make(map[string]*int64),
+	}
+}
+
+func (c *hostPortConnectionCounter) getOrCreate(key string) *int64 {
+	c.lock.RLock()
+	ptr, ok := c.counts[key]
+	c.lock.RUnlock()
+	if ok {
+		return ptr
+	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	ptr, ok = c.counts[key]
+	if ok {
+		return ptr
+	}
+	ptr = new(int64)
+	c.counts[key] = ptr
+	return ptr
+}
+
+func (c *hostPortConnectionCounter) inc(key string) int64 {
+	ptr := c.getOrCreate(key)
+	return atomic.AddInt64(ptr, 1)
+}
+
+func (c *hostPortConnectionCounter) dec(key string) int64 {
+	ptr := c.getOrCreate(key)
+	for {
+		current := atomic.LoadInt64(ptr)
+		if current <= 0 {
+			return 0
+		}
+		next := current - 1
+		if atomic.CompareAndSwapInt64(ptr, current, next) {
+			return next
+		}
+	}
+}
+
+func (c *hostPortConnectionCounter) get(key string) int64 {
+	c.lock.RLock()
+	ptr, ok := c.counts[key]
+	c.lock.RUnlock()
+	if !ok {
+		return 0
+	}
+	return atomic.LoadInt64(ptr)
+}
+
+func (c *hostPortConnectionCounter) reset() {
+	c.lock.Lock()
+	c.counts = make(map[string]*int64)
+	c.lock.Unlock()
+}
+
+var globalHostPortConnCounts = newHostPortConnectionCounter()
+
+func endpointHostPortKey(endpointURL string) (string, error) {
+	u, err := url.Parse(endpointURL)
+	if err != nil || u.Host == "" {
+		return "", newInvalidConfigErrorf("invalid websocket endpoint: %s", endpointURL)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "ws" && scheme != "wss" {
+		return "", newInvalidConfigErrorf("invalid websocket endpoint scheme: %s", endpointURL)
+	}
+	host := u.Hostname()
+	if host == "" {
+		return "", newInvalidConfigErrorf("invalid websocket endpoint: %s", endpointURL)
+	}
+	port := u.Port()
+	if port == "" {
+		if scheme == "wss" {
+			port = strconv.Itoa(443)
+		} else {
+			port = strconv.Itoa(80)
+		}
+	}
+	return net.JoinHostPort(host, port), nil
+}
+
 // failoverState stores active endpoint and candidate order for initial connect/reconnect.
 type failoverState struct {
-	endpoints   []string
-	activeIndex int
-	rng         *rand.Rand
-	lock        sync.RWMutex
+	endpoints         []string
+	endpointHostPorts []string
+	activeIndex       int
+	lock              sync.RWMutex
 }
 
 // newFailoverState initializes failover state with a copied endpoint list.
@@ -26,15 +120,23 @@ func newFailoverState(endpoints []string) (*failoverState, error) {
 	}
 	copyEndpoints := make([]string, len(endpoints))
 	copy(copyEndpoints, endpoints)
+	hostPorts := make([]string, len(copyEndpoints))
+	for i := 0; i < len(copyEndpoints); i++ {
+		hostPort, err := endpointHostPortKey(copyEndpoints[i])
+		if err != nil {
+			return nil, err
+		}
+		hostPorts[i] = hostPort
+	}
 	return &failoverState{
-		endpoints:   copyEndpoints,
-		activeIndex: 0,
-		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		endpoints:         copyEndpoints,
+		endpointHostPorts: hostPorts,
+		activeIndex:       0,
 	}, nil
 }
 
-// Endpoints returns a copy of configured endpoints.
-func (s *failoverState) Endpoints() []string {
+// endpointsCopy returns a copy of configured endpoints.
+func (s *failoverState) endpointsCopy() []string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	out := make([]string, len(s.endpoints))
@@ -42,8 +144,8 @@ func (s *failoverState) Endpoints() []string {
 	return out
 }
 
-// Active returns the currently selected endpoint candidate.
-func (s *failoverState) Active() endpointCandidate {
+// active returns the currently selected endpoint candidate.
+func (s *failoverState) active() endpointCandidate {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return endpointCandidate{
@@ -52,8 +154,17 @@ func (s *failoverState) Active() endpointCandidate {
 	}
 }
 
-// MarkActive updates the active endpoint index.
-func (s *failoverState) MarkActive(index int) error {
+func (s *failoverState) hostPortByIndex(index int) (string, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if index < 0 || index >= len(s.endpointHostPorts) {
+		return "", ErrInvalidEndpointIndex
+	}
+	return s.endpointHostPorts[index], nil
+}
+
+// markActive updates the active endpoint index.
+func (s *failoverState) markActive(index int) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if index < 0 || index >= len(s.endpoints) {
@@ -63,28 +174,49 @@ func (s *failoverState) MarkActive(index int) error {
 	return nil
 }
 
-// InitialCandidates returns endpoints from random start index for initial connection attempt.
-func (s *failoverState) InitialCandidates() []endpointCandidate {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	startIndex := s.rng.Intn(len(s.endpoints))
-	return s.orderedCandidatesFrom(startIndex)
-}
-
-// ReconnectCandidates returns endpoints starting from next index after active endpoint.
-func (s *failoverState) ReconnectCandidates() []endpointCandidate {
+// initialCandidates returns endpoints ordered by global least-connections.
+func (s *failoverState) initialCandidates() []endpointCandidate {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	start := (s.activeIndex + 1) % len(s.endpoints)
-	return s.orderedCandidatesFrom(start)
+	return s.leastConnectionCandidatesLocked(-1)
 }
 
-// orderedCandidatesFrom returns all endpoints in round-robin order from start.
-func (s *failoverState) orderedCandidatesFrom(start int) []endpointCandidate {
+// reconnectCandidates returns endpoints ordered by least-connections, with active endpoint as last fallback.
+func (s *failoverState) reconnectCandidates() []endpointCandidate {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.leastConnectionCandidatesLocked(s.activeIndex)
+}
+
+// leastConnectionCandidatesLocked returns all endpoints sorted by host:port connection count.
+// activeLastIndex, when >= 0, is moved to the end regardless of count.
+func (s *failoverState) leastConnectionCandidatesLocked(activeLastIndex int) []endpointCandidate {
 	size := len(s.endpoints)
+	counts := make([]int64, size)
+	indices := make([]int, size)
+	for i := 0; i < size; i++ {
+		indices[i] = i
+		counts[i] = globalHostPortConnCounts.get(s.endpointHostPorts[i])
+	}
+	sort.SliceStable(indices, func(i, j int) bool {
+		left := indices[i]
+		right := indices[j]
+		if activeLastIndex >= 0 {
+			if left == activeLastIndex && right != activeLastIndex {
+				return false
+			}
+			if right == activeLastIndex && left != activeLastIndex {
+				return true
+			}
+		}
+		if counts[left] != counts[right] {
+			return counts[left] < counts[right]
+		}
+		return left < right
+	})
 	candidates := make([]endpointCandidate, 0, size)
 	for i := 0; i < size; i++ {
-		idx := (start + i) % size
+		idx := indices[i]
 		candidates = append(candidates, endpointCandidate{
 			Index: idx,
 			URL:   s.endpoints[idx],

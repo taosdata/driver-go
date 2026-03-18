@@ -17,6 +17,6 @@ func (c *Client) Ping() error {
 	envelope.Type = websocket.PingMessage
 	envelope.Msg.Reset()
 
-	err = c.sendEnvelopeNoResponse(runtime, envelope)
+	err = c.sendEnvelopeNoResponseWithSummary(runtime, envelope, "action=ping")
 	return normalizeDisconnectedError(err, "ping connection lost")
 }

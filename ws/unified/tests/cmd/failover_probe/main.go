@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ func touchFile(path string) {
 	if strings.TrimSpace(path) == "" {
 		return
 	}
-	_ = os.WriteFile(path, []byte(time.Now().Format(time.RFC3339Nano)+"\n"), 0644)
+	_ = ioutil.WriteFile(path, []byte(time.Now().Format(time.RFC3339Nano)+"\n"), 0644)
 }
 
 func main() {

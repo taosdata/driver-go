@@ -140,7 +140,7 @@ func (c *Client) dialWithDialer(endpoint string) (*websocket.Conn, error) {
 
 // connectWithBootstrap dials endpoints in initial order and replaces runtime client on success.
 func (c *Client) connectWithBootstrap(bootstrap BootstrapFunc) error {
-	return c.connectWithCandidates(c.failover.InitialCandidates(), bootstrap)
+	return c.connectWithCandidates(c.failover.initialCandidates(), bootstrap)
 }
 
 // reconnectWithBootstrap performs reconnection with concurrent protection.
@@ -187,7 +187,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 	c.reconnectErr = nil
 	c.reconnectLock.Unlock()
 
-	err := c.connectWithCandidatesWithRetry(c.failover.ReconnectCandidates(), bootstrap)
+	err := c.connectWithCandidatesWithRetry(c.failover.reconnectCandidates, bootstrap)
 	if err != nil && !errors.Is(err, ErrUnifiedClosed) && !IsReconnectFailedError(err) {
 		err = &Error{
 			Type:              ErrorTypeReconnectFailed,
@@ -252,7 +252,7 @@ func (c *Client) connectWithCandidates(candidates []endpointCandidate, bootstrap
 }
 
 // connectWithCandidatesWithRetry dials candidates with retry logic based on config.
-func (c *Client) connectWithCandidatesWithRetry(candidates []endpointCandidate, bootstrap BootstrapFunc) error {
+func (c *Client) connectWithCandidatesWithRetry(candidateProvider func() []endpointCandidate, bootstrap BootstrapFunc) error {
 	retryCount := c.config.ReconnectRetryCount
 	if retryCount <= 0 {
 		retryCount = 1
@@ -265,6 +265,7 @@ func (c *Client) connectWithCandidatesWithRetry(candidates []endpointCandidate, 
 		}
 
 		// Try all candidates
+		candidates := candidateProvider()
 		err := c.connectWithCandidates(candidates, bootstrap)
 		if err == nil {
 			return nil
@@ -332,12 +333,30 @@ func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Cl
 		c.lock.Unlock()
 		return nil, ErrNilRuntime
 	}
-	if err := c.failover.MarkActive(endpointIndex); err != nil {
+	oldActive := c.failover.active()
+	newHostPort, err := c.failover.hostPortByIndex(endpointIndex)
+	if err != nil {
 		c.lock.Unlock()
 		return nil, err
 	}
-
+	if err := c.failover.markActive(endpointIndex); err != nil {
+		c.lock.Unlock()
+		return nil, err
+	}
 	oldRuntime := c.runtime
+	oldHostPort, oldHostPortErr := c.failover.hostPortByIndex(oldActive.Index)
+	if oldHostPortErr != nil {
+		c.lock.Unlock()
+		return nil, oldHostPortErr
+	}
+
+	if oldRuntime == nil {
+		globalHostPortConnCounts.inc(newHostPort)
+	} else if oldHostPort != newHostPort {
+		globalHostPortConnCounts.dec(oldHostPort)
+		globalHostPortConnCounts.inc(newHostPort)
+	}
+
 	c.runtime = next
 	c.runtimeGen++ // Increment generation for new runtime
 
@@ -479,6 +498,13 @@ func (c *Client) Close() {
 		c.lock.Unlock()
 		return
 	}
+	var activeHostPort string
+	if c.runtime != nil && c.failover != nil {
+		active := c.failover.active()
+		if hostPort, err := c.failover.hostPortByIndex(active.Index); err == nil {
+			activeHostPort = hostPort
+		}
+	}
 	c.closed = true
 	atomic.StoreUint32(&c.closedFlag, 1)
 	c.connected = false
@@ -487,6 +513,9 @@ func (c *Client) Close() {
 	c.publishRuntimeSnapshotLocked()
 	close(c.closeChan)
 	c.lock.Unlock()
+	if activeHostPort != "" {
+		globalHostPortConnCounts.dec(activeHostPort)
+	}
 	if runtime != nil {
 		runtime.Close()
 	}

@@ -35,8 +35,7 @@ func (c *Client) SchemalessInsert(reqID int64, lines string, protocol int, preci
 	if err != nil {
 		return err
 	}
-
-	respBytes, err := c.sendSchemalessWithReconnect(uint64(reqID), envelope)
+	respBytes, err := c.sendSchemalessWithReconnect(uint64(reqID), envelope, proto.SchemalessWrite, args)
 	if err != nil {
 		return err
 	}
@@ -46,7 +45,7 @@ func (c *Client) SchemalessInsert(reqID int64, lines string, protocol int, preci
 }
 
 // sendSchemalessWithReconnect sends a schemaless message with automatic reconnect on failure.
-func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Envelope) ([]byte, error) {
+func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Envelope, action string, args []byte) ([]byte, error) {
 	runtime, err := c.runtimeOrError()
 	if err != nil {
 		return nil, err
@@ -54,7 +53,7 @@ func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Enve
 
 	envelope.Type = websocket.TextMessage
 	send := func(rt *client.Client) ([]byte, bool, uint64, error) {
-		respBytes, writeAcked, err := c.sendSchemalessWithRuntime(rt, reqID, envelope)
+		respBytes, writeAcked, err := c.sendSchemalessWithRuntime(rt, reqID, envelope, action, args)
 		return respBytes, writeAcked, 0, err
 	}
 	respBytes, _, _, err := c.sendWithReconnect(runtime, send)
@@ -66,7 +65,9 @@ func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Enve
 
 // sendSchemalessWithRuntime sends a schemaless message using the provided runtime client.
 // The boolean return indicates whether websocket write has been acknowledged by WritePump.
-func (c *Client) sendSchemalessWithRuntime(runtime *client.Client, reqID uint64, envelope *client.Envelope) ([]byte, bool, error) {
-	respBytes, writeAcked, _, err := c.sendEnvelopeWithRuntime(runtime, reqID, envelope, c.config.ReadTimeout, ErrSchemalessMessageTimeout)
+func (c *Client) sendSchemalessWithRuntime(runtime *client.Client, reqID uint64, envelope *client.Envelope, action string, args []byte) ([]byte, bool, error) {
+	respBytes, writeAcked, _, err := c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, c.config.ReadTimeout, ErrSchemalessMessageTimeout, func() string {
+		return buildTextRequestSummary(action, reqID, args)
+	})
 	return respBytes, writeAcked, err
 }

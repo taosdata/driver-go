@@ -3,6 +3,8 @@ package unified
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/taosdata/driver-go/v3/common"
@@ -19,8 +21,16 @@ var errNilEnvelope = &Error{
 // Timeout only bounds local waiting for a routed response. It does not cancel an in-flight
 // websocket write already queued in the runtime send path.
 func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, envelope *client.Envelope, timeout time.Duration, timeoutErr error) ([]byte, bool, uint64, error) {
+	return c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, timeout, timeoutErr, nil)
+}
+
+func (c *Client) sendEnvelopeWithRuntimeWithSummary(runtime *client.Client, reqID uint64, envelope *client.Envelope, timeout time.Duration, timeoutErr error, requestSummary string) ([]byte, bool, uint64, error) {
+	return c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, timeout, timeoutErr, fixedSummaryFunc(requestSummary))
+}
+
+func (c *Client) sendEnvelopeWithRuntimeWithSummaryFunc(runtime *client.Client, reqID uint64, envelope *client.Envelope, timeout time.Duration, timeoutErr error, requestSummaryFunc func() string) ([]byte, bool, uint64, error) {
 	if runtime == nil {
-		return nil, false, 0, client.ClosedError
+		return nil, false, 0, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 	}
 	if timeout <= 0 {
 		timeout = c.config.ReadTimeout
@@ -45,7 +55,7 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 	// window before registering pendingReq.
 	if snapshot, ok := c.loadRuntimeSnapshotAtomic(); ok {
 		if snapshot.runtime != runtime {
-			return nil, false, 0, client.ClosedError
+			return nil, false, 0, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 		}
 		runtimeGen = snapshot.generation
 
@@ -53,7 +63,7 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 		currentSnapshot, currentOK := c.loadRuntimeSnapshotAtomic()
 		if !currentOK || currentSnapshot.runtime != runtime || currentSnapshot.generation != runtimeGen {
 			c.pendingLock.Unlock()
-			return nil, false, 0, client.ClosedError
+			return nil, false, 0, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 		}
 		if c.pendingRequests == nil {
 			c.pendingRequests = make(map[uint64]*pendingRequest)
@@ -68,7 +78,7 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 		if c.runtime != runtime {
 			c.pendingLock.Unlock()
 			c.lock.RUnlock()
-			return nil, false, 0, client.ClosedError
+			return nil, false, 0, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 		}
 		runtimeGen = c.runtimeGen
 		if c.pendingRequests == nil {
@@ -85,12 +95,12 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 
 	err := runtime.Send(envelope)
 	if err != nil {
-		return nil, false, runtimeGen, err
+		return nil, false, runtimeGen, wrapRequestErrorWithSummaryFunc(err, requestSummaryFunc)
 	}
 
 	err = <-envelope.ErrorChan
 	if err != nil {
-		return nil, false, runtimeGen, err
+		return nil, false, runtimeGen, wrapRequestErrorWithSummaryFunc(err, requestSummaryFunc)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -100,7 +110,7 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 	case resp := <-respChan:
 		if resp == nil {
 			// nil means connection was lost during runtime swap
-			return nil, true, runtimeGen, client.ClosedError
+			return nil, true, runtimeGen, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 		}
 		return resp, true, runtimeGen, nil
 	case <-runtime.Done():
@@ -108,31 +118,39 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 		select {
 		case resp := <-respChan:
 			if resp == nil {
-				return nil, true, runtimeGen, client.ClosedError
+				return nil, true, runtimeGen, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 			}
 			return resp, true, runtimeGen, nil
 		default:
 		}
-		return nil, true, runtimeGen, client.ClosedError
+		return nil, true, runtimeGen, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 	case <-ctx.Done():
 		// Prefer an already-routed response over timeout if both race.
 		// A timeout here means caller stop-waiting, not guaranteed server-side cancellation.
 		select {
 		case resp := <-respChan:
 			if resp == nil {
-				return nil, true, runtimeGen, client.ClosedError
+				return nil, true, runtimeGen, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 			}
 			return resp, true, runtimeGen, nil
 		default:
 		}
-		return nil, true, runtimeGen, timeoutErr
+		return nil, true, runtimeGen, wrapRequestErrorWithSummaryFunc(timeoutErr, requestSummaryFunc)
 	}
 }
 
 // sendEnvelopeNoResponse sends one request on a specific runtime and only waits for write-ack.
 func (c *Client) sendEnvelopeNoResponse(runtime *client.Client, envelope *client.Envelope) error {
+	return c.sendEnvelopeNoResponseWithSummaryFunc(runtime, envelope, nil)
+}
+
+func (c *Client) sendEnvelopeNoResponseWithSummary(runtime *client.Client, envelope *client.Envelope, requestSummary string) error {
+	return c.sendEnvelopeNoResponseWithSummaryFunc(runtime, envelope, fixedSummaryFunc(requestSummary))
+}
+
+func (c *Client) sendEnvelopeNoResponseWithSummaryFunc(runtime *client.Client, envelope *client.Envelope, requestSummaryFunc func() string) error {
 	if runtime == nil {
-		return client.ClosedError
+		return wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 	}
 	if envelope == nil {
 		return errNilEnvelope
@@ -140,21 +158,48 @@ func (c *Client) sendEnvelopeNoResponse(runtime *client.Client, envelope *client
 
 	if snapshot, ok := c.loadRuntimeSnapshotAtomic(); ok {
 		if snapshot.runtime != runtime {
-			return client.ClosedError
+			return wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 		}
 	} else {
 		c.lock.RLock()
 		runtimeMatched := c.runtime == runtime
 		c.lock.RUnlock()
 		if !runtimeMatched {
-			return client.ClosedError
+			return wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)
 		}
 	}
 
 	if err := runtime.Send(envelope); err != nil {
+		return wrapRequestErrorWithSummaryFunc(err, requestSummaryFunc)
+	}
+	return wrapRequestErrorWithSummaryFunc(<-envelope.ErrorChan, requestSummaryFunc)
+}
+
+func wrapRequestError(err error, requestSummary string) error {
+	return wrapRequestErrorWithSummaryFunc(err, fixedSummaryFunc(requestSummary))
+}
+
+func wrapRequestErrorWithSummaryFunc(err error, requestSummaryFunc func() string) error {
+	if err == nil {
+		return nil
+	}
+	if requestSummaryFunc == nil {
 		return err
 	}
-	return <-envelope.ErrorChan
+	requestSummary := strings.TrimSpace(requestSummaryFunc())
+	if requestSummary == "" {
+		return err
+	}
+	return fmt.Errorf("%w; request=%s", err, requestSummary)
+}
+
+func fixedSummaryFunc(summary string) func() string {
+	if strings.TrimSpace(summary) == "" {
+		return nil
+	}
+	return func() string {
+		return summary
+	}
 }
 
 func writeUint64(buffer *bytes.Buffer, v uint64) {

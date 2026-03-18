@@ -24,6 +24,11 @@ import (
 const taosAuthHeader = "Taosd /KfeAzX/f9na8qdtNZmtONryp201ma04bEl8LcvLUd7a8qdtNZmtONryp201ma04"
 const unifiedCrossTestDB = "test_unified_cross"
 
+const (
+	testDatabaseCleanupRetries  = 100
+	testDatabaseCleanupInterval = 200 * time.Millisecond
+)
+
 // TestUnifiedCrossFailoverDisconnectDetectionAndImmediateReconnect verifies the expected behavior for this scenario.
 func TestUnifiedCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing.T) {
 	if testing.Short() {
@@ -407,14 +412,16 @@ func createTestDatabase(t *testing.T, ports []string) string {
 	t.Helper()
 
 	// Best-effort cleanup for historical fixed-name residue from previous runs.
-	_ = dropDatabaseWithRetry(ports, unifiedCrossTestDB, 3, 100*time.Millisecond)
+	cleanupTMQCrossStaleTopics(ports)
+	_ = dropDatabaseWithRetry(ports, unifiedCrossTestDB, testDatabaseCleanupRetries, testDatabaseCleanupInterval)
 
 	dbName := fmt.Sprintf("%s_%d", unifiedCrossTestDB, time.Now().UnixNano())
-	if err := execSQLOnAnyPort(ports, fmt.Sprintf("create database if not exists %s", dbName)); err != nil {
+	createSQL := fmt.Sprintf("create database if not exists %s vgroups 1 buffer 64 pages 64", dbName)
+	if err := execSQLOnAnyPort(ports, createSQL); err != nil {
 		t.Skipf("failed to create integration database %s: %v", dbName, err)
 	}
 	t.Cleanup(func() {
-		if err := dropDatabaseWithRetry(ports, dbName, 10, 200*time.Millisecond); err != nil {
+		if err := dropDatabaseWithRetry(ports, dbName, testDatabaseCleanupRetries, testDatabaseCleanupInterval); err != nil {
 			t.Logf("cleanup drop database %s failed: %v", dbName, err)
 		}
 	})
@@ -430,6 +437,9 @@ func dropDatabaseWithRetry(ports []string, db string, retries int, interval time
 		lastErr = execSQLOnAnyPort(ports, fmt.Sprintf("drop database if exists %s", db))
 		if lastErr == nil {
 			return nil
+		}
+		if strings.Contains(strings.ToLower(lastErr.Error()), "topic must be dropped first") {
+			cleanupTMQCrossStaleTopics(ports)
 		}
 		if i+1 < retries && interval > 0 {
 			time.Sleep(interval)
@@ -555,7 +565,7 @@ func newIntegrationUnifiedClient(t *testing.T, ports []string, db string) *Clien
 
 func activeAdapterPort(t *testing.T, c *Client) string {
 	t.Helper()
-	active := c.failover.Active().URL
+	active := c.failover.active().URL
 	u, err := url.Parse(active)
 	require.NoError(t, err)
 	_, port, err := net.SplitHostPort(u.Host)

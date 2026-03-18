@@ -130,7 +130,9 @@ func (c *Client) sendQueryWithReconnect(reqID uint64, sql string) ([]byte, *clie
 
 	send := func(rt *client.Client) ([]byte, bool, uint64, error) {
 		buildBinaryQueryRequestToBuffer(envelope.Msg, reqID, sql)
-		return c.sendEnvelopeWithRuntime(rt, reqID, envelope, c.config.ReadTimeout, ErrQueryMessageTimeout)
+		return c.sendEnvelopeWithRuntimeWithSummaryFunc(rt, reqID, envelope, c.config.ReadTimeout, ErrQueryMessageTimeout, func() string {
+			return buildBinaryQueryRequestSummary(reqID, sql)
+		})
 	}
 	return c.sendWithReconnect(runtime, send)
 }

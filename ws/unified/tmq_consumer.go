@@ -381,13 +381,13 @@ var ClosedErr = &Error{
 	ConnectionDisconnected: true,
 }
 
-func (c *TMQConsumer) sendText(reqID uint64, envelope *client.Envelope) ([]byte, error) {
-	resp, _, err := c.sendTextWithClient(reqID, envelope)
+func (c *TMQConsumer) sendText(reqID uint64, envelope *client.Envelope, requestSummaryFunc func() string) ([]byte, error) {
+	resp, _, err := c.sendTextWithClient(reqID, envelope, requestSummaryFunc)
 	return resp, err
 }
 
-func (c *TMQConsumer) sendTextWithReconnect(reqID uint64, envelope *client.Envelope, reconnect bool) ([]byte, error) {
-	respBytes, failedRuntime, err := c.sendTextWithClient(reqID, envelope)
+func (c *TMQConsumer) sendTextWithReconnect(reqID uint64, envelope *client.Envelope, reconnect bool, requestSummaryFunc func() string) ([]byte, error) {
+	respBytes, failedRuntime, err := c.sendTextWithClient(reqID, envelope, requestSummaryFunc)
 	if err == nil {
 		return respBytes, nil
 	}
@@ -400,14 +400,14 @@ func (c *TMQConsumer) sendTextWithReconnect(reqID uint64, envelope *client.Envel
 	if err = c.reconnect(failedRuntime); err != nil {
 		return nil, err
 	}
-	respBytes, _, err = c.sendTextWithClient(reqID, envelope)
+	respBytes, _, err = c.sendTextWithClient(reqID, envelope, requestSummaryFunc)
 	if err != nil {
 		return nil, err
 	}
 	return respBytes, nil
 }
 
-func (c *TMQConsumer) sendTextWithClient(reqID uint64, envelope *client.Envelope) ([]byte, *client.Client, error) {
+func (c *TMQConsumer) sendTextWithClient(reqID uint64, envelope *client.Envelope, requestSummaryFunc func() string) ([]byte, *client.Client, error) {
 	currentRuntime := c.runtime()
 	if currentRuntime == nil {
 		if c.isClosed() {
@@ -416,12 +416,17 @@ func (c *TMQConsumer) sendTextWithClient(reqID uint64, envelope *client.Envelope
 		return nil, nil, client.ClosedError
 	}
 	envelope.Type = websocket.TextMessage
+	if requestSummaryFunc == nil {
+		requestSummaryFunc = func() string {
+			return fmt.Sprintf("tmq message timeout action=unknown req_id=%d", reqID)
+		}
+	}
 	timeoutErr := &Error{
 		Type:              ErrorTypeMessageTimeout,
-		Message:           fmt.Sprintf("message timeout :%s", envelope.Msg.String()),
+		Message:           "tmq message timeout",
 		ConnectionRelated: true,
 	}
-	resp, _, _, err := c.client.sendEnvelopeWithRuntime(currentRuntime, reqID, envelope, c.messageTimeout, timeoutErr)
+	resp, _, _, err := c.client.sendEnvelopeWithRuntimeWithSummaryFunc(currentRuntime, reqID, envelope, c.messageTimeout, timeoutErr, requestSummaryFunc)
 	if err != nil {
 		if c.isClosed() || errors.Is(err, ErrUnifiedClosed) {
 			return nil, currentRuntime, ClosedErr
@@ -439,6 +444,9 @@ func (c *TMQConsumer) sendTextAction(reqID uint64, action string, req interface{
 	if err != nil {
 		return nil, err
 	}
+	requestSummaryFunc := func() string {
+		return buildTMQTimeoutMessage(action, reqID, args)
+	}
 
 	ownsEnvelope := false
 	if envelope == nil {
@@ -455,9 +463,13 @@ func (c *TMQConsumer) sendTextAction(reqID uint64, action string, req interface{
 	}
 
 	if reconnect {
-		return c.sendTextWithReconnect(reqID, envelope, true)
+		return c.sendTextWithReconnect(reqID, envelope, true, requestSummaryFunc)
 	}
-	return c.sendText(reqID, envelope)
+	return c.sendText(reqID, envelope, requestSummaryFunc)
+}
+
+func buildTMQTimeoutMessage(action string, reqID uint64, args []byte) string {
+	return buildRequestTimeoutMessage("tmq", action, reqID, args)
 }
 
 func (c *TMQConsumer) sendTextActionAndDecode(reqID uint64, action string, req interface{}, reconnect bool, envelope *client.Envelope, resp responseWithCodeAndMessage) error {

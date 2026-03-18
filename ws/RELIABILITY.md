@@ -39,6 +39,7 @@ Each case must have test coverage.
 - Reconnect dial retries are exhausted.
 - Reconnect succeeds but post-reconnect subscribe/bootstrap fails.
 - Concurrent reconnect calls from multiple goroutines.
+- Error context includes request summary only with sensitive fields redacted.
 
 ## Acceptance Gate
 

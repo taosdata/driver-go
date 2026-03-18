@@ -238,10 +238,10 @@ func TestUnifiedSmallCoverageEdges(t *testing.T) {
 	t.Run("failover_endpoints_copy", func(t *testing.T) {
 		state, err := newFailoverState([]string{"ws://a", "ws://b"})
 		require.NoError(t, err)
-		endpoints := state.Endpoints()
+		endpoints := state.endpointsCopy()
 		require.Equal(t, []string{"ws://a", "ws://b"}, endpoints)
 		endpoints[0] = "changed"
-		require.Equal(t, "ws://a", state.Endpoints()[0])
+		require.Equal(t, "ws://a", state.endpointsCopy()[0])
 	})
 
 	t.Run("stmt_compat_state_clear_bind_data", func(t *testing.T) {

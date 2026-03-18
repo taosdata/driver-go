@@ -59,6 +59,10 @@ func requireValueEqual(t *testing.T, got driver.Value, want driver.Value) {
 	require.True(t, reflect.DeepEqual(got, want), "value mismatch, want=%#v got=%#v", want, got)
 }
 
+func unixMilli(t time.Time) int64 {
+	return t.UnixNano() / int64(time.Millisecond)
+}
+
 func TestUnifiedIntegrationQuery_AllTypesThreeRows(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
@@ -112,21 +116,21 @@ func TestUnifiedIntegrationQuery_AllTypesThreeRows(t *testing.T) {
 
 	insertSQL1 := fmt.Sprintf(
 		"insert into %s.%s values(%d,true,-1,-2,-3,-4,5,6,7,8,1.5,2.5,'bin_r1','nchar_r1','varb_r1','POINT(100 100)',12.3400)",
-		dbName, tableName, ts1.UnixMilli(),
+		dbName, tableName, unixMilli(ts1),
 	)
 	_, err = client.Exec(0, insertSQL1)
 	require.NoError(t, err)
 
 	insertSQL2 := fmt.Sprintf(
 		"insert into %s.%s values(%d,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)",
-		dbName, tableName, ts2.UnixMilli(),
+		dbName, tableName, unixMilli(ts2),
 	)
 	_, err = client.Exec(0, insertSQL2)
 	require.NoError(t, err)
 
 	insertSQL3 := fmt.Sprintf(
 		"insert into %s.%s values(%d,false,1,2,3,4,15,16,17,18,3.5,4.5,'bin_r3','nchar_r3','varb_r3','POINT(100 100)',98.7600)",
-		dbName, tableName, ts3.UnixMilli(),
+		dbName, tableName, unixMilli(ts3),
 	)
 	_, err = client.Exec(0, insertSQL3)
 	require.NoError(t, err)

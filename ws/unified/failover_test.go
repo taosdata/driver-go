@@ -2,91 +2,141 @@ package unified
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 )
 
 // TestFailoverStateInitialCandidates verifies the expected behavior for this scenario.
 func TestFailoverStateInitialCandidates(t *testing.T) {
-	state, err := newFailoverState([]string{"a", "b", "c"})
+	resetGlobalConnCounterForTest(t)
+	state, err := newFailoverState([]string{"ws://a:1/ws", "ws://b:2/ws", "ws://c:3/ws"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := state.InitialCandidates()
+	addEndpointConnCountForTest(t, "ws://a:1/ws", 2)
+	addEndpointConnCountForTest(t, "ws://b:2/ws", 1)
 
-	// Should return all 3 endpoints
-	if len(got) != 3 {
-		t.Fatalf("want 3 candidates, got %d", len(got))
-	}
-
-	// Should contain all endpoints (order may vary due to randomization)
-	urls := make(map[string]bool)
-	indices := make(map[int]bool)
-	for _, c := range got {
-		urls[c.URL] = true
-		indices[c.Index] = true
-	}
-
-	expectedURLs := map[string]bool{"a": true, "b": true, "c": true}
-	expectedIndices := map[int]bool{0: true, 1: true, 2: true}
-
-	if !reflect.DeepEqual(expectedURLs, urls) {
-		t.Fatalf("want URLs %v, got %v", expectedURLs, urls)
-	}
-	if !reflect.DeepEqual(expectedIndices, indices) {
-		t.Fatalf("want indices %v, got %v", expectedIndices, indices)
-	}
-
-	// Verify round-robin order: each candidate should be followed by the next in sequence
-	for i := 0; i < len(got)-1; i++ {
-		expectedNextIndex := (got[i].Index + 1) % 3
-		if got[i+1].Index != expectedNextIndex {
-			t.Fatalf("candidates not in round-robin order: %v", got)
-		}
-	}
-}
-
-// TestFailoverStateReconnectCandidates verifies the expected behavior for this scenario.
-func TestFailoverStateReconnectCandidates(t *testing.T) {
-	state, err := newFailoverState([]string{"a", "b", "c"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = state.MarkActive(1); err != nil {
-		t.Fatal(err)
-	}
-	got := state.ReconnectCandidates()
+	got := state.initialCandidates()
 	want := []endpointCandidate{
-		{Index: 2, URL: "c"},
-		{Index: 0, URL: "a"},
-		{Index: 1, URL: "b"},
+		{Index: 2, URL: "ws://c:3/ws"},
+		{Index: 1, URL: "ws://b:2/ws"},
+		{Index: 0, URL: "ws://a:1/ws"},
 	}
 	if !reflect.DeepEqual(want, got) {
 		t.Fatalf("want %v, got %v", want, got)
 	}
 }
 
-// TestFailoverStateMarkActiveAndActive verifies the expected behavior for this scenario.
-func TestFailoverStateMarkActiveAndActive(t *testing.T) {
-	state, err := newFailoverState([]string{"a", "b", "c"})
+// TestFailoverStateReconnectCandidates verifies the expected behavior for this scenario.
+func TestFailoverStateReconnectCandidates(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
+	state, err := newFailoverState([]string{"ws://a:1/ws", "ws://b:2/ws", "ws://c:3/ws"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = state.MarkActive(2); err != nil {
+	if err = state.markActive(1); err != nil {
 		t.Fatal(err)
 	}
-	active := state.Active()
-	if active.Index != 2 || active.URL != "c" {
+
+	got := state.reconnectCandidates()
+	want := []endpointCandidate{
+		{Index: 0, URL: "ws://a:1/ws"},
+		{Index: 2, URL: "ws://c:3/ws"},
+		{Index: 1, URL: "ws://b:2/ws"},
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+}
+
+// TestFailoverStateDoesNotCrossClientEndpointSet verifies the expected behavior for this scenario.
+func TestFailoverStateDoesNotCrossClientEndpointSet(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
+	state1, err := newFailoverState([]string{"ws://a:1/ws", "ws://b:2/ws"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state2, err := newFailoverState([]string{"ws://a:1/ws", "ws://c:3/ws"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addEndpointConnCountForTest(t, "ws://a:1/ws", 2)
+	addEndpointConnCountForTest(t, "ws://b:2/ws", 1)
+
+	got1 := state1.initialCandidates()
+	want1 := []endpointCandidate{
+		{Index: 1, URL: "ws://b:2/ws"},
+		{Index: 0, URL: "ws://a:1/ws"},
+	}
+	if !reflect.DeepEqual(want1, got1) {
+		t.Fatalf("state1 want %v, got %v", want1, got1)
+	}
+
+	got2 := state2.initialCandidates()
+	want2 := []endpointCandidate{
+		{Index: 1, URL: "ws://c:3/ws"},
+		{Index: 0, URL: "ws://a:1/ws"},
+	}
+	if !reflect.DeepEqual(want2, got2) {
+		t.Fatalf("state2 want %v, got %v", want2, got2)
+	}
+}
+
+// TestGlobalHostPortConnCounterConcurrentIncDec verifies the expected behavior for this scenario.
+func TestGlobalHostPortConnCounterConcurrentIncDec(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
+	key := hostPortKeyForEndpointForTest(t, "ws://a:1/ws")
+
+	var wg sync.WaitGroup
+	const workers = 8
+	const loops = 1000
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < loops; j++ {
+				globalHostPortConnCounts.inc(key)
+			}
+			for j := 0; j < loops; j++ {
+				globalHostPortConnCounts.dec(key)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if got := globalHostPortConnCounts.get(key); got != 0 {
+		t.Fatalf("want count 0, got %d", got)
+	}
+	for i := 0; i < 10; i++ {
+		globalHostPortConnCounts.dec(key)
+	}
+	if got := globalHostPortConnCounts.get(key); got != 0 {
+		t.Fatalf("count should not go below zero, got %d", got)
+	}
+}
+
+// TestFailoverStateMarkActiveAndActive verifies the expected behavior for this scenario.
+func TestFailoverStateMarkActiveAndActive(t *testing.T) {
+	state, err := newFailoverState([]string{"ws://a:1/ws", "ws://b:2/ws", "ws://c:3/ws"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = state.markActive(2); err != nil {
+		t.Fatal(err)
+	}
+	active := state.active()
+	if active.Index != 2 || active.URL != "ws://c:3/ws" {
 		t.Fatalf("unexpected active: %+v", active)
 	}
 }
 
 // TestFailoverStateMarkActiveInvalidIndex verifies the expected behavior for this scenario.
 func TestFailoverStateMarkActiveInvalidIndex(t *testing.T) {
-	state, err := newFailoverState([]string{"a"})
+	state, err := newFailoverState([]string{"ws://a:1/ws"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = state.MarkActive(2); err == nil {
+	if err = state.markActive(2); err == nil {
 		t.Fatal("expect invalid endpoint index error")
 	}
 }

@@ -672,7 +672,9 @@ func (c *Client) sendStmtJSONWithRuntime(runtime *client.Client, reqID uint64, a
 	if err = encodeWSActionToBuffer(envelope.Msg, actionName, args, true); err != nil {
 		return nil, false, 0, err
 	}
-	return c.sendEnvelopeWithRuntime(runtime, reqID, envelope, c.config.ReadTimeout, ErrStmtMessageTimeout)
+	return c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, c.config.ReadTimeout, ErrStmtMessageTimeout, func() string {
+		return buildTextRequestSummary(actionName, reqID, args)
+	})
 }
 
 func (c *Client) sendStmtBinaryWithRuntime(runtime *client.Client, reqID uint64, reqPayload []byte) ([]byte, bool, uint64, error) {
@@ -685,7 +687,9 @@ func (c *Client) sendStmtBinaryWithRuntime(runtime *client.Client, reqID uint64,
 	envelope.Msg.Reset()
 	envelope.Msg.Grow(len(reqPayload))
 	envelope.Msg.Write(reqPayload)
-	return c.sendEnvelopeWithRuntime(runtime, reqID, envelope, c.config.ReadTimeout, ErrStmtMessageTimeout)
+	return c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, c.config.ReadTimeout, ErrStmtMessageTimeout, func() string {
+		return buildStmtBinaryRequestSummary(reqID, reqPayload)
+	})
 }
 
 func (c *Client) sendStmtJSONAndDecode(runtime *client.Client, reqID uint64, actionName string, req interface{}, resp responseWithCodeAndMessage) (bool, uint64, error) {
