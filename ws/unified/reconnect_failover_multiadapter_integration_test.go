@@ -519,35 +519,6 @@ func execSQLOnPort(port string, sql string) error {
 	return nil
 }
 
-func databaseExistsOnAnyPort(ports []string, db string) (bool, error) {
-	var lastErr error
-	for i := 0; i < len(ports); i++ {
-		resp, err := querySQLOnPort(ports[i], "show databases")
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		if resp.Code != 0 {
-			lastErr = newInvalidStateErrorf("show databases failed code=%d desc=%s", resp.Code, resp.Desc)
-			continue
-		}
-		for r := 0; r < len(resp.Data); r++ {
-			if len(resp.Data[r]) == 0 || resp.Data[r][0] == nil {
-				continue
-			}
-			name, ok := resp.Data[r][0].(string)
-			if ok && name == db {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-	if lastErr == nil {
-		lastErr = newInvalidStateErrorf("no port available")
-	}
-	return false, lastErr
-}
-
 func querySQLOnPort(port string, sql string) (*common.TDEngineRestfulResp, error) {
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://127.0.0.1:%s/rest/sql", port), strings.NewReader(sql))
 	if err != nil {

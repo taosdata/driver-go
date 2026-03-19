@@ -23,10 +23,6 @@ func (c *Client) sendEnvelopeWithRuntime(runtime *client.Client, reqID uint64, e
 	return c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, timeout, timeoutErr, nil)
 }
 
-func (c *Client) sendEnvelopeWithRuntimeWithSummary(runtime *client.Client, reqID uint64, envelope *client.Envelope, timeout time.Duration, timeoutErr error, requestSummary string) ([]byte, bool, uint64, error) {
-	return c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, timeout, timeoutErr, fixedSummaryFunc(requestSummary))
-}
-
 func (c *Client) sendEnvelopeWithRuntimeWithSummaryFunc(runtime *client.Client, reqID uint64, envelope *client.Envelope, timeout time.Duration, timeoutErr error, requestSummaryFunc func() string) ([]byte, bool, uint64, error) {
 	if runtime == nil {
 		return nil, false, 0, wrapRequestErrorWithSummaryFunc(client.ClosedError, requestSummaryFunc)

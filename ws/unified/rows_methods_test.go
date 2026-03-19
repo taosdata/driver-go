@@ -109,3 +109,42 @@ func TestResultSetFormatTime(t *testing.T) {
 		t.Fatalf("unexpected location: %v", got.Location())
 	}
 }
+
+// TestResultSetFreeResultWaitsForPrefetch verifies freeResult waits for in-flight prefetch completion.
+func TestResultSetFreeResultWaitsForPrefetch(t *testing.T) {
+	prefetchCh := make(chan fetchRawBlockResult)
+	rs := &ResultSet{
+		prefetching: true,
+		prefetchCh:  prefetchCh,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- rs.freeResult(1)
+	}()
+
+	select {
+	case err := <-done:
+		t.Fatalf("freeResult returned before prefetch completion: %v", err)
+	default:
+	}
+
+	prefetchCh <- fetchRawBlockResult{completed: true}
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected nil error after completed prefetch drain, got %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("freeResult did not return after prefetch completion")
+	}
+}
+
+// TestResultSetFreeResultSkipsRPCWhenCompleted verifies freeResult returns early once result is completed.
+func TestResultSetFreeResultSkipsRPCWhenCompleted(t *testing.T) {
+	rs := &ResultSet{completed: true}
+	if err := rs.freeResult(1); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}

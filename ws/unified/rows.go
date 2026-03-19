@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -40,8 +41,19 @@ type ResultSet struct {
 	blockOffset int
 	blockSize   int
 
-	mu     sync.RWMutex
-	closed bool
+	opMu sync.Mutex
+
+	prefetching bool
+	prefetchCh  chan fetchRawBlockResult
+
+	completed bool
+	closed    uint32
+}
+
+type fetchRawBlockResult struct {
+	block     []byte
+	completed bool
+	err       error
 }
 
 // resultID returns backend result identifier.
@@ -54,12 +66,6 @@ func (r *ResultSet) resultIDValue() uint64 {
 
 // Close frees server-side result resources on the bound runtime.
 func (r *ResultSet) Close() error {
-	if r != nil {
-		r.blockPtr = nil
-		r.block = nil
-		r.blockSize = 0
-		r.blockOffset = 0
-	}
 	return r.freeResult(0)
 }
 
@@ -72,13 +78,28 @@ func (r *ResultSet) freeResult(reqID int64) error {
 		reqID = common.GetReqID()
 	}
 
-	r.mu.Lock()
-	if r.closed {
-		r.mu.Unlock()
+	r.opMu.Lock()
+	defer r.opMu.Unlock()
+
+	if atomic.LoadUint32(&r.closed) != 0 {
 		return nil
 	}
-	r.closed = true
-	r.mu.Unlock()
+	atomic.StoreUint32(&r.closed, 1)
+
+	r.waitPrefetchLocked()
+
+	// Clear local block state after closing to stop further scanning work.
+	r.blockPtr = nil
+	r.block = nil
+	r.blockSize = 0
+	r.blockOffset = 0
+	r.prefetchCh = nil
+	r.prefetching = false
+
+	// Result stream already drained by fetch_raw_block(completed=true); no explicit free needed.
+	if r.completed {
+		return nil
+	}
 
 	if err := r.ensureBoundRuntime(); err != nil {
 		return err
@@ -185,7 +206,14 @@ func (r *ResultSet) ColumnTypeScanType(index int) reflect.Type {
 
 // Next parses the next row from raw blocks into dest.
 func (r *ResultSet) Next(dest []driver.Value) error {
-	if r == nil || r.isClosed() {
+	if r == nil {
+		return ErrQueryResultClosed
+	}
+
+	r.opMu.Lock()
+	defer r.opMu.Unlock()
+
+	if r.isClosed() {
 		return ErrQueryResultClosed
 	}
 	if r.blockPtr == nil {
@@ -229,11 +257,12 @@ func (r *ResultSet) formatTime(ts int64, precision int) driver.Value {
 }
 
 func (r *ResultSet) fetchBlock() error {
-	block, completed, err := r.fetchRawBlock(0)
+	block, completed, err := r.nextRawBlock()
 	if err != nil {
 		return err
 	}
 	if completed {
+		r.completed = true
 		r.block = nil
 		r.blockPtr = nil
 		r.blockSize = 0
@@ -247,14 +276,56 @@ func (r *ResultSet) fetchBlock() error {
 	r.blockPtr = unsafe.Pointer(&r.block[0])
 	r.blockSize = int(parser.RawBlockGetNumOfRows(r.blockPtr))
 	r.blockOffset = 0
+	r.startPrefetch()
 	return nil
 }
 
+func (r *ResultSet) waitPrefetchLocked() {
+	// waitPrefetchLocked drains in-flight prefetch while opMu is held.
+	// IMPORTANT: fetchRawBlock must never acquire opMu, otherwise this will deadlock.
+	if !r.prefetching || r.prefetchCh == nil {
+		r.prefetching = false
+		r.prefetchCh = nil
+		return
+	}
+	ch := r.prefetchCh
+	r.prefetching = false
+	r.prefetchCh = nil
+	res := <-ch
+	if res.completed {
+		r.completed = true
+	}
+}
+
+func (r *ResultSet) startPrefetch() {
+	if r.prefetching || r.blockSize == 0 {
+		return
+	}
+	ch := make(chan fetchRawBlockResult, 1)
+	r.prefetchCh = ch
+	r.prefetching = true
+	go func() {
+		block, completed, err := r.fetchRawBlock(0)
+		ch <- fetchRawBlockResult{
+			block:     block,
+			completed: completed,
+			err:       err,
+		}
+	}()
+}
+
+func (r *ResultSet) nextRawBlock() ([]byte, bool, error) {
+	if !r.prefetching || r.prefetchCh == nil {
+		return r.fetchRawBlock(0)
+	}
+	res := <-r.prefetchCh
+	r.prefetchCh = nil
+	r.prefetching = false
+	return res.block, res.completed, res.err
+}
+
 func (r *ResultSet) isClosed() bool {
-	r.mu.RLock()
-	closed := r.closed
-	r.mu.RUnlock()
-	return closed
+	return atomic.LoadUint32(&r.closed) != 0
 }
 
 func (r *ResultSet) ensureBoundRuntime() error {
