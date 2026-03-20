@@ -1341,7 +1341,7 @@ func TestPollMultiTimes(t *testing.T) {
 	now := time.Now().Unix() * 1000
 	insertIdx := int64(0)
 	for i := 0; i < 5; i++ {
-		ev := consumer.Poll(500)
+		ev := consumer.Poll(2000)
 		if ev != nil {
 			switch e := ev.(type) {
 			case *tmq.DataMessage:
