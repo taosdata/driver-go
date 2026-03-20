@@ -30,14 +30,5 @@ func clearPendingRequestsForTest(c *Client) {
 	oldRequests := c.pendingRequests
 	c.pendingRequests = make(map[uint64]*pendingRequest)
 	c.pendingLock.Unlock()
-
-	for _, req := range oldRequests {
-		if req == nil || req.channel == nil {
-			continue
-		}
-		select {
-		case req.channel <- nil:
-		default:
-		}
-	}
+	notifyPendingRequestsClosed(oldRequests)
 }

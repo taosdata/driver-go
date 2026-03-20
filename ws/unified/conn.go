@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -158,19 +157,12 @@ func (c *Client) handleMessage(message []byte, reqID uint64) {
 // extractReqIDFromTextMessage extracts req_id from JSON text protocol message.
 func extractReqIDFromTextMessage(message []byte) (uint64, error) {
 	var payload struct {
-		ReqID json.RawMessage `json:"req_id"`
+		ReqID uint64 `json:"req_id"`
 	}
-	if err := client.JsonI.Unmarshal(message, &payload); err != nil {
+	if err := json.Unmarshal(message, &payload); err != nil {
 		return 0, err
 	}
-	if len(payload.ReqID) == 0 {
-		return 0, ErrReqIDNotFound
-	}
-	reqID, err := strconv.ParseUint(string(bytes.TrimSpace(payload.ReqID)), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return reqID, nil
+	return payload.ReqID, nil
 }
 
 // extractReqIDFromBinaryMessage extracts req_id from unified binary frame header.

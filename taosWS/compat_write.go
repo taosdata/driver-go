@@ -2,7 +2,7 @@ package taosWS
 
 import "bytes"
 
-// WriteUint64 is kept for taosWS source compatibility.
+// Deprecated: WriteUint64 is kept only for taosWS source compatibility.
 func WriteUint64(buffer *bytes.Buffer, v uint64) {
 	buffer.WriteByte(byte(v))
 	buffer.WriteByte(byte(v >> 8))
@@ -14,7 +14,7 @@ func WriteUint64(buffer *bytes.Buffer, v uint64) {
 	buffer.WriteByte(byte(v >> 56))
 }
 
-// WriteUint32 is kept for taosWS source compatibility.
+// Deprecated: WriteUint32 is kept only for taosWS source compatibility.
 func WriteUint32(buffer *bytes.Buffer, v uint32) {
 	buffer.WriteByte(byte(v))
 	buffer.WriteByte(byte(v >> 8))
@@ -22,7 +22,7 @@ func WriteUint32(buffer *bytes.Buffer, v uint32) {
 	buffer.WriteByte(byte(v >> 24))
 }
 
-// WriteUint16 is kept for taosWS source compatibility.
+// Deprecated: WriteUint16 is kept only for taosWS source compatibility.
 func WriteUint16(buffer *bytes.Buffer, v uint16) {
 	buffer.WriteByte(byte(v))
 	buffer.WriteByte(byte(v >> 8))

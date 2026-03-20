@@ -111,17 +111,15 @@ func (c *Connector) isClosed() bool {
 // Deprecated: use (*unified.Client).InitStmt instead.
 func (c *Connector) Init() (*Stmt, error) {
 	c.Lock()
+	defer c.Unlock()
+
 	if c.closed {
-		c.Unlock()
 		return nil, ErrConnIsClosed
 	}
-	unifiedClient := c.unifiedClient
-	c.Unlock()
-
-	if unifiedClient == nil {
+	if c.unifiedClient == nil {
 		return nil, ErrUnifiedClientUninitialized
 	}
-	core, err := unifiedClient.InitStmt(0)
+	core, err := c.unifiedClient.InitStmt(0)
 	if err != nil {
 		return nil, mapUnifiedError(err)
 	}

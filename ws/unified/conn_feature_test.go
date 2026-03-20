@@ -392,8 +392,9 @@ func TestExtractReqIDFromTextMessageIgnoresReqIDInsideString(t *testing.T) {
 
 // TestExtractReqIDFromTextMessageErrors verifies the expected behavior for this scenario.
 func TestExtractReqIDFromTextMessageErrors(t *testing.T) {
-	_, err := extractReqIDFromTextMessage([]byte(`{"code":0,"message":""}`))
-	require.ErrorIs(t, err, ErrReqIDNotFound)
+	reqID, err := extractReqIDFromTextMessage([]byte(`{"code":0,"message":""}`))
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), reqID)
 
 	_, err = extractReqIDFromTextMessage([]byte(`{"code":0,`))
 	require.Error(t, err)

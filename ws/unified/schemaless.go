@@ -59,8 +59,7 @@ func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Enve
 
 	envelope.Type = websocket.TextMessage
 	send := func(rt *client.Client) ([]byte, bool, uint64, error) {
-		respBytes, writeAcked, err := c.sendSchemalessWithRuntime(rt, reqID, envelope, action, args)
-		return respBytes, writeAcked, 0, err
+		return c.sendSchemalessWithRuntime(rt, reqID, envelope, action, args)
 	}
 	respBytes, _, _, err := c.sendWithReconnect(runtime, send)
 	if err != nil {
@@ -71,9 +70,9 @@ func (c *Client) sendSchemalessWithReconnect(reqID uint64, envelope *client.Enve
 
 // sendSchemalessWithRuntime sends a schemaless message using the provided runtime client.
 // The boolean return indicates whether websocket write has been acknowledged by WritePump.
-func (c *Client) sendSchemalessWithRuntime(runtime *client.Client, reqID uint64, envelope *client.Envelope, action string, args []byte) ([]byte, bool, error) {
-	respBytes, writeAcked, _, err := c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, c.config.ReadTimeout, ErrSchemalessMessageTimeout, func() string {
+func (c *Client) sendSchemalessWithRuntime(runtime *client.Client, reqID uint64, envelope *client.Envelope, action string, args []byte) ([]byte, bool, uint64, error) {
+	respBytes, writeAcked, runtimeGen, err := c.sendEnvelopeWithRuntimeWithSummaryFunc(runtime, reqID, envelope, c.config.ReadTimeout, ErrSchemalessMessageTimeout, func() string {
 		return buildTextRequestSummary(action, reqID, args)
 	})
-	return respBytes, writeAcked, err
+	return respBytes, writeAcked, runtimeGen, err
 }

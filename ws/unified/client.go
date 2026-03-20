@@ -527,14 +527,40 @@ func (c *Client) resetPendingRequestsLocked() map[uint64]*pendingRequest {
 
 func notifyPendingRequestsClosed(requests map[uint64]*pendingRequest) {
 	for _, req := range requests {
-		if req == nil || req.channel == nil {
-			continue
+		notifyPendingRequestClosed(req)
+	}
+}
+
+func notifyPendingRequestClosed(req *pendingRequest) {
+	if req == nil || req.channel == nil {
+		return
+	}
+
+	// Fast path: queue closed notification immediately.
+	select {
+	case req.channel <- nil:
+		return
+	default:
+	}
+
+	// Channel is full. Preserve a routed response if one is already queued.
+	select {
+	case msg := <-req.channel:
+		if msg != nil {
+			select {
+			case req.channel <- msg:
+			default:
+			}
+			return
 		}
-		// Notify outside lock to minimize critical section time.
-		select {
-		case req.channel <- nil:
-		default:
-		}
+	default:
+		return
+	}
+
+	// Channel previously held nil; make sure closed notification remains queued.
+	select {
+	case req.channel <- nil:
+	default:
 	}
 }
 
@@ -549,11 +575,10 @@ func (c *Client) SetErrorHandler(handler func(error)) {
 
 	c.lock.Lock()
 	c.errorHandler = normalized
-	runtime := c.runtime
-	c.lock.Unlock()
-	if runtime != nil {
-		runtime.SetErrorHandler(normalized)
+	if c.runtime != nil {
+		c.runtime.SetErrorHandler(normalized)
 	}
+	c.lock.Unlock()
 }
 
 func (c *Client) waitReconnectInterval(interval time.Duration) error {
