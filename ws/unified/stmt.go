@@ -14,7 +14,8 @@ import (
 
 // Stmt provides stmt2 workflow on top of unified client runtime.
 type Stmt struct {
-	client *Client
+	client  *Client
+	runtime *client.Client // runtime bound at creation; updated on reconnect
 
 	mu sync.Mutex
 
@@ -48,14 +49,15 @@ func (c *Client) InitStmt(reqID int64) (*Stmt, error) {
 	if reqID == 0 {
 		reqID = common.GetReqID()
 	}
-	stmtID, err := c.stmt2InitWithReconnect(uint64(reqID))
+	stmtID, runtime, err := c.stmt2InitWithReconnect(uint64(reqID))
 	if err != nil {
 		return nil, normalizeStmtError(err)
 	}
 	return &Stmt{
-		client: c,
-		id:     stmtID,
-		state:  newStmtCompatState(),
+		client:  c,
+		runtime: runtime,
+		id:      stmtID,
+		state:   newStmtCompatState(),
 	}, nil
 }
 
@@ -320,7 +322,7 @@ func (s *Stmt) UseResult(reqID int64) (*ResultSet, error) {
 		reqID = common.GetReqID()
 	}
 
-	runtime, err := s.client.runtimeOrError()
+	runtime, err := s.runtimeOrError()
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +363,7 @@ func (s *Stmt) Close(reqID int64) error {
 	stmtID := s.id
 	s.mu.Unlock()
 
-	runtime := s.client.runtimeClient()
+	runtime := s.runtime
 	if runtime == nil {
 		return nil
 	}
@@ -404,7 +406,7 @@ func (s *Stmt) prepareWithReconnectLocked(reqID int64, sql string) error {
 }
 
 func (s *Stmt) prepareOnceLocked(reqID int64, sql string) (*proto.Stmt2PrepareResponse, *client.Client, error) {
-	runtime, err := s.client.runtimeOrError()
+	runtime, err := s.runtimeOrError()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -522,7 +524,7 @@ func (s *Stmt) execWithReconnectLocked(reqID int64, bindPayload []byte) (*proto.
 }
 
 func (s *Stmt) execOnceLocked(reqID int64, bindPayload []byte) (*proto.Stmt2ExecResponse, *client.Client, error) {
-	runtime, err := s.client.runtimeOrError()
+	runtime, err := s.runtimeOrError()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -553,11 +555,12 @@ func (s *Stmt) reconnectAndInitLocked(failedRuntime *client.Client) error {
 	if err := s.client.reconnectWithBootstrap(s.client.defaultBootstrap, failedRuntime); err != nil {
 		return err
 	}
-	stmtID, err := s.client.stmt2InitWithReconnect(uint64(common.GetReqID()))
+	stmtID, runtime, err := s.client.stmt2InitWithReconnect(uint64(common.GetReqID()))
 	if err != nil {
 		return err
 	}
 	s.id = stmtID
+	s.runtime = runtime
 	return nil
 }
 
@@ -627,21 +630,38 @@ func (s *Stmt) checkNotClosedLocked() error {
 	return nil
 }
 
-func (c *Client) stmt2InitWithReconnect(reqID uint64) (uint64, error) {
+// runtimeOrError returns the runtime bound to this Stmt.
+// It returns an error when the bound runtime is nil or the client is closed.
+func (s *Stmt) runtimeOrError() (*client.Client, error) {
+	rt := s.runtime
+	if rt != nil {
+		return rt, nil
+	}
+	if s.client.IsClosed() {
+		return nil, ErrUnifiedClosed
+	}
+	return nil, ErrStmtConnectionLost
+}
+
+func (c *Client) stmt2InitWithReconnect(reqID uint64) (uint64, *client.Client, error) {
 	runtime, err := c.runtimeOrError()
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	stmtID, err := c.stmt2InitOnce(runtime, reqID)
 	if err == nil {
-		return stmtID, nil
+		return stmtID, runtime, nil
 	}
 
 	runtime, err = c.reconnectRuntimeForRetry(err, false, runtime)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
-	return c.stmt2InitOnce(runtime, reqID)
+	stmtID, err = c.stmt2InitOnce(runtime, reqID)
+	if err != nil {
+		return 0, nil, err
+	}
+	return stmtID, runtime, nil
 }
 
 func (c *Client) stmt2InitOnce(runtime *client.Client, reqID uint64) (uint64, error) {

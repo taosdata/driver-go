@@ -103,9 +103,10 @@ func TestStmtExecReplaysAfterWriteAckDisconnect(t *testing.T) {
 	require.NoError(t, c.Connect())
 
 	stmt := &Stmt{
-		client: c,
-		id:     1,
-		sql:    "select ?",
+		client:  c,
+		runtime: c.runtimeClient(),
+		id:      1,
+		sql:     "select ?",
 	}
 
 	resp, err := stmt.execWithReconnectLocked(0, []byte{1})

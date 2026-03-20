@@ -75,7 +75,11 @@ func TestMapUnifiedConnError(t *testing.T) {
 	})
 
 	t.Run("net closed", func(t *testing.T) {
-		err := mapUnifiedConnError(net.ErrClosed)
+		err := mapUnifiedConnError(&net.OpError{
+			Op:  "read",
+			Net: "tcp",
+			Err: errors.New("use of closed network connection"),
+		})
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, driver.ErrBadConn)
 	})

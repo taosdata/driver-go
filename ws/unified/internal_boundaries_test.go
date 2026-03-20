@@ -211,11 +211,11 @@ func TestStmtShouldReconnectLockedBranches(t *testing.T) {
 func TestStmt2InitWithReconnectNoRuntimePaths(t *testing.T) {
 	closedClient := &Client{}
 	atomic.StoreUint32(&closedClient.closedFlag, 1)
-	_, err := closedClient.stmt2InitWithReconnect(1)
+	_, _, err := closedClient.stmt2InitWithReconnect(1)
 	require.ErrorIs(t, err, ErrUnifiedClosed)
 
 	openClient := &Client{config: Config{AutoReconnect: false}}
-	_, err = openClient.stmt2InitWithReconnect(1)
+	_, _, err = openClient.stmt2InitWithReconnect(1)
 	require.ErrorIs(t, err, client.ClosedError)
 }
 

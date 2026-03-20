@@ -84,9 +84,10 @@ func newStmtCloseTestClient(t *testing.T, closeCode int, closeMessage string) (*
 func TestStmtCloseWaitsAndParsesSuccessResponse(t *testing.T) {
 	c, closeCount, reqCh := newStmtCloseTestClient(t, 0, "")
 	stmt := &Stmt{
-		client: c,
-		id:     9527,
-		state:  newStmtCompatState(),
+		client:  c,
+		runtime: c.runtimeClient(),
+		id:      9527,
+		state:   newStmtCompatState(),
 	}
 
 	require.NoError(t, stmt.Close(123))
@@ -109,9 +110,10 @@ func TestStmtCloseWaitsAndParsesSuccessResponse(t *testing.T) {
 func TestStmtCloseReturnsServerErrorResponse(t *testing.T) {
 	c, _, _ := newStmtCloseTestClient(t, 65535, "close failed")
 	stmt := &Stmt{
-		client: c,
-		id:     100,
-		state:  newStmtCompatState(),
+		client:  c,
+		runtime: c.runtimeClient(),
+		id:      100,
+		state:   newStmtCompatState(),
 	}
 
 	err := stmt.Close(77)

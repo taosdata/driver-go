@@ -178,8 +178,7 @@ jobs:
 
       - name: Run go examples
         run: |
-          cd examples
-          sudo ./go.sh
+          sudo ./examples/go.sh
 
   race-test:
     runs-on: ubuntu-latest

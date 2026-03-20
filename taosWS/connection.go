@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -190,7 +191,7 @@ func mapUnifiedConnError(err error) error {
 	}
 	if errors.Is(err, wsClient.ClosedError) ||
 		errors.Is(err, io.ErrClosedPipe) ||
-		errors.Is(err, net.ErrClosed) ||
+		isNetClosedError(err) ||
 		isNetOrWebsocketError(err) ||
 		unified.IsConnectionRelatedError(err) ||
 		unified.IsConnectionDisconnectedError(err) ||
@@ -204,4 +205,13 @@ func isNetOrWebsocketError(err error) bool {
 	var opError *net.OpError
 	var closeError *websocket.CloseError
 	return errors.As(err, &opError) || errors.As(err, &closeError)
+}
+
+func isNetClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "use of closed network connection") ||
+		strings.Contains(msg, "closed network connection")
 }

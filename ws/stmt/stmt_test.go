@@ -1311,7 +1311,6 @@ func TestSTMTDisconnectNoMessageTimeout(t *testing.T) {
 
 func TestTimezone(t *testing.T) {
 	_, is3360 := os.LookupEnv("TD_3360_TEST")
-	is3360 = true
 	var dbname = "test_ws_stmt_timezone"
 	err := prepareEnv(dbname)
 	if err != nil {
