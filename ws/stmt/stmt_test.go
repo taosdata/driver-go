@@ -512,6 +512,7 @@ func TestStmt(t *testing.T) {
 }
 
 func TestSTMTQuery(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
 	err := prepareEnv("test_ws_stmt_query")
 	if err != nil {
 		t.Error(err)
@@ -622,6 +623,12 @@ func TestSTMTQuery(t *testing.T) {
 		if !assert.Equal(t, 3, affected) {
 			return
 		}
+		if is3360 {
+			err = stmt.Close()
+			assert.NoError(t, err)
+			stmt, err = connector.Init()
+			require.NoError(t, err)
+		}
 		err = stmt.Prepare("select * from all_json where ts >=? order by ts")
 		assert.NoError(t, err)
 		queryTime := now.Format(time.RFC3339Nano)
@@ -725,6 +732,12 @@ func TestSTMTQuery(t *testing.T) {
 				t.Error(err)
 			}
 		}(stmt)
+		if is3360 {
+			err = stmt.Close()
+			assert.NoError(t, err)
+			stmt, err = connector.Init()
+			require.NoError(t, err)
+		}
 		err = stmt.Prepare("insert into ? using all_all tags(?,?,?,?,?,?,?,?,?,?,?,?,?,?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 		assert.NoError(t, err)
 		err = stmt.SetTableName("tb1")
@@ -823,6 +836,12 @@ func TestSTMTQuery(t *testing.T) {
 		affected := stmt.GetAffectedRows()
 		if !assert.Equal(t, 3, affected) {
 			return
+		}
+		if is3360 {
+			err = stmt.Close()
+			assert.NoError(t, err)
+			stmt, err = connector.Init()
+			require.NoError(t, err)
 		}
 		err = stmt.Prepare("select * from all_all where ts >=? order by ts")
 		assert.NoError(t, err)
@@ -1291,6 +1310,8 @@ func TestSTMTDisconnectNoMessageTimeout(t *testing.T) {
 }
 
 func TestTimezone(t *testing.T) {
+	_, is3360 := os.LookupEnv("TD_3360_TEST")
+	is3360 = true
 	var dbname = "test_ws_stmt_timezone"
 	err := prepareEnv(dbname)
 	if err != nil {
@@ -1330,6 +1351,12 @@ func TestTimezone(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 			return
+		}
+		if is3360 {
+			err = stmt.Close()
+			assert.NoError(t, err)
+			stmt, err = connector.Init()
+			require.NoError(t, err)
 		}
 		err = stmt.Prepare("insert into ? using all_json tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 		if err != nil {
@@ -1395,6 +1422,12 @@ func TestTimezone(t *testing.T) {
 		affected := stmt.GetAffectedRows()
 		if !assert.Equal(t, 3, affected) {
 			return
+		}
+		if is3360 {
+			err = stmt.Close()
+			assert.NoError(t, err)
+			stmt, err = connector.Init()
+			require.NoError(t, err)
 		}
 		err = stmt.Prepare("select * from all_json where ts >=? order by ts")
 		assert.NoError(t, err)

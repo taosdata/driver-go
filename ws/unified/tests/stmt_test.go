@@ -3,6 +3,7 @@ package tests
 import (
 	"database/sql/driver"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -11,6 +12,10 @@ import (
 )
 
 func TestUnifiedIntegrationStmt_AllTypesThreeRows(t *testing.T) {
+	_, ok := os.LookupEnv("TD_3360_TEST")
+	if ok {
+		t.Skip("Skip 3.3.6.0 test")
+	}
 	if testing.Short() {
 		t.Skip("skip integration test in short mode")
 	}
