@@ -36,6 +36,7 @@ cleanup_resources() {
     local topics=(
         "topic_meters"
         "example_tmq_topic"
+        "topic_failover_meters"
     )
     local dbs=(
         "power"
@@ -45,6 +46,10 @@ cleanup_resources() {
         "example_stmt2"
         "restful_demo"
         "example_ws_stmt"
+        "example_failover_query"
+        "example_failover_schemaless"
+        "example_failover_stmt"
+        "example_failover_tmq"
     )
     local topic
     local db
@@ -108,6 +113,10 @@ run_other_examples() {
     run_example "./schemaless/ws/main.go"
     run_example "./tmq/native/main.go"
     run_example "./tmq/ws/main.go"
+    run_example "./failover/query/main.go"
+    run_example "./failover/schemaless/main.go"
+    run_example "./failover/stmt/main.go"
+    run_example "./failover/tmq/main.go"
 }
 
 cleanup_on_exit() {

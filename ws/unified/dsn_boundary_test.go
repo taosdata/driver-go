@@ -13,7 +13,7 @@ func TestParseDSNParamsAllKnownKeys(t *testing.T) {
 	cfg := &Config{
 		InterpolateParams: true,
 	}
-	err := parseDSNParams(cfg, "flagOnly&interpolateParams=false&token=tk1&enableCompression=true&readTimeout=1s&writeTimeout=2s&timezone=Asia%2FShanghai&bearerToken=b1&totpCode=123456&custom=a%2Bb")
+	err := parseDSNParams(cfg, "flagOnly&interpolateParams=false&token=tk1&enableCompression=true&readTimeout=1s&writeTimeout=2s&timezone=Asia%2FShanghai&bearerToken=b1&totpCode=123456&autoReconnect=true&chanLength=8&reconnectIntervalMs=5000&reconnectRetryCount=10&custom=a%2Bb")
 	require.NoError(t, err)
 
 	assert.False(t, cfg.InterpolateParams)
@@ -25,6 +25,10 @@ func TestParseDSNParamsAllKnownKeys(t *testing.T) {
 	assert.Equal(t, "Asia/Shanghai", cfg.Timezone.String())
 	assert.Equal(t, "b1", cfg.BearerToken)
 	assert.Equal(t, "123456", cfg.TotpCode)
+	assert.True(t, cfg.AutoReconnect)
+	assert.Equal(t, uint(8), cfg.ChanLength)
+	assert.Equal(t, 5000, cfg.ReconnectIntervalMs)
+	assert.Equal(t, 10, cfg.ReconnectRetryCount)
 	require.NotNil(t, cfg.Params)
 	assert.Equal(t, "a+b", cfg.Params["custom"])
 }
@@ -70,6 +74,26 @@ func TestParseDSNParamsErrorBranches(t *testing.T) {
 			name:       "invalid custom param unescape",
 			rawParams:  "custom=%2S",
 			wantErrMsg: "invalid URL escape",
+		},
+		{
+			name:       "invalid autoReconnect",
+			rawParams:  "autoReconnect=abc",
+			wantErrMsg: "invalid autoReconnect value",
+		},
+		{
+			name:       "invalid chanLength",
+			rawParams:  "chanLength=abc",
+			wantErrMsg: "invalid chanLength value",
+		},
+		{
+			name:       "invalid reconnectIntervalMs",
+			rawParams:  "reconnectIntervalMs=abc",
+			wantErrMsg: "invalid reconnectIntervalMs value",
+		},
+		{
+			name:       "invalid reconnectRetryCount",
+			rawParams:  "reconnectRetryCount=abc",
+			wantErrMsg: "invalid reconnectRetryCount value",
 		},
 	}
 	for i := 0; i < len(tests); i++ {
@@ -166,4 +190,70 @@ func TestNewConfigFromDSNBoundaryPaths(t *testing.T) {
 func TestMapDSNErrorHelpers(t *testing.T) {
 	assert.Equal(t, "?", tryUnescape("%3F"))
 	assert.Equal(t, "%", tryUnescape("%"))
+}
+
+// TestNewConfigFromDSNAllFields verifies that all Config fields round-trip through DSN parsing.
+func TestNewConfigFromDSNAllFields(t *testing.T) {
+	dsn := "usr:pwd@wss(10.0.0.1:6030,10.0.0.2:6031)/mydb?" +
+		"interpolateParams=false&" +
+		"token=tok1&" +
+		"enableCompression=true&" +
+		"readTimeout=10s&" +
+		"writeTimeout=5s&" +
+		"timezone=Asia%2FShanghai&" +
+		"bearerToken=bear1&" +
+		"totpCode=654321&" +
+		"autoReconnect=true&" +
+		"chanLength=16&" +
+		"reconnectIntervalMs=3000&" +
+		"reconnectRetryCount=5&" +
+		"customKey=customVal"
+
+	cfg, err := NewConfigFromDSN(dsn, "/ws")
+	require.NoError(t, err)
+
+	// connection fields
+	assert.Equal(t, "usr", cfg.User)
+	assert.Equal(t, "pwd", cfg.Passwd)
+	assert.Equal(t, "wss", cfg.Net)
+	assert.Equal(t, "10.0.0.1", cfg.Addr)
+	assert.Equal(t, 6030, cfg.Port)
+	assert.Equal(t, "mydb", cfg.DbName)
+
+	// endpoints (normalized with path and token)
+	require.Len(t, cfg.Endpoints, 2)
+	assert.Equal(t, "wss://10.0.0.1:6030/ws?token=tok1", cfg.Endpoints[0])
+	assert.Equal(t, "wss://10.0.0.2:6031/ws?token=tok1", cfg.Endpoints[1])
+
+	// params parsed from query string
+	assert.False(t, cfg.InterpolateParams)
+	assert.Equal(t, "tok1", cfg.Token)
+	assert.True(t, cfg.EnableCompression)
+	assert.Equal(t, 10*time.Second, cfg.ReadTimeout)
+	assert.Equal(t, 5*time.Second, cfg.WriteTimeout)
+	require.NotNil(t, cfg.Timezone)
+	assert.Equal(t, "Asia/Shanghai", cfg.Timezone.String())
+	assert.Equal(t, "bear1", cfg.BearerToken)
+	assert.Equal(t, "654321", cfg.TotpCode)
+
+	// runtime fields
+	assert.True(t, cfg.AutoReconnect)
+	assert.Equal(t, uint(16), cfg.ChanLength)
+	assert.Equal(t, 3000, cfg.ReconnectIntervalMs)
+	assert.Equal(t, 5, cfg.ReconnectRetryCount)
+
+	// custom params
+	require.NotNil(t, cfg.Params)
+	assert.Equal(t, "customVal", cfg.Params["customKey"])
+}
+
+// TestNewConfigFromDSNRuntimeDefaults verifies that runtime fields keep defaults when omitted from DSN.
+func TestNewConfigFromDSNRuntimeDefaults(t *testing.T) {
+	cfg, err := NewConfigFromDSN("u:p@ws(127.0.0.1:6041)/db", "/ws")
+	require.NoError(t, err)
+
+	assert.False(t, cfg.AutoReconnect)
+	assert.Equal(t, uint(1), cfg.ChanLength)
+	assert.Equal(t, 2000, cfg.ReconnectIntervalMs)
+	assert.Equal(t, 3, cfg.ReconnectRetryCount)
 }

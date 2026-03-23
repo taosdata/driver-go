@@ -180,6 +180,16 @@ func NewConfigFromDSN(dsn string, defaultPath string) (*Config, error) {
 	cfg.Timezone = parsed.Timezone
 	cfg.TotpCode = parsed.TotpCode
 	cfg.BearerToken = parsed.BearerToken
+	cfg.AutoReconnect = parsed.AutoReconnect
+	if parsed.ChanLength != 0 {
+		cfg.ChanLength = parsed.ChanLength
+	}
+	if parsed.ReconnectIntervalMs != 0 {
+		cfg.ReconnectIntervalMs = parsed.ReconnectIntervalMs
+	}
+	if parsed.ReconnectRetryCount != 0 {
+		cfg.ReconnectRetryCount = parsed.ReconnectRetryCount
+	}
 
 	if err = cfg.Normalize(defaultPath); err != nil {
 		return nil, err
@@ -237,6 +247,30 @@ func parseDSNParams(cfg *Config, params string) error {
 			cfg.BearerToken = value
 		case "totpCode":
 			cfg.TotpCode = value
+		case "autoReconnect":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return newInvalidDSNErrorf("invalid autoReconnect value: %s", value)
+			}
+			cfg.AutoReconnect = parsed
+		case "chanLength":
+			parsed, err := strconv.ParseUint(value, 10, 64)
+			if err != nil {
+				return newInvalidDSNErrorf("invalid chanLength value: %s", value)
+			}
+			cfg.ChanLength = uint(parsed)
+		case "reconnectIntervalMs":
+			parsed, err := strconv.Atoi(value)
+			if err != nil {
+				return newInvalidDSNErrorf("invalid reconnectIntervalMs value: %s", value)
+			}
+			cfg.ReconnectIntervalMs = parsed
+		case "reconnectRetryCount":
+			parsed, err := strconv.Atoi(value)
+			if err != nil {
+				return newInvalidDSNErrorf("invalid reconnectRetryCount value: %s", value)
+			}
+			cfg.ReconnectRetryCount = parsed
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)

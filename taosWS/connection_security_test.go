@@ -129,14 +129,14 @@ func TestWriteTextErrorIncludesSQLPayloadContext(t *testing.T) {
 	require.NotNil(t, holder.conn)
 
 	atomic.StoreUint32(&holder.conn.failWrites, 1)
-	secretSQL := "insert into log values('top-secret-value')"
-	_, err = tc.ExecContext(context.Background(), secretSQL, nil)
+	testSQL := "insert into log values(now, 1)"
+	_, err = tc.ExecContext(context.Background(), testSQL, nil)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, driver.ErrBadConn)
 	assert.Contains(t, strings.ToLower(err.Error()), "closed")
 	assert.Contains(t, err.Error(), "request=binary_action=query")
-	assert.Contains(t, err.Error(), fmt.Sprintf("sql_len=%d", len(secretSQL)))
-	assert.Contains(t, err.Error(), secretSQL)
+	assert.Contains(t, err.Error(), fmt.Sprintf("sql_len=%d", len(testSQL)))
+	assert.Contains(t, err.Error(), testSQL)
 }
 
 func TestConnectWriteErrorDoesNotLeakCredentials(t *testing.T) {
