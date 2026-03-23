@@ -68,11 +68,11 @@ func TestClientReconnectTriesActiveEndpointFirstThenFallsBack(t *testing.T) {
 	resetGlobalConnCounterForTest(t)
 	cfg := NewConfig([]string{"ws://a:1", "ws://b:2", "ws://c:3"})
 	attempts := make([]string, 0, 4)
-	var failActiveOnReconnect atomic.Bool
+	var failActiveOnReconnect int32
 	c, err := NewClient(cfg, "/ws",
 		WithDialFunc(func(endpoint string) (*websocket.Conn, error) {
 			attempts = append(attempts, endpoint)
-			if failActiveOnReconnect.Load() && endpoint == "ws://a:1/ws" {
+			if atomic.LoadInt32(&failActiveOnReconnect) == 1 && endpoint == "ws://a:1/ws" {
 				return nil, newInvalidStateErrorf("forced active endpoint failure")
 			}
 			return nil, nil
@@ -94,7 +94,7 @@ func TestClientReconnectTriesActiveEndpointFirstThenFallsBack(t *testing.T) {
 	firstConnectEndpoint := active.URL
 
 	reconnectAttemptStart := len(attempts)
-	failActiveOnReconnect.Store(true)
+	atomic.StoreInt32(&failActiveOnReconnect, 1)
 	if err = c.reconnectWithBootstrap(nil, nil); err != nil {
 		t.Fatal(err)
 	}
