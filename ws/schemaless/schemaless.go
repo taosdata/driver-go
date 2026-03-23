@@ -19,7 +19,7 @@ const (
 	OpenTSDBJsonFormatProtocol = unified.OpenTSDBJsonFormatProtocol
 )
 
-// Schemaless provides schemaless insert operations with multi-node failover and auto-reconnect.
+// Schemaless provides schemaless insert operations with auto-reconnect.
 // It wraps unified.Client to provide backward-compatible API.
 // Deprecated: use unified.Client from package ws/unified instead.
 type Schemaless struct {
@@ -27,8 +27,7 @@ type Schemaless struct {
 	once   sync.Once
 }
 
-// NewSchemaless creates a new Schemaless instance with single endpoint.
-// For multi-node failover, use NewSchemalessWithEndpoints.
+// NewSchemaless creates a new Schemaless instance with a single endpoint.
 // Deprecated: use unified.NewClient from package ws/unified instead.
 func NewSchemaless(config *Config) (*Schemaless, error) {
 	if config == nil {
@@ -44,25 +43,9 @@ func NewSchemaless(config *Config) (*Schemaless, error) {
 		return nil, errors.New("config url scheme error")
 	}
 
-	// Convert single URL to endpoints list
-	endpoints := []string{config.url}
-
-	return NewSchemalessWithEndpoints(endpoints, config)
-}
-
-// NewSchemalessWithEndpoints creates a new Schemaless instance with multi-node failover support.
-// Deprecated: use unified.NewClient with multiple endpoints from package ws/unified instead.
-func NewSchemalessWithEndpoints(endpoints []string, config *Config) (*Schemaless, error) {
-	if config == nil {
-		return nil, errors.New("nil config")
-	}
-	if len(endpoints) == 0 {
-		return nil, errors.New("at least one endpoint is required")
-	}
-
-	// Build unified config
+	// Build unified config with single endpoint
 	unifiedCfg := &unified.Config{
-		Endpoints:           endpoints,
+		Endpoints:           []string{config.url},
 		DbName:              config.db,
 		User:                config.user,
 		Passwd:              config.password,
@@ -78,28 +61,28 @@ func NewSchemalessWithEndpoints(endpoints []string, config *Config) (*Schemaless
 	}
 
 	// Create unified client
-	client, err := unified.NewClient(unifiedCfg, "/ws")
+	wsClient, err := unified.NewClient(unifiedCfg, "/ws")
 	if err != nil {
 		return nil, err
 	}
 
 	// Set error handler if provided
 	if config.errorHandler != nil {
-		client.SetErrorHandler(config.errorHandler)
+		wsClient.SetErrorHandler(config.errorHandler)
 	}
 
 	// Connect for schemaless
-	if err := client.Connect(); err != nil {
-		client.Close()
+	if err := wsClient.Connect(); err != nil {
+		wsClient.Close()
 		return nil, mapUnifiedError(err)
 	}
 
 	return &Schemaless{
-		client: client,
+		client: wsClient,
 	}, nil
 }
 
-// Insert sends a schemaless insert request with automatic failover and reconnect.
+// Insert sends a schemaless insert request with auto-reconnect.
 // Deprecated: use (*unified.Client).SchemalessInsert instead.
 func (s *Schemaless) Insert(lines string, protocol int, precision string, ttl int, reqID int64) error {
 	return mapUnifiedError(s.client.SchemalessInsert(reqID, lines, protocol, precision, ttl, ""))
