@@ -12,6 +12,7 @@ func TestBuildConnectionConfigUsesUnifiedDefaults(t *testing.T) {
 	out := BuildConnectionConfig(&Config{}, ConnectionConfigDefaults{})
 	if out == nil {
 		t.Fatal("expected non-nil config")
+		return
 	}
 	if out.ChanLength != 1 {
 		t.Fatalf("unexpected channel length: %d", out.ChanLength)
@@ -35,6 +36,7 @@ func TestBuildConnectionConfigAppliesCompatibilityDefaults(t *testing.T) {
 	out := BuildConnectionConfig(in, TaosWSConnectionDefaults)
 	if out == nil {
 		t.Fatal("expected non-nil config")
+		return
 	}
 	if out.User != common.DefaultUser || out.Passwd != common.DefaultPassword {
 		t.Fatalf("unexpected auth defaults: user=%q passwd=%q", out.User, out.Passwd)
@@ -68,6 +70,7 @@ func TestBuildConnectionConfigPreservesProvidedValues(t *testing.T) {
 	out := BuildConnectionConfig(in, TaosWSConnectionDefaults)
 	if out == nil {
 		t.Fatal("expected non-nil config")
+		return
 	}
 	if out.ChanLength != 8 || out.ReconnectIntervalMs != 1234 || out.ReconnectRetryCount != 9 {
 		t.Fatalf("unexpected runtime overwrite: %+v", out)

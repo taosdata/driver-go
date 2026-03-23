@@ -13,6 +13,7 @@ func TestBuildConnectionConfigDefaults(t *testing.T) {
 	out := unified.BuildConnectionConfig(in, unified.TaosWSConnectionDefaults)
 	if out == nil {
 		t.Fatal("expected non-nil config")
+		return
 	}
 	if out.User != common.DefaultUser {
 		t.Fatalf("unexpected default user: %q", out.User)
@@ -68,6 +69,7 @@ func TestBuildConnectionConfigPreservesUserValues(t *testing.T) {
 	out := unified.BuildConnectionConfig(in, unified.TaosWSConnectionDefaults)
 	if out == nil {
 		t.Fatal("expected non-nil config")
+		return
 	}
 	if out.ChanLength != 8 || out.ReconnectIntervalMs != 1234 || out.ReconnectRetryCount != 9 {
 		t.Fatalf("unexpected runtime defaults overwrite: %+v", out)
@@ -94,6 +96,7 @@ func TestBuildConnectionConfigWriteTimeoutLegacyDefault(t *testing.T) {
 	out := unified.BuildConnectionConfig(in, unified.TaosWSConnectionDefaults)
 	if out == nil {
 		t.Fatal("expected non-nil config")
+		return
 	}
 	if out.WriteTimeout != common.DefaultWriteWait {
 		t.Fatalf("expected legacy write timeout default %v, got %v", common.DefaultWriteWait, out.WriteTimeout)
