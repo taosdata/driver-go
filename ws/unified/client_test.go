@@ -1,6 +1,7 @@
 package unified
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -62,14 +63,18 @@ func TestClientConnectFailoverToNextEndpoint(t *testing.T) {
 	}
 }
 
-// TestClientReconnectChoosesLeastConnectionEndpoint verifies the expected behavior for this scenario.
-func TestClientReconnectChoosesLeastConnectionEndpoint(t *testing.T) {
+// TestClientReconnectTriesActiveEndpointFirstThenFallsBack verifies the expected behavior for this scenario.
+func TestClientReconnectTriesActiveEndpointFirstThenFallsBack(t *testing.T) {
 	resetGlobalConnCounterForTest(t)
 	cfg := NewConfig([]string{"ws://a:1", "ws://b:2", "ws://c:3"})
 	attempts := make([]string, 0, 4)
+	var failActiveOnReconnect atomic.Bool
 	c, err := NewClient(cfg, "/ws",
 		WithDialFunc(func(endpoint string) (*websocket.Conn, error) {
 			attempts = append(attempts, endpoint)
+			if failActiveOnReconnect.Load() && endpoint == "ws://a:1/ws" {
+				return nil, newInvalidStateErrorf("forced active endpoint failure")
+			}
 			return nil, nil
 		}),
 		WithClientFactory(func(_ *websocket.Conn, chanLength uint) *client.Client {
@@ -88,11 +93,13 @@ func TestClientReconnectChoosesLeastConnectionEndpoint(t *testing.T) {
 	active := c.failover.active()
 	firstConnectEndpoint := active.URL
 
+	reconnectAttemptStart := len(attempts)
+	failActiveOnReconnect.Store(true)
 	if err = c.reconnectWithBootstrap(nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	if len(attempts) < 2 {
+	if len(attempts) < reconnectAttemptStart+2 {
 		t.Fatalf("unexpected attempts: %v", attempts)
 	}
 
@@ -101,9 +108,14 @@ func TestClientReconnectChoosesLeastConnectionEndpoint(t *testing.T) {
 		t.Fatalf("first connect endpoint %s doesn't match active %s", attempts[0], firstConnectEndpoint)
 	}
 
-	// Reconnect should choose least-connection endpoint among non-active candidates.
-	if attempts[1] != "ws://b:2/ws" {
-		t.Fatalf("unexpected reconnect endpoint: %s", attempts[1])
+	// Reconnect should try active endpoint first to tolerate transient network glitches.
+	if attempts[reconnectAttemptStart] != "ws://a:1/ws" {
+		t.Fatalf("unexpected first reconnect attempt: %s", attempts[reconnectAttemptStart])
+	}
+
+	// After active endpoint fails, reconnect should fallback by least-connection order.
+	if attempts[reconnectAttemptStart+1] != "ws://b:2/ws" {
+		t.Fatalf("unexpected fallback reconnect endpoint: %s", attempts[reconnectAttemptStart+1])
 	}
 
 	// Active endpoint should have changed after reconnect.
@@ -142,16 +154,16 @@ func TestClientHostPortConnectionCountLifecycle(t *testing.T) {
 	if err = c.reconnectWithBootstrap(nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := endpointConnCountForTest(t, "ws://a:1/ws"); got != 0 {
+	if got := endpointConnCountForTest(t, "ws://a:1/ws"); got != 1 {
 		t.Fatalf("unexpected a:1 count after reconnect, got %d", got)
 	}
-	if got := endpointConnCountForTest(t, "ws://b:2/ws"); got != 1 {
+	if got := endpointConnCountForTest(t, "ws://b:2/ws"); got != 0 {
 		t.Fatalf("unexpected b:2 count after reconnect, got %d", got)
 	}
 
 	c.Close()
-	if got := endpointConnCountForTest(t, "ws://b:2/ws"); got != 0 {
-		t.Fatalf("unexpected b:2 count after close, got %d", got)
+	if got := endpointConnCountForTest(t, "ws://a:1/ws"); got != 0 {
+		t.Fatalf("unexpected a:1 count after close, got %d", got)
 	}
 }
 

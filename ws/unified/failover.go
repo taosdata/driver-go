@@ -181,11 +181,56 @@ func (s *failoverState) initialCandidates() []endpointCandidate {
 	return s.leastConnectionCandidatesLocked(-1)
 }
 
-// reconnectCandidates returns endpoints ordered by least-connections, with active endpoint as last fallback.
+// reconnectCandidates returns endpoints for reconnect attempts.
+// The active endpoint is always tried first to avoid unnecessary switch-away
+// during transient network glitches. Remaining endpoints are ordered by
+// least-connections.
 func (s *failoverState) reconnectCandidates() []endpointCandidate {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.leastConnectionCandidatesLocked(s.activeIndex)
+	size := len(s.endpoints)
+	if size == 0 {
+		return nil
+	}
+
+	activeIndex := s.activeIndex
+	candidates := make([]endpointCandidate, 0, size)
+	if activeIndex >= 0 && activeIndex < size {
+		candidates = append(candidates, endpointCandidate{
+			Index: activeIndex,
+			URL:   s.endpoints[activeIndex],
+		})
+	}
+
+	if size == 1 {
+		return candidates
+	}
+
+	indices := make([]int, 0, size-1)
+	counts := make([]int64, size)
+	for i := 0; i < size; i++ {
+		counts[i] = globalHostPortConnCounts.get(s.endpointHostPorts[i])
+		if i == activeIndex {
+			continue
+		}
+		indices = append(indices, i)
+	}
+	sort.SliceStable(indices, func(i, j int) bool {
+		left := indices[i]
+		right := indices[j]
+		if counts[left] != counts[right] {
+			return counts[left] < counts[right]
+		}
+		return left < right
+	})
+	for i := 0; i < len(indices); i++ {
+		idx := indices[i]
+		candidates = append(candidates, endpointCandidate{
+			Index: idx,
+			URL:   s.endpoints[idx],
+		})
+	}
+	return candidates
 }
 
 // leastConnectionCandidatesLocked returns all endpoints sorted by host:port connection count.

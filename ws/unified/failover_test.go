@@ -40,9 +40,35 @@ func TestFailoverStateReconnectCandidates(t *testing.T) {
 
 	got := state.reconnectCandidates()
 	want := []endpointCandidate{
+		{Index: 1, URL: "ws://b:2/ws"},
 		{Index: 0, URL: "ws://a:1/ws"},
 		{Index: 2, URL: "ws://c:3/ws"},
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+}
+
+// TestFailoverStateReconnectCandidatesActiveFirstRegardlessOfConnectionCount verifies the expected behavior for this scenario.
+func TestFailoverStateReconnectCandidatesActiveFirstRegardlessOfConnectionCount(t *testing.T) {
+	resetGlobalConnCounterForTest(t)
+	state, err := newFailoverState([]string{"ws://a:1/ws", "ws://b:2/ws", "ws://c:3/ws"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = state.markActive(1); err != nil {
+		t.Fatal(err)
+	}
+
+	addEndpointConnCountForTest(t, "ws://a:1/ws", 1)
+	addEndpointConnCountForTest(t, "ws://b:2/ws", 10)
+	addEndpointConnCountForTest(t, "ws://c:3/ws", 2)
+
+	got := state.reconnectCandidates()
+	want := []endpointCandidate{
 		{Index: 1, URL: "ws://b:2/ws"},
+		{Index: 0, URL: "ws://a:1/ws"},
+		{Index: 2, URL: "ws://c:3/ws"},
 	}
 	if !reflect.DeepEqual(want, got) {
 		t.Fatalf("want %v, got %v", want, got)
