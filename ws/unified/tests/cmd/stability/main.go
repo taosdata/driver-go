@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -21,11 +23,12 @@ import (
 )
 
 var (
-	dsn      = flag.String("dsn", "root:taosdata@ws(127.0.0.1:6041)/", "TDengine DSN (without db name, appended automatically)")
-	duration = flag.Duration("duration", 0, "test duration (0 = run until interrupted)")
-	interval = flag.Duration("interval", 200*time.Millisecond, "interval between iterations")
-	statItvl = flag.Duration("stat-interval", 10*time.Second, "interval between stats output")
-	workers  = flag.Int("workers", 1, "number of concurrent workers")
+	dsn       = flag.String("dsn", "root:taosdata@ws(127.0.0.1:6041)/", "TDengine DSN (without db name, appended automatically)")
+	duration  = flag.Duration("duration", 0, "test duration (0 = run until interrupted)")
+	interval  = flag.Duration("interval", 200*time.Millisecond, "interval between iterations")
+	statItvl  = flag.Duration("stat-interval", 10*time.Second, "interval between stats output")
+	workers   = flag.Int("workers", 1, "number of concurrent workers")
+	pprofAddr = flag.String("pprof", "127.0.0.1:6060", "pprof HTTP listen address")
 )
 
 const dbName = "unified_stability"
@@ -68,6 +71,14 @@ type stats struct {
 func main() {
 	flag.Parse()
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
+
+	// Start pprof HTTP server
+	go func() {
+		log.Printf("pprof listening on %s", *pprofAddr)
+		if err := http.ListenAndServe(*pprofAddr, nil); err != nil {
+			log.Printf("pprof server error: %v", err)
+		}
+	}()
 
 	setupDSN, workerDSN := buildDSN(*dsn)
 
@@ -119,14 +130,16 @@ func main() {
 				return
 			case <-time.After(*statItvl):
 			}
+			runtime.GC()
 			runtime.ReadMemStats(&m)
-			log.Printf("[stats] iters=%d query_ok=%d query_err=%d stmt_ok=%d stmt_err=%d sl_ok=%d sl_err=%d goroutines=%d alloc=%dMB sys=%dMB",
+			log.Printf("[stats] iters=%d query_ok=%d query_err=%d stmt_ok=%d stmt_err=%d sl_ok=%d sl_err=%d goroutines=%d alloc=%dKB sys=%dMB heap_objects=%d",
 				atomic.LoadUint64(&s.iters),
 				atomic.LoadUint64(&s.queryOK), atomic.LoadUint64(&s.queryErr),
 				atomic.LoadUint64(&s.stmtOK), atomic.LoadUint64(&s.stmtErr),
 				atomic.LoadUint64(&s.slOK), atomic.LoadUint64(&s.slErr),
 				runtime.NumGoroutine(),
-				m.Alloc/1024/1024, m.Sys/1024/1024,
+				m.Alloc/1024, m.Sys/1024/1024,
+				m.HeapObjects,
 			)
 		}
 	}()
@@ -144,13 +157,15 @@ func main() {
 	}
 
 	var m runtime.MemStats
+	runtime.GC()
 	runtime.ReadMemStats(&m)
-	log.Printf("[final] iters=%d query_ok=%d query_err=%d stmt_ok=%d stmt_err=%d sl_ok=%d sl_err=%d alloc=%dMB sys=%dMB",
+	log.Printf("[final] iters=%d query_ok=%d query_err=%d stmt_ok=%d stmt_err=%d sl_ok=%d sl_err=%d alloc=%dKB sys=%dMB heap_objects=%d",
 		atomic.LoadUint64(&s.iters),
 		atomic.LoadUint64(&s.queryOK), atomic.LoadUint64(&s.queryErr),
 		atomic.LoadUint64(&s.stmtOK), atomic.LoadUint64(&s.stmtErr),
 		atomic.LoadUint64(&s.slOK), atomic.LoadUint64(&s.slErr),
-		m.Alloc/1024/1024, m.Sys/1024/1024,
+		m.Alloc/1024, m.Sys/1024/1024,
+		m.HeapObjects,
 	)
 }
 

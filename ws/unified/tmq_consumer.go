@@ -63,7 +63,7 @@ func NewWSError(err error) *WSError {
 
 var ErrTMQConsumerUninitialized = &Error{
 	Type:    ErrorTypeInvalidState,
-	Message: "unified tmq consumer is not initialized",
+	Message: "tmq consumer is not initialized",
 }
 
 // NewTMQConsumer creates a tmq consumer backed by unified client reconnect/failover runtime.

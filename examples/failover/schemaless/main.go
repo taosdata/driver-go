@@ -13,16 +13,25 @@ import (
 
 func main() {
 	// Multi-endpoint DSN with auto-reconnect for mid-stream failover.
-	taosDSN := "root:taosdata@ws(127.0.0.1:6042,127.0.0.1:6041)/example_failover_schemaless?autoReconnect=true"
-	client, err := unified.Open(taosDSN)
+	baseDSN := "root:taosdata@ws(127.0.0.1:6042,127.0.0.1:6041)/"
+	dbName := "example_failover_schemaless"
+	setupDSN := baseDSN + "?autoReconnect=true"
+	workerDSN := baseDSN + dbName + "?autoReconnect=true"
+
+	// Create database via DSN without db name, then reopen with db in DSN.
+	// Schemaless insert depends on connection default database.
+	setupClient, err := unified.Open(setupDSN)
 	if err != nil {
-		log.Fatalln("open unified client failed:", err)
+		log.Fatalln("open setup unified client failed:", err)
+	}
+	mustExec(setupClient, "create database if not exists "+dbName)
+	setupClient.Close()
+
+	client, err := unified.Open(workerDSN)
+	if err != nil {
+		log.Fatalln("open worker unified client failed:", err)
 	}
 	defer client.Close()
-
-	// Use fully qualified table names (db.table) instead of "USE db",
-	// because the database context is lost after reconnection.
-	mustExec(client, "create database if not exists example_failover_schemaless")
 
 	line := fmt.Sprintf(
 		"meters,location=beijing current=%di32,voltage=%di32 %d",
@@ -34,7 +43,7 @@ func main() {
 		log.Fatalln("schemaless insert failed:", err)
 	}
 
-	rows, err := client.Query(0, "select ts,current,voltage,location from example_failover_schemaless.meters order by ts desc limit 1")
+	rows, err := client.Query(0, fmt.Sprintf("select _ts,current,voltage,location from %s.meters order by _ts desc limit 1", dbName))
 	if err != nil {
 		log.Fatalln("query failed:", err)
 	}

@@ -269,7 +269,6 @@ func stmt2BuildRandomRows(rowCount int, seed int64, gen func(r *rand.Rand, rowId
 	}
 	if nonNilCount == 0 {
 		rows[len(rows)-1].v = gen(r, len(rows)-1)
-		nonNilCount++
 		nilCount--
 	}
 	return rows, nilCount

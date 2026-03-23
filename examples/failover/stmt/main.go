@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// Multi-endpoint DSN with auto-reconnect for mid-stream failover.
-	taosDSN := "root:taosdata@ws(127.0.0.1:6042,127.0.0.1:6041)/example_failover_stmt?autoReconnect=true"
+	taosDSN := "root:taosdata@ws(127.0.0.1:6042,127.0.0.1:6041)/?autoReconnect=true"
 	client, err := unified.Open(taosDSN)
 	if err != nil {
 		log.Fatalln("open unified client failed:", err)

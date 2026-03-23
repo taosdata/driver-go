@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Multi-endpoint DSN with auto-reconnect for mid-stream failover.
-	taosDSN := "root:taosdata@ws(127.0.0.1:6042,127.0.0.1:6041)/example_failover_query?autoReconnect=true"
+	taosDSN := "root:taosdata@ws(127.0.0.1:6042,127.0.0.1:6041)/?autoReconnect=true"
 	db, err := sql.Open("taosWS", taosDSN)
 	if err != nil {
 		log.Fatalln("open taosWS failed:", err)
