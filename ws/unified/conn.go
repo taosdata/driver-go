@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/tdversion"
+	tLog "github.com/taosdata/driver-go/v3/log"
 	"github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
@@ -121,9 +122,15 @@ func (c *Client) handleTextMessage(message []byte) {
 	// Extract req_id from message
 	reqID, err := extractReqIDFromTextMessage(message)
 	if err != nil {
-		// todo
-		// Log or handle error - message without req_id
+		if shouldLogPacketWarn() {
+			tLog.Warnf(0, "received unroutable text packet, size: %d bytes, err: %v, content: %s", len(message), err, packetContentForLog(websocket.TextMessage, message))
+		} else {
+			tLog.Warnf(0, "received unroutable text packet, size: %d bytes, err: %v", len(message), err)
+		}
 		return
+	}
+	if shouldLogPacketInfo() {
+		tLog.Infof(reqID, "received text packet, size: %d bytes, content: %s", len(message), packetContentForLog(websocket.TextMessage, message))
 	}
 
 	c.handleMessage(message, reqID)
@@ -133,9 +140,15 @@ func (c *Client) handleBinaryMessage(message []byte) {
 	// Extract req_id from message
 	reqID, err := extractReqIDFromBinaryMessage(message)
 	if err != nil {
-		// todo
-		// Log or handle error - message without req_id
+		if shouldLogPacketWarn() {
+			tLog.Warnf(0, "received unroutable binary packet, size: %d bytes, err: %v, content: %s", len(message), err, packetContentForLog(websocket.BinaryMessage, message))
+		} else {
+			tLog.Warnf(0, "received unroutable binary packet, size: %d bytes, err: %v", len(message), err)
+		}
 		return
+	}
+	if shouldLogPacketInfo() {
+		tLog.Infof(reqID, "received binary packet, size: %d bytes, content: %s", len(message), packetContentForLog(websocket.BinaryMessage, message))
 	}
 
 	c.handleMessage(message, reqID)
@@ -144,6 +157,9 @@ func (c *Client) handleBinaryMessage(message []byte) {
 func (c *Client) handleMessage(message []byte, reqID uint64) {
 	req := c.removePendingRequest(reqID, nil)
 	if req == nil {
+		if tLog.IsPacketLoggingEnabled() && tLog.IsDebugEnabled() {
+			tLog.Debugf(reqID, "dropped response without pending request, size: %d bytes", len(message))
+		}
 		return
 	}
 

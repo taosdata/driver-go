@@ -75,6 +75,12 @@ Multi-endpoint failover examples with `autoReconnect` enabled. Each example puts
 | `stmt` | Statement (STMT2) insert failover using the `ws/unified` client |
 | `tmq` | TMQ consumer failover with `ws.autoReconnect` enabled |
 
+## slog
+
+| Directory | Description |
+|-----------|-------------|
+| `slog` | WebSocket SQL example with driver logs routed to Go `log/slog` |
+
 ## platform
 
 | Directory | Description |

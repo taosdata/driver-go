@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/taosdata/driver-go/v3/common"
+	tLog "github.com/taosdata/driver-go/v3/log"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -88,6 +89,11 @@ func (c *Client) sendEnvelopeWithRuntimeWithSummaryFunc(runtime *client.Client, 
 		_ = c.removePendingRequest(reqID, pendingReq)
 	}()
 
+	if shouldLogPacketInfo() {
+		payload := envelope.Msg.Bytes()
+		tLog.Infof(reqID, "sending %s packet, size: %d bytes, content: %s", packetTypeName(envelope.Type), len(payload), packetContentForLog(envelope.Type, payload))
+	}
+
 	err := runtime.Send(envelope)
 	if err != nil {
 		return nil, false, runtimeGen, wrapRequestErrorWithSummaryFunc(err, requestSummaryFunc)
@@ -164,10 +170,20 @@ func (c *Client) sendEnvelopeNoResponseWithSummaryFunc(runtime *client.Client, e
 		}
 	}
 
+	reqID := uint64(0)
+	if shouldLogPacketInfo() {
+		payload := envelope.Msg.Bytes()
+		tLog.Infof(reqID, "sending %s packet without response, size: %d bytes, content: %s", packetTypeName(envelope.Type), len(payload), packetContentForLog(envelope.Type, payload))
+	}
+
 	if err := runtime.Send(envelope); err != nil {
 		return wrapRequestErrorWithSummaryFunc(err, requestSummaryFunc)
 	}
-	return wrapRequestErrorWithSummaryFunc(<-envelope.ErrorChan, requestSummaryFunc)
+	err := wrapRequestErrorWithSummaryFunc(<-envelope.ErrorChan, requestSummaryFunc)
+	if err == nil && shouldLogPacketInfo() {
+		tLog.Infof(reqID, "packet sent without response, type: %s", packetTypeName(envelope.Type))
+	}
+	return err
 }
 
 func wrapRequestError(err error, requestSummary string) error {

@@ -15,6 +15,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/parser"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
+	tLog "github.com/taosdata/driver-go/v3/log"
 	"github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
@@ -98,6 +99,7 @@ func (r *ResultSet) freeResult(reqID int64) error {
 
 	// Result stream already drained by fetch_raw_block(completed=true); no explicit free needed.
 	if r.completed {
+		tLog.Debugf(0, "free_result skipped, result already completed, result_id: %d", r.resultID)
 		return nil
 	}
 
@@ -126,7 +128,13 @@ func (r *ResultSet) freeResult(reqID int64) error {
 	err = r.client.sendEnvelopeNoResponseWithSummaryFunc(r.runtime, envelope, func() string {
 		return buildTextRequestSummary(proto.WSFreeResult, uint64(reqID), args)
 	})
-	return normalizeDisconnectedError(err, ErrQueryResultConnectionLost.Message)
+	err = normalizeDisconnectedError(err, ErrQueryResultConnectionLost.Message)
+	if err == nil {
+		tLog.Debugf(uint64(reqID), "sent free_result, result_id: %d", r.resultID)
+	} else {
+		tLog.Warnf(uint64(reqID), "free_result failed, result_id: %d, err: %v", r.resultID, err)
+	}
+	return err
 }
 
 // fetchRawBlock fetches next raw block for this query result.

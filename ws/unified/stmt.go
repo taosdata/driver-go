@@ -8,6 +8,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common"
 	"github.com/taosdata/driver-go/v3/common/param"
 	commonstmt "github.com/taosdata/driver-go/v3/common/stmt"
+	tLog "github.com/taosdata/driver-go/v3/log"
 	"github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
@@ -362,6 +363,7 @@ func (s *Stmt) Close(reqID int64) error {
 	s.closed = true
 	stmtID := s.id
 	s.mu.Unlock()
+	tLog.Debugf(0, "stmt2 closed, stmt_id: %d", stmtID)
 
 	runtime := s.runtime
 	if runtime == nil {
@@ -394,9 +396,11 @@ func (s *Stmt) prepareWithReconnectLocked(reqID int64, sql string) error {
 	if !s.shouldReconnectLocked(err, runtime) {
 		return normalizeStmtError(err)
 	}
+	tLog.Warnf(0, "stmt2 prepare failed, attempting reconnect, sql_len: %d, err: %v", len(sql), err)
 	if err = s.reconnectAndInitLocked(runtime); err != nil {
 		return normalizeStmtError(err)
 	}
+	tLog.Infof(0, "stmt2 prepare retrying after reconnect, sql_len: %d", len(sql))
 	resp, _, err = s.prepareOnceLocked(reqID, sql)
 	if err != nil {
 		return normalizeStmtError(err)
@@ -516,6 +520,7 @@ func (s *Stmt) execWithReconnectLocked(reqID int64, bindPayload []byte) (*proto.
 	if err = s.reprepareAfterReconnectLocked(); err != nil {
 		return nil, err
 	}
+	tLog.Infof(0, "stmt2 exec retrying after reconnect, stmt_id: %d", s.id)
 	resp, _, err = s.execOnceLocked(reqID, bindPayload)
 	if err != nil {
 		return nil, err
@@ -552,6 +557,7 @@ func (s *Stmt) execOnceLocked(reqID int64, bindPayload []byte) (*proto.Stmt2Exec
 }
 
 func (s *Stmt) reconnectAndInitLocked(failedRuntime *client.Client) error {
+	tLog.Infof(0, "stmt2 reconnecting, old_stmt_id: %d", s.id)
 	if err := s.client.reconnectWithBootstrap(s.client.defaultBootstrap, failedRuntime); err != nil {
 		return err
 	}
@@ -561,6 +567,7 @@ func (s *Stmt) reconnectAndInitLocked(failedRuntime *client.Client) error {
 	}
 	s.id = stmtID
 	s.runtime = runtime
+	tLog.Infof(0, "stmt2 re-initialized, new_stmt_id: %d", s.id)
 	return nil
 }
 
@@ -571,6 +578,7 @@ func (s *Stmt) reprepareAfterReconnectLocked() error {
 	}
 	if !samePrepareMetadata(s, resp) {
 		s.schemaChanged = true
+		tLog.Warnf(0, "stmt2 re-prepare detected schema change, sql_len: %d", len(s.sql))
 		return ErrStmtReprepareSchemaChanged
 	}
 	return nil
@@ -674,6 +682,7 @@ func (c *Client) stmt2InitOnce(runtime *client.Client, reqID uint64) (uint64, er
 	if _, _, err := c.sendStmtJSONAndDecode(runtime, reqID, proto.STMT2Init, req, &resp); err != nil {
 		return 0, err
 	}
+	tLog.Debugf(reqID, "stmt2 init succeeded, stmt_id: %d", resp.StmtID)
 	return resp.StmtID, nil
 }
 

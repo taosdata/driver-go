@@ -17,6 +17,7 @@ import (
 	"github.com/taosdata/driver-go/v3/common/tdversion"
 	"github.com/taosdata/driver-go/v3/common/tmq"
 	taosErrors "github.com/taosdata/driver-go/v3/errors"
+	tLog "github.com/taosdata/driver-go/v3/log"
 	"github.com/taosdata/driver-go/v3/ws/client"
 	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
@@ -131,9 +132,12 @@ func (c *TMQConsumer) bootstrapTMQ(conn *websocket.Conn) error {
 
 func (c *TMQConsumer) reconnect(failedRuntime *client.Client) error {
 	if c.isClosed() {
+		tLog.Debug(0, "tmq reconnect skipped, consumer already closed")
 		return ClosedErr
 	}
+	tLog.Info(0, "tmq reconnect started")
 	if err := c.client.reconnectWithBootstrap(c.bootstrapTMQ, failedRuntime); err != nil {
+		tLog.Errorf(0, "tmq reconnect failed, err: %v", err)
 		if errors.Is(err, ErrUnifiedClosed) {
 			return ClosedErr
 		}
@@ -150,10 +154,13 @@ func (c *TMQConsumer) reconnect(failedRuntime *client.Client) error {
 	c.clearErr()
 	topics := c.topicsSnapshot()
 	if len(topics) > 0 {
+		tLog.Infof(0, "tmq re-subscribing after reconnect, topics: %v", topics)
 		if err := c.doSubscribe(topics, false); err != nil {
+			tLog.Errorf(0, "tmq re-subscribe after reconnect failed, err: %v", err)
 			return err
 		}
 	}
+	tLog.Info(0, "tmq reconnect succeeded")
 	return nil
 }
 
@@ -403,11 +410,14 @@ func (c *TMQConsumer) sendTextWithReconnect(reqID uint64, envelope *client.Envel
 	if !isReconnectableError(err) && !errors.Is(err, ClosedErr) {
 		return nil, err
 	}
+	tLog.Warnf(reqID, "tmq request failed, attempting reconnect, err: %v", err)
 	if err = c.reconnect(failedRuntime); err != nil {
 		return nil, err
 	}
+	tLog.Infof(reqID, "tmq retrying request after reconnect")
 	respBytes, _, err = c.sendTextWithClient(reqID, envelope, requestSummaryFunc)
 	if err != nil {
+		tLog.Errorf(reqID, "tmq request retry after reconnect failed, err: %v", err)
 		return nil, err
 	}
 	return respBytes, nil

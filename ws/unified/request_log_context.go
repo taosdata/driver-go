@@ -157,8 +157,15 @@ func redactURLStringForLog(raw string) (string, bool) {
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return "", false
 	}
-	query := u.Query()
 	changed := false
+	if u.User != nil {
+		username := u.User.Username()
+		if _, hasPassword := u.User.Password(); hasPassword {
+			u.User = url.UserPassword(username, redactedLogValue)
+			changed = true
+		}
+	}
+	query := u.Query()
 	for key, values := range query {
 		if !isSensitiveLogKey(key) {
 			continue

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -69,6 +70,19 @@ func TestBuildBinaryQueryRequestSummaryRedactsSensitiveText(t *testing.T) {
 	require.NotContains(t, summary, "abc")
 	require.NotContains(t, summary, "def")
 	require.NotContains(t, summary, "ghi")
+}
+
+func TestRedactURLStringForLogRedactsUserInfoPassword(t *testing.T) {
+	sanitized, ok := redactURLStringForLog("ws://alice:raw-pass@127.0.0.1:6041/ws?x=1")
+	require.True(t, ok)
+	parsed, err := url.Parse(sanitized)
+	require.NoError(t, err)
+	require.NotNil(t, parsed.User)
+	password, has := parsed.User.Password()
+	require.True(t, has)
+	require.Equal(t, "***", password)
+	require.Equal(t, "alice", parsed.User.Username())
+	require.NotContains(t, sanitized, "raw-pass")
 }
 
 // TestWrapRequestErrorKeepsErrorIs verifies wrapped errors still support errors.Is checks.

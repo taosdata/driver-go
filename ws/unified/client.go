@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/taosdata/driver-go/v3/common"
+	tLog "github.com/taosdata/driver-go/v3/log"
 	"github.com/taosdata/driver-go/v3/ws/client"
 )
 
@@ -151,6 +152,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 	// Check if current runtime is different from failed one and still healthy
 	if failedRuntime != nil && currentRuntime != nil && currentRuntime != failedRuntime && currentRuntime.IsRunning() {
 		c.reconnectLock.Unlock()
+		tLog.Debug(0, "reconnect skipped, current runtime is healthy")
 		return nil
 	}
 
@@ -158,6 +160,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 	if c.reconnecting {
 		done := c.reconnectDone
 		c.reconnectLock.Unlock()
+		tLog.Debug(0, "reconnect already in progress, waiting")
 
 		select {
 		case <-done:
@@ -184,6 +187,7 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 	done := c.reconnectDone
 	c.reconnectErr = nil
 	c.reconnectLock.Unlock()
+	tLog.Info(0, "reconnect started")
 
 	err := c.connectWithCandidatesWithRetry(c.failover.reconnectCandidates, bootstrap)
 	if err != nil && !errors.Is(err, ErrUnifiedClosed) && !IsReconnectFailedError(err) {
@@ -201,6 +205,11 @@ func (c *Client) reconnectWithBootstrap(bootstrap BootstrapFunc, failedRuntime *
 	c.reconnectErr = err
 	close(done)
 	c.reconnectLock.Unlock()
+	if err != nil {
+		tLog.Errorf(0, "reconnect failed, err: %v", err)
+	} else {
+		tLog.Info(0, "reconnect succeeded")
+	}
 
 	return err
 }
@@ -213,8 +222,11 @@ func (c *Client) connectWithCandidates(candidates []endpointCandidate, bootstrap
 			return ErrUnifiedClosed
 		}
 		candidate := candidates[i]
+		endpointForLog := sanitizeEndpointForLog(candidate.URL)
+		tLog.Infof(0, "connecting to endpoint %s", endpointForLog)
 		conn, err := c.dial(candidate.URL)
 		if err != nil {
+			tLog.Warnf(0, "connect to endpoint %s failed, err: %v", endpointForLog, err)
 			lastErr = err
 			continue
 		}
@@ -223,6 +235,7 @@ func (c *Client) connectWithCandidates(candidates []endpointCandidate, bootstrap
 				if conn != nil {
 					_ = conn.Close()
 				}
+				tLog.Warnf(0, "connect to endpoint %s failed, err: %v", endpointForLog, err)
 				lastErr = err
 				continue
 			}
@@ -241,11 +254,14 @@ func (c *Client) connectWithCandidates(candidates []endpointCandidate, bootstrap
 		if oldRuntime != nil {
 			oldRuntime.Close()
 		}
+		tLog.Infof(0, "connected to endpoint %s", endpointForLog)
 		return nil
 	}
 	if lastErr != nil {
+		tLog.Errorf(0, "all endpoint connection attempts failed, candidates: %d, err: %v", len(candidates), lastErr)
 		return lastErr
 	}
+	tLog.Error(0, "all endpoint connection attempts failed, no candidate available")
 	return ErrUnifiedConnectFailed
 }
 
@@ -258,6 +274,7 @@ func (c *Client) connectWithCandidatesWithRetry(candidateProvider func() []endpo
 
 	var lastErr error
 	for attempt := 0; attempt < retryCount; attempt++ {
+		tLog.Infof(0, "reconnect attempt %d/%d started", attempt+1, retryCount)
 		if c.IsClosed() {
 			return ErrUnifiedClosed
 		}
@@ -269,6 +286,7 @@ func (c *Client) connectWithCandidatesWithRetry(candidateProvider func() []endpo
 			return nil
 		}
 		lastErr = err
+		tLog.Warnf(0, "reconnect attempt %d/%d failed, err: %v", attempt+1, retryCount, err)
 
 		// Don't sleep after last attempt
 		if attempt < retryCount-1 {
@@ -276,6 +294,7 @@ func (c *Client) connectWithCandidatesWithRetry(candidateProvider func() []endpo
 			if interval <= 0 {
 				interval = 2000 * time.Millisecond
 			}
+			tLog.Infof(0, "waiting %d ms before next reconnect attempt", interval/time.Millisecond)
 			if err = c.waitReconnectInterval(interval); err != nil {
 				return err
 			}
@@ -366,6 +385,7 @@ func (c *Client) swapRuntime(next *client.Client, endpointIndex int) (*client.Cl
 	c.lock.Unlock()
 
 	notifyPendingRequestsClosed(oldPending)
+	tLog.Infof(0, "runtime swapped to endpoint %s, pending_cleared: %d", newHostPort, len(oldPending))
 
 	return oldRuntime, nil
 }
@@ -462,14 +482,18 @@ func (c *Client) sendWithReconnect(runtime *client.Client, send sendWithRuntimeF
 	if err == nil {
 		return respBytes, runtime, runtimeGen, nil
 	}
+	tLog.Warnf(0, "request failed, attempting reconnect, write_acked: %t, err: %v", writeAckedToSocket, err)
 
 	runtime, err = c.reconnectRuntimeForRetry(err, writeAckedToSocket, runtime)
 	if err != nil {
+		tLog.Errorf(0, "reconnect for request retry failed, err: %v", err)
 		return nil, nil, 0, err
 	}
+	tLog.Info(0, "retrying request after reconnect")
 
 	respBytes, _, runtimeGen, err = send(runtime)
 	if err != nil {
+		tLog.Errorf(0, "request retry after reconnect failed, err: %v", err)
 		return nil, nil, 0, err
 	}
 	return respBytes, runtime, runtimeGen, nil

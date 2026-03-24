@@ -111,6 +111,7 @@ run_other_examples() {
     run_example "./all_type_stmt/ws/main.go"
     run_example "./schemaless/native/main.go"
     run_example "./schemaless/ws/main.go"
+    run_example "./slog/main.go"
     run_example "./tmq/native/main.go"
     run_example "./tmq/ws/main.go"
     run_example "./failover/query/main.go"
