@@ -435,14 +435,11 @@ func (c *Client) runtimeOrError() (*client.Client, error) {
 	return nil, client.ClosedError
 }
 
-func (c *Client) reconnectRuntimeForRetry(sendErr error, writeAckedToSocket bool, failedRuntime *client.Client) (*client.Client, error) {
+func (c *Client) reconnectRuntimeForRetry(sendErr error, _ bool, failedRuntime *client.Client) (*client.Client, error) {
 	if c.IsClosed() {
 		return nil, ErrUnifiedClosed
 	}
 	if !c.config.AutoReconnect {
-		return nil, sendErr
-	}
-	if writeAckedToSocket {
 		return nil, sendErr
 	}
 	if !isReconnectableError(sendErr) {
@@ -466,7 +463,6 @@ func (c *Client) sendWithReconnect(runtime *client.Client, send sendWithRuntimeF
 		return respBytes, runtime, runtimeGen, nil
 	}
 
-	// Replay is unsafe once websocket write has been acknowledged.
 	runtime, err = c.reconnectRuntimeForRetry(err, writeAckedToSocket, runtime)
 	if err != nil {
 		return nil, nil, 0, err

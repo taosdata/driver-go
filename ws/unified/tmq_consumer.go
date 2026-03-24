@@ -144,6 +144,9 @@ func (c *TMQConsumer) reconnect(failedRuntime *client.Client) error {
 			ReconnectFailed:   true,
 		}
 	}
+	// message_id is session-scoped in taosadapter tmq websocket handler.
+	// After runtime/session reconnect, clear local cursor to avoid carrying stale state.
+	c.setLastMessageID(0)
 	c.clearErr()
 	topics := c.topicsSnapshot()
 	if len(topics) > 0 {

@@ -32,8 +32,8 @@ func writeVersionResponse(conn *websocket.Conn) error {
 	return conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"version","version":"3.3.6.0"}`))
 }
 
-// TestSchemalessInsertNoReplayAfterWriteAck verifies the expected behavior for this scenario.
-func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
+// TestSchemalessInsertReplayAfterWriteAckDisconnect verifies the expected behavior for this scenario.
+func TestSchemalessInsertReplayAfterWriteAckDisconnect(t *testing.T) {
 	var insertCount int32
 	var connCount int32
 
@@ -86,9 +86,9 @@ func TestSchemalessInsertNoReplayAfterWriteAck(t *testing.T) {
 	require.NoError(t, c.Connect())
 
 	err = c.SchemalessInsert(1, "measurement,host=host1 field1=2i 1577837300000", 1, "ms", 0, "")
-	require.Error(t, err)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&insertCount), "insert must not be replayed after write ack")
-	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "must not reconnect and replay")
+	require.NoError(t, err)
+	assert.Equal(t, int32(2), atomic.LoadInt32(&insertCount), "insert should be replayed after write-acked disconnect")
+	assert.Equal(t, int32(2), atomic.LoadInt32(&connCount), "should reconnect and replay after write-acked disconnect")
 }
 
 // TestSchemalessInsertRespectsAutoReconnect verifies the expected behavior for this scenario.

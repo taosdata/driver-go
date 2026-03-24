@@ -44,8 +44,8 @@ func writeMockQueryResponse(conn *websocket.Conn, reqID uint64, resultID uint64,
 	return conn.WriteMessage(websocket.TextMessage, []byte(resp))
 }
 
-// TestQueryNoReplayAfterWriteAck verifies the expected behavior for this scenario.
-func TestQueryNoReplayAfterWriteAck(t *testing.T) {
+// TestQueryReplayAfterWriteAckDisconnect verifies the expected behavior for this scenario.
+func TestQueryReplayAfterWriteAckDisconnect(t *testing.T) {
 	var connCount int32
 	var queryCount int32
 
@@ -72,9 +72,13 @@ func TestQueryNoReplayAfterWriteAck(t *testing.T) {
 			case mt == websocket.TextMessage && strings.Contains(string(msg), `"action":"conn"`):
 				_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0}`))
 			case mt == websocket.BinaryMessage && binaryAction(msg) == proto.BinaryQueryMessage:
-				atomic.AddInt32(&queryCount, 1)
-				_ = conn.UnderlyingConn().Close()
-				return
+				reqID := binaryReqID(msg)
+				if atomic.AddInt32(&queryCount, 1) == 1 {
+					// Disconnect after the first request write-ack, before query response.
+					_ = conn.UnderlyingConn().Close()
+					return
+				}
+				_ = writeMockQueryResponse(conn, reqID, 101, false)
 			}
 		}
 	}))
@@ -93,10 +97,11 @@ func TestQueryNoReplayAfterWriteAck(t *testing.T) {
 
 	require.NoError(t, c.Connect())
 
-	_, err = c.Query(1, "select 1")
-	require.Error(t, err)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&queryCount), "query must not be replayed after write ack")
-	assert.Equal(t, int32(1), atomic.LoadInt32(&connCount), "must not reconnect after write-acked query")
+	rs, err := c.Query(1, "select 1")
+	require.NoError(t, err)
+	require.NotNil(t, rs)
+	assert.Equal(t, int32(2), atomic.LoadInt32(&queryCount), "query should be replayed after write-acked disconnect")
+	assert.Equal(t, int32(2), atomic.LoadInt32(&connCount), "should reconnect and replay after write-acked disconnect")
 }
 
 // TestQueryRespectsAutoReconnect verifies the expected behavior for this scenario.
