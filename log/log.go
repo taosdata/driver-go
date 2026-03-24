@@ -47,11 +47,11 @@ var levelLabel = [4]string{"DEBUG ", "INFO  ", "WARN  ", "ERROR "}
 
 // global log state
 var (
-	globalLogLevel    int32     = int32(LogLevelSilent)
+	globalLogLevel              = int32(LogLevelSilent)
 	globalLogWriter   io.Writer = os.Stderr
 	globalLogger      Logger    // nil means built-in mode
 	globalLogMu       sync.RWMutex
-	processID         int = os.Getpid()
+	processID         = os.Getpid()
 	packetLogOn       uint32
 	maxPacketLogBytes int32 = 512 // default max bytes for packet content in logs
 )

@@ -3,7 +3,7 @@ package log
 import (
 	"bytes"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -23,7 +23,7 @@ func resetGlobals() {
 	atomic.StoreUint32(&packetLogOn, 0)
 	atomic.StoreInt32(&maxPacketLogBytes, 512)
 	globalLogMu.Lock()
-	globalLogWriter = io.Discard
+	globalLogWriter = ioutil.Discard
 	globalLogger = nil
 	globalLogMu.Unlock()
 }
@@ -371,7 +371,7 @@ func TestHexPreview(t *testing.T) {
 
 func TestConcurrentSafety(t *testing.T) {
 	resetGlobals()
-	SetOutput(io.Discard)
+	SetOutput(ioutil.Discard)
 	SetLevel(LogLevelDebug)
 
 	var wg sync.WaitGroup
@@ -462,10 +462,10 @@ func BenchmarkDisabled_Formatted(b *testing.B) {
 	}
 }
 
-// Enabled: built-in TAOS format, fixed message, write to io.Discard
+// Enabled: built-in TAOS format, fixed message, write to ioutil.Discard
 func BenchmarkEnabled_FixedMsg_Discard(b *testing.B) {
 	resetGlobals()
-	SetOutput(io.Discard)
+	SetOutput(ioutil.Discard)
 	SetLevel(LogLevelDebug)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -473,10 +473,10 @@ func BenchmarkEnabled_FixedMsg_Discard(b *testing.B) {
 	}
 }
 
-// Enabled: built-in TAOS format, formatted message, write to io.Discard
+// Enabled: built-in TAOS format, formatted message, write to ioutil.Discard
 func BenchmarkEnabled_Formatted_Discard(b *testing.B) {
 	resetGlobals()
-	SetOutput(io.Discard)
+	SetOutput(ioutil.Discard)
 	SetLevel(LogLevelDebug)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -499,10 +499,10 @@ type nopLogger struct{}
 
 func (nopLogger) Log(LogLevel, uint64, string) {}
 
-// Enabled: built-in format, parallel writes to io.Discard
+// Enabled: built-in format, parallel writes to ioutil.Discard
 func BenchmarkEnabled_Parallel(b *testing.B) {
 	resetGlobals()
-	SetOutput(io.Discard)
+	SetOutput(ioutil.Discard)
 	SetLevel(LogLevelDebug)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
