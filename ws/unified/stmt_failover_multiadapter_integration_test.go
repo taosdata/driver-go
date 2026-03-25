@@ -1,6 +1,7 @@
 package unified
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"os"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taosdata/driver-go/v3/common/param"
+	commonstmt "github.com/taosdata/driver-go/v3/common/stmt"
 )
 
 const unifiedCrossStmtTable = "unified_stmt_cross"
@@ -54,6 +56,47 @@ func TestUnifiedStmtCrossFailoverDisconnectDetectionAndImmediateReconnect(t *tes
 	recoverCost, lastErr := waitForSuccessfulStmtExec(probeStmt, "stmt_cross_reconnect", 4*time.Second)
 	require.NoError(t, lastErr)
 	assert.Less(t, recoverCost, 2500*time.Millisecond, "disconnect should be detected and recovered quickly")
+
+	require.Eventually(t, func() bool {
+		return activeAdapterPort(t, c) == standby
+	}, 4*time.Second, 50*time.Millisecond, "active endpoint should switch to standby")
+}
+
+// TestUnifiedStmtRawBindCrossFailoverDisconnectDetectionAndImmediateReconnect verifies raw bind failover.
+func TestUnifiedStmtRawBindCrossFailoverDisconnectDetectionAndImmediateReconnect(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skip integration test in short mode")
+	}
+	ensureTaosadapterBinary(t)
+
+	ports, stops := startAdapters(t, 2)
+	t.Cleanup(func() {
+		for i := len(ports) - 1; i >= 0; i-- {
+			if stop, ok := stops[ports[i]]; ok && stop != nil {
+				stop()
+				delete(stops, ports[i])
+			}
+		}
+	})
+
+	db := createTestDatabase(t, ports)
+	c := newIntegrationUnifiedClient(t, ports, db)
+	defer c.Close()
+	createStmtCrossTable(t, c, db, unifiedCrossStmtTable)
+
+	probeStmt, err := newPreparedStmtInsert(c, db, unifiedCrossStmtTable)
+	require.NoError(t, err)
+	defer func() {
+		_ = probeStmt.Close(0)
+	}()
+
+	activeBefore := activeAdapterPort(t, c)
+	standby := otherAdapterPort(activeBefore, ports)
+	stopByPort(t, activeBefore, stops)
+
+	recoverCost, lastErr := waitForSuccessfulRawStmtExec(probeStmt, "stmt_raw_cross_reconnect", 4*time.Second)
+	require.NoError(t, lastErr)
+	assert.Less(t, recoverCost, 2500*time.Millisecond, "raw stmt bind should recover quickly after disconnect")
 
 	require.Eventually(t, func() bool {
 		return activeAdapterPort(t, c) == standby
@@ -311,12 +354,43 @@ func execPreparedStmtInsert(stmt *Stmt, value int) error {
 	return err
 }
 
+func execPreparedRawStmtInsert(stmt *Stmt, value int) error {
+	if err := stmt.Bind([]*commonstmt.TaosStmt2BindData{
+		{
+			Cols: [][]driver.Value{
+				{nextStmtCrossTimestamp()},
+				{int32(value)},
+			},
+		},
+	}); err != nil {
+		return err
+	}
+	_, err := stmt.Exec(0)
+	return err
+}
+
 func waitForSuccessfulStmtExec(stmt *Stmt, phase string, timeout time.Duration) (time.Duration, error) {
 	start := time.Now()
 	var lastErr error
 	i := 0
 	for time.Since(start) < timeout {
 		err := execPreparedStmtInsert(stmt, buildStmtInsertValue(phase, 0, i))
+		if err == nil {
+			return time.Since(start), nil
+		}
+		lastErr = err
+		time.Sleep(20 * time.Millisecond)
+		i++
+	}
+	return time.Since(start), lastErr
+}
+
+func waitForSuccessfulRawStmtExec(stmt *Stmt, phase string, timeout time.Duration) (time.Duration, error) {
+	start := time.Now()
+	var lastErr error
+	i := 0
+	for time.Since(start) < timeout {
+		err := execPreparedRawStmtInsert(stmt, buildStmtInsertValue(phase, 0, i))
 		if err == nil {
 			return time.Since(start), nil
 		}
