@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"time"
-	"unsafe"
 
 	"github.com/taosdata/driver-go/v3/common"
 )
@@ -335,14 +334,14 @@ func marshalStmt2BinaryWithHeader(bindData []*TaosStmt2BindData, isInsert bool, 
 
 	if needTags {
 		// tags length
-		Copy(unsafe.Pointer(&tableTagLengthList[0]), buffer, tagsLengthOffset, (int)(tagsDataLengthLen))
+		copyUint32SliceToBytes(buffer[tagsLengthOffset:], tableTagLengthList)
 	}
 	// cols length
 	if needCols {
-		Copy(unsafe.Pointer(&tableColLengthList[0]), buffer, colsLengthOffset, (int)(colsDataLengthLen))
+		copyUint32SliceToBytes(buffer[colsLengthOffset:], tableColLengthList)
 	}
 	if needTableName {
-		Copy(unsafe.Pointer(&utf8TableNameLen[0]), buffer, tableNameLengthOffset, (int)(tableNameLengthLen))
+		copyUint16SliceToBytes(buffer[tableNameLengthOffset:], utf8TableNameLen)
 	}
 
 	var tmpTableNameOffset = tableNameBufferOffset
