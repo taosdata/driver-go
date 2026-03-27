@@ -80,7 +80,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        go: ['1.14', '1.22', 'stable']
+        go: ['1.14', '1.17', '1.22', 'stable']
         td_version: ['main', '3.0']
     name: Go ${{ matrix.td_version }} ${{ matrix.go }}
     steps:
@@ -114,7 +114,7 @@ jobs:
       - name: Test
         run: |
           packages="./..."
-          if [ "${{ matrix.go }}" = "1.14" ] || [ "${{ matrix.go }}" = "1.22" ]; then
+          if [ "${{ matrix.go }}" = "1.14" ] || [ "${{ matrix.go }}" = "1.17" ]; then
             packages="$(go list ./... | grep -v '^github.com/taosdata/driver-go/v3/examples/')"
           fi
           sudo go test -v --count=1 -coverprofile=coverage.txt -covermode=atomic $packages
