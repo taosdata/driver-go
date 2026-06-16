@@ -102,15 +102,6 @@ func TestStmt2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	stmt2 := conn.Stmt2(0x12345678, true)
-	if stmt2 == nil {
-		t.Errorf("Expected stmt to be not nil")
-		return
-	}
-	defer func() {
-		err = stmt2.Close()
-		assert.NoError(t, err)
-	}()
 	_, err = exec(conn, "create table if not exists all_type("+
 		"ts timestamp, "+
 		"v1 bool, "+
@@ -131,6 +122,16 @@ func TestStmt2(t *testing.T) {
 		"v16 blob"+
 		") tags(tg binary(20))")
 	assert.NoError(t, err)
+
+	stmt2 := conn.Stmt2(0x12345678, true)
+	if stmt2 == nil {
+		t.Errorf("Expected stmt to be not nil")
+		return
+	}
+	defer func() {
+		err = stmt2.Close()
+		assert.NoError(t, err)
+	}()
 	err = stmt2.Prepare("insert into ? using all_type tags(?) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if !assert.NoError(t, err) {
 		return
