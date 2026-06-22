@@ -45,7 +45,7 @@ jobs:
           cd TDengine
           mkdir -p debug
           cd debug
-          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9
+          cmake .. -DBUILD_TEST=off -DBUILD_HTTP=false -DVERNUMBER=3.9.9.9 -DBUILD_CONTRIB=ON 
           make -j 4
 
       - name: Package TDengine
