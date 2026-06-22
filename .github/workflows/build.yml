@@ -83,7 +83,7 @@ jobs:
           cd TDengine
           mkdir -p debug
           cd debug
-          cmake .. -DBUILD_TEST=off -BUILD_ADAPTER=ON -DBUILD_DEPENDENCY_TESTS=0 -DBUILD_CONTRIB=ON 
+          cmake .. -DBUILD_TEST=off -DBUILD_ADAPTER=ON -DBUILD_DEPENDENCY_TESTS=0 -DBUILD_CONTRIB=ON 
           make -j 4
 
       - name: Package TDengine
