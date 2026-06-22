@@ -38,6 +38,7 @@ type Config struct {
 	BearerToken       string
 	TotpCode          string
 	Timezone          *time.Location
+	SkipVerify        bool
 }
 
 // NewConfig creates a new Config with default timeout/reconnect behavior and copied endpoints.
@@ -82,11 +83,14 @@ func (c *Config) Normalize(defaultPath string) error {
 		c.Endpoints = []string{endpointURL.String()}
 	}
 
-	endpoints, err := NormalizeEndpoints(c.Endpoints, defaultPath)
+	endpoints, skipVerify, err := normalizeEndpointsWithLocalOptions(c.Endpoints, defaultPath)
 	if err != nil {
 		return err
 	}
 	c.Endpoints = endpoints
+	if skipVerify {
+		c.SkipVerify = true
+	}
 	if c.ReadTimeout <= 0 {
 		c.ReadTimeout = common.DefaultMessageTimeout
 	}
@@ -100,6 +104,45 @@ func (c *Config) Normalize(defaultPath string) error {
 		c.ReconnectIntervalMs = 2000
 	}
 	return nil
+}
+
+func normalizeEndpointsWithLocalOptions(endpoints []string, defaultPath string) ([]string, bool, error) {
+	cleaned := make([]string, 0, len(endpoints))
+	skipVerify := false
+	for i := 0; i < len(endpoints); i++ {
+		rawEndpoint := strings.TrimSpace(endpoints[i])
+		if rawEndpoint == "" {
+			cleaned = append(cleaned, rawEndpoint)
+			continue
+		}
+		u, err := url.Parse(rawEndpoint)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			cleaned = append(cleaned, rawEndpoint)
+			continue
+		}
+		query := u.Query()
+		values, ok := query["skipVerify"]
+		if ok {
+			for j := 0; j < len(values); j++ {
+				parsed, parseErr := strconv.ParseBool(values[j])
+				if parseErr != nil {
+					return nil, false, newInvalidConfigErrorf("invalid bool value: %s", values[j])
+				}
+				if parsed {
+					skipVerify = true
+				}
+			}
+			query.Del("skipVerify")
+			u.RawQuery = query.Encode()
+			rawEndpoint = u.String()
+		}
+		cleaned = append(cleaned, rawEndpoint)
+	}
+	normalized, err := NormalizeEndpoints(cleaned, defaultPath)
+	if err != nil {
+		return nil, false, err
+	}
+	return normalized, skipVerify, nil
 }
 
 func normalizeHostForJoinHostPort(host string) string {

@@ -187,6 +187,16 @@ func TestTMQConfigMapToConfigWrong(t *testing.T) {
 			wantErr: "ws.message.writeWait cannot be less than 1 second",
 		},
 		{
+			name: "ws.skipVerify",
+			args: args{
+				m: commontmq.ConfigMap{
+					"ws.url":        "ws://127.0.0.1:6041",
+					"ws.skipVerify": 123,
+				},
+			},
+			wantErr: "ws.skipVerify expects type bool, not int",
+		},
+		{
 			name: "ws.autoReconnect",
 			args: args{
 				m: commontmq.ConfigMap{
@@ -255,5 +265,18 @@ func TestTMQConfigMapToConfigWrong(t *testing.T) {
 				assert.Equal(t, tt.wantErr, err.Error())
 			}
 		})
+	}
+}
+
+// TestTMQConfigMapToConfigSkipVerify verifies ws.skipVerify is stored as a
+// websocket client TLS option.
+func TestTMQConfigMapToConfigSkipVerify(t *testing.T) {
+	cfg, err := configMapToConfig(commontmq.ConfigMap{
+		"ws.url":        "wss://127.0.0.1:6041",
+		"ws.skipVerify": true,
+	})
+	assert.NoError(t, err)
+	if assert.NotNil(t, cfg) {
+		assert.True(t, cfg.SkipVerify)
 	}
 }
