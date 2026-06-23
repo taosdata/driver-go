@@ -83,7 +83,7 @@ jobs:
           cd TDengine
           mkdir -p debug
           cd debug
-          cmake .. -DBUILD_TEST=OFF -DBUILD_ADAPTER=ON -DBUILD_CONTRIB=ON 
+          cmake .. -G Ninja -DBUILD_ADAPTER=ON -DBUILD_CONTRIB=ON 
           make -j 4
 
       - name: Package TDengine
