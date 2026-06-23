@@ -90,15 +90,6 @@ func TestStmt2(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}()
-	stmt2 := conn.Stmt2(0x12345678, true)
-	if stmt2 == nil {
-		t.Errorf("Expected stmt to be not nil")
-		return
-	}
-	defer func() {
-		err = stmt2.Close()
-		assert.NoError(t, err)
-	}()
 	_, err = exec(conn, "create database if not exists stmt2_prepare_test")
 	if !assert.NoError(t, err) {
 		return
@@ -111,6 +102,15 @@ func TestStmt2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	stmt2 := conn.Stmt2(0x12345678, true)
+	if stmt2 == nil {
+		t.Errorf("Expected stmt to be not nil")
+		return
+	}
+	defer func() {
+		err = stmt2.Close()
+		assert.NoError(t, err)
+	}()
 	_, err = exec(conn, "create table if not exists all_type("+
 		"ts timestamp, "+
 		"v1 bool, "+
