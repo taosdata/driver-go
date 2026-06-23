@@ -22,92 +22,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build
-    outputs:
-      commit_id: ${{ steps.get_commit_id.outputs.commit_id }}
-      event_key: ${{ steps.vars.outputs.event_key }}
     steps:
-      - name: Resolve checkout params
-        id: vars
-        run: |
-          case "${{ github.event_name }}" in
-            pull_request)
-              echo "ref=${{ github.base_ref }}" >> $GITHUB_OUTPUT
-              echo "event_key=${{ github.base_ref }}" >> $GITHUB_OUTPUT
-              ;;
-            push)
-              echo "ref=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-              echo "event_key=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-              ;;
-            workflow_dispatch)
-              echo "ref=${{ inputs.tbBranch }}" >> $GITHUB_OUTPUT
-              echo "event_key=${{ inputs.tbBranch }}" >> $GITHUB_OUTPUT
-              ;;
-          esac
-
-      - name: Checkout TDengine
-        uses: actions/checkout@v6
+      - name: Setup TDengine nightly
+        uses: ./.github/actions/setup-tdengine
         with:
-          repository: 'taosdata/TDengine'
-          path: 'TDengine'
-          ref: ${{ steps.vars.outputs.ref }}
+          mode: 'nightly'
+          branch: ${{ steps.get-branch.outputs.branch }}
+          start-services: 'true'
+          nightly-url: ${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}
 
-      - name: Get commit ID
-        id: get_commit_id
-        run: |
-          cd TDengine
-          echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Cache server
-        id: cache-server
-        uses: actions/cache@v5
-        with:
-          path: server.tar.gz
-          key: ${{ runner.os }}-build-${{ steps.vars.outputs.event_key }}-${{ steps.get_commit_id.outputs.commit_id }}
-
-      - name: Get CMake
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: 3.31.6
-
-      - name: Cache externals
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        uses: actions/cache@v5
-        with:
-          path: TDengine/.externals
-          key: ${{ runner.os }}-build-ext-${{ hashFiles('TDengine/cmake/external.cmake', 'cmake/in/**') }}-v3
-
-      - name: Build TDengine
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        run: |
-          cd TDengine
-          mkdir -p debug
-          cd debug
-          cmake .. -G Ninja -DBUILD_ADAPTER=ON -DBUILD_CONTRIB=ON 
-          make -j 4
-
-      - name: Package TDengine
-        if: steps.cache-server.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ./release
-          cp ./TDengine/debug/build/bin/taos ./release/
-          cp ./TDengine/debug/build/bin/taosd ./release/
-          cp ./TDengine/debug/build/bin/taosadapter ./release/
-          cp ./TDengine/debug/build/lib/libtaos.so ./release/
-          cp ./TDengine/debug/build/lib/libtaosnative.so ./release/
-          cp ./TDengine/include/client/taos.h ./release/
-          cat >./release/install.sh<<EOF
-          chmod +x ./taos
-          chmod +x ./taosd
-          chmod +x ./taosadapter
-          cp ./taos /bin/
-          cp ./taosd /bin/
-          cp ./taosadapter /bin/
-          cp ./libtaos.so /usr/lib
-          cp ./libtaosnative.so /usr/lib
-          cp ./taos.h /usr/include
-          EOF
-          tar -zcvf server.tar.gz ./release
 
   test:
     runs-on: ubuntu-latest
