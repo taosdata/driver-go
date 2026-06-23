@@ -52,13 +52,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Setup TDengine
+      - name: Setup TDengine nightly
         uses: ./.github/actions/setup-tdengine
         with:
-          mode: 'build'
-          commit-id: ${{ needs.build.outputs.commit_id }}
-          event-key: ${{ needs.build.outputs.event_key }}
-
+          mode: 'nightly'
+          branch: ${{ steps.get-branch.outputs.branch }}
+          start-services: 'true'
+          nightly-url: ${{ secrets.NIGHTLY_TDENGINE_ENTERPRISE_BASE_URL }}
+          
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
