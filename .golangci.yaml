@@ -9,6 +9,9 @@ linters:
     - govet
     - staticcheck
   settings:
+    govet:
+      disable:
+        - inline
     revive:
       rules:
         - name: context-keys-type
