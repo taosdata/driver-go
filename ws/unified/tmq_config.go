@@ -23,6 +23,7 @@ type config struct {
 	SnapshotEnable       string
 	WithTableName        string
 	EnableCompression    bool
+	SkipVerify           bool
 	AutoReconnect        bool
 	ReconnectIntervalMs  int
 	ReconnectRetryCount  int
@@ -106,6 +107,10 @@ func (c *config) setWithTableName(withTableName string) {
 
 func (c *config) setEnableCompression(enableCompression bool) {
 	c.EnableCompression = enableCompression
+}
+
+func (c *config) setSkipVerify(skipVerify bool) {
+	c.SkipVerify = skipVerify
 }
 
 func (c *config) setAutoReconnect(autoReconnect bool) {

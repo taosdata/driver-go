@@ -287,17 +287,24 @@ func newIntegrationTMQConsumer(t *testing.T, ports []string, db string) *TMQCons
 		endpoints = append(endpoints, fmt.Sprintf("ws://127.0.0.1:%s", ports[i]))
 	}
 	cfg := commontmq.ConfigMap{
-		"ws.url":                 strings.Join(endpoints, ","),
-		"td.connect.user":        "root",
-		"td.connect.pass":        "taosdata",
-		"group.id":               fmt.Sprintf("tmq_group_%d", time.Now().UnixNano()),
-		"client.id":              fmt.Sprintf("tmq_client_%d", time.Now().UnixNano()),
-		"auto.offset.reset":      "earliest",
-		"enable.auto.commit":     "false",
-		"msg.with.table.name":    "true",
-		"session.timeout.ms":     "10000",
-		"max.poll.interval.ms":   "30000",
-		"ws.message.timeout":     3 * time.Second,
+		"ws.url":               strings.Join(endpoints, ","),
+		"td.connect.user":      "root",
+		"td.connect.pass":      "taosdata",
+		"group.id":             fmt.Sprintf("tmq_group_%d", time.Now().UnixNano()),
+		"client.id":            fmt.Sprintf("tmq_client_%d", time.Now().UnixNano()),
+		"auto.offset.reset":    "earliest",
+		"enable.auto.commit":   "false",
+		"msg.with.table.name":  "true",
+		"session.timeout.ms":   "10000",
+		"max.poll.interval.ms": "30000",
+		// Subscribe/poll/commit all share this read timeout. The dual-node
+		// failover scenarios that use this consumer cold-start three adapters
+		// and subscribe under ASAN instrumentation, where the first round's
+		// subscribe round-trip has been observed to take ~8s (job 114416,
+		// test-asan-3360). 3s was too tight and flaked round_01; 10s covers the
+		// slow cold start while staying far below DefaultMessageTimeout (5m) so
+		// a genuine hang still fails fast.
+		"ws.message.timeout":     10 * time.Second,
 		"ws.message.writeWait":   3 * time.Second,
 		"ws.autoReconnect":       true,
 		"ws.reconnectIntervalMs": 50,

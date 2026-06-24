@@ -27,6 +27,7 @@ func TestParseDsn(t *testing.T) {
 		{name: "wss protocol", dsn: "user:passwd@wss(:0)/", want: &Config{User: "user", Passwd: "passwd", Net: "wss", InterpolateParams: true}},
 		{name: "params", dsn: "user:passwd@wss(:0)/?interpolateParams=false&test=1", want: &Config{User: "user", Passwd: "passwd", Net: "wss", Params: map[string]string{"test": "1"}}},
 		{name: "token", dsn: "user:passwd@wss(:0)/?interpolateParams=false&token=token", want: &Config{User: "user", Passwd: "passwd", Net: "wss", Token: "token"}},
+		{name: "skipVerify", dsn: "user:passwd@wss(:0)/?interpolateParams=false&skipVerify=true", want: &Config{User: "user", Passwd: "passwd", Net: "wss", SkipVerify: true}},
 		{name: "readTimeout", dsn: "user:passwd@wss(:0)/?writeTimeout=8s&readTimeout=10m", want: &Config{User: "user", Passwd: "passwd", Net: "wss", ReadTimeout: 10 * time.Minute, WriteTimeout: 8 * time.Second, InterpolateParams: true}},
 		{name: "compression", dsn: "user:passwd@wss(:0)/?writeTimeout=8s&readTimeout=10m&enableCompression=true", want: &Config{
 			User:              "user",

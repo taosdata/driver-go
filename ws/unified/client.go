@@ -1,6 +1,7 @@
 package unified
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"sync"
@@ -100,6 +101,16 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 	}
 	dialer := common.DefaultDialer
 	dialer.EnableCompression = config.EnableCompression
+	if config.SkipVerify {
+		tlsConfig := dialer.TLSClientConfig
+		if tlsConfig == nil {
+			tlsConfig = &tls.Config{}
+		} else {
+			tlsConfig = tlsConfig.Clone()
+		}
+		tlsConfig.InsecureSkipVerify = true
+		dialer.TLSClientConfig = tlsConfig
+	}
 	c := &Client{
 		config:          config,
 		failover:        failoverState,

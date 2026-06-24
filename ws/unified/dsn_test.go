@@ -196,6 +196,43 @@ func TestParseDSNMultiParamsCombination(t *testing.T) {
 	}
 }
 
+// TestParseDSNSkipVerify verifies skipVerify is parsed as a websocket TLS option.
+func TestParseDSNSkipVerify(t *testing.T) {
+	cfg, err := ParseDSN("user:passwd@wss(:0)/?skipVerify=true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.SkipVerify {
+		t.Fatal("expect skipVerify true")
+	}
+}
+
+// TestParseDSNSkipVerifyInvalid verifies invalid skipVerify values are rejected.
+func TestParseDSNSkipVerifyInvalid(t *testing.T) {
+	_, err := ParseDSN("user:passwd@wss(:0)/?skipVerify=bad")
+	if err == nil {
+		t.Fatal("expect invalid skipVerify error")
+	}
+	if err.Error() != "invalid bool value: bad" {
+		t.Fatalf("unexpected error: %s", err.Error())
+	}
+}
+
+// TestNewConfigFromDSNSkipVerify verifies NewConfigFromDSN preserves skipVerify
+// while rebuilding normalized endpoints.
+func TestNewConfigFromDSNSkipVerify(t *testing.T) {
+	cfg, err := NewConfigFromDSN("user:passwd@wss(127.0.0.1:6041)/db?skipVerify=true", "/ws")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.SkipVerify {
+		t.Fatal("expect skipVerify true")
+	}
+	if len(cfg.Endpoints) != 1 || cfg.Endpoints[0] != "wss://127.0.0.1:6041/ws" {
+		t.Fatalf("unexpected endpoints: %+v", cfg.Endpoints)
+	}
+}
+
 // TestNewConfigFromDSNMultiAddrListIPv6Failover verifies normalized endpoints for IPv6 multi-node DSN.
 func TestNewConfigFromDSNMultiAddrListIPv6Failover(t *testing.T) {
 	cfg, err := NewConfigFromDSN("user:passwd@wss([2001:db8::1]:6041,[2001:db8::2]:6042)/db?token=tk1", "/ws/v1")

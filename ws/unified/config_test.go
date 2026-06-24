@@ -32,6 +32,35 @@ func TestNormalizeEndpointsKeepPath(t *testing.T) {
 	}
 }
 
+// TestConfigNormalizeExtractsSkipVerifyFromEndpointQuery verifies skipVerify is
+// consumed as a local TLS option and removed from websocket endpoint query.
+func TestConfigNormalizeExtractsSkipVerifyFromEndpointQuery(t *testing.T) {
+	cfg := NewConfig([]string{"wss://127.0.0.1:6041/ws?skipVerify=true&token=abc"})
+	if err := cfg.Normalize("/ws"); err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.SkipVerify {
+		t.Fatal("expect skipVerify true")
+	}
+	want := []string{"wss://127.0.0.1:6041/ws?token=abc"}
+	if !reflect.DeepEqual(want, cfg.Endpoints) {
+		t.Fatalf("want %v, got %v", want, cfg.Endpoints)
+	}
+}
+
+// TestConfigNormalizeRejectsInvalidEndpointSkipVerify verifies invalid endpoint
+// skipVerify values fail before connecting.
+func TestConfigNormalizeRejectsInvalidEndpointSkipVerify(t *testing.T) {
+	cfg := NewConfig([]string{"wss://127.0.0.1:6041/ws?skipVerify=bad"})
+	err := cfg.Normalize("/ws")
+	if err == nil {
+		t.Fatal("expect invalid skipVerify error")
+	}
+	if err.Error() != "invalid bool value: bad" {
+		t.Fatalf("unexpected error: %s", err.Error())
+	}
+}
+
 // TestNormalizeEndpointsInvalidScheme verifies the expected behavior for this scenario.
 func TestNormalizeEndpointsInvalidScheme(t *testing.T) {
 	_, err := NormalizeEndpoints([]string{"http://127.0.0.1:6041"}, "/ws")

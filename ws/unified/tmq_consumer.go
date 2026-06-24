@@ -91,6 +91,7 @@ func NewTMQConsumer(conf *tmq.ConfigMap) (*TMQConsumer, error) {
 	unifiedCfg.ReadTimeout = config.MessageTimeout
 	unifiedCfg.WriteTimeout = config.WriteWait
 	unifiedCfg.EnableCompression = config.EnableCompression
+	unifiedCfg.SkipVerify = config.SkipVerify
 	unifiedCfg.AutoReconnect = config.AutoReconnect
 	unifiedCfg.ReconnectIntervalMs = config.ReconnectIntervalMs
 	unifiedCfg.ReconnectRetryCount = config.ReconnectRetryCount
@@ -179,6 +180,7 @@ var excludeConfig = map[string]struct{}{
 	"experimental.snapshot.enable": {},
 	"msg.with.table.name":          {},
 	"ws.message.enableCompression": {},
+	"ws.skipVerify":                {},
 	"ws.autoReconnect":             {},
 	"ws.reconnectIntervalMs":       {},
 	"ws.reconnectRetryCount":       {},
@@ -252,6 +254,10 @@ func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	skipVerify, err := m.Get("ws.skipVerify", false)
+	if err != nil {
+		return nil, err
+	}
 	autoReconnect, err := m.Get("ws.autoReconnect", false)
 	if err != nil {
 		return nil, err
@@ -296,6 +302,7 @@ func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	config.setSnapshotEnable(enableSnapshot.(string))
 	config.setWithTableName(withTableName.(string))
 	config.setEnableCompression(enableCompression.(bool))
+	config.setSkipVerify(skipVerify.(bool))
 	config.setAutoReconnect(autoReconnect.(bool))
 	config.setReconnectIntervalMs(reconnectIntervalMs.(int))
 	config.setReconnectRetryCount(reconnectRetryCount.(int))
