@@ -69,6 +69,72 @@ func TestDropJson(t *testing.T) {
 	t.Log(obj)
 }
 
+const createBaseOnJson = `{
+    "type": "create",
+    "tableName": "vst_child",
+    "tableType": "super",
+    "columns": [
+        {"name": "ts", "type": 9, "length": 0},
+        {"name": "own_c", "type": 4, "length": 0}
+    ],
+    "tags": [
+        {"name": "own_t", "type": 4, "length": 0}
+    ],
+    "baseOn": ["vst_parent_a", "vst_parent_b"],
+    "ownColStart": 2,
+    "ownTagStart": 1
+}`
+
+const alterBaseOnJson = `{
+    "type": "alter",
+    "tableName": "vst_child",
+    "tableType": "super",
+    "alterType": 22,
+    "baseOn": ["vst_parent_a"]
+}`
+
+// VST inheritance (BASE ON) fields must deserialize into Meta.
+func TestCreateBaseOnJson(t *testing.T) {
+	var obj Meta
+	if err := json.Unmarshal([]byte(createBaseOnJson), &obj); err != nil {
+		t.Fatalf("unmarshal create base-on meta: %v", err)
+	}
+	if !reflect.DeepEqual(obj.BaseOn, []string{"vst_parent_a", "vst_parent_b"}) {
+		t.Fatalf("BaseOn = %v, want [vst_parent_a vst_parent_b]", obj.BaseOn)
+	}
+	if obj.OwnColStart != 2 {
+		t.Fatalf("OwnColStart = %d, want 2", obj.OwnColStart)
+	}
+	if obj.OwnTagStart != 1 {
+		t.Fatalf("OwnTagStart = %d, want 1", obj.OwnTagStart)
+	}
+}
+
+// A non-inherited create meta leaves BASE ON fields at their zero values.
+func TestCreateJsonNoBaseOn(t *testing.T) {
+	var obj Meta
+	if err := json.Unmarshal([]byte(createJson), &obj); err != nil {
+		t.Fatalf("unmarshal create meta: %v", err)
+	}
+	if obj.BaseOn != nil {
+		t.Fatalf("BaseOn = %v, want nil for non-inherited table", obj.BaseOn)
+	}
+}
+
+// alterType 22/23 (ADD/DROP BASE ON) deserialize with their parent list.
+func TestAlterBaseOnJson(t *testing.T) {
+	var obj Meta
+	if err := json.Unmarshal([]byte(alterBaseOnJson), &obj); err != nil {
+		t.Fatalf("unmarshal alter base-on meta: %v", err)
+	}
+	if obj.AlterType != 22 {
+		t.Fatalf("AlterType = %d, want 22", obj.AlterType)
+	}
+	if !reflect.DeepEqual(obj.BaseOn, []string{"vst_parent_a"}) {
+		t.Fatalf("BaseOn = %v, want [vst_parent_a]", obj.BaseOn)
+	}
+}
+
 func TestOffset_String(t *testing.T) {
 	tests := []struct {
 		name string
