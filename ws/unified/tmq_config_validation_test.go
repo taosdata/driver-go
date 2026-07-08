@@ -207,6 +207,16 @@ func TestTMQConfigMapToConfigWrong(t *testing.T) {
 			wantErr: "ws.autoReconnect expects type bool, not int",
 		},
 		{
+			name: "ws.adapterHa",
+			args: args{
+				m: commontmq.ConfigMap{
+					"ws.url":       "ws://127.0.0.1:6041",
+					"ws.adapterHa": 123,
+				},
+			},
+			wantErr: "ws.adapterHa expects type bool, not int",
+		},
+		{
 			name: "ws.reconnectIntervalMs",
 			args: args{
 				m: commontmq.ConfigMap{
@@ -278,5 +288,18 @@ func TestTMQConfigMapToConfigSkipVerify(t *testing.T) {
 	assert.NoError(t, err)
 	if assert.NotNil(t, cfg) {
 		assert.True(t, cfg.SkipVerify)
+	}
+}
+
+func TestTMQConfigMapToConfigAdapterHA(t *testing.T) {
+	cfg, err := configMapToConfig(commontmq.ConfigMap{
+		"ws.url":       "ws://127.0.0.1:6041",
+		"ws.adapterHa": true,
+	})
+	assert.NoError(t, err)
+	if assert.NotNil(t, cfg) {
+		assert.True(t, cfg.AdapterHA)
+		_, exists := cfg.OtherOptions["ws.adapterHa"]
+		assert.False(t, exists)
 	}
 }

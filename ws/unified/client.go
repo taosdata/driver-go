@@ -18,7 +18,7 @@ var (
 	defaultUnifiedErrHandler = func(error) {}
 )
 
-type BootstrapFunc func(conn *websocket.Conn) error
+type BootstrapFunc func(conn *websocket.Conn, endpointURL string) error
 
 type DialFunc func(endpoint string) (*websocket.Conn, error)
 
@@ -69,6 +69,7 @@ type Client struct {
 	// Atomic runtime snapshot used by hot paths to avoid c.lock read contention.
 	runtimeSnapshot      atomic.Value
 	runtimeSnapshotReady uint32
+	instancesFetched     uint32
 
 	// normal connect support
 	normalConnectLock sync.Mutex
@@ -94,6 +95,14 @@ func NewClient(cfg *Config, defaultPath string, opts ...Option) (*Client, error)
 	config.Endpoints = append([]string(nil), cfg.Endpoints...)
 	if err := config.Normalize(defaultPath); err != nil {
 		return nil, err
+	}
+	if config.AdapterHA {
+		seeds := hostPortsOf(config.Endpoints)
+		expanded := globalClusterRegistry.expand(seeds)
+		if len(expanded) > len(seeds) && len(config.Endpoints) > 0 {
+			discoveredURLs := formatHostPortsToURLs(expanded, config.Endpoints[0])
+			config.Endpoints = mergeURLList(config.Endpoints, discoveredURLs)
+		}
 	}
 	failoverState, err := newFailoverState(config.Endpoints)
 	if err != nil {
@@ -242,7 +251,7 @@ func (c *Client) connectWithCandidates(candidates []endpointCandidate, bootstrap
 			continue
 		}
 		if bootstrap != nil {
-			if err = bootstrap(conn); err != nil {
+			if err = bootstrap(conn, candidate.URL); err != nil {
 				if conn != nil {
 					_ = conn.Close()
 				}
@@ -421,6 +430,46 @@ func (c *Client) removePendingRequest(reqID uint64, expected *pendingRequest) *p
 // Runtime returns the currently active runtime client pointer.
 func (c *Client) runtimeClient() *client.Client {
 	return c.loadRuntimeSnapshot().runtime
+}
+
+func (c *Client) activeEndpointURL() string {
+	if c == nil || c.failover == nil {
+		return ""
+	}
+	return c.failover.active().URL
+}
+
+func (c *Client) mergeInstances(connectedURL string, instances []string) {
+	if c == nil || c.failover == nil {
+		return
+	}
+	discovered := validUniqueHostPorts(instances)
+	seedHostPorts := hostPortsOf(c.failover.endpointsCopy())
+	toRegister := unionHostPorts(seedHostPorts, discovered)
+	if len(toRegister) > 0 {
+		globalClusterRegistry.update(toRegister)
+	}
+	if len(discovered) == 0 {
+		return
+	}
+	urls := formatHostPortsToURLs(discovered, connectedURL)
+	if added := c.failover.mergeEndpoints(urls); added > 0 {
+		tLog.Infof(0, "adapter HA: discovered %d new endpoint(s)", added)
+	}
+}
+
+func (c *Client) mergeAdapterHAInstancesOnce(instancesFetched *uint32, connectedURL string, listInstances *[]string) {
+	if c == nil || !c.config.AdapterHA || instancesFetched == nil {
+		return
+	}
+	if !atomic.CompareAndSwapUint32(instancesFetched, 0, 1) {
+		return
+	}
+	instances := []string(nil)
+	if listInstances != nil {
+		instances = *listInstances
+	}
+	c.mergeInstances(connectedURL, instances)
 }
 
 func (c *Client) publishRuntimeSnapshotLocked() {

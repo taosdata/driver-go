@@ -181,6 +181,7 @@ func NewConfigFromDSN(dsn string, defaultPath string) (*Config, error) {
 	cfg.TotpCode = parsed.TotpCode
 	cfg.BearerToken = parsed.BearerToken
 	cfg.AutoReconnect = parsed.AutoReconnect
+	cfg.AdapterHA = parsed.AdapterHA
 	cfg.SkipVerify = parsed.SkipVerify
 	if parsed.ChanLength != 0 {
 		cfg.ChanLength = parsed.ChanLength
@@ -254,6 +255,12 @@ func parseDSNParams(cfg *Config, params string) error {
 				return newInvalidDSNErrorf("invalid autoReconnect value: %s", value)
 			}
 			cfg.AutoReconnect = parsed
+		case "adapterHa":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return newInvalidDSNErrorf("invalid adapterHa value: %s", value)
+			}
+			cfg.AdapterHA = parsed
 		case "skipVerify":
 			parsed, err := strconv.ParseBool(value)
 			if err != nil {

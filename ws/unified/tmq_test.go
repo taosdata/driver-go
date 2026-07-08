@@ -1,10 +1,20 @@
 package unified
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	commontmq "github.com/taosdata/driver-go/v3/common/tmq"
+	"github.com/taosdata/driver-go/v3/ws/client"
+	"github.com/taosdata/driver-go/v3/ws/unified/proto"
 )
 
 // TestNewTMQConsumerNilConfig verifies the expected behavior for this scenario.
@@ -51,6 +61,88 @@ func TestTMQConfigMapParsesMultipleEndpoints(t *testing.T) {
 		"ws://127.0.0.1:6042/rest/tmq",
 	}, cfg.Endpoints)
 	require.Equal(t, "ws://127.0.0.1:6041/rest/tmq", cfg.Url)
+}
+
+func TestTMQSubscribeAdapterHARequestsInstancesOnlyOnce(t *testing.T) {
+	withFreshClusterRegistry(t)
+	listInstancesCh := make(chan bool, 2)
+	errCh := make(chan error, 2)
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer func() {
+			_ = conn.Close()
+		}()
+
+		for {
+			_, msg, readErr := conn.ReadMessage()
+			if readErr != nil {
+				return
+			}
+			if isVersionActionText(string(msg)) {
+				if writeErr := writeVersionResponse(conn); writeErr != nil {
+					errCh <- writeErr
+					return
+				}
+				continue
+			}
+			var action client.WSAction
+			if err = json.Unmarshal(msg, &action); err != nil {
+				errCh <- err
+				return
+			}
+			if strings.ToLower(action.Action) != proto.TMQActionSubscribe {
+				continue
+			}
+			var req proto.SubscribeReq
+			if err = json.Unmarshal(action.Args, &req); err != nil {
+				errCh <- err
+				return
+			}
+			listInstancesCh <- req.ListInstances
+			resp := []byte(`{"code":0,"message":"","action":"subscribe","req_id":` + strconv.FormatUint(req.ReqID, 10) + `,"list_instances":["peer:6041"]}`)
+			if writeErr := conn.WriteMessage(websocket.TextMessage, resp); writeErr != nil {
+				errCh <- writeErr
+				return
+			}
+		}
+	}))
+	defer s.Close()
+
+	cfg := commontmq.ConfigMap{
+		"ws.url":       wsEndpointFromHTTP(s.URL),
+		"ws.adapterHa": true,
+	}
+	consumer, err := NewTMQConsumer(&cfg)
+	require.NoError(t, err)
+	defer func() {
+		_ = consumer.Close()
+	}()
+
+	require.NoError(t, consumer.Subscribe("topic_a", nil))
+	select {
+	case got := <-listInstancesCh:
+		assert.True(t, got, "first subscribe should request list_instances")
+	case err = <-errCh:
+		t.Fatalf("tmq server failed: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for first subscribe")
+	}
+	require.Len(t, consumer.client.failover.endpointsCopy(), 2)
+
+	require.NoError(t, consumer.Subscribe("topic_b", nil))
+	select {
+	case got := <-listInstancesCh:
+		assert.False(t, got, "second subscribe should not request list_instances")
+	case err = <-errCh:
+		t.Fatalf("tmq server failed: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for second subscribe")
+	}
 }
 
 // TestBuildTMQTimeoutMessageRedactsSensitiveArgs verifies timeout message keeps context while masking secrets.

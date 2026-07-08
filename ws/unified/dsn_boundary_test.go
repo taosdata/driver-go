@@ -13,7 +13,7 @@ func TestParseDSNParamsAllKnownKeys(t *testing.T) {
 	cfg := &Config{
 		InterpolateParams: true,
 	}
-	err := parseDSNParams(cfg, "flagOnly&interpolateParams=false&token=tk1&enableCompression=true&readTimeout=1s&writeTimeout=2s&timezone=Asia%2FShanghai&bearerToken=b1&totpCode=123456&autoReconnect=true&chanLength=8&reconnectIntervalMs=5000&reconnectRetryCount=10&custom=a%2Bb")
+	err := parseDSNParams(cfg, "flagOnly&interpolateParams=false&token=tk1&enableCompression=true&readTimeout=1s&writeTimeout=2s&timezone=Asia%2FShanghai&bearerToken=b1&totpCode=123456&autoReconnect=true&adapterHa=true&chanLength=8&reconnectIntervalMs=5000&reconnectRetryCount=10&custom=a%2Bb")
 	require.NoError(t, err)
 
 	assert.False(t, cfg.InterpolateParams)
@@ -26,6 +26,7 @@ func TestParseDSNParamsAllKnownKeys(t *testing.T) {
 	assert.Equal(t, "b1", cfg.BearerToken)
 	assert.Equal(t, "123456", cfg.TotpCode)
 	assert.True(t, cfg.AutoReconnect)
+	assert.True(t, cfg.AdapterHA)
 	assert.Equal(t, uint(8), cfg.ChanLength)
 	assert.Equal(t, 5000, cfg.ReconnectIntervalMs)
 	assert.Equal(t, 10, cfg.ReconnectRetryCount)
@@ -79,6 +80,11 @@ func TestParseDSNParamsErrorBranches(t *testing.T) {
 			name:       "invalid autoReconnect",
 			rawParams:  "autoReconnect=abc",
 			wantErrMsg: "invalid autoReconnect value",
+		},
+		{
+			name:       "invalid adapterHa",
+			rawParams:  "adapterHa=abc",
+			wantErrMsg: "invalid adapterHa value",
 		},
 		{
 			name:       "invalid chanLength",
@@ -204,6 +210,7 @@ func TestNewConfigFromDSNAllFields(t *testing.T) {
 		"bearerToken=bear1&" +
 		"totpCode=654321&" +
 		"autoReconnect=true&" +
+		"adapterHa=true&" +
 		"chanLength=16&" +
 		"reconnectIntervalMs=3000&" +
 		"reconnectRetryCount=5&" +
@@ -238,6 +245,7 @@ func TestNewConfigFromDSNAllFields(t *testing.T) {
 
 	// runtime fields
 	assert.True(t, cfg.AutoReconnect)
+	assert.True(t, cfg.AdapterHA)
 	assert.Equal(t, uint(16), cfg.ChanLength)
 	assert.Equal(t, 3000, cfg.ReconnectIntervalMs)
 	assert.Equal(t, 5, cfg.ReconnectRetryCount)
@@ -253,6 +261,7 @@ func TestNewConfigFromDSNRuntimeDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.False(t, cfg.AutoReconnect)
+	assert.False(t, cfg.AdapterHA)
 	assert.Equal(t, uint(1), cfg.ChanLength)
 	assert.Equal(t, 2000, cfg.ReconnectIntervalMs)
 	assert.Equal(t, 3, cfg.ReconnectRetryCount)

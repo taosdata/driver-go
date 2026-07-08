@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -206,4 +207,66 @@ func TestTMQConsumerRealAdapterCommitAndErrorBranches(t *testing.T) {
 	te, ok := event.(commontmq.Error)
 	require.True(t, ok, "poll should return tmq.Error when consumer has stored err")
 	require.Equal(t, commontmq.ErrorOther, te.Code())
+}
+
+func TestTMQConsumerWithAdapterHA(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skip integration test in short mode")
+	}
+	withFreshClusterRegistry(t)
+
+	tmqIntegrationSQL(t, "select 1")
+	tmqIntegrationSQL(t, "drop topic if exists topic_1783329045")
+	tmqIntegrationSQL(t, "drop database if exists test_1783329045")
+	tmqIntegrationSQL(t, "create database test_1783329045")
+	tmqIntegrationSQL(t, "create table test_1783329045.t (ts timestamp, v int)")
+	tmqIntegrationSQL(t, "insert into test_1783329045.t values(now, 7)")
+	tmqIntegrationSQL(t, "create topic topic_1783329045 as select * from test_1783329045.t")
+	t.Cleanup(func() {
+		tmqIntegrationSQL(t, "drop topic if exists topic_1783329045")
+		tmqIntegrationSQL(t, "drop database if exists test_1783329045")
+	})
+
+	cfg := commontmq.ConfigMap{
+		"ws.url":              "ws://127.0.0.1:6041",
+		"ws.adapterHa":        true,
+		"td.connect.user":     "root",
+		"td.connect.pass":     "taosdata",
+		"group.id":            "g23832",
+		"client.id":           "c23832",
+		"auto.offset.reset":   "earliest",
+		"enable.auto.commit":  "false",
+		"msg.with.table.name": "true",
+		"ws.autoReconnect":    true,
+	}
+	consumer, err := NewTMQConsumer(&cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = consumer.Unsubscribe()
+		_ = consumer.Close()
+	})
+
+	require.Equal(t, uint32(0), atomic.LoadUint32(&consumer.instancesFetched))
+	require.NoError(t, consumer.Subscribe("topic_1783329045", nil))
+	require.Equal(t, uint32(1), atomic.LoadUint32(&consumer.instancesFetched))
+	require.Contains(t, consumer.client.failover.endpointsCopy(), "ws://127.0.0.1:6041/rest/tmq")
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		event := consumer.Poll(500)
+		if event == nil {
+			continue
+		}
+		if te, ok := event.(commontmq.Error); ok {
+			t.Fatalf("unexpected tmq error event: %v", te)
+		}
+		if msg, ok := event.(*commontmq.DataMessage); ok {
+			require.Equal(t, "test_1783329045", msg.DBName())
+			require.Equal(t, "topic_1783329045", msg.Topic())
+			require.Equal(t, uint32(1), atomic.LoadUint32(&consumer.instancesFetched))
+			require.NotEmpty(t, consumer.client.failover.endpointsCopy())
+			return
+		}
+	}
+	t.Fatal("did not receive data message from adapterHa real taosadapter")
 }
