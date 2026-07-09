@@ -92,6 +92,90 @@ func TestDefaultBootstrapSendsTimezone(t *testing.T) {
 	}
 }
 
+func TestDefaultBootstrapAdapterHARequestsInstancesOnlyOnce(t *testing.T) {
+	withFreshClusterRegistry(t)
+	listInstancesCh := make(chan bool, 2)
+	errCh := make(chan error, 2)
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := queryLifecycleUpgrader.Upgrade(w, r, nil)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer func() {
+			_ = conn.Close()
+		}()
+
+		for {
+			_, msg, readErr := conn.ReadMessage()
+			if readErr != nil {
+				errCh <- readErr
+				return
+			}
+			if isVersionActionText(string(msg)) {
+				if writeErr := writeVersionResponse(conn); writeErr != nil {
+					errCh <- writeErr
+					return
+				}
+				continue
+			}
+			var action client.WSAction
+			if err = json.Unmarshal(msg, &action); err != nil {
+				errCh <- err
+				return
+			}
+			if strings.ToLower(action.Action) != "conn" {
+				continue
+			}
+			var req proto.WSConnectReq
+			if err = json.Unmarshal(action.Args, &req); err != nil {
+				errCh <- err
+				return
+			}
+			listInstancesCh <- req.ListInstances
+			err = conn.WriteMessage(websocket.TextMessage, []byte(`{"code":0,"message":"","action":"conn","req_id":0,"list_instances":["peer:6041"]}`))
+			if err != nil {
+				errCh <- err
+			}
+			return
+		}
+	}))
+	defer s.Close()
+
+	cfg := NewConfig([]string{wsEndpointFromHTTP(s.URL)})
+	cfg.User = "root"
+	cfg.Passwd = "taosdata"
+	cfg.AdapterHA = true
+	cfg.ReadTimeout = time.Second
+	cfg.WriteTimeout = time.Second
+
+	c, err := NewClient(cfg, "/ws")
+	require.NoError(t, err)
+	defer c.Close()
+
+	require.NoError(t, c.Connect())
+	select {
+	case got := <-listInstancesCh:
+		assert.True(t, got, "first successful connect should request list_instances")
+	case err = <-errCh:
+		t.Fatalf("bootstrap server failed: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for first bootstrap request")
+	}
+	require.Len(t, c.failover.endpointsCopy(), 2)
+
+	require.NoError(t, c.reconnectWithBootstrap(c.defaultBootstrap, nil))
+	select {
+	case got := <-listInstancesCh:
+		assert.False(t, got, "reconnect should not request list_instances")
+	case err = <-errCh:
+		t.Fatalf("bootstrap server failed: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for second bootstrap request")
+	}
+}
+
 // TestClientPingSendsPingFrame verifies the expected behavior for this scenario.
 func TestClientPingSendsPingFrame(t *testing.T) {
 	var pingSeen uint32

@@ -19,6 +19,12 @@ type Meta struct {
 	ColLength     int           `json:"colLength"`
 	ColValue      string        `json:"colValue"`
 	ColValueNull  bool          `json:"colValueNull"`
+	// VST inheritance (BASE ON): present for create-super and alterType 22/23.
+	// BaseOn holds the parent super table names; OwnColStart/OwnTagStart mark the
+	// first own (non-inherited) column/tag in the merged Columns/Tags slices.
+	BaseOn      []string `json:"baseOn"`
+	OwnColStart int      `json:"ownColStart"`
+	OwnTagStart int      `json:"ownTagStart"`
 }
 
 type Tag struct {

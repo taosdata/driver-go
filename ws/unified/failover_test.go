@@ -166,3 +166,56 @@ func TestFailoverStateMarkActiveInvalidIndex(t *testing.T) {
 		t.Fatal("expect invalid endpoint index error")
 	}
 }
+
+// TestFailoverStateMergeEndpointsAppendsNewHostPorts verifies dynamic endpoint
+// discovery keeps existing indexes stable and only appends new host:port values.
+func TestFailoverStateMergeEndpointsAppendsNewHostPorts(t *testing.T) {
+	state, err := newFailoverState([]string{"ws://a:1/ws?token=seed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	added := state.mergeEndpoints([]string{
+		"ws://a:1/other?token=dup",
+		"wss://b:2/rest/tmq?token=next",
+		"not-a-url",
+	})
+
+	if added != 1 {
+		t.Fatalf("want one added endpoint, got %d", added)
+	}
+	got := state.endpointsCopy()
+	want := []string{"ws://a:1/ws?token=seed", "wss://b:2/rest/tmq?token=next"}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("want endpoints %v, got %v", want, got)
+	}
+	hostPort0, err := state.hostPortByIndex(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostPort1, err := state.hostPortByIndex(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hostPort0 != "a:1" || hostPort1 != "b:2" {
+		t.Fatalf("unexpected host ports: %s, %s", hostPort0, hostPort1)
+	}
+}
+
+func TestFormatHostPortsToURLsPreservesTemplate(t *testing.T) {
+	got := formatHostPortsToURLs([]string{"b:2", "[::1]:6041"}, "wss://a:1/rest/tmq?token=abc&x=1")
+	want := []string{
+		"wss://b:2/rest/tmq?token=abc&x=1",
+		"wss://[::1]:6041/rest/tmq?token=abc&x=1",
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+}
+
+func TestHostPortsOfEndpointsUsesEndpointDefaults(t *testing.T) {
+	got := hostPortsOf([]string{"ws://a:1/ws", "wss://b/ws", "ws://[::1]:6041/ws", "bad"})
+	want := []string{"a:1", "b:443", "[::1]:6041"}
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+}

@@ -266,3 +266,40 @@ func TestBaseRespWithErrorCode(t *testing.T) {
 	assert.Equal(t, "Database not exist", resp.GetMessage())
 	assert.Equal(t, uint64(5), resp.GetReqID())
 }
+
+func TestWSConnectListInstancesJSON(t *testing.T) {
+	withoutList, err := json.Marshal(&WSConnectReq{ReqID: 1})
+	assert.NoError(t, err)
+	assert.NotContains(t, string(withoutList), "list_instances")
+
+	withList, err := json.Marshal(&WSConnectReq{ReqID: 1, ListInstances: true})
+	assert.NoError(t, err)
+	assert.Contains(t, string(withList), `"list_instances":true`)
+
+	var missing WSConnectResp
+	err = json.Unmarshal([]byte(`{"code":0,"message":"","action":"conn","req_id":1}`), &missing)
+	assert.NoError(t, err)
+	assert.Nil(t, missing.ListInstances)
+
+	var empty WSConnectResp
+	err = json.Unmarshal([]byte(`{"code":0,"message":"","action":"conn","req_id":1,"list_instances":[]}`), &empty)
+	assert.NoError(t, err)
+	if assert.NotNil(t, empty.ListInstances) {
+		assert.Empty(t, empty.ListInstances)
+	}
+}
+
+func TestSubscribeListInstancesJSON(t *testing.T) {
+	withoutList, err := json.Marshal(&SubscribeReq{ReqID: 2})
+	assert.NoError(t, err)
+	assert.NotContains(t, string(withoutList), "list_instances")
+
+	withList, err := json.Marshal(&SubscribeReq{ReqID: 2, ListInstances: true})
+	assert.NoError(t, err)
+	assert.Contains(t, string(withList), `"list_instances":true`)
+
+	var resp SubscribeResp
+	err = json.Unmarshal([]byte(`{"code":0,"message":"","action":"subscribe","req_id":2,"list_instances":["a:1"]}`), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"a:1"}, resp.ListInstances)
+}

@@ -1,6 +1,7 @@
 package unified
 
 import (
+	"errors"
 	"sync/atomic"
 	"testing"
 
@@ -184,6 +185,28 @@ func TestClientCloseRejectsConnect(t *testing.T) {
 	c.Close()
 	if err = c.connectWithBootstrap(nil); err == nil {
 		t.Fatal("expect close error")
+	}
+}
+
+func TestConnectWithCandidatesPassesCandidateURLToBootstrap(t *testing.T) {
+	cfg := NewConfig([]string{"ws://a:1/ws"})
+	c, err := NewClient(cfg, "/ws", WithDialFunc(func(endpoint string) (*websocket.Conn, error) {
+		return nil, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentinel := errors.New("stop after bootstrap")
+	gotEndpoint := ""
+	err = c.connectWithCandidates([]endpointCandidate{{Index: 0, URL: "ws://candidate:6041/ws?token=abc"}}, func(_ *websocket.Conn, endpointURL string) error {
+		gotEndpoint = endpointURL
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("want sentinel bootstrap error, got %v", err)
+	}
+	if gotEndpoint != "ws://candidate:6041/ws?token=abc" {
+		t.Fatalf("bootstrap endpointURL = %q", gotEndpoint)
 	}
 }
 

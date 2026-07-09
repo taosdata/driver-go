@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -56,7 +57,7 @@ func (c *Client) Connect() error {
 }
 
 // defaultBootstrap performs the normal connect handshake on a new websocket connection.
-func (c *Client) defaultBootstrap(conn *websocket.Conn) error {
+func (c *Client) defaultBootstrap(conn *websocket.Conn, endpointURL string) error {
 	// Keep legacy behavior: fail fast when server version is incompatible.
 	if err := tdversion.WSCheckVersion(conn); err != nil {
 		return err
@@ -67,15 +68,16 @@ func (c *Client) defaultBootstrap(conn *websocket.Conn) error {
 		tz = c.config.Timezone.String()
 	}
 	req := &proto.WSConnectReq{
-		ReqID:       uint64(common.GetReqID()),
-		User:        c.config.User,
-		Password:    c.config.Passwd,
-		DB:          c.config.DbName,
-		TZ:          tz,
-		TOTPCode:    c.config.TotpCode,
-		BearerToken: c.config.BearerToken,
-		App:         common.GetProcessName(),
-		Connector:   common.GetConnectorInfo("ws"),
+		ReqID:         uint64(common.GetReqID()),
+		User:          c.config.User,
+		Password:      c.config.Passwd,
+		DB:            c.config.DbName,
+		TZ:            tz,
+		TOTPCode:      c.config.TotpCode,
+		BearerToken:   c.config.BearerToken,
+		App:           common.GetProcessName(),
+		Connector:     common.GetConnectorInfo("ws"),
+		ListInstances: c.config.AdapterHA && atomic.LoadUint32(&c.instancesFetched) == 0,
 	}
 
 	args, err := client.JsonI.Marshal(req)
@@ -114,7 +116,11 @@ func (c *Client) defaultBootstrap(conn *websocket.Conn) error {
 	}
 
 	var resp proto.WSConnectResp
-	return decodeAndCheckJSONResponse(respBytes, &resp)
+	if err = decodeAndCheckJSONResponse(respBytes, &resp); err != nil {
+		return err
+	}
+	c.mergeAdapterHAInstancesOnce(&c.instancesFetched, endpointURL, &resp.ListInstances)
+	return nil
 }
 
 // handleTextMessage routes incoming text messages to pending requests by req_id.

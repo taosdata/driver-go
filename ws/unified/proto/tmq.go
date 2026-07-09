@@ -24,10 +24,12 @@ type SubscribeReq struct {
 	App                  string            `json:"app"`
 	Connector            string            `json:"connector"`
 	Config               map[string]string `json:"config"`
+	ListInstances        bool              `json:"list_instances,omitempty"`
 }
 
 type SubscribeResp struct {
 	BaseResp
+	ListInstances []string `json:"list_instances,omitempty"`
 }
 
 type PollReq struct {

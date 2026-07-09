@@ -25,6 +25,7 @@ type config struct {
 	EnableCompression    bool
 	SkipVerify           bool
 	AutoReconnect        bool
+	AdapterHA            bool
 	ReconnectIntervalMs  int
 	ReconnectRetryCount  int
 	SessionTimeoutMS     string
@@ -115,6 +116,10 @@ func (c *config) setSkipVerify(skipVerify bool) {
 
 func (c *config) setAutoReconnect(autoReconnect bool) {
 	c.AutoReconnect = autoReconnect
+}
+
+func (c *config) setAdapterHA(adapterHA bool) {
+	c.AdapterHA = adapterHA
 }
 
 func (c *config) setReconnectIntervalMs(reconnectIntervalMs int) {

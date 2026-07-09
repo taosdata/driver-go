@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -45,6 +46,7 @@ type TMQConsumer struct {
 	closeOnce          sync.Once
 	topics             []string
 	autoReconnect      bool
+	instancesFetched   uint32
 	lastMessageID      uint64
 }
 
@@ -93,6 +95,7 @@ func NewTMQConsumer(conf *tmq.ConfigMap) (*TMQConsumer, error) {
 	unifiedCfg.EnableCompression = config.EnableCompression
 	unifiedCfg.SkipVerify = config.SkipVerify
 	unifiedCfg.AutoReconnect = config.AutoReconnect
+	unifiedCfg.AdapterHA = config.AdapterHA
 	unifiedCfg.ReconnectIntervalMs = config.ReconnectIntervalMs
 	unifiedCfg.ReconnectRetryCount = config.ReconnectRetryCount
 
@@ -127,7 +130,7 @@ func NewTMQConsumer(conf *tmq.ConfigMap) (*TMQConsumer, error) {
 	return consumer, nil
 }
 
-func (c *TMQConsumer) bootstrapTMQ(conn *websocket.Conn) error {
+func (c *TMQConsumer) bootstrapTMQ(conn *websocket.Conn, endpointURL string) error {
 	return tdversion.WSCheckVersion(conn)
 }
 
@@ -182,6 +185,7 @@ var excludeConfig = map[string]struct{}{
 	"ws.message.enableCompression": {},
 	"ws.skipVerify":                {},
 	"ws.autoReconnect":             {},
+	"ws.adapterHa":                 {},
 	"ws.reconnectIntervalMs":       {},
 	"ws.reconnectRetryCount":       {},
 	"session.timeout.ms":           {},
@@ -262,6 +266,10 @@ func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+	adapterHA, err := m.Get("ws.adapterHa", false)
+	if err != nil {
+		return nil, err
+	}
 	reconnectIntervalMs, err := m.Get("ws.reconnectIntervalMs", int(2000))
 	if err != nil {
 		return nil, err
@@ -304,6 +312,7 @@ func configMapToConfig(m tmq.ConfigMap) (*config, error) {
 	config.setEnableCompression(enableCompression.(bool))
 	config.setSkipVerify(skipVerify.(bool))
 	config.setAutoReconnect(autoReconnect.(bool))
+	config.setAdapterHA(adapterHA.(bool))
 	config.setReconnectIntervalMs(reconnectIntervalMs.(int))
 	config.setReconnectRetryCount(reconnectRetryCount.(int))
 	config.setSessionTimeoutMS(sessionTimeoutMS.(string))
@@ -554,11 +563,13 @@ func (c *TMQConsumer) doSubscribe(topics []string, reconnect bool) error {
 		App:               common.GetProcessName(),
 		Connector:         common.GetConnectorInfo("ws"),
 		Config:            c.otherOptions,
+		ListInstances:     c.client.config.AdapterHA && atomic.LoadUint32(&c.instancesFetched) == 0,
 	}
 	var resp proto.SubscribeResp
 	if err := c.sendTextActionAndDecode(reqID, proto.TMQActionSubscribe, req, reconnect, nil, &resp); err != nil {
 		return err
 	}
+	c.client.mergeAdapterHAInstancesOnce(&c.instancesFetched, c.client.activeEndpointURL(), &resp.ListInstances)
 	c.setTopics(topics)
 	return nil
 }

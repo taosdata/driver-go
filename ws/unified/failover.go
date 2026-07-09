@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	tLog "github.com/taosdata/driver-go/v3/log"
 )
 
 type endpointCandidate struct {
@@ -144,6 +146,34 @@ func (s *failoverState) endpointsCopy() []string {
 	return out
 }
 
+func (s *failoverState) mergeEndpoints(newEndpoints []string) int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	seen := make(map[string]struct{}, len(s.endpointHostPorts)+len(newEndpoints))
+	for i := 0; i < len(s.endpointHostPorts); i++ {
+		seen[s.endpointHostPorts[i]] = struct{}{}
+	}
+
+	added := 0
+	for i := 0; i < len(newEndpoints); i++ {
+		endpoint := newEndpoints[i]
+		hostPort, err := endpointHostPortKey(endpoint)
+		if err != nil {
+			tLog.Warnf(0, "adapter HA: invalid discovered endpoint ignored: %s", endpoint)
+			continue
+		}
+		if _, ok := seen[hostPort]; ok {
+			continue
+		}
+		seen[hostPort] = struct{}{}
+		s.endpoints = append(s.endpoints, endpoint)
+		s.endpointHostPorts = append(s.endpointHostPorts, hostPort)
+		added++
+	}
+	return added
+}
+
 // active returns the currently selected endpoint candidate.
 func (s *failoverState) active() endpointCandidate {
 	s.lock.RLock()
@@ -231,6 +261,68 @@ func (s *failoverState) reconnectCandidates() []endpointCandidate {
 		})
 	}
 	return candidates
+}
+
+func hostPortsOf(endpoints []string) []string {
+	hostPorts := make([]string, 0, len(endpoints))
+	for i := 0; i < len(endpoints); i++ {
+		hostPort, err := endpointHostPortKey(endpoints[i])
+		if err != nil {
+			tLog.Warnf(0, "adapter HA: invalid endpoint ignored while collecting host:port: %s", endpoints[i])
+			continue
+		}
+		hostPorts = append(hostPorts, hostPort)
+	}
+	return validUniqueHostPorts(hostPorts)
+}
+
+func formatHostPortsToURLs(hostPorts []string, templateEndpoint string) []string {
+	tmpl, err := url.Parse(templateEndpoint)
+	if err != nil || tmpl.Scheme == "" || tmpl.Host == "" {
+		tLog.Warnf(0, "adapter HA: invalid template endpoint: %s", templateEndpoint)
+		return nil
+	}
+	// Adapter discovery returns only host:port. Discovered endpoints therefore
+	// inherit the connected template URL's scheme, path, and query/token contract.
+	// Mixed ws/wss, path, or auth-token layouts need server-side full URL metadata.
+	out := make([]string, 0, len(hostPorts))
+	for i := 0; i < len(hostPorts); i++ {
+		hostPort := hostPorts[i]
+		if !isValidHostPort(hostPort) {
+			tLog.Warnf(0, "adapter HA: invalid host:port ignored while formatting endpoint: %s", hostPort)
+			continue
+		}
+		u := *tmpl
+		u.Host = hostPort
+		out = append(out, u.String())
+	}
+	return out
+}
+
+func mergeURLList(existing []string, additional []string) []string {
+	out := append([]string(nil), existing...)
+	seen := make(map[string]struct{}, len(existing)+len(additional))
+	for i := 0; i < len(existing); i++ {
+		hostPort, err := endpointHostPortKey(existing[i])
+		if err != nil {
+			continue
+		}
+		seen[hostPort] = struct{}{}
+	}
+	for i := 0; i < len(additional); i++ {
+		endpoint := additional[i]
+		hostPort, err := endpointHostPortKey(endpoint)
+		if err != nil {
+			tLog.Warnf(0, "adapter HA: invalid endpoint ignored while merging URL list: %s", endpoint)
+			continue
+		}
+		if _, ok := seen[hostPort]; ok {
+			continue
+		}
+		seen[hostPort] = struct{}{}
+		out = append(out, endpoint)
+	}
+	return out
 }
 
 // leastConnectionCandidatesLocked returns all endpoints sorted by host:port connection count.

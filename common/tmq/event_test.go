@@ -55,7 +55,7 @@ func TestMetaMessage_String(t *testing.T) {
 		meta:   meta,
 	}
 
-	want := `MetaMessage: test-topic[test-db]:{"type":"type","tableName":"table","tableType":"tableType","createList":null,"columns":null,"using":"","tagNum":0,"tags":null,"tableNameList":null,"alterType":0,"colName":"","colNewName":"","colType":0,"colLength":0,"colValue":"","colValueNull":false}`
+	want := `MetaMessage: test-topic[test-db]:{"type":"type","tableName":"table","tableType":"tableType","createList":null,"columns":null,"using":"","tagNum":0,"tags":null,"tableNameList":null,"alterType":0,"colName":"","colNewName":"","colType":0,"colLength":0,"colValue":"","colValueNull":false,"baseOn":null,"ownColStart":0,"ownTagStart":0}`
 
 	if got := message.String(); got != want {
 		t.Errorf("MetaMessage.String() = %v, want %v", got, want)
@@ -90,7 +90,7 @@ func TestMetaDataMessage_String(t *testing.T) {
 		metaData: metaData,
 	}
 
-	want := `MetaDataMessage: test-topic[test-db]:{"Meta":{"type":"type","tableName":"table","tableType":"tableType","createList":null,"columns":null,"using":"","tagNum":0,"tags":null,"tableNameList":null,"alterType":0,"colName":"","colNewName":"","colType":0,"colLength":0,"colValue":"","colValueNull":false},"Data":[{"TableName":"table1","Data":[[1,"data1"]]},{"TableName":"table2","Data":[[2,"data2"]]}]}`
+	want := `MetaDataMessage: test-topic[test-db]:{"Meta":{"type":"type","tableName":"table","tableType":"tableType","createList":null,"columns":null,"using":"","tagNum":0,"tags":null,"tableNameList":null,"alterType":0,"colName":"","colNewName":"","colType":0,"colLength":0,"colValue":"","colValueNull":false,"baseOn":null,"ownColStart":0,"ownTagStart":0},"Data":[{"TableName":"table1","Data":[[1,"data1"]]},{"TableName":"table2","Data":[[2,"data2"]]}]}`
 	if got := message.String(); got != want {
 		t.Errorf("MetaDataMessage.String() = %v, want %v", got, want)
 	}

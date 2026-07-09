@@ -34,19 +34,21 @@ func (b *BaseResp) GetReqID() uint64 {
 }
 
 type WSConnectReq struct {
-	ReqID       uint64 `json:"req_id"`
-	User        string `json:"user"`
-	Password    string `json:"password"`
-	DB          string `json:"db"`
-	TZ          string `json:"tz"`
-	App         string `json:"app"`
-	Connector   string `json:"connector"`
-	TOTPCode    string `json:"totp_code"`
-	BearerToken string `json:"bearer_token"`
+	ReqID         uint64 `json:"req_id"`
+	User          string `json:"user"`
+	Password      string `json:"password"`
+	DB            string `json:"db"`
+	TZ            string `json:"tz"`
+	App           string `json:"app"`
+	Connector     string `json:"connector"`
+	TOTPCode      string `json:"totp_code"`
+	BearerToken   string `json:"bearer_token"`
+	ListInstances bool   `json:"list_instances,omitempty"`
 }
 
 type WSConnectResp struct {
 	BaseResp
+	ListInstances []string `json:"list_instances,omitempty"`
 }
 
 type WSQueryReq struct {

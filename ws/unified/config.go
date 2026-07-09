@@ -19,6 +19,7 @@ type Config struct {
 	AutoReconnect       bool
 	ReconnectIntervalMs int
 	ReconnectRetryCount int
+	AdapterHA           bool
 
 	// Backward compatibility fields (deprecated, use Endpoints instead)
 	// These are only used during DSN parsing and converted to Endpoints
