@@ -234,6 +234,10 @@ var (
 		Type:    ErrorTypeInvalidState,
 		Message: "query statement does not support multiple Bind() calls before Exec(); call Exec() first",
 	}
+	ErrStmtToSQLRequiresBind = &Error{
+		Type:    ErrorTypeInvalidState,
+		Message: "ToSQL requires data bound with Bind",
+	}
 )
 
 // ErrorTypeOf extracts unified error type from err.

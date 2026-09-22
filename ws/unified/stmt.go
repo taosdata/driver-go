@@ -271,6 +271,26 @@ func (s *Stmt) AffectedRows() int {
 	return affected
 }
 
+// ToSQL returns executable SQL reconstructed from the SQL passed to Prepare and
+// the data passed to Bind. Insert statements return one SQL statement per bound
+// table; query statements return one statement. It does not send a request or
+// change the bound data, so Exec may still be called afterwards.
+//
+// ToSQL supports only Bind. The deprecated compatibility binding APIs are not
+// supported because their values may not retain the original stmt2 types.
+func (s *Stmt) ToSQL() ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.checkPreparedLocked(); err != nil {
+		return nil, err
+	}
+	if s.bindMode != stmtBindModeRaw || !s.state.hasBindData(s.isInsert) {
+		return nil, ErrStmtToSQLRequiresBind
+	}
+	return buildStmtSQL(s.sql, s.isInsert, s.fields, s.state.bindData(s.isInsert))
+}
+
 // IsInsert reports whether the prepared statement is insert.
 func (s *Stmt) IsInsert() (bool, error) {
 	s.mu.Lock()
